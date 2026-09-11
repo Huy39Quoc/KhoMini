@@ -58,7 +58,9 @@ public class SeedConfig implements ApplicationRunner {
                 "admin@gmail.com",
                 adminPassword,
                 "System Administrator",
+                "0371234567",
                 "ADMIN"
+
         );
 
         createUser(
@@ -66,6 +68,7 @@ public class SeedConfig implements ApplicationRunner {
                 "facility@gmail.com",
                 facilityManagerPassword,
                 "System Facility Manager",
+                "0372345678",
                 "FACILITY_MANAGER"
         );
 
@@ -74,6 +77,7 @@ public class SeedConfig implements ApplicationRunner {
                 "business@gmail.com",
                 businessManagerPassword,
                 "System Manager",
+                "0373456789",
                 "BUSINESS_MANAGER"
         );
 
@@ -82,6 +86,7 @@ public class SeedConfig implements ApplicationRunner {
                 "staff@gmail.com",
                 staffPassword,
                 "System Staff",
+                "0374567890",
                 "STAFF"
         );
 
@@ -90,6 +95,7 @@ public class SeedConfig implements ApplicationRunner {
                 "customer@gmail.com",
                 customerPassword,
                 "System Customer",
+                "0373214567",
                 "CUSTOMER"
         );
 
@@ -101,6 +107,7 @@ public class SeedConfig implements ApplicationRunner {
             String email,
             String rawPassword,
             String fullName,
+            String phone,
             String roleName
     ) {
         Role role = roleRepository.findByName(roleName)
@@ -113,6 +120,7 @@ public class SeedConfig implements ApplicationRunner {
                 .email(email)
                 .password(passwordEncoder.encode(rawPassword))
                 .fullName(fullName)
+                .phone(phone)
                 .role(role)
                 .isActive(true)
                 .build();

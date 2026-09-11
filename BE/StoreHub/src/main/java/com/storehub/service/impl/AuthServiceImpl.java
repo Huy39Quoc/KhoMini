@@ -53,7 +53,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.USER_ALREADY_EXISTS);
         }
 
-        Role studentRole = roleRepository.findByName("STUDENT")
+        Role studentRole = roleRepository.findByName("CUSTOMER")
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
         User user = User.builder()
@@ -61,6 +61,7 @@ public class AuthServiceImpl implements AuthService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
+                .phone(request.getPhone())
                 .role(studentRole)
                 .isActive(true)
                 .build();
@@ -194,7 +195,6 @@ public class AuthServiceImpl implements AuthService {
 
     }
 
-    // ─── Change Password ──────────────────────────────────────────────────────
 
     @Override
     public void changePassword(String email, ChangePasswordRequest request) {
