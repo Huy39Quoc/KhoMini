@@ -31,7 +31,7 @@ public enum ErrorCode {
     PASSWORD_MISMATCH(500, "Passwords do not match", HttpStatus.BAD_REQUEST),
     INVALID_OLD_PASSWORD(501, "Current password is incorrect", HttpStatus.BAD_REQUEST),
     NEW_PASSWORD_SAME_AS_OLD(502, "New password must be different from the old password", HttpStatus.BAD_REQUEST),
-    INVALID_RESET_TOKEN(503, "Invalid or expired password reset token", HttpStatus.BAD_REQUEST),
+    INVALID_RESET_TOKEN(503, "Invalid or expired password reset token(refreshToken)", HttpStatus.BAD_REQUEST),
 
     // ========================= SYSTEM (600 - 699) =========================
     INTERNAL_SERVER_ERROR(600, "Internal server error", HttpStatus.INTERNAL_SERVER_ERROR),

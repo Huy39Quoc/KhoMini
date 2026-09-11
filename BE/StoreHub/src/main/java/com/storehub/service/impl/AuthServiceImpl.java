@@ -71,7 +71,11 @@ public class AuthServiceImpl implements AuthService {
 
         emailService.sendWelcomeEmail(saved.getEmail(), saved.getFullName());
 
-        return buildAuthResponse(saved);
+        UserResponse userResponse = userMapper.toResponse(saved);
+
+        return AuthResponse.builder()
+                .user(userResponse)
+                .build();
     }
 
 

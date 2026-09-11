@@ -26,7 +26,6 @@ public class EmailServiceImpl implements EmailService {
 
 
     @Override
-    @Async
     public void sendPasswordResetEmail(String toEmail, String fullName, String resetToken) {
         String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
         String subject = "Reset Your Password";
@@ -53,7 +52,6 @@ public class EmailServiceImpl implements EmailService {
 
 
     @Override
-    @Async
     public void sendWelcomeEmail(String toEmail, String fullName) {
         String loginLink = frontendUrl + "/login";
         String subject = "Welcome to LMS!";
@@ -88,7 +86,8 @@ public class EmailServiceImpl implements EmailService {
             mailSender.send(message);
             log.info("Email sent to: {}", to);
         } catch (MessagingException e) {
-            log.error("Failed to send email to: {} — {}", to, e.getMessage());
+            log.error("Failed to send email to: {}", to, e);
+            throw new RuntimeException("Failed to send email", e);
         }
     }
 }
