@@ -13,4 +13,5 @@ public interface UserService {
     void delete(UUID id);
     UserResponse getById(UUID id);
     PageResponse<UserResponse> findAllWithFilters(String search, Boolean isActive, int page, int size, String sortBy, String sortDir);
+    UserResponse toggleActive(UUID id);
 }

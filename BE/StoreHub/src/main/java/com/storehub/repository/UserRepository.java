@@ -14,21 +14,24 @@ import java.util.UUID;
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
 
+    Optional<User> findByEmail(String email);
+    Optional<User> findByUsername(String username);
+    boolean existsByEmail(String email);
+    boolean existsByUsername(String username);
     boolean existsByUsernameAndIdNot(String username, UUID id);
     boolean existsByEmailAndIdNot(String email, UUID id);
-    boolean existsByUsername(String username);
-    boolean existsByEmail(String email);
+
     @Query("""
-              Select u from User u
-              where (: search is null or lower(u.fullName) like lower(concat('%',:search,'%') )
-               or lower(u.email) like lower(concat('%',:search,'%') )
-               or lower(u.username) like lower(concat('%',:search,'%') ))
-               and (:isActive is null or u.isActive = :isActive) \s
+            SELECT u FROM User u
+            WHERE (:search IS NULL
+                OR LOWER(u.username) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))
+                OR LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))
+                OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
+            AND (:isActive IS NULL OR u.isActive = :isActive)
             """)
     Page<User> findAllWithFilters(
             @Param("search") String search,
-            @Param("isActive") boolean isActive,
-            Pageable pageable);
-    Optional<User> findByUsername(String username);
-    Optional<User> findByEmail(String email);
+            @Param("isActive") Boolean isActive,
+            Pageable pageable
+    );
 }

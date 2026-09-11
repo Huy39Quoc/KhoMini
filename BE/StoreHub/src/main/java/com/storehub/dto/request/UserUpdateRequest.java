@@ -15,10 +15,8 @@ public class UserUpdateRequest {
     @Size(min = 3, max = 30, message = "Username must be between 3 and 30 characters")
     private String username;
 
-    @Size(max = 30, message = "Full name must be less than 30 characters")
+    @Size(min=3, max = 30, message = "Full name must be between 3 and 30 characters")
     private String fullName;
-
-    private String avatar;
 
     private Boolean isActive;
 
