@@ -8,12 +8,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class StoreHubApplication {
 
     public static void main(String[] args) {
-        // Tự động tìm và đọc file .env ở thư mục gốc của project
-        Dotenv dotenv = Dotenv.configure()
-                .ignoreIfMissing()
-                .load();
-
-        // Nạp tất cả các key-value trong .env thành System Properties của Java
+        // Tự động load biến môi trường từ .env
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         dotenv.entries().forEach(entry ->
                 System.setProperty(entry.getKey(), entry.getValue())
         );
