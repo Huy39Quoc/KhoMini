@@ -4,7 +4,7 @@ ADD COLUMN IF NOT EXISTS access_pin VARCHAR(10),
 ADD COLUMN IF NOT EXISTS qr_access_token VARCHAR(255),
 ADD COLUMN IF NOT EXISTS pin_updated_at TIMESTAMP;
 
--- 2. Create support tickets table
+-- 2. Create support tickets table (user_id is UUID, booking_id is BIGINT)
 CREATE TABLE IF NOT EXISTS support_tickets (
     id BIGSERIAL PRIMARY KEY,
     ticket_code VARCHAR(50) NOT NULL UNIQUE,

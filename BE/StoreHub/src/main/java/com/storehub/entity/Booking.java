@@ -70,4 +70,13 @@ public class Booking {
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
     }
+
+    @Column(name = "access_pin", length = 10)
+    private String accessPin;
+
+    @Column(name = "qr_access_token")
+    private String qrAccessToken;
+
+    @Column(name = "pin_updated_at")
+    private LocalDateTime pinUpdatedAt;
 }
