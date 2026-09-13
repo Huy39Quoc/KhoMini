@@ -1,7 +1,10 @@
 package com.storehub.controller;
 
 import com.storehub.common.response.ApiResponse;
+import com.storehub.dto.request.CheckoutRequest;
+import com.storehub.dto.request.ExtendRentalRequest;
 import com.storehub.dto.request.UpdatePinRequest;
+import com.storehub.dto.response.ContractOperationResponse;
 import com.storehub.dto.response.MyUnitResponse;
 import com.storehub.dto.response.SmartAccessResponse;
 import com.storehub.entity.User;
@@ -9,6 +12,7 @@ import com.storehub.service.CustomerStorageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -34,7 +38,7 @@ public class CustomerStorageController {
 
         return ResponseEntity.ok(ApiResponse.<List<MyUnitResponse>>builder()
                 .success(true)
-                .message("Lấy danh sách kho thành công")
+                .message("Rented units retrieved successfully")
                 .data(result)
                 .build());
     }
@@ -48,7 +52,7 @@ public class CustomerStorageController {
         SmartAccessResponse response = customerStorageService.getSmartAccessInfo(bookingId, currentUser.getId());
         return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
                 .success(true)
-                .message("Lấy thông tin khóa thành công")
+                .message("Smart access information retrieved successfully")
                 .data(response)
                 .build());
     }
@@ -58,12 +62,42 @@ public class CustomerStorageController {
     public ResponseEntity<ApiResponse<SmartAccessResponse>> updateAccessPin(
             @PathVariable Long bookingId,
             @AuthenticationPrincipal User currentUser,
-            @org.springframework.web.bind.annotation.RequestBody @jakarta.validation.Valid UpdatePinRequest request
+            @RequestBody @Valid UpdatePinRequest request
     ) {
         SmartAccessResponse response = customerStorageService.updateAccessPin(bookingId, currentUser.getId(), request);
         return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
                 .success(true)
-                .message("Đổi mã PIN thành công")
+                .message("PIN updated successfully")
+                .data(response)
+                .build());
+    }
+
+    @PostMapping("/{bookingId}/extend")
+    @Operation(summary = "Yêu cầu gia hạn hợp đồng thuê kho")
+    public ResponseEntity<ApiResponse<ContractOperationResponse>> extendRental(
+            @PathVariable Long bookingId,
+            @AuthenticationPrincipal User currentUser,
+            @RequestBody @Valid ExtendRentalRequest request
+    ) {
+        ContractOperationResponse response = customerStorageService.extendRental(bookingId, currentUser.getId(), request);
+        return ResponseEntity.ok(ApiResponse.<ContractOperationResponse>builder()
+                .success(true)
+                .message("Rental extended successfully")
+                .data(response)
+                .build());
+    }
+
+    @PostMapping("/{bookingId}/checkout")
+    @Operation(summary = "Gửi yêu cầu và đặt lịch hẹn trả kho")
+    public ResponseEntity<ApiResponse<ContractOperationResponse>> requestCheckout(
+            @PathVariable Long bookingId,
+            @AuthenticationPrincipal User currentUser,
+            @RequestBody @Valid CheckoutRequest request
+    ) {
+        ContractOperationResponse response = customerStorageService.requestCheckout(bookingId, currentUser.getId(), request);
+        return ResponseEntity.ok(ApiResponse.<ContractOperationResponse>builder()
+                .success(true)
+                .message("Checkout scheduled successfully")
                 .data(response)
                 .build());
     }

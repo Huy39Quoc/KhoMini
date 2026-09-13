@@ -1,6 +1,9 @@
 package com.storehub.service.impl;
 
+import com.storehub.dto.request.CheckoutRequest;
+import com.storehub.dto.request.ExtendRentalRequest;
 import com.storehub.dto.request.UpdatePinRequest;
+import com.storehub.dto.response.ContractOperationResponse;
 import com.storehub.dto.response.MyUnitResponse;
 import com.storehub.dto.response.SmartAccessResponse;
 import com.storehub.entity.Booking;
@@ -16,7 +19,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -46,20 +51,18 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     public SmartAccessResponse getSmartAccessInfo(Long bookingId, UUID customerId) {
         Booking booking = validateActiveBooking(bookingId, customerId);
 
-        // Nếu đơn thuê chưa có mã PIN, tự động sinh mã PIN 6 số ngẫu nhiên ban đầu
         if (booking.getAccessPin() == null || booking.getAccessPin().isBlank()) {
             booking.setAccessPin(generateRandomPin());
             booking.setPinUpdatedAt(LocalDateTime.now());
         }
 
-        // Tạo chuỗi token QR Code ngắn hạn (ví dụ có hiệu lực trong 5 phút)
         String qrToken = "ACCESS:" + booking.getId() + ":" + UUID.randomUUID() + ":" + System.currentTimeMillis();
         booking.setQrAccessToken(qrToken);
         bookingRepository.save(booking);
 
         return SmartAccessResponse.builder()
                 .bookingId(booking.getId())
-                .unitCode(booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "Chờ phân bổ")
+                .unitCode(booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "Unassigned")
                 .accessPin(booking.getAccessPin())
                 .qrCodeToken(qrToken)
                 .pinUpdatedAt(booking.getPinUpdatedAt())
@@ -72,14 +75,13 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     public SmartAccessResponse updateAccessPin(Long bookingId, UUID customerId, UpdatePinRequest request) {
         Booking booking = validateActiveBooking(bookingId, customerId);
 
-        // Chiều DTO -> Entity: Gán mã PIN mới từ DTO vào thực thể Booking
         booking.setAccessPin(request.getNewPin());
         booking.setPinUpdatedAt(LocalDateTime.now());
         bookingRepository.save(booking);
 
         return SmartAccessResponse.builder()
                 .bookingId(booking.getId())
-                .unitCode(booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "Chờ phân bổ")
+                .unitCode(booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "Unassigned")
                 .accessPin(booking.getAccessPin())
                 .qrCodeToken(booking.getQrAccessToken())
                 .pinUpdatedAt(booking.getPinUpdatedAt())
@@ -87,13 +89,64 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 .build();
     }
 
-    // Hàm kiểm tra hợp lệ: Đơn thuê phải tồn tại, thuộc khách hàng và đã CHECKED_IN
+    @Override
+    @Transactional
+    public ContractOperationResponse extendRental(Long bookingId, UUID customerId, ExtendRentalRequest request) {
+        Booking booking = validateActiveBooking(bookingId, customerId);
+
+        LocalDate oldEndDate = booking.getEndDate();
+        int extraMonths = request.getExtraMonths();
+
+        LocalDate newEndDate = oldEndDate.plusMonths(extraMonths);
+
+        BigDecimal monthlyPrice = BigDecimal.ZERO;
+        if (booking.getStorageUnit() != null && booking.getStorageUnit().getUnitType() != null) {
+            monthlyPrice = booking.getStorageUnit().getUnitType().getBasePricePerMonth();
+        }
+        BigDecimal additionalFee = monthlyPrice.multiply(BigDecimal.valueOf(extraMonths));
+
+        booking.setEndDate(newEndDate);
+        booking.setRentalMonths(booking.getRentalMonths() + extraMonths);
+        booking.setTotalRentalFee(booking.getTotalRentalFee().add(additionalFee));
+
+        bookingRepository.save(booking);
+
+        return ContractOperationResponse.builder()
+                .bookingId(booking.getId())
+                .bookingCode(booking.getBookingCode())
+                .status(booking.getStatus())
+                .oldEndDate(oldEndDate)
+                .newEndDate(newEndDate)
+                .totalRentalMonths(booking.getRentalMonths())
+                .additionalFee(additionalFee)
+                .updatedTotalFee(booking.getTotalRentalFee())
+                .message("Rental extension completed successfully for " + extraMonths + " month(s)")
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ContractOperationResponse requestCheckout(Long bookingId, UUID customerId, CheckoutRequest request) {
+        Booking booking = validateActiveBooking(bookingId, customerId);
+
+        booking.setReturnTime(request.getScheduledReturnTime());
+        bookingRepository.save(booking);
+
+        return ContractOperationResponse.builder()
+                .bookingId(booking.getId())
+                .bookingCode(booking.getBookingCode())
+                .status(booking.getStatus())
+                .scheduledReturnTime(booking.getReturnTime())
+                .message("Checkout request submitted successfully. Staff will contact you for handover inspection.")
+                .build();
+    }
+
     private Booking validateActiveBooking(Long bookingId, UUID customerId) {
         Booking booking = bookingRepository.findByIdAndCustomerId(bookingId, customerId)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         if (booking.getStatus() != BookingStatus.ACTIVE) {
-            throw new AppException(ErrorCode.FORBIDDEN); // Chỉ cho phép mở khóa khi đã check-in
+            throw new AppException(ErrorCode.BOOKING_NOT_CHECKED_IN);
         }
         return booking;
     }
@@ -112,9 +165,9 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         return MyUnitResponse.builder()
                 .bookingId(b.getId())
                 .bookingCode(b.getBookingCode())
-                .facilityName(facility != null ? facility.getName() : "Chưa xác định cơ sở")
+                .facilityName(facility != null ? facility.getName() : "Unassigned Facility")
                 .facilityAddress(facility != null ? facility.getAddress() : "")
-                .unitCode(unit != null ? unit.getUnitCode() : "Chờ phân bổ")
+                .unitCode(unit != null ? unit.getUnitCode() : "Unassigned")
                 .unitTypeName(unitType != null ? unitType.getTypeName() : "")
                 .dimensions(unitType != null ? unitType.getDimensions() : "")
                 .areaSqm(unitType != null ? unitType.getAreaSqm() : null)
