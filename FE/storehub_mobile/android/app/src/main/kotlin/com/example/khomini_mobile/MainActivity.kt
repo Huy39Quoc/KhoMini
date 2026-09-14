@@ -1,4 +1,4 @@
-package com.example.khomini_mobile
+package com.example.storehub_mobile
 
 import io.flutter.embedding.android.FlutterActivity
 
