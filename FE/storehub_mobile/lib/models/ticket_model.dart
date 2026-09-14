@@ -1,7 +1,7 @@
 class TicketModel {
   final String id;
   final String ticketCode;
-  final int? bookingId;
+  final String? bookingId;
   final String? bookingCode;
   final String category;
   final String title;
@@ -29,13 +29,13 @@ class TicketModel {
     return TicketModel(
       id: json['id']?.toString() ?? '',
       ticketCode: json['ticketCode'] ?? '',
-      bookingId: json['bookingId'],
+      bookingId: json['bookingId']?.toString(),
       bookingCode: json['bookingCode'],
       category: json['category'] ?? '',
       title: json['title'] ?? '',
       description: json['description'] ?? '',
-      status: json['status'] ?? '',
-      priority: json['priority'] ?? '',
+      status: json['status'] ?? 'OPEN',
+      priority: json['priority'] ?? 'MEDIUM',
       resolutionNote: json['resolutionNote'],
       createdAt: json['createdAt'] ?? '',
     );
