@@ -1,5 +1,5 @@
 class MyUnitModel {
-  final int bookingId;
+  final String bookingId;
   final String bookingCode;
   final String facilityName;
   final String facilityAddress;
@@ -35,7 +35,7 @@ class MyUnitModel {
 
   factory MyUnitModel.fromJson(Map<String, dynamic> json) {
     return MyUnitModel(
-      bookingId: json['bookingId'] ?? 0,
+      bookingId: json['bookingId']?.toString() ?? '',
       bookingCode: json['bookingCode'] ?? '',
       facilityName: json['facilityName'] ?? '',
       facilityAddress: json['facilityAddress'] ?? '',

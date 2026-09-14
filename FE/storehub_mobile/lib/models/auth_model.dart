@@ -17,7 +17,7 @@ class AuthModel {
     return AuthModel(
       accessToken: json['accessToken'] ?? '',
       refreshToken: json['refreshToken'] ?? '',
-      role: json['role'] ?? 'CUSTOMER',
+      role: json['role'] ?? 'STORAGE_CUSTOMER',
       fullName: json['fullName'] ?? '',
       email: json['email'] ?? '',
     );
