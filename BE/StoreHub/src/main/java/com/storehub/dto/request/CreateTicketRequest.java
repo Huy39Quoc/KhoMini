@@ -15,7 +15,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CreateTicketRequest {
 
-    private UUID bookingId; // Không bắt buộc (có thể hỏi chung hoặc gắn vào 1 đơn kho cụ thể)
+    private UUID bookingId;      
 
     @NotNull(message = "Ticket category cannot be null")
     private TicketCategory category;

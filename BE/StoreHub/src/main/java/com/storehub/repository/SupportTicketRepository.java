@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface SupportTicketRepository extends JpaRepository<SupportTicket, Long> {
+public interface SupportTicketRepository extends JpaRepository<SupportTicket, UUID> {
 
     @Query("SELECT t FROM SupportTicket t WHERE t.customer.id = :customerId")
     Page<SupportTicket> findAllByCustomerId(@Param("customerId") UUID customerId, Pageable pageable);
