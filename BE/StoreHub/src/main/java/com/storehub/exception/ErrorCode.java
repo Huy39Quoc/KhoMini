@@ -35,12 +35,12 @@ public enum ErrorCode {
 
     // ========================= SYSTEM (600 - 699) =========================
     INTERNAL_SERVER_ERROR(600, "Internal server error", HttpStatus.INTERNAL_SERVER_ERROR),
-    INVALID_REQUEST(601, "Invalid request", HttpStatus.BAD_REQUEST);
+    INVALID_REQUEST(601, "Invalid request", HttpStatus.BAD_REQUEST),
 
     // ========================= BOOKING & ACCESS (700 - 799) =================
     BOOKING_NOT_FOUND(700, "Booking not found or does not belong to user", HttpStatus.NOT_FOUND),
     BOOKING_NOT_CHECKED_IN(701, "Storage unit has not been checked in yet", HttpStatus.FORBIDDEN),
-    INVALID_PIN_FORMAT(702, "PIN must be exactly 6 digits", HttpStatus.BAD_REQUEST);
+    INVALID_PIN_FORMAT(702, "PIN must be exactly 6 digits", HttpStatus.BAD_REQUEST),
     
     // ========================= ROLE_PERMISSION (800 - 899) =========================
     ROLE_PERMISSION_NOT_FOUND(800, "Role-permission mapping not found", HttpStatus.NOT_FOUND),
