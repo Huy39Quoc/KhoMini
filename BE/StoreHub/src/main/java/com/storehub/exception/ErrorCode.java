@@ -9,6 +9,9 @@ public enum ErrorCode {
     // ========================= ROLE (100 - 199) =========================
     ROLE_NOT_FOUND(100, "Role not found", HttpStatus.NOT_FOUND),
     ROLE_NAME_EXISTED(101, "Role name already exists", HttpStatus.BAD_REQUEST),
+    CANNOT_DELETE_SYSTEM_ROLE(102, "Cannot delete default system role", HttpStatus.FORBIDDEN),
+    CANNOT_MODIFY_SYSTEM_ROLE(103, "Cannot modify name of default system role", HttpStatus.FORBIDDEN),
+    ROLE_IN_USE(104, "Cannot delete role because it is currently assigned to users", HttpStatus.CONFLICT),
 
     // ========================= USER (200 - 299) =========================
     USER_NOT_FOUND(200, "User not found", HttpStatus.NOT_FOUND),
@@ -40,7 +43,16 @@ public enum ErrorCode {
     // ========================= BOOKING & ACCESS (700 - 799) =================
     BOOKING_NOT_FOUND(700, "Booking not found or does not belong to user", HttpStatus.NOT_FOUND),
     BOOKING_NOT_CHECKED_IN(701, "Storage unit has not been checked in yet", HttpStatus.FORBIDDEN),
-    INVALID_PIN_FORMAT(702, "PIN must be exactly 6 digits", HttpStatus.BAD_REQUEST);
+    INVALID_PIN_FORMAT(702, "PIN must be exactly 6 digits", HttpStatus.BAD_REQUEST),
+    
+    // ========================= ROLE_PERMISSION (800 - 899) =========================
+    ROLE_PERMISSION_NOT_FOUND(800, "Role-permission mapping not found", HttpStatus.NOT_FOUND),
+    ROLE_PERMISSION_ALREADY_EXISTS(801, "This permission is already assigned to the role", HttpStatus.BAD_REQUEST),
+
+    // ========================= PERMISSION (900 - 999) =========================
+    PERMISSION_NOT_FOUND(900, "Permission not found", HttpStatus.NOT_FOUND),
+    PERMISSION_NAME_EXISTED(901, "Permission name already exists", HttpStatus.BAD_REQUEST),
+    PERMISSION_GROUP_EXISTED(902, "Permission group already exists", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

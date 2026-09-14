@@ -13,13 +13,13 @@ import java.util.UUID;
 public interface CustomerStorageService {
     List<MyUnitResponse> getMyRentedUnits(UUID customerId);
 
-    SmartAccessResponse getSmartAccessInfo(Long bookingId, UUID customerId);
+    SmartAccessResponse getSmartAccessInfo(UUID bookingId, UUID customerId);
 
-    SmartAccessResponse updateAccessPin(Long bookingId, UUID customerId, UpdatePinRequest request);
+    SmartAccessResponse updateAccessPin(UUID bookingId, UUID customerId, UpdatePinRequest request);
 
     // Gia hạn thời gian thuê
-    ContractOperationResponse extendRental(Long bookingId, UUID customerId, ExtendRentalRequest request);
+    ContractOperationResponse extendRental(UUID bookingId, UUID customerId, ExtendRentalRequest request);
 
     // Gửi yêu cầu hẹn trả kho
-    ContractOperationResponse requestCheckout(Long bookingId, UUID customerId, CheckoutRequest request);
+    ContractOperationResponse requestCheckout(UUID bookingId, UUID customerId, CheckoutRequest request);
 }
