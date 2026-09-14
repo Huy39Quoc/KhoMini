@@ -18,5 +18,5 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
     Page<SupportTicket> findAllByCustomerId(@Param("customerId") UUID customerId, Pageable pageable);
 
     @Query("SELECT t FROM SupportTicket t WHERE t.id = :id AND t.customer.id = :customerId")
-    Optional<SupportTicket> findByIdAndCustomerId(@Param("id") Long id, @Param("customerId") UUID customerId);
+    Optional<SupportTicket> findByIdAndCustomerId(@Param("id") UUID id, @Param("customerId") UUID customerId);
 }

@@ -8,12 +8,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateTicketRequest {
 
-    private Long bookingId; // Không bắt buộc (có thể hỏi chung hoặc gắn vào 1 đơn kho cụ thể)
+    private UUID bookingId; // Không bắt buộc (có thể hỏi chung hoặc gắn vào 1 đơn kho cụ thể)
 
     @NotNull(message = "Ticket category cannot be null")
     private TicketCategory category;

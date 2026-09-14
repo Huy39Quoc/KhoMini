@@ -19,7 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/customer/tickets")
 @RequiredArgsConstructor
@@ -60,7 +60,7 @@ public class CustomerTicketController {
     @GetMapping("/{ticketId}")
     @Operation(summary = "Xem chi tiết tiến trình xử lý của một yêu cầu hỗ trợ")
     public ResponseEntity<ApiResponse<TicketResponse>> getTicketDetail(
-            @PathVariable Long ticketId,
+            @PathVariable UUID ticketId,
             @AuthenticationPrincipal User currentUser
     ) {
         TicketResponse response = customerTicketService.getTicketDetail(ticketId, currentUser);

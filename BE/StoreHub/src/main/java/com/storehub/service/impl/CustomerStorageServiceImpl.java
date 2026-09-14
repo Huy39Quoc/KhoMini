@@ -48,7 +48,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
     @Override
     @Transactional
-    public SmartAccessResponse getSmartAccessInfo(Long bookingId, UUID customerId) {
+    public SmartAccessResponse getSmartAccessInfo(UUID bookingId, UUID customerId) {
         Booking booking = validateActiveBooking(bookingId, customerId);
 
         if (booking.getAccessPin() == null || booking.getAccessPin().isBlank()) {
@@ -72,7 +72,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
     @Override
     @Transactional
-    public SmartAccessResponse updateAccessPin(Long bookingId, UUID customerId, UpdatePinRequest request) {
+    public SmartAccessResponse updateAccessPin(UUID bookingId, UUID customerId, UpdatePinRequest request) {
         Booking booking = validateActiveBooking(bookingId, customerId);
 
         booking.setAccessPin(request.getNewPin());
@@ -91,7 +91,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
     @Override
     @Transactional
-    public ContractOperationResponse extendRental(Long bookingId, UUID customerId, ExtendRentalRequest request) {
+    public ContractOperationResponse extendRental(UUID bookingId, UUID customerId, ExtendRentalRequest request) {
         Booking booking = validateActiveBooking(bookingId, customerId);
 
         LocalDate oldEndDate = booking.getEndDate();
@@ -126,7 +126,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
     @Override
     @Transactional
-    public ContractOperationResponse requestCheckout(Long bookingId, UUID customerId, CheckoutRequest request) {
+    public ContractOperationResponse requestCheckout(UUID bookingId, UUID customerId, CheckoutRequest request) {
         Booking booking = validateActiveBooking(bookingId, customerId);
 
         booking.setReturnTime(request.getScheduledReturnTime());
@@ -141,7 +141,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 .build();
     }
 
-    private Booking validateActiveBooking(Long bookingId, UUID customerId) {
+    private Booking validateActiveBooking(UUID bookingId, UUID customerId) {
         Booking booking = bookingRepository.findByIdAndCustomerId(bookingId, customerId)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 

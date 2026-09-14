@@ -17,7 +17,7 @@ import java.util.UUID;
 public class TicketResponse {
     private UUID id;
     private String ticketCode;
-    private Long bookingId;
+    private UUID bookingId;
     private String bookingCode;
     private TicketCategory category;
     private String title;

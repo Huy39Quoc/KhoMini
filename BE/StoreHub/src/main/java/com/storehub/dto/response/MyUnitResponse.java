@@ -8,13 +8,14 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class MyUnitResponse {
-    private Long bookingId;
+    private UUID bookingId;
     private String bookingCode;
     private String facilityName;
     private String facilityAddress;
