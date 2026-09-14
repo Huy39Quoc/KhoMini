@@ -31,8 +31,7 @@ CREATE TABLE IF NOT EXISTS permissions
     is_active         BOOLEAN      NOT NULL,
 
     CONSTRAINT pk_permissions PRIMARY KEY (id),
-    CONSTRAINT uc_permissions_name UNIQUE (name),
-    CONSTRAINT uc_permissions_group UNIQUE (permission_group)
+    CONSTRAINT uc_permissions_name UNIQUE (name)
     );
 
 

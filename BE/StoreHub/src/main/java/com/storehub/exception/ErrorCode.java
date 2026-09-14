@@ -9,6 +9,9 @@ public enum ErrorCode {
     // ========================= ROLE (100 - 199) =========================
     ROLE_NOT_FOUND(100, "Role not found", HttpStatus.NOT_FOUND),
     ROLE_NAME_EXISTED(101, "Role name already exists", HttpStatus.BAD_REQUEST),
+    CANNOT_DELETE_SYSTEM_ROLE(102, "Cannot delete default system role", HttpStatus.FORBIDDEN),
+    CANNOT_MODIFY_SYSTEM_ROLE(103, "Cannot modify name of default system role", HttpStatus.FORBIDDEN),
+    ROLE_IN_USE(104, "Cannot delete role because it is currently assigned to users", HttpStatus.CONFLICT),
 
     // ========================= USER (200 - 299) =========================
     USER_NOT_FOUND(200, "User not found", HttpStatus.NOT_FOUND),

@@ -1,6 +1,7 @@
 package com.storehub.service;
 
 import com.storehub.common.response.PageResponse;
+import com.storehub.dto.request.RolePermissionBulkAssignRequest;
 import com.storehub.dto.request.RolePermissionCreateRequest;
 import com.storehub.dto.request.RolePermissionUpdateRequest;
 import com.storehub.dto.response.RolePermissionResponse;
@@ -18,4 +19,6 @@ public interface RolePermissionService {
 
     // convenience for authorization checks / role-permission-matrix screens
     List<RolePermissionResponse> getByRoleId(UUID roleId);
+
+    List<RolePermissionResponse> bulkAssign(RolePermissionBulkAssignRequest request);
 }
