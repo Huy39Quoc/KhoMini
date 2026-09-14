@@ -17,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.UUID;
 import java.util.List;
 
 @RestController
@@ -46,7 +46,7 @@ public class CustomerStorageController {
     @GetMapping("/{bookingId}/access")
     @Operation(summary = "Lấy mã PIN và QR Code mở khóa cho đơn thuê đang hoạt động")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> getSmartAccess(
-            @PathVariable Long bookingId,
+            @PathVariable UUID bookingId,
             @AuthenticationPrincipal User currentUser
     ) {
         SmartAccessResponse response = customerStorageService.getSmartAccessInfo(bookingId, currentUser.getId());
@@ -60,7 +60,7 @@ public class CustomerStorageController {
     @PutMapping("/{bookingId}/access/pin")
     @Operation(summary = "Đổi mã PIN mở khóa cửa kho (6 số)")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> updateAccessPin(
-            @PathVariable Long bookingId,
+            @PathVariable UUID bookingId,
             @AuthenticationPrincipal User currentUser,
             @RequestBody @Valid UpdatePinRequest request
     ) {
@@ -75,7 +75,7 @@ public class CustomerStorageController {
     @PostMapping("/{bookingId}/extend")
     @Operation(summary = "Yêu cầu gia hạn hợp đồng thuê kho")
     public ResponseEntity<ApiResponse<ContractOperationResponse>> extendRental(
-            @PathVariable Long bookingId,
+            @PathVariable UUID bookingId,
             @AuthenticationPrincipal User currentUser,
             @RequestBody @Valid ExtendRentalRequest request
     ) {
@@ -90,7 +90,7 @@ public class CustomerStorageController {
     @PostMapping("/{bookingId}/checkout")
     @Operation(summary = "Gửi yêu cầu và đặt lịch hẹn trả kho")
     public ResponseEntity<ApiResponse<ContractOperationResponse>> requestCheckout(
-            @PathVariable Long bookingId,
+            @PathVariable UUID bookingId,
             @AuthenticationPrincipal User currentUser,
             @RequestBody @Valid CheckoutRequest request
     ) {

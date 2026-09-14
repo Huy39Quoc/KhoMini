@@ -6,13 +6,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class SmartAccessResponse {
-    private Long bookingId;
+    private UUID bookingId;
     private String unitCode;
     private String accessPin;
     private String qrCodeToken;

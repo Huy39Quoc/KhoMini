@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -75,7 +76,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
 
     @Override
     @Transactional(readOnly = true)
-    public TicketResponse getTicketDetail(Long ticketId, User customer) {
+    public TicketResponse getTicketDetail(UUID ticketId, User customer) {
         SupportTicket ticket = ticketRepository.findByIdAndCustomerId(ticketId, customer.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
