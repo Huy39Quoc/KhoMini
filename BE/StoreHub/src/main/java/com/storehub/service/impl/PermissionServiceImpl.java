@@ -42,9 +42,6 @@ public class PermissionServiceImpl implements PermissionService {
         if (permissionRepository.existsByName(request.getName())) {
             throw new AppException(ErrorCode.PERMISSION_NAME_EXISTED);
         }
-        if (permissionRepository.existsByPermissionGroup(request.getPermissionGroup())) {
-            throw new AppException(ErrorCode.PERMISSION_GROUP_EXISTED);
-        }
         Permission permission = permissionMapper.toEntity(request);
         Permission saved = permissionRepository.save(permission);
 
@@ -58,9 +55,6 @@ public class PermissionServiceImpl implements PermissionService {
 
         if (permissionRepository.existsByNameAndIdNot(request.getName(), permission.getId())) {
             throw new AppException(ErrorCode.PERMISSION_NAME_EXISTED);
-        }
-        if (permissionRepository.existsByPermissionGroupAndIdNot(request.getPermissionGroup(), permission.getId())) {
-            throw new AppException(ErrorCode.PERMISSION_GROUP_EXISTED);
         }
 
         permissionMapper.updateEntityFromRequest(request, permission);

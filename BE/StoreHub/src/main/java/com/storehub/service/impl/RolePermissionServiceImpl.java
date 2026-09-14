@@ -1,6 +1,7 @@
 package com.storehub.service.impl;
 
 import com.storehub.common.response.PageResponse;
+import com.storehub.dto.request.RolePermissionBulkAssignRequest;
 import com.storehub.dto.request.RolePermissionCreateRequest;
 import com.storehub.dto.request.RolePermissionUpdateRequest;
 import com.storehub.dto.response.RolePermissionResponse;
@@ -23,8 +24,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -52,8 +53,20 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         Permission permission = permissionRepository.findById(request.getPermissionId())
                 .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
 
-        if (rolePermissionRepository.existsByRole_IdAndPermission_Id(role.getId(), permission.getId())) {
-            throw new AppException(ErrorCode.ROLE_PERMISSION_ALREADY_EXISTS);
+        Optional<RolePermission> existingOpt = rolePermissionRepository
+                .findByRole_IdAndPermission_Id(role.getId(), permission.getId());
+
+        if (existingOpt.isPresent()) {
+            RolePermission existing = existingOpt.get();
+            if (Boolean.TRUE.equals(existing.getIsActive())) {
+                throw new AppException(ErrorCode.ROLE_PERMISSION_ALREADY_EXISTS);
+            }
+            existing.setIsActive(true);
+            if (request.getDescription() != null) {
+                existing.setDescription(request.getDescription());
+            }
+            RolePermission updated = rolePermissionRepository.save(existing);
+            return rolePermissionMapper.toResponse(updated);
         }
 
         RolePermission rolePermission = RolePermission.builder()
@@ -105,6 +118,52 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         }
         return rolePermissionRepository.findAllByRole_Id(roleId)
                 .stream()
+                .map(rolePermissionMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    public List<RolePermissionResponse> bulkAssign(RolePermissionBulkAssignRequest request) {
+        Role role = roleRepository.findById(request.getRoleId())
+                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+
+        List<UUID> permissionIds = request.getPermissionIds();
+        if (permissionIds == null || permissionIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
+        if (permissions.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<RolePermission> existingList = rolePermissionRepository
+                .findAllByRole_IdAndPermission_IdIn(role.getId(), permissionIds);
+
+        Map<UUID, RolePermission> existingMap = existingList.stream()
+                .collect(Collectors.toMap(rp -> rp.getPermission().getId(), rp -> rp, (a, b) -> a));
+
+        List<RolePermission> toSave = new ArrayList<>();
+
+        for (Permission permission : permissions) {
+            RolePermission rp = existingMap.get(permission.getId());
+            if (rp != null) {
+                if (!Boolean.TRUE.equals(rp.getIsActive())) {
+                    rp.setIsActive(true);
+                }
+                toSave.add(rp);
+            } else {
+                RolePermission newRp = RolePermission.builder()
+                        .role(role)
+                        .permission(permission)
+                        .isActive(true)
+                        .build();
+                toSave.add(newRp);
+            }
+        }
+
+        List<RolePermission> saved = rolePermissionRepository.saveAll(toSave);
+        return saved.stream()
                 .map(rolePermissionMapper::toResponse)
                 .toList();
     }

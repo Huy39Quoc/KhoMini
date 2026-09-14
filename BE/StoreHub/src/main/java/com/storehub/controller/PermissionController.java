@@ -23,7 +23,6 @@ public class PermissionController {
 
     @GetMapping("{id}")
     public ResponseEntity<ApiResponse<PermissionResponse>> getById(@PathVariable UUID id) {
-        log.info("Get permission by id : {}", id);
         PermissionResponse response = permissionService.getById(id);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -31,7 +30,6 @@ public class PermissionController {
     @PostMapping
     public ResponseEntity<ApiResponse<PermissionResponse>> create
             (@Valid @RequestBody PermissionCreateRequest request) {
-        log.info("Creating new permission : {}", request.getName());
         PermissionResponse response = permissionService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).
                 body(ApiResponse.success("Created permission successfully", response));
@@ -40,14 +38,12 @@ public class PermissionController {
     @PutMapping("{id}")
     public ResponseEntity<ApiResponse<PermissionResponse>> update
             (@PathVariable UUID id, @Valid @RequestBody PermissionUpdateRequest request) {
-        log.info("Updating permission : {}", request.getName());
         PermissionResponse response = permissionService.update(id, request);
         return ResponseEntity.ok(ApiResponse.success("Updated permission successfully.", response));
     }
 
     @DeleteMapping("{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        log.info("Deleting permission with id : {}", id);
         permissionService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Deleted permission successfully.", null));
     }
@@ -61,7 +57,6 @@ public class PermissionController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
-        log.info("Get all permissions - page: {}, size: {}, search: {}", page, size, search);
         PageResponse<PermissionResponse> response = permissionService.getAll(search, isActive, page, size, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(response));
     }

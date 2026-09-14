@@ -3,6 +3,7 @@ package com.storehub.repository;
 import com.storehub.entity.RolePermission;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,12 +18,24 @@ public interface RolePermissionRepository extends JpaRepository<RolePermission, 
 
     boolean existsByRole_IdAndPermission_Id(UUID roleId, UUID permissionId);
 
+    @EntityGraph(attributePaths = {"role", "permission"})
     Optional<RolePermission> findByRole_IdAndPermission_Id(UUID roleId, UUID permissionId);
 
+    @EntityGraph(attributePaths = {"role", "permission"})
     List<RolePermission> findAllByRole_Id(UUID roleId);
 
+    @EntityGraph(attributePaths = {"role", "permission"})
     List<RolePermission> findAllByPermission_Id(UUID permissionId);
 
+    @EntityGraph(attributePaths = {"permission"})
+    List<RolePermission> findAllByRole_IdAndIsActiveTrueAndPermission_IsActiveTrue(UUID roleId);
+
+    @EntityGraph(attributePaths = {"role", "permission"})
+    List<RolePermission> findAllByRole_IdAndPermission_IdIn(UUID roleId, List<UUID> permissionIds);
+
+    void deleteAllByRole_Id(UUID roleId);
+
+    @EntityGraph(attributePaths = {"role", "permission"})
     @Query("""
             SELECT rp FROM RolePermission rp
             WHERE (:roleId IS NULL OR rp.role.id = :roleId)
