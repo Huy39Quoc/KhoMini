@@ -1,47 +1,31 @@
 import 'package:dio/dio.dart';
-import '../core/network/http_client.dart';
 import '../core/constants/api_endpoints.dart';
+import '../core/network/http_client.dart';
 
 class TicketApiService {
-  Future<List<dynamic>> getTickets() async {
-    try {
-      final response = await HttpClient.instance.get(ApiEndpoints.tickets);
-      if (response.statusCode == 200) {
-        final data = response.data;
-        return data is List ? data : (data['content'] ?? []);
-      }
-      throw Exception('Failed to load tickets');
-    } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Connection error');
-    }
-  }
+  final Dio _dio = HttpClient.instance.dio;
 
-  // Alias tương đương để khớp với ticket_list_screen.dart gọi getMyTickets()
   Future<List<dynamic>> getMyTickets() async {
-    return getTickets();
-  }
-
-  Future<Map<String, dynamic>> getTicketDetail(String ticketId) async {
     try {
-      final response =
-          await HttpClient.instance.get(ApiEndpoints.ticketDetail(ticketId));
-      if (response.statusCode == 200) {
+      final response = await _dio.get(ApiEndpoints.tickets);
+      if (response.data is List) {
         return response.data;
+      } else if (response.data['result'] is List) {
+        return response.data['result'];
+      } else if (response.data['data'] is List) {
+        return response.data['data'];
       }
-      throw Exception('Failed to load ticket detail');
+      return [];
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Ticket not found');
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load tickets: $message');
     }
   }
 
-  // Nhận dạng tham số named arguments khớp với create_ticket_screen.dart
-  Future<bool> createTicket({
-    required String category,
-    required String description,
-    required String unitId,
-  }) async {
+  Future<void> createTicket(
+      String category, String description, String? unitId) async {
     try {
-      final response = await HttpClient.instance.post(
+      await _dio.post(
         ApiEndpoints.tickets,
         data: {
           'category': category,
@@ -49,9 +33,21 @@ class TicketApiService {
           'unitId': unitId,
         },
       );
-      return response.statusCode == 200 || response.statusCode == 201;
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Failed to create ticket');
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to create ticket: $message');
+    }
+  }
+
+  Future<Map<String, dynamic>> getTicketDetail(String ticketId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.ticketDetail(ticketId));
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : Map<String, dynamic>.from(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load ticket detail: $message');
     }
   }
 }
