@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../models/smart_access_model.dart';
 import '../../../services/storage_api_service.dart';
 
 class SmartKeyScreen extends StatefulWidget {
-  final String bookingId;
-  final String unitCode;
+  final String unitId;
+  final String unitNumber;
 
-  const SmartKeyScreen(
-      {super.key, required this.bookingId, required this.unitCode});
+  const SmartKeyScreen({
+    super.key,
+    required this.unitId,
+    required this.unitNumber,
+  });
 
   @override
   State<SmartKeyScreen> createState() => _SmartKeyScreenState();
@@ -17,137 +18,117 @@ class SmartKeyScreen extends StatefulWidget {
 
 class _SmartKeyScreenState extends State<SmartKeyScreen> {
   final StorageApiService _storageService = StorageApiService();
-  late Future<SmartAccessModel> _accessFuture;
+  late Future<Map<String, dynamic>> _accessFuture;
 
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  void _load() {
-    setState(() {
-      _accessFuture = _storageService.getSmartAccess(widget.bookingId);
-    });
+    _accessFuture = _storageService.getSmartAccess(widget.unitId);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Smart Access - ${widget.unitCode}'),
-        backgroundColor: AppColors.primary,
+        title: Text('Smart Access - Unit ${widget.unitNumber}'),
+        backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
       ),
-      body: FutureBuilder<SmartAccessModel>(
+      body: FutureBuilder<Map<String, dynamic>>(
         future: _accessFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  'Failed to load smart key data: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            );
           }
 
-          final data = snapshot.data!;
+          final data = snapshot.data ?? {};
+          final pinCode = data['pinCode'] ?? '------';
+          final qrData = data['qrCode'] ??
+              data['qrData'] ??
+              'KHOMINI-UNIT-${widget.unitId}';
+
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24.0),
             child: Column(
               children: [
-                Card(
-                  elevation: 3,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        const Text('Gate Access QR Token',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-                        const SizedBox(height: 12),
-                        QrImageView(
-                            data: data.qrCodeToken.isNotEmpty
-                                ? data.qrCodeToken
-                                : 'STOREHUB-ACCESS',
-                            version: QrVersions.auto,
-                            size: 200),
-                        const SizedBox(height: 8),
-                        const Text('Scan at facility gate barrier',
-                            style: TextStyle(
-                                color: AppColors.textSecondary, fontSize: 12)),
-                      ],
+                const Text(
+                  'Electronic PIN Code',
+                  style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 20, horizontal: 40),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.indigo, width: 2),
+                  ),
+                  child: Text(
+                    pinCode,
+                    style: const TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 8,
+                      color: Colors.indigo,
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                Card(
-                  elevation: 3,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        const Text('Unit Electronic Lock PIN',
-                            style: TextStyle(
-                                color: AppColors.textSecondary, fontSize: 14)),
-                        const SizedBox(height: 8),
-                        Text(data.accessPin,
-                            style: const TextStyle(
-                                fontSize: 36,
-                                letterSpacing: 8,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary)),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: () => _showPinDialog(data.accessPin),
-                          icon: const Icon(Icons.lock_reset),
-                          label: const Text('Change PIN'),
-                        ),
-                      ],
-                    ),
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 24),
+                const Text(
+                  'Facility Gate QR Code',
+                  style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
+                  child: QrImageView(
+                    data: qrData,
+                    version: QrVersions.auto,
+                    size: 200.0,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Please scan this QR code at the facility scanner terminal or enter your PIN code to open the gate and your storage unit.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.black54, fontSize: 13),
                 ),
               ],
             ),
           );
         },
-      ),
-    );
-  }
-
-  void _showPinDialog(String currentPin) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Update 6-digit PIN'),
-        content: TextField(
-          controller: controller,
-          maxLength: 6,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-              hintText: 'Enter 6 digits', border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (controller.text.length != 6) {
-                return;
-              }
-              Navigator.pop(ctx);
-              await _storageService.updatePin(
-                  widget.bookingId, controller.text);
-              if (mounted) {
-                _load();
-              }
-            },
-            child: const Text('Update'),
-          ),
-        ],
       ),
     );
   }

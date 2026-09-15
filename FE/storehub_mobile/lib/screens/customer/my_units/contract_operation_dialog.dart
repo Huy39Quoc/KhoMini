@@ -1,135 +1,115 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../services/storage_api_service.dart';
 
-class ContractOperationDialog extends StatelessWidget {
-  final String bookingId;
-  final VoidCallback onComplete;
+class ContractOperationDialog extends StatefulWidget {
+  final String contractId;
+  final String unitNumber;
 
-  const ContractOperationDialog(
-      {super.key, required this.bookingId, required this.onComplete});
+  const ContractOperationDialog({
+    super.key,
+    required this.contractId,
+    required this.unitNumber,
+  });
+
+  @override
+  State<ContractOperationDialog> createState() =>
+      _ContractOperationDialogState();
+}
+
+class _ContractOperationDialogState extends State<ContractOperationDialog> {
+  final StorageApiService _storageService = StorageApiService();
+  bool _isLoading = false;
+  int _extensionMonths = 1;
+
+  void _handleExtend() async {
+    setState(() => _isLoading = true);
+    try {
+      bool success = await _storageService.extendRental(
+          widget.contractId, _extensionMonths);
+      if (!mounted) return;
+      if (success) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Contract extended successfully!'),
+              backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Extension failed: ${e.toString()}'),
+            backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _handleCheckout() async {
+    setState(() => _isLoading = true);
+    try {
+      bool success = await _storageService.checkoutRental(widget.contractId);
+      if (!mounted) return;
+      if (success) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Unit return requested successfully!'),
+              backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Checkout failed: ${e.toString()}'),
+            backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final StorageApiService storageService = StorageApiService();
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
+    return AlertDialog(
+      title: Text('Manage Contract - Unit #${widget.unitNumber}'),
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Contract Management',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const Text(
+              'Choose an operation to perform on your active storage contract:'),
           const SizedBox(height: 16),
-          ListTile(
-            leading: const Icon(Icons.more_time, color: AppColors.primary),
-            title: const Text('Extend Rental Contract'),
-            subtitle: const Text('Add extra months to current storage'),
-            onTap: () {
-              Navigator.pop(context);
-              _showExtend(context, storageService);
-            },
+          DropdownButtonFormField<int>(
+            initialValue:
+                _extensionMonths, // Sửa thành initialValue để hết warning deprecated
+            decoration:
+                const InputDecoration(labelText: 'Extension Duration (Months)'),
+            items: [1, 3, 6, 12]
+                .map(
+                    (m) => DropdownMenuItem(value: m, child: Text('$m Months')))
+                .toList(),
+            onChanged: (val) => setState(() => _extensionMonths = val ?? 1),
           ),
-          ListTile(
-            leading: const Icon(Icons.exit_to_app, color: AppColors.accent),
-            title: const Text('Request Checkout & Handover'),
-            subtitle: const Text('Schedule return inspection & refund deposit'),
-            onTap: () {
-              Navigator.pop(context);
-              _showCheckout(context, storageService);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showExtend(
-      BuildContext parentContext, StorageApiService storageService) {
-    int months = 1;
-    showDialog(
-      context: parentContext,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Extend Contract'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Months to add: $months',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              Slider(
-                value: months.toDouble(),
-                min: 1,
-                max: 12,
-                divisions: 11,
-                onChanged: (v) => setState(() => months = v.toInt()),
+              TextButton(
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                onPressed: _isLoading ? null : _handleCheckout,
+                child: const Text('Request Return'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white),
+                onPressed: _isLoading ? null : _handleExtend,
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Extend Now'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(dialogCtx),
-                child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(dialogCtx);
-                try {
-                  await storageService.extendRental(bookingId, months);
-                  onComplete();
-                } catch (e) {
-                  if (parentContext.mounted) {
-                    ScaffoldMessenger.of(parentContext).showSnackBar(
-                      SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: AppColors.error),
-                    );
-                  }
-                }
-              },
-              child: const Text('Confirm'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showCheckout(
-      BuildContext parentContext, StorageApiService storageService) {
-    final note = TextEditingController();
-    showDialog(
-      context: parentContext,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Schedule Handover'),
-        content: TextField(
-            controller: note,
-            decoration: const InputDecoration(
-                labelText: 'Handover Notes', border: OutlineInputBorder())),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(dialogCtx);
-              try {
-                final returnTime = DateTime.now()
-                    .add(const Duration(days: 3))
-                    .toIso8601String();
-                await storageService.requestCheckout(
-                    bookingId, returnTime, note.text);
-                onComplete();
-              } catch (e) {
-                if (parentContext.mounted) {
-                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                    SnackBar(
-                        content: Text('Error: $e'),
-                        backgroundColor: AppColors.error),
-                  );
-                }
-              }
-            },
-            child: const Text('Submit'),
           ),
         ],
       ),

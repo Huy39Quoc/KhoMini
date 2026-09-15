@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../models/my_unit_model.dart';
-import '../../../services/auth_api_service.dart';
 import '../../../services/storage_api_service.dart';
-import '../../auth/login_screen.dart';
-import '../tickets/ticket_list_screen.dart';
-import 'contract_operation_dialog.dart';
 import 'smart_key_screen.dart';
+import '../tickets/create_ticket_screen.dart';
 
 class MyRentedUnitsScreen extends StatefulWidget {
   const MyRentedUnitsScreen({super.key});
@@ -18,15 +12,15 @@ class MyRentedUnitsScreen extends StatefulWidget {
 
 class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   final StorageApiService _storageService = StorageApiService();
-  late Future<List<MyUnitModel>> _unitsFuture;
+  late Future<List<dynamic>> _unitsFuture;
 
   @override
   void initState() {
     super.initState();
-    _refresh();
+    _loadUnits();
   }
 
-  void _refresh() {
+  void _loadUnits() {
     setState(() {
       _unitsFuture = _storageService.getMyRentedUnits();
     });
@@ -35,134 +29,137 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('My Active Storage Units'),
-        backgroundColor: AppColors.primary,
+        title: const Text('My Rented Units'),
+        backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.support_agent_outlined),
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const TicketListScreen())),
+            icon: const Icon(Icons.support_agent),
+            tooltip: 'Support Ticket',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CreateTicketScreen()),
+              );
+            },
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await AuthApiService().logout();
-              if (context.mounted) {
-                Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()));
-              }
-            },
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: _loadUnits,
           ),
         ],
       ),
-      body: FutureBuilder<List<MyUnitModel>>(
+      body: FutureBuilder<List<dynamic>>(
         future: _unitsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final list = snapshot.data ?? [];
-          if (list.isEmpty) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  'Error loading units: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            );
+          }
+          final units = snapshot.data ?? [];
+          if (units.isEmpty) {
             return const Center(
-                child: Text('No active storage rentals found.'));
+              child: Text('No active storage units found.',
+                  style: TextStyle(color: Colors.grey, fontSize: 16)),
+            );
           }
 
-          return RefreshIndicator(
-            onRefresh: () async => _refresh(),
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: list.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, i) => _buildUnitCard(list[i]),
-            ),
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: units.length,
+            itemBuilder: (context, index) {
+              final unit = units[index];
+              final unitId = unit['id']?.toString() ?? '';
+              final unitNumber = unit['unitNumber'] ?? 'N/A';
+              final facilityName = unit['facilityName'] ?? 'Main Facility';
+              final size = unit['size'] ?? 'Standard';
+              final expiresAt = unit['expiresAt'] ?? '2026-12-31';
+              final status = unit['status'] ?? 'ACTIVE';
+
+              return Card(
+                elevation: 3,
+                margin: const EdgeInsets.only(bottom: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Unit #$unitNumber',
+                            style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.indigo),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green),
+                            ),
+                            child: Text(
+                              status,
+                              style: const TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Facility: $facilityName',
+                          style: const TextStyle(color: Colors.black87)),
+                      Text('Size: $size',
+                          style: const TextStyle(color: Colors.grey)),
+                      Text('Expires on: $expiresAt',
+                          style: const TextStyle(color: Colors.grey)),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.vpn_key, size: 18),
+                            label: const Text('Smart Key'),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => SmartKeyScreen(
+                                      unitId: unitId, unitNumber: unitNumber),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildUnitCard(MyUnitModel u) {
-    final currency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-    final active = u.hasActiveAccess;
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                    u.unitCode.isNotEmpty
-                        ? 'Unit: ${u.unitCode}'
-                        : 'Pending Handover',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
-                Chip(
-                    label: Text(u.status,
-                        style:
-                            const TextStyle(fontSize: 11, color: Colors.white)),
-                    backgroundColor:
-                        active ? AppColors.success : AppColors.accent),
-              ],
-            ),
-            Text(u.facilityName,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text(u.facilityAddress,
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 12)),
-            const Divider(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Expiry: ${u.endDate}'),
-                Text(currency.format(u.totalRentalFee),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, color: AppColors.primary)),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: active
-                        ? () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => SmartKeyScreen(
-                                      bookingId: u.bookingId,
-                                      unitCode: u.unitCode)),
-                            )
-                        : null,
-                    icon: const Icon(Icons.vpn_key),
-                    label: const Text('Smart Key'),
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            active ? AppColors.primary : Colors.grey.shade300,
-                        foregroundColor: Colors.white),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () => showModalBottomSheet(
-                    context: context,
-                    builder: (_) => ContractOperationDialog(
-                        bookingId: u.bookingId, onComplete: _refresh),
-                  ),
-                  child: const Text('Contract'),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
