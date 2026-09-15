@@ -1,31 +1,31 @@
 class UnitTypeModel {
-  final int id;
-  final String typeName;
-  final String dimensions; // Dài x Rộng x Cao
-  final double areaSqMeters;
-  final double basePriceMonthly;
-  final double depositAmount;
-  final bool hasClimateControl;
+  final String id;
+  final String name;
+  final String dimensions;
+  final double areaSqm;
+  final double pricePerMonth;
+  final String? description;
+  final int availableUnits;
 
   UnitTypeModel({
     required this.id,
-    required this.typeName,
+    required this.name,
     required this.dimensions,
-    required this.areaSqMeters,
-    required this.basePriceMonthly,
-    required this.depositAmount,
-    required this.hasClimateControl,
+    required this.areaSqm,
+    required this.pricePerMonth,
+    this.description,
+    required this.availableUnits,
   });
 
   factory UnitTypeModel.fromJson(Map<String, dynamic> json) {
     return UnitTypeModel(
-      id: json['id'],
-      typeName: json['typeName'] ?? '',
+      id: json['id']?.toString() ?? '',
+      name: json['name'] ?? '',
       dimensions: json['dimensions'] ?? '',
-      areaSqMeters: (json['areaSqMeters'] as num).toDouble(),
-      basePriceMonthly: (json['basePriceMonthly'] as num).toDouble(),
-      depositAmount: (json['depositAmount'] as num).toDouble(),
-      hasClimateControl: json['hasClimateControl'] ?? false,
+      areaSqm: (json['areaSqm'] as num?)?.toDouble() ?? 0.0,
+      pricePerMonth: (json['pricePerMonth'] as num?)?.toDouble() ?? 0.0,
+      description: json['description'],
+      availableUnits: json['availableUnits'] ?? 0,
     );
   }
 }

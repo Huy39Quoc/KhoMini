@@ -1,56 +1,51 @@
 class MyUnitModel {
-  final int bookingId;
-  final String bookingCode;
+  final String contractId;
+  final String unitId;
+  final String unitCode;
   final String facilityName;
   final String facilityAddress;
-  final String unitCode;
-  final String unitTypeName;
-  final String dimensions;
-  final double? areaSqm;
-  final String startDate;
-  final String endDate;
-  final int rentalMonths;
+  final String typeName;
   final String status;
   final double totalRentalFee;
-  final double depositPaid;
-  final bool hasActiveAccess;
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   MyUnitModel({
-    required this.bookingId,
-    required this.bookingCode,
+    required this.contractId,
+    required this.unitId,
+    required this.unitCode,
     required this.facilityName,
     required this.facilityAddress,
-    required this.unitCode,
-    required this.unitTypeName,
-    required this.dimensions,
-    this.areaSqm,
-    required this.startDate,
-    required this.endDate,
-    required this.rentalMonths,
+    required this.typeName,
     required this.status,
     required this.totalRentalFee,
-    required this.depositPaid,
-    required this.hasActiveAccess,
+    this.startDate,
+    this.endDate,
   });
+
+  String get id => contractId;
+  String get bookingId => contractId;
+  bool get hasActiveAccess =>
+      status.toUpperCase() == 'ACTIVE' || status.toUpperCase() == 'RENTED';
 
   factory MyUnitModel.fromJson(Map<String, dynamic> json) {
     return MyUnitModel(
-      bookingId: json['bookingId'] ?? 0,
-      bookingCode: json['bookingCode'] ?? '',
-      facilityName: json['facilityName'] ?? '',
-      facilityAddress: json['facilityAddress'] ?? '',
+      contractId:
+          json['contractId']?.toString() ?? json['id']?.toString() ?? '',
+      unitId: json['unitId']?.toString() ?? '',
       unitCode: json['unitCode'] ?? '',
-      unitTypeName: json['unitTypeName'] ?? '',
-      dimensions: json['dimensions'] ?? '',
-      areaSqm:
-          json['areaSqm'] != null ? (json['areaSqm'] as num).toDouble() : null,
-      startDate: json['startDate'] ?? '',
-      endDate: json['endDate'] ?? '',
-      rentalMonths: json['rentalMonths'] ?? 0,
+      facilityName: json['facilityName'] ?? '',
+      facilityAddress: json['facilityAddress'] ?? json['address'] ?? '',
+      typeName: json['typeName'] ?? '',
       status: json['status'] ?? '',
-      totalRentalFee: (json['totalRentalFee'] as num?)?.toDouble() ?? 0.0,
-      depositPaid: (json['depositPaid'] as num?)?.toDouble() ?? 0.0,
-      hasActiveAccess: json['hasActiveAccess'] ?? false,
+      totalRentalFee: (json['totalRentalFee'] as num?)?.toDouble() ??
+          (json['rentalPrice'] as num?)?.toDouble() ??
+          0.0,
+      startDate: json['startDate'] != null
+          ? DateTime.tryParse(json['startDate'])
+          : null,
+      endDate:
+          json['endDate'] != null ? DateTime.tryParse(json['endDate']) : null,
     );
   }
 }

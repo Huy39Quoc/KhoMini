@@ -1,10 +1,9 @@
 class SmartAccessModel {
-  final int bookingId;
+  final String bookingId;
   final String unitCode;
   final String accessPin;
   final String qrCodeToken;
   final String pinUpdatedAt;
-  final String tokenExpiresAt;
 
   SmartAccessModel({
     required this.bookingId,
@@ -12,17 +11,15 @@ class SmartAccessModel {
     required this.accessPin,
     required this.qrCodeToken,
     required this.pinUpdatedAt,
-    required this.tokenExpiresAt,
   });
 
   factory SmartAccessModel.fromJson(Map<String, dynamic> json) {
     return SmartAccessModel(
-      bookingId: json['bookingId'] ?? 0,
+      bookingId: json['bookingId']?.toString() ?? '',
       unitCode: json['unitCode'] ?? '',
-      accessPin: json['accessPin'] ?? '',
+      accessPin: json['accessPin'] ?? '123456',
       qrCodeToken: json['qrCodeToken'] ?? '',
       pinUpdatedAt: json['pinUpdatedAt'] ?? '',
-      tokenExpiresAt: json['tokenExpiresAt'] ?? '',
     );
   }
 }

@@ -46,3 +46,16 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+
+# Android local configuration (Rất quan trọng)
+/android/local.properties
+local.properties
+
+# Flutter plugins metadata
+.flutter-plugins
+
+# Keystore files (Dành cho việc bảo mật key ký app sau này)
+*.jks
+*.keystore
+key.properties

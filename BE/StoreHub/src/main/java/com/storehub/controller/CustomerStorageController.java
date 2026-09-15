@@ -7,7 +7,6 @@ import com.storehub.dto.request.UpdatePinRequest;
 import com.storehub.dto.response.ContractOperationResponse;
 import com.storehub.dto.response.MyUnitResponse;
 import com.storehub.dto.response.SmartAccessResponse;
-import com.storehub.entity.User;
 import com.storehub.service.CustomerStorageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -16,12 +15,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/customer/my-units")
+@RequestMapping("/api/v1/customer/storage")
 @RequiredArgsConstructor
 @Tag(name = "Customer Storage", description = "APIs quản lý kho đang thuê dành cho khách hàng")
 @SecurityRequirement(name = "Bearer Authentication")
@@ -29,12 +29,12 @@ public class CustomerStorageController {
 
     private final CustomerStorageService customerStorageService;
 
-    @GetMapping
+    @GetMapping("/my-units")
     @Operation(summary = "Lấy danh sách các ngăn kho đang thuê của khách hàng hiện tại")
     public ResponseEntity<ApiResponse<List<MyUnitResponse>>> getMyRentedUnits(
-            @AuthenticationPrincipal User currentUser
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
-        List<MyUnitResponse> result = customerStorageService.getMyRentedUnits(currentUser.getId());
+        List<MyUnitResponse> result = customerStorageService.getMyRentedUnits(userDetails.getUsername());
 
         return ResponseEntity.ok(ApiResponse.<List<MyUnitResponse>>builder()
                 .success(true)
@@ -47,9 +47,9 @@ public class CustomerStorageController {
     @Operation(summary = "Lấy mã PIN và QR Code mở khóa cho đơn thuê đang hoạt động")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> getSmartAccess(
             @PathVariable UUID bookingId,
-            @AuthenticationPrincipal User currentUser
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
-        SmartAccessResponse response = customerStorageService.getSmartAccessInfo(bookingId, currentUser.getId());
+        SmartAccessResponse response = customerStorageService.getSmartAccessInfo(bookingId, userDetails.getUsername());
         return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
                 .success(true)
                 .message("Smart access information retrieved successfully")
@@ -61,10 +61,10 @@ public class CustomerStorageController {
     @Operation(summary = "Đổi mã PIN mở khóa cửa kho (6 số)")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> updateAccessPin(
             @PathVariable UUID bookingId,
-            @AuthenticationPrincipal User currentUser,
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody @Valid UpdatePinRequest request
     ) {
-        SmartAccessResponse response = customerStorageService.updateAccessPin(bookingId, currentUser.getId(), request);
+        SmartAccessResponse response = customerStorageService.updateAccessPin(bookingId, userDetails.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
                 .success(true)
                 .message("PIN updated successfully")
@@ -76,10 +76,10 @@ public class CustomerStorageController {
     @Operation(summary = "Yêu cầu gia hạn hợp đồng thuê kho")
     public ResponseEntity<ApiResponse<ContractOperationResponse>> extendRental(
             @PathVariable UUID bookingId,
-            @AuthenticationPrincipal User currentUser,
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody @Valid ExtendRentalRequest request
     ) {
-        ContractOperationResponse response = customerStorageService.extendRental(bookingId, currentUser.getId(), request);
+        ContractOperationResponse response = customerStorageService.extendRental(bookingId, userDetails.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.<ContractOperationResponse>builder()
                 .success(true)
                 .message("Rental extended successfully")
@@ -91,10 +91,10 @@ public class CustomerStorageController {
     @Operation(summary = "Gửi yêu cầu và đặt lịch hẹn trả kho")
     public ResponseEntity<ApiResponse<ContractOperationResponse>> requestCheckout(
             @PathVariable UUID bookingId,
-            @AuthenticationPrincipal User currentUser,
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody @Valid CheckoutRequest request
     ) {
-        ContractOperationResponse response = customerStorageService.requestCheckout(bookingId, currentUser.getId(), request);
+        ContractOperationResponse response = customerStorageService.requestCheckout(bookingId, userDetails.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.<ContractOperationResponse>builder()
                 .success(true)
                 .message("Checkout scheduled successfully")

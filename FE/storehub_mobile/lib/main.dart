@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
-
-import 'screens/customer/reservation/facility_detail_screen.dart';
+import 'core/constants/app_colors.dart';
+import 'screens/auth/login_screen.dart';
 
 void main() {
-  runApp(const KhoMiniApp());
+  runApp(const StoreHubApp());
 }
 
-class KhoMiniApp extends StatelessWidget {
-  const KhoMiniApp({super.key});
+class StoreHubApp extends StatelessWidget {
+  const StoreHubApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'KhoMini',
+      title: 'StoreHub',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
-      home: const FacilityDetailScreen(),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+        useMaterial3: true,
+      ),
+      home: const LoginScreen(),
+      routes: {
+        '/login': (context) => const LoginScreen(),
+      },
     );
   }
 }
