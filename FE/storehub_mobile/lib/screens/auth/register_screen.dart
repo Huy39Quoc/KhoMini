@@ -1,60 +1,49 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
 import '../../services/auth_api_service.dart';
-import '../admin/admin_dashboard_screen.dart';
-import '../customer/my_units/my_rented_units_screen.dart';
-import 'register_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _fullNameController = TextEditingController();
   final _authService = AuthApiService();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  void _handleLogin() async {
+  void _handleRegister() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
-        final result = await _authService.login(
+        bool success = await _authService.register(
+          _usernameController.text.trim(),
           _emailController.text.trim(),
           _passwordController.text.trim(),
+          _fullNameController.text.trim(),
         );
 
-        String role = result['role'] ?? result['roleName'] ?? 'CUSTOMER';
         if (!mounted) return;
-
-        if (role == 'ADMIN' ||
-            role == 'OPERATIONS_MANAGER' ||
-            role == 'SYSTEM_ADMINISTRATOR') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Registration successful! Please sign in.'),
+                backgroundColor: Colors.green),
           );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MyRentedUnitsScreen()),
-          );
+          Navigator.pop(context);
         }
       } catch (e) {
-        String errorMsg = 'Login failed. Please check your credentials.';
-        if (e is DioException && e.response != null) {
-          errorMsg = e.response?.data['message'] ??
-              'Server error (500). Verify database tables and user.';
-        }
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Registration failed: ${e.toString()}'),
+              backgroundColor: Colors.red),
         );
       } finally {
         if (mounted) setState(() => _isLoading = false);
@@ -65,6 +54,11 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create Account'),
+        backgroundColor: Colors.indigo,
+        foregroundColor: Colors.white,
+      ),
       backgroundColor: Colors.grey[50],
       body: Center(
         child: SingleChildScrollView(
@@ -80,19 +74,41 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.warehouse, size: 64, color: Colors.indigo),
-                    const SizedBox(height: 16),
                     const Text(
-                      'StoreHub Self-Storage',
+                      'Join StoreHub',
                       style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Colors.indigo),
                     ),
                     const SizedBox(height: 8),
-                    const Text('Sign in to manage your storage units',
+                    const Text('Register a new customer account',
                         style: TextStyle(color: Colors.grey)),
                     const SizedBox(height: 24),
+                    TextFormField(
+                      controller: _fullNameController,
+                      decoration: InputDecoration(
+                        labelText: 'Full Name',
+                        prefixIcon: const Icon(Icons.badge_outlined),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      validator: (value) =>
+                          value!.isEmpty ? 'Please enter your full name' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _usernameController,
+                      decoration: InputDecoration(
+                        labelText: 'Username',
+                        prefixIcon: const Icon(Icons.person_outline),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      validator: (value) =>
+                          value!.isEmpty ? 'Please enter a username' : null,
+                    ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _emailController,
                       decoration: InputDecoration(
@@ -123,8 +139,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
-                      validator: (value) =>
-                          value!.isEmpty ? 'Please enter your password' : null,
+                      validator: (value) => value!.length < 6
+                          ? 'Password must be at least 6 characters'
+                          : null,
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
@@ -136,25 +153,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: _isLoading ? null : _handleLogin,
+                        onPressed: _isLoading ? null : _handleRegister,
                         child: _isLoading
                             ? const CircularProgressIndicator(
                                 color: Colors.white)
-                            : const Text('Sign In',
+                            : const Text('Sign Up',
                                 style: TextStyle(
                                     fontSize: 16, color: Colors.white)),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const RegisterScreen()),
-                        );
-                      },
-                      child: const Text("Don't have an account? Sign Up"),
                     ),
                   ],
                 ),

@@ -1,42 +1,79 @@
-import '../core/constants/api_endpoints.dart';
+import 'package:dio/dio.dart';
 import '../core/network/http_client.dart';
-import '../models/my_unit_model.dart';
-import '../models/smart_access_model.dart';
+import '../core/constants/api_endpoints.dart';
 
 class StorageApiService {
-  final HttpClient _http = HttpClient();
-
-  Future<List<MyUnitModel>> getMyRentedUnits() async {
-    final res = await _http.get(ApiEndpoints.myUnits);
-    final List<dynamic> list = res['data'] ?? [];
-    return list.map((e) => MyUnitModel.fromJson(e)).toList();
+  // Get active rented storage units
+  Future<List<dynamic>> getMyRentedUnits() async {
+    try {
+      final response = await HttpClient.instance.get(ApiEndpoints.myUnits);
+      if (response.statusCode == 200) {
+        final data = response.data;
+        return data is List ? data : (data['content'] ?? []);
+      }
+      throw Exception('Failed to load rented units');
+    } on DioException catch (e) {
+      throw Exception(
+          e.response?.data['message'] ?? 'Failed to connect to server');
+    }
   }
 
-  Future<SmartAccessModel> getSmartAccess(String bookingId) async {
-    final res = await _http.get(ApiEndpoints.smartAccess(bookingId));
-    return SmartAccessModel.fromJson(res['data']);
+  // Get Smart Key access details (PIN & QR)
+  Future<Map<String, dynamic>> getSmartAccess(String unitId) async {
+    try {
+      final response =
+          await HttpClient.instance.get(ApiEndpoints.smartAccess(unitId));
+      if (response.statusCode == 200) {
+        return response.data;
+      }
+      throw Exception('Failed to fetch smart access info');
+    } on DioException catch (e) {
+      throw Exception(
+          e.response?.data['message'] ?? 'Error fetching smart access');
+    }
   }
 
-  Future<SmartAccessModel> updatePin(String bookingId, String newPin) async {
-    final res = await _http.put(
-      ApiEndpoints.updatePin(bookingId),
-      body: {'newPin': newPin},
-    );
-    return SmartAccessModel.fromJson(res['data']);
+  // Extend rental contract
+  Future<bool> extendRental(String contractId, int months) async {
+    try {
+      final response = await HttpClient.instance.post(
+        ApiEndpoints.extendRental(contractId),
+        data: {'months': months},
+      );
+      return response.statusCode == 200;
+    } on DioException catch (e) {
+      throw Exception(
+          e.response?.data['message'] ?? 'Failed to extend contract');
+    }
   }
 
-  Future<void> extendRental(String bookingId, int extraMonths) async {
-    await _http.post(
-      ApiEndpoints.extendRental(bookingId),
-      body: {'extraMonths': extraMonths},
-    );
+  // Request unit checkout (return)
+  Future<bool> checkoutRental(String contractId) async {
+    try {
+      final response = await HttpClient.instance
+          .post(ApiEndpoints.checkoutRental(contractId));
+      return response.statusCode == 200;
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['message'] ?? 'Failed to checkout unit');
+    }
   }
 
-  Future<void> requestCheckout(
-      String bookingId, String scheduledReturnTime, String? notes) async {
-    await _http.post(
-      ApiEndpoints.requestCheckout(bookingId),
-      body: {'scheduledReturnTime': scheduledReturnTime, 'notes': notes},
-    );
+  // Submit support ticket
+  Future<bool> submitTicket(
+      String category, String description, String unitId) async {
+    try {
+      final response = await HttpClient.instance.post(
+        ApiEndpoints.tickets,
+        data: {
+          'category': category,
+          'description': description,
+          'unitId': unitId,
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException catch (e) {
+      throw Exception(
+          e.response?.data['message'] ?? 'Failed to submit support ticket');
+    }
   }
 }

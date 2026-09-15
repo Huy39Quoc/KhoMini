@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../models/ticket_model.dart';
 import '../../../services/ticket_api_service.dart';
 import 'create_ticket_screen.dart';
 
@@ -13,17 +11,17 @@ class TicketListScreen extends StatefulWidget {
 
 class _TicketListScreenState extends State<TicketListScreen> {
   final TicketApiService _ticketService = TicketApiService();
-  late Future<List<TicketModel>> _ticketsFuture;
+  late Future<List<dynamic>> _ticketsFuture;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadTickets();
   }
 
-  void _load() {
+  void _loadTickets() {
     setState(() {
-      _ticketsFuture = _ticketService.getMyTickets();
+      _ticketsFuture = _ticketService.getMyTickets(); // Khớp hàm getMyTickets()
     });
   }
 
@@ -31,44 +29,66 @@ class _TicketListScreenState extends State<TicketListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Support Requests'),
-        backgroundColor: AppColors.primary,
+        title: const Text('My Support Tickets'),
+        backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadTickets,
+          ),
+        ],
       ),
-      body: FutureBuilder<List<TicketModel>>(
+      body: FutureBuilder<List<dynamic>>(
         future: _ticketsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          final list = snapshot.data ?? [];
-          if (list.isEmpty) {
+          if (snapshot.hasError) {
+            return Center(
+                child: Text('Error: ${snapshot.error}',
+                    style: const TextStyle(color: Colors.red)));
+          }
+          final tickets = snapshot.data ?? [];
+          if (tickets.isEmpty) {
             return const Center(
-                child: Text('No support requests submitted yet.'));
+                child: Text('No support tickets found.',
+                    style: TextStyle(color: Colors.grey)));
           }
 
-          return ListView.separated(
+          return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: list.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, i) {
-              final t = list[i];
+            itemCount: tickets.length,
+            itemBuilder: (context, index) {
+              final ticket = tickets[index];
+              final category = ticket['category'] ?? 'ISSUE';
+              final description = ticket['description'] ?? '';
+              final status = ticket['status'] ?? 'PENDING';
+
               return Card(
                 elevation: 2,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
                 child: ListTile(
-                  title: Text(t.title,
+                  title: Text('Category: $category',
                       style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle:
-                      Text('${t.ticketCode} • ${t.category}\n${t.description}'),
-                  trailing: Chip(
-                    label: Text(t.status,
-                        style:
-                            const TextStyle(fontSize: 10, color: Colors.white)),
-                    backgroundColor: t.status == 'RESOLVED'
-                        ? AppColors.success
-                        : AppColors.accent,
+                  subtitle: Text(description),
+                  trailing: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.orange),
+                    ),
+                    child: Text(status,
+                        style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
                   ),
-                  isThreeLine: true,
                 ),
               );
             },
@@ -76,12 +96,15 @@ class _TicketListScreenState extends State<TicketListScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.primary,
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const CreateTicketScreen()),
-        ).then((_) => _load()),
-        child: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: Colors.indigo,
+        foregroundColor: Colors.white,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreateTicketScreen()),
+          ).then((_) => _loadTickets());
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }

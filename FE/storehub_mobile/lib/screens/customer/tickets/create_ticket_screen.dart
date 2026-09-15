@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../services/ticket_api_service.dart';
 
 class CreateTicketScreen extends StatefulWidget {
@@ -10,42 +9,41 @@ class CreateTicketScreen extends StatefulWidget {
 }
 
 class _CreateTicketScreenState extends State<CreateTicketScreen> {
-  final TicketApiService _ticketService = TicketApiService();
-  final _titleController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
   final _descController = TextEditingController();
-  String _category = 'SMART_LOCK_ISSUE';
-  bool _submitting = false;
+  final _unitIdController = TextEditingController();
+  final TicketApiService _ticketService = TicketApiService();
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descController.dispose();
-    super.dispose();
-  }
+  String _selectedCategory = 'LOCK_ISSUE';
+  bool _isLoading = false;
 
-  Future<void> _submit() async {
-    if (_titleController.text.isEmpty || _descController.text.isEmpty) {
-      return;
-    }
-    setState(() => _submitting = true);
-    try {
-      await _ticketService.createTicket(
-        _category,
-        _titleController.text.trim(),
-        _descController.text.trim(),
-        null,
-      );
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _submitting = false);
+  void _submitTicket() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      try {
+        bool success = await _ticketService.createTicket(
+          category: _selectedCategory,
+          description: _descController.text.trim(),
+          unitId: _unitIdController.text.trim(),
+        );
+
+        if (!mounted) return;
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Support ticket submitted successfully!'),
+                backgroundColor: Colors.green),
+          );
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Failed to submit ticket: ${e.toString()}'),
+              backgroundColor: Colors.red),
+        );
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -54,54 +52,82 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          title: const Text('Submit Support Request'),
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(
-                  labelText: 'Category', border: OutlineInputBorder()),
-              items: const [
-                DropdownMenuItem(
-                    value: 'SMART_LOCK_ISSUE',
-                    child: Text('Smart Lock / PIN Issue')),
-                DropdownMenuItem(
-                    value: 'FACILITY_DAMAGE', child: Text('Facility Damage')),
-                DropdownMenuItem(
-                    value: 'PAYMENT_DISPUTE', child: Text('Payment Issue')),
-                DropdownMenuItem(value: 'OTHER', child: Text('Other')),
-              ],
-              onChanged: (v) {
-                if (v != null) {
-                  setState(() => _category = v);
-                }
-              },
-            ),
-            const SizedBox(height: 12),
-            TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                    labelText: 'Summary Title', border: OutlineInputBorder())),
-            const SizedBox(height: 12),
-            TextField(
+        title: const Text('Submit Support Ticket'),
+        backgroundColor: Colors.indigo,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Select Issue Category',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedCategory,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                      value: 'LOCK_ISSUE',
+                      child: Text('Lock / Access Problem')),
+                  DropdownMenuItem(
+                      value: 'PAYMENT', child: Text('Payment Issue')),
+                  DropdownMenuItem(
+                      value: 'STORED_ITEMS', child: Text('Stored Items Issue')),
+                  DropdownMenuItem(
+                      value: 'OTHER', child: Text('Other Problem')),
+                ],
+                onChanged: (val) =>
+                    setState(() => _selectedCategory = val ?? 'LOCK_ISSUE'),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _unitIdController,
+                decoration: InputDecoration(
+                  labelText: 'Storage Unit ID',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                validator: (value) =>
+                    value!.isEmpty ? 'Please enter your storage unit ID' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
                 controller: _descController,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                    labelText: 'Description', border: OutlineInputBorder())),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _submitting ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white),
-              child: const Text('Submit Ticket'),
-            ),
-          ],
+                decoration: InputDecoration(
+                  labelText: 'Describe your issue in detail',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                validator: (value) =>
+                    value!.isEmpty ? 'Please enter a description' : null,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _isLoading ? null : _submitTicket,
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Submit Ticket',
+                          style: TextStyle(fontSize: 16, color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
