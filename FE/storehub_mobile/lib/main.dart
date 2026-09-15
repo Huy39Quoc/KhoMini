@@ -19,6 +19,9 @@ class StoreHubApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const LoginScreen(),
+      routes: {
+        '/login': (context) => const LoginScreen(),
+      },
     );
   }
 }

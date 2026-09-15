@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../services/storage_api_service.dart';
-import 'smart_key_screen.dart';
-import '../tickets/create_ticket_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../services/storage_api_service.dart';
+import '../../../../models/my_unit_model.dart';
 
 class MyRentedUnitsScreen extends StatefulWidget {
   const MyRentedUnitsScreen({super.key});
@@ -12,7 +12,7 @@ class MyRentedUnitsScreen extends StatefulWidget {
 
 class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   final StorageApiService _storageService = StorageApiService();
-  late Future<List<dynamic>> _unitsFuture;
+  late Future<List<MyUnitModel>> _unitsFuture;
 
   @override
   void initState() {
@@ -22,8 +22,26 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
 
   void _loadUnits() {
     setState(() {
-      _unitsFuture = _storageService.getMyRentedUnits();
+      // Directly map and cast the response list to List<MyUnitModel>
+      _unitsFuture = _storageService.getMyRentedUnits().then((response) {
+        return response.map((item) {
+          if (item is MyUnitModel) return item;
+          return MyUnitModel.fromJson(item as Map<String, dynamic>);
+        }).toList();
+      });
     });
+  }
+
+  void _logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    if (!context.mounted) return;
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/login',
+      (route) => false,
+    );
   }
 
   @override
@@ -31,130 +49,58 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Rented Units'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.support_agent),
-            tooltip: 'Support Ticket',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CreateTicketScreen()),
-              );
-            },
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadUnits,
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
-            onPressed: _loadUnits,
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: () => _logout(context),
           ),
         ],
       ),
-      body: FutureBuilder<List<dynamic>>(
+      body: FutureBuilder<List<MyUnitModel>>(
         future: _unitsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
+          } else if (snapshot.hasError) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Text(
                   'Error loading units: ${snapshot.error}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red),
+                  style: const TextStyle(color: Colors.red, fontSize: 16),
                 ),
               ),
             );
-          }
-          final units = snapshot.data ?? [];
-          if (units.isEmpty) {
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(
-              child: Text('No active storage units found.',
-                  style: TextStyle(color: Colors.grey, fontSize: 16)),
+              child: Text(
+                'No rented storage units found.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
             );
           }
 
+          final units = snapshot.data!;
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
             itemCount: units.length,
             itemBuilder: (context, index) {
               final unit = units[index];
-              final unitId = unit['id']?.toString() ?? '';
-              final unitNumber = unit['unitNumber'] ?? 'N/A';
-              final facilityName = unit['facilityName'] ?? 'Main Facility';
-              final size = unit['size'] ?? 'Standard';
-              final expiresAt = unit['expiresAt'] ?? '2026-12-31';
-              final status = unit['status'] ?? 'ACTIVE';
-
               return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 elevation: 3,
-                margin: const EdgeInsets.only(bottom: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Unit #$unitNumber',
-                            style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.indigo),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green),
-                            ),
-                            child: Text(
-                              status,
-                              style: const TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text('Facility: $facilityName',
-                          style: const TextStyle(color: Colors.black87)),
-                      Text('Size: $size',
-                          style: const TextStyle(color: Colors.grey)),
-                      Text('Expires on: $expiresAt',
-                          style: const TextStyle(color: Colors.grey)),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.vpn_key, size: 18),
-                            label: const Text('Smart Key'),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => SmartKeyScreen(
-                                      unitId: unitId, unitNumber: unitNumber),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                child: ListTile(
+                  title: Text('Unit: ${unit.unitCode}',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(
+                      'Facility: ${unit.facilityName}\nStatus: ${unit.status}'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {},
                 ),
               );
             },

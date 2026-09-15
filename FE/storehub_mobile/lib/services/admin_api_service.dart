@@ -1,44 +1,45 @@
 import 'package:dio/dio.dart';
-import '../core/network/http_client.dart';
 import '../core/constants/api_endpoints.dart';
+import '../core/network/http_client.dart';
 
 class AdminApiService {
+  final Dio _dio = HttpClient.instance.dio;
+
   Future<List<dynamic>> getUsers() async {
     try {
-      final response = await HttpClient.instance.get(ApiEndpoints.users);
-      if (response.statusCode == 200) {
-        final data = response.data;
-        return data is List ? data : (data['content'] ?? []);
+      final response = await _dio.get(ApiEndpoints.users);
+      if (response.data is List) {
+        return response.data;
+      } else if (response.data['result'] is List) {
+        return response.data['result'];
+      } else if (response.data['data'] is List) {
+        return response.data['data'];
       }
-      throw Exception('Failed to fetch user list');
+      return [];
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Connection error');
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load users: $message');
     }
   }
 
-  // Hàm assignRole phục vụ cho user_management_screen.dart
-  Future<bool> assignRole(String userId, String roleName) async {
+  Future<void> toggleUserActive(String userId) async {
     try {
-      final response = await HttpClient.instance.put(
-        ApiEndpoints.userRole(userId),
+      await _dio.put(ApiEndpoints.toggleUserActive(userId));
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to toggle user status: $message');
+    }
+  }
+
+  Future<void> assignRole(String userId, String roleName) async {
+    try {
+      await _dio.put(
+        '${ApiEndpoints.users}/$userId/role',
         data: {'role': roleName},
       );
-      return response.statusCode == 200;
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Failed to assign role');
-    }
-  }
-
-  Future<bool> updateUserStatus(String userId, bool active) async {
-    try {
-      final response = await HttpClient.instance.put(
-        '${ApiEndpoints.users}/$userId/status',
-        data: {'active': active},
-      );
-      return response.statusCode == 200;
-    } on DioException catch (e) {
-      throw Exception(
-          e.response?.data['message'] ?? 'Failed to update user status');
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to assign role: $message');
     }
   }
 }
