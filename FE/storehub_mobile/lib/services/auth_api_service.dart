@@ -42,15 +42,25 @@ class AuthApiService {
     }
   }
 
+  // BE (RegisterRequest) bắt buộc cả username và phone (số VN hợp lệ),
+  // trước đây 2 trường này bị thiếu -> đăng ký luôn thất bại.
   Future<Map<String, dynamic>> register(
+    String username,
     String email,
     String password,
     String fullName,
+    String phone,
   ) async {
     try {
       final response = await _dio.post(
         ApiEndpoints.register,
-        data: {'email': email, 'password': password, 'fullName': fullName},
+        data: {
+          'username': username,
+          'email': email,
+          'password': password,
+          'fullName': fullName,
+          'phone': phone,
+        },
       );
       return response.data is Map<String, dynamic>
           ? response.data
@@ -61,12 +71,27 @@ class AuthApiService {
     }
   }
 
+  // BE (/auth/logout) yêu cầu bắt buộc refreshToken trong body.
+  // Trước đây không gửi gì -> BE trả lỗi 400 và exception này làm nút
+  // "Sign Out" không bao giờ đưa được người dùng về màn hình login.
+  // Giờ luôn dọn sạch token cục bộ (dù server lỗi/refresh token đã hết hạn)
+  // để người dùng chắc chắn thoát được khỏi phiên đăng nhập.
   Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    final refreshToken = prefs.getString('refresh_token');
     try {
-      await _dio.post(ApiEndpoints.logout);
-    } on DioException catch (e) {
-      final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Logout failed: $message');
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _dio.post(
+          ApiEndpoints.logout,
+          data: {'refreshToken': refreshToken},
+        );
+      }
+    } on DioException catch (_) {
+      // Bỏ qua lỗi từ server (vd token đã bị thu hồi/hết hạn) - vẫn đăng
+      // xuất cục bộ để không kẹt người dùng lại trong app.
+    } finally {
+      await prefs.remove('jwt_token');
+      await prefs.remove('refresh_token');
     }
   }
 }

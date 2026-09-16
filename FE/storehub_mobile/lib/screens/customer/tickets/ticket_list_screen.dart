@@ -71,7 +71,10 @@ class _TicketListScreenState extends State<TicketListScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 elevation: 2,
                 child: ListTile(
-                  title: Text('Category: ${ticket['category'] ?? 'General'}',
+                  title: Text(
+                      (ticket['title'] as String?)?.isNotEmpty == true
+                          ? ticket['title']
+                          : 'Category: ${ticket['category'] ?? 'General'}',
                       style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text(
                       'Status: ${ticket['status']}\nDescription: ${ticket['description']}'),

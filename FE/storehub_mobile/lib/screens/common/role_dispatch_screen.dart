@@ -13,7 +13,6 @@ class RoleDispatchScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // UserModel uses 'role' (String)
     final role = user.role.toUpperCase().replaceAll('ROLE_', '');
 
     if (role == 'ADMIN' || role == 'SYSTEM_ADMIN') {

@@ -3,12 +3,12 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../services/storage_api_service.dart';
 
 class SmartKeyScreen extends StatefulWidget {
-  final String unitId;
+  final String bookingId;
   final String unitNumber;
 
   const SmartKeyScreen({
     super.key,
-    required this.unitId,
+    required this.bookingId,
     required this.unitNumber,
   });
 
@@ -23,7 +23,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
   @override
   void initState() {
     super.initState();
-    _accessFuture = _storageService.getSmartAccess(widget.unitId);
+    _accessFuture = _storageService.getSmartAccess(widget.bookingId);
   }
 
   @override
@@ -54,10 +54,11 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
           }
 
           final data = snapshot.data ?? {};
-          final pinCode = data['pinCode'] ?? '------';
-          final qrData = data['qrCode'] ??
-              data['qrData'] ??
-              'KHOMINI-UNIT-${widget.unitId}';
+          // BE (SmartAccessResponse) trả về "accessPin" và "qrCodeToken",
+          // trước đây đọc nhầm "pinCode"/"qrCode" nên luôn hiện dữ liệu giả.
+          final pinCode = data['accessPin']?.toString() ?? '------';
+          final qrData = data['qrCodeToken']?.toString() ??
+              'KHOMINI-UNIT-${widget.bookingId}';
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),

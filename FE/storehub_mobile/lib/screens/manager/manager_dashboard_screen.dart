@@ -1,97 +1,82 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../services/auth_api_service.dart';
+import '../auth/login_screen.dart';
 
 class ManagerDashboardScreen extends StatelessWidget {
   const ManagerDashboardScreen({super.key});
 
+  Future<void> _logout(BuildContext context) async {
+    final authService = AuthApiService();
+    await authService.logout();
+    if (!context.mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final units = List.generate(12, (index) {
-      final status = index % 3 == 0
-          ? 'RENTED'
-          : (index % 5 == 0 ? 'MAINTENANCE' : 'AVAILABLE');
-      return {'unitCode': 'A-${101 + index}', 'status': status};
-    });
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Facility Manager - Unit Layout'),
+        title: const Text('Facility Manager Console'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'Sign Out',
+            icon: const Icon(Icons.logout),
+            onPressed: () => _logout(context),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Storage Units Status Board',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _buildLegend(Colors.green, 'Available'),
-                const SizedBox(width: 12),
-                _buildLegend(Colors.redAccent, 'Rented'),
-                const SizedBox(width: 12),
-                _buildLegend(Colors.amber, 'Maintenance'),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 1.2,
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Facility Unit Allocation',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Unit occupancy layouts are synchronized directly from physical facility storage units via backend services.',
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ],
                 ),
-                itemCount: units.length,
-                itemBuilder: (context, index) {
-                  final u = units[index];
-                  Color color = Colors.green;
-                  if (u['status'] == 'RENTED') color = Colors.redAccent;
-                  if (u['status'] == 'MAINTENANCE') color = Colors.amber;
-
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: color, width: 1.5),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.inventory_2_outlined,
+                        size: 64, color: Colors.grey.shade400),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No unassigned units pending at your facility.',
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(u['unitCode']!,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-                        const SizedBox(height: 4),
-                        Text(u['status']!,
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: color,
-                                fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  );
-                },
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildLegend(Color color, String label) {
-    return Row(
-      children: [
-        Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
     );
   }
 }

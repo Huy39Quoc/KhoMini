@@ -5,15 +5,25 @@ import '../core/network/http_client.dart';
 class TicketApiService {
   final Dio _dio = HttpClient.instance.dio;
 
+  // BE trả về danh sách có phân trang: { data: { content: [...], page, ... } },
+  // trước đây chỉ kiểm tra data['data'] is List (luôn false vì đó là Map)
+  // nên màn hình danh sách ticket luôn hiện trống dù đã có ticket.
   Future<List<dynamic>> getMyTickets() async {
     try {
       final response = await _dio.get(ApiEndpoints.tickets);
-      if (response.data is List) {
-        return response.data;
-      } else if (response.data['result'] is List) {
-        return response.data['result'];
-      } else if (response.data['data'] is List) {
-        return response.data['data'];
+      final data = response.data;
+      if (data is List) {
+        return data;
+      } else if (data is Map) {
+        if (data['data'] is Map && data['data']['content'] is List) {
+          return data['data']['content'];
+        } else if (data['content'] is List) {
+          return data['content'];
+        } else if (data['result'] is List) {
+          return data['result'];
+        } else if (data['data'] is List) {
+          return data['data'];
+        }
       }
       return [];
     } on DioException catch (e) {
@@ -22,15 +32,23 @@ class TicketApiService {
     }
   }
 
+  // BE (CreateTicketRequest) bắt buộc "title" (trước đây không gửi) và
+  // dùng field "bookingId" chứ không phải "unitId".
   Future<void> createTicket(
-      String category, String description, String? unitId) async {
+    String category,
+    String title,
+    String description,
+    String? bookingId,
+  ) async {
     try {
       await _dio.post(
         ApiEndpoints.tickets,
         data: {
           'category': category,
+          'title': title,
           'description': description,
-          'unitId': unitId,
+          if (bookingId != null && bookingId.isNotEmpty)
+            'bookingId': bookingId,
         },
       );
     } on DioException catch (e) {

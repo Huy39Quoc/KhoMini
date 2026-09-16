@@ -10,11 +10,19 @@ class CreateTicketScreen extends StatefulWidget {
 
 class _CreateTicketScreenState extends State<CreateTicketScreen> {
   final TicketApiService _ticketApiService = TicketApiService();
+  final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
   String _selectedCategory = 'MAINTENANCE';
-  String? _selectedUnitId;
+  String? _selectedBookingId;
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
 
   final List<String> _categories = [
     'MAINTENANCE',
@@ -25,7 +33,14 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   ];
 
   void _submitTicket() async {
+    final title = _titleController.text.trim();
     final description = _descriptionController.text.trim();
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a title for the issue.')),
+      );
+      return;
+    }
     if (description.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -41,8 +56,9 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
     try {
       await _ticketApiService.createTicket(
         _selectedCategory,
+        title,
         description,
-        _selectedUnitId,
+        _selectedBookingId,
       );
 
       if (!mounted) return;
@@ -94,6 +110,16 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                   });
                 }
               },
+            ),
+            const SizedBox(height: 16),
+            const Text('Title:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                hintText: 'Short summary of the issue...',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 16),
             const Text('Description:',
