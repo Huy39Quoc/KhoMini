@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
+import '../../services/auth_api_service.dart';
+import '../auth/login_screen.dart';
 import 'my_units/my_rented_units_screen.dart';
 import 'reservation/facility_detail_screen.dart';
 import 'tickets/ticket_list_screen.dart';
@@ -16,6 +18,7 @@ class CustomerHomeScreen extends StatefulWidget {
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   int _currentIndex = 0;
+  final _authApiService = AuthApiService();
   late final List<Widget> _screens;
 
   @override
@@ -25,11 +28,45 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       _buildHomeOverview(),
       const MyRentedUnitsScreen(),
       const FacilityDetailScreen(
-        facilityId: '1',
-        facilityName: 'StoreHub Central',
+        facilityId: '',
+        facilityName: 'Storage Reservation',
       ),
       const TicketListScreen(),
     ];
+  }
+
+  Future<void> _logout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true) {
+      await _authApiService.logout();
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -77,9 +114,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           fontSize: 20, fontWeight: FontWeight.bold)),
                 ],
               ),
-              const CircleAvatar(
-                backgroundColor: AppColors.primary,
-                child: Icon(Icons.person, color: Colors.white),
+              Row(
+                children: [
+                  const CircleAvatar(
+                    backgroundColor: AppColors.primary,
+                    child: Icon(Icons.person, color: Colors.white),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Sign Out',
+                    icon: const Icon(Icons.logout, color: Colors.redAccent),
+                    onPressed: _logout,
+                  ),
+                ],
               )
             ],
           ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_endpoints.dart';
@@ -6,12 +7,29 @@ class HttpClient {
   static final HttpClient _instance = HttpClient._internal();
   late final Dio dio;
 
+  // Dùng riêng một Dio "trần" (không gắn interceptor) để gọi refresh-token,
+  // tránh việc request refresh cũng bị interceptor 401 bắt lại -> vòng lặp vô hạn.
+  late final Dio _plainDio;
+
+  // Gom các request đang chờ refresh xong để tránh gọi refresh-token nhiều lần
+  // cùng lúc khi nhiều API 401 song song.
+  bool _isRefreshing = false;
+  final List<void Function(String?)> _pendingCallbacks = [];
+
   factory HttpClient() {
     return _instance;
   }
 
   HttpClient._internal() {
     dio = Dio(
+      BaseOptions(
+        baseUrl: ApiEndpoints.baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    _plainDio = Dio(
       BaseOptions(
         baseUrl: ApiEndpoints.baseUrl,
         connectTimeout: const Duration(seconds: 15),
@@ -30,8 +48,94 @@ class HttpClient {
           }
           return handler.next(options);
         },
+        // Access token của BE là JWT ngắn hạn. Trước đây khi hết hạn, mọi
+        // API sẽ lỗi 401 vĩnh viễn cho tới khi người dùng tự đăng xuất/đăng
+        // nhập lại (trước cả khi sửa logout thì coi như bị kẹt hoàn toàn).
+        // Giờ tự động dùng refresh_token để lấy access token mới và gọi
+        // lại đúng request đó một lần.
+        onError: (error, handler) async {
+          final isUnauthorized = error.response?.statusCode == 401;
+          final isRefreshCall =
+              error.requestOptions.path == ApiEndpoints.refreshToken;
+
+          if (!isUnauthorized || isRefreshCall) {
+            return handler.next(error);
+          }
+
+          final newToken = await _refreshAccessToken();
+          if (newToken == null) {
+            // Refresh thất bại (refresh token cũng hết hạn/không có) ->
+            // dọn sạch session cục bộ để lần vào app tiếp theo quay lại login.
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('jwt_token');
+            await prefs.remove('refresh_token');
+            return handler.next(error);
+          }
+
+          try {
+            final retryOptions = error.requestOptions;
+            retryOptions.headers['Authorization'] = 'Bearer $newToken';
+            final response = await dio.fetch(retryOptions);
+            return handler.resolve(response);
+          } on DioException catch (retryError) {
+            return handler.next(retryError);
+          }
+        },
       ),
     );
+  }
+
+  Future<String?> _refreshAccessToken() async {
+    if (_isRefreshing) {
+      // Đã có 1 lệnh refresh đang chạy, đợi kết quả của nó thay vì gọi thêm.
+      final completer = Completer<String?>();
+      _pendingCallbacks.add((token) => completer.complete(token));
+      return completer.future;
+    }
+
+    _isRefreshing = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString('refresh_token');
+      if (refreshToken == null || refreshToken.isEmpty) {
+        _notifyPending(null);
+        return null;
+      }
+
+      final response = await _plainDio.post(
+        ApiEndpoints.refreshToken,
+        data: {'refreshToken': refreshToken},
+      );
+      final body = response.data;
+      final data = body is Map && body['data'] is Map ? body['data'] : body;
+      final newAccessToken = data['accessToken']?.toString();
+      final newRefreshToken = data['refreshToken']?.toString();
+
+      if (newAccessToken == null || newAccessToken.isEmpty) {
+        _notifyPending(null);
+        return null;
+      }
+
+      await prefs.setString('jwt_token', newAccessToken);
+      if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
+        await prefs.setString('refresh_token', newRefreshToken);
+      }
+
+      _notifyPending(newAccessToken);
+      return newAccessToken;
+    } on DioException {
+      _notifyPending(null);
+      return null;
+    } finally {
+      _isRefreshing = false;
+    }
+  }
+
+  void _notifyPending(String? token) {
+    for (final cb in _pendingCallbacks) {
+      cb(token);
+    }
+    _pendingCallbacks.clear();
   }
 
   static HttpClient get instance => _instance;

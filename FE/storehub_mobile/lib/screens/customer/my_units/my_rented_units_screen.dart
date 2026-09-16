@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../services/storage_api_service.dart';
 import '../../../../models/my_unit_model.dart';
+import 'contract_operation_dialog.dart';
+import 'smart_key_screen.dart';
 
 class MyRentedUnitsScreen extends StatefulWidget {
   const MyRentedUnitsScreen({super.key});
@@ -30,6 +32,85 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
         }).toList();
       });
     });
+  }
+
+  // Trước đây bấm vào 1 unit không làm gì (onTap rỗng), khiến các tính
+  // năng Smart Access / Gia hạn / Trả kho không thể truy cập từ đâu cả.
+  void _showUnitActions(MyUnitModel unit) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.key, color: Colors.indigo),
+              title: const Text('Smart Access (PIN / QR)'),
+              enabled: unit.hasActiveAccess,
+              subtitle: unit.hasActiveAccess
+                  ? null
+                  : const Text('Not available for this unit'),
+              onTap: unit.hasActiveAccess
+                  ? () {
+                      Navigator.pop(ctx);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SmartKeyScreen(
+                            bookingId: unit.bookingId,
+                            unitNumber: unit.unitCode,
+                          ),
+                        ),
+                      );
+                    }
+                  : null,
+            ),
+            ListTile(
+              leading: const Icon(Icons.update, color: Colors.indigo),
+              title: const Text('Extend Rental'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _openContractOperation(unit, isExtension: true);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text('Request Checkout'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _openContractOperation(unit, isExtension: false);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openContractOperation(
+    MyUnitModel unit, {
+    required bool isExtension,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => ContractOperationDialog(
+        bookingId: unit.bookingId,
+        isExtension: isExtension,
+      ),
+    );
+    if (result == true) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isExtension
+                ? 'Rental extended successfully!'
+                : 'Checkout requested successfully!',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _loadUnits();
+    }
   }
 
   void _logout(BuildContext context) async {
@@ -100,7 +181,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   subtitle: Text(
                       'Facility: ${unit.facilityName}\nStatus: ${unit.status}'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () {},
+                  onTap: () => _showUnitActions(unit),
                 ),
               );
             },

@@ -31,6 +31,9 @@ class ApiEndpoints {
   static String toggleUserActive(String userId) =>
       '/users/$userId/toggle-active';
 
+  // Roles
+  static const String roles = '/roles';
+
   // Catalog & Pricing
   static const String catalogOverview = '/catalog/overview';
   static const String facilities = '/catalog/facilities';

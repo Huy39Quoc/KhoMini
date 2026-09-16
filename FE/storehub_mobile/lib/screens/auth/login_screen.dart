@@ -146,17 +146,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   TextFormField(
                     controller: _usernameController,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      labelText: 'Username or Email',
-                      hintText: 'Enter your username or email',
-                      prefixIcon: const Icon(Icons.person_outline),
+                      labelText: 'Email Address',
+                      hintText: 'Enter your email',
+                      prefixIcon: const Icon(Icons.email_outlined),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your username';
+                      final v = value?.trim() ?? '';
+                      // BE chỉ hỗ trợ đăng nhập bằng email hợp lệ (LoginRequest yêu cầu @Email)
+                      if (v.isEmpty) {
+                        return 'Please enter your email';
+                      }
+                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v)) {
+                        return 'Please enter a valid email address';
                       }
                       return null;
                     },
