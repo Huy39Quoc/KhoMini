@@ -24,67 +24,96 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     });
   }
 
-  void _showAssignRoleDialog(String userId, String currentRole) {
-    String selectedRole = currentRole;
+  // Trước đây danh sách role bị hard-code cứng bằng tên (không đảm bảo khớp
+  // với dữ liệu role thật trong DB) và gọi một endpoint không tồn tại
+  // (PUT /users/{id}/role). Giờ lấy danh sách role thật từ GET /roles, và
+  // cập nhật qua đúng endpoint PUT /users/{id} với {roleId, phone}.
+  void _showAssignRoleDialog(
+    String userId,
+    String currentPhone,
+  ) async {
+    List<dynamic> roles;
+    try {
+      roles = await _adminService.getRoles();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Failed to load roles: $e'),
+            backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    if (roles.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No roles available.')),
+      );
+      return;
+    }
+
+    String? selectedRoleId = roles.first['id']?.toString();
+
+    if (!mounted) return;
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Assign User Role'),
-        content: DropdownButtonFormField<String>(
-          initialValue:
-              selectedRole.isNotEmpty ? selectedRole : 'STORAGE_CUSTOMER',
-          items: const [
-            DropdownMenuItem(
-                value: 'STORAGE_CUSTOMER', child: Text('Storage Customer')),
-            DropdownMenuItem(
-                value: 'FACILITY_STAFF', child: Text('Facility Staff')),
-            DropdownMenuItem(
-                value: 'FACILITY_MANAGER', child: Text('Facility Manager')),
-            DropdownMenuItem(
-                value: 'BUSINESS_OPERATIONS_MANAGER',
-                child: Text('Business Operations Manager')),
-            DropdownMenuItem(
-                value: 'SYSTEM_ADMINISTRATOR',
-                child: Text('System Administrator')),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Assign User Role'),
+          content: DropdownButtonFormField<String>(
+            initialValue: selectedRoleId,
+            items: roles.map((r) {
+              final id = r['id']?.toString() ?? '';
+              final name = r['name']?.toString() ?? id;
+              return DropdownMenuItem(value: id, child: Text(name));
+            }).toList(),
+            onChanged: (val) => setDialogState(() => selectedRoleId = val),
+            decoration: const InputDecoration(labelText: 'Select Role'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white),
+              onPressed: selectedRoleId == null
+                  ? null
+                  : () async {
+                      try {
+                        await _adminService.updateUserRole(
+                          userId,
+                          selectedRoleId!,
+                          currentPhone,
+                        );
+
+                        if (!dialogContext.mounted) return;
+                        Navigator.pop(dialogContext);
+
+                        _loadUsers();
+
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Role assigned successfully!'),
+                              backgroundColor: Colors.green),
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text('Failed: $e'),
+                              backgroundColor: Colors.red),
+                        );
+                      }
+                    },
+              child: const Text('Save'),
+            ),
           ],
-          onChanged: (val) => selectedRole = val ?? 'STORAGE_CUSTOMER',
-          decoration: const InputDecoration(labelText: 'Select Role'),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo, foregroundColor: Colors.white),
-            onPressed: () async {
-              try {
-                await _adminService.assignRole(userId, selectedRole);
-
-                // Kiểm tra dialogContext.mounted trước khi thao tác với context của dialog
-                if (!dialogContext.mounted) return;
-                Navigator.pop(dialogContext); // Đóng dialog an toàn
-
-                _loadUsers();
-
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Role assigned successfully!'),
-                      backgroundColor: Colors.green),
-                );
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text('Failed: $e'), backgroundColor: Colors.red),
-                );
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }
@@ -121,7 +150,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               final userId = user['id']?.toString() ?? '';
               final username = user['username'] ?? 'Unknown';
               final email = user['email'] ?? 'No email';
-              final role = user['role'] ?? user['roleName'] ?? 'CUSTOMER';
+              final phone = user['phone']?.toString() ?? '';
+              final isActive = user['isActive'] == true;
 
               return Card(
                 elevation: 2,
@@ -129,16 +159,21 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
                 child: ListTile(
-                  leading: const CircleAvatar(
-                      backgroundColor: Colors.indigo,
-                      child: Icon(Icons.person, color: Colors.white)),
+                  leading: CircleAvatar(
+                      backgroundColor:
+                          isActive ? Colors.indigo : Colors.grey,
+                      child: const Icon(Icons.person, color: Colors.white)),
                   title: Text(username,
                       style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('$email\nRole: $role'),
+                  // Lưu ý: API GET /users hiện chưa trả về tên role của user
+                  // (đây là giới hạn ở BE, không thể tự hiển thị đúng role
+                  // hiện tại từ phía FE), nên chỉ hiển thị các thông tin có sẵn.
+                  subtitle: Text(
+                      '$email${phone.isNotEmpty ? '\n$phone' : ''}\n${isActive ? 'Active' : 'Inactive'}'),
                   isThreeLine: true,
                   trailing: IconButton(
                     icon: const Icon(Icons.edit, color: Colors.indigo),
-                    onPressed: () => _showAssignRoleDialog(userId, role),
+                    onPressed: () => _showAssignRoleDialog(userId, phone),
                   ),
                 ),
               );

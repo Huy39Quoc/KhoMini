@@ -38,9 +38,13 @@ class StorageApiService {
   }
 
   // Cập nhật mã PIN mới cho ngăn kho
+  // BE (UpdatePinRequest) nhận field tên "newPin", không phải "pin".
   Future<void> updatePin(String bookingId, String newPin) async {
     try {
-      await _dio.put(ApiEndpoints.updatePin(bookingId), data: {'pin': newPin});
+      await _dio.put(
+        ApiEndpoints.updatePin(bookingId),
+        data: {'newPin': newPin},
+      );
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to update PIN: $message');
@@ -48,11 +52,12 @@ class StorageApiService {
   }
 
   // Gia hạn thời gian thuê kho
+  // BE (ExtendRentalRequest) nhận field tên "extraMonths", không phải "months".
   Future<void> extendRental(String bookingId, int months) async {
     try {
       await _dio.post(
         ApiEndpoints.extendRental(bookingId),
-        data: {'months': months},
+        data: {'extraMonths': months},
       );
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
@@ -61,12 +66,32 @@ class StorageApiService {
   }
 
   // Gửi yêu cầu trả kho (checkout)
-  Future<void> checkoutRental(String bookingId) async {
+  // BE (CheckoutRequest) bắt buộc "scheduledReturnTime" (phải ở tương lai);
+  // trước đây không gửi gì nên luôn bị lỗi validate ở BE.
+  Future<void> checkoutRental(
+    String bookingId,
+    DateTime scheduledReturnTime, {
+    String? notes,
+  }) async {
     try {
-      await _dio.post(ApiEndpoints.checkoutRental(bookingId));
+      await _dio.post(
+        ApiEndpoints.checkoutRental(bookingId),
+        data: {
+          'scheduledReturnTime': _formatLocalDateTime(scheduledReturnTime),
+          if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+        },
+      );
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to checkout rental: $message');
     }
+  }
+
+  // Format "yyyy-MM-ddTHH:mm:ss" (không có mili-giây/timezone) để khớp
+  // với kiểu LocalDateTime ở BE.
+  String _formatLocalDateTime(DateTime dt) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${dt.year.toString().padLeft(4, '0')}-${two(dt.month)}-${two(dt.day)}'
+        'T${two(dt.hour)}:${two(dt.minute)}:${two(dt.second)}';
   }
 }

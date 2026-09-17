@@ -13,6 +13,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _fullNameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
 
   final AuthApiService _authService = AuthApiService();
@@ -25,6 +26,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _fullNameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -40,9 +42,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       await _authService.register(
+        _usernameController.text.trim(),
         _emailController.text.trim(),
         _passwordController.text.trim(),
         _fullNameController.text.trim(),
+        _phoneController.text.trim(),
       );
 
       if (!mounted) return;
@@ -133,6 +137,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         value.trim().isEmpty ||
                         !value.contains('@')) {
                       return 'Please enter a valid email address';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number',
+                    hintText: 'e.g. 0912345678',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.phone),
+                  ),
+                  validator: (value) {
+                    final v = value?.trim() ?? '';
+                    if (v.isEmpty) {
+                      return 'Please enter your phone number';
+                    }
+                    // Khớp với validate của BE: 0|+84 rồi (3/5/7/8/9) + 8 số
+                    if (!RegExp(r'^(0|\+84)(3|5|7|8|9)[0-9]{8}$')
+                        .hasMatch(v)) {
+                      return 'Enter a valid Vietnamese phone number';
                     }
                     return null;
                   },
