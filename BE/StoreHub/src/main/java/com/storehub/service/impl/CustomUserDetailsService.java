@@ -32,7 +32,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
         if (!user.getIsActive()) {
-            throw new AppException(ErrorCode.USER_NOT_FOUND);
+            throw new AppException(ErrorCode.USER_INACTIVE);
         }
 
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
