@@ -50,8 +50,16 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         Role role = roleRepository.findById(request.getRoleId())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
+        if (!Boolean.TRUE.equals(role.getIsActive())) {
+            throw new AppException(ErrorCode.ROLE_INACTIVE);
+        }
+
         Permission permission = permissionRepository.findById(request.getPermissionId())
                 .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
+
+        if (!Boolean.TRUE.equals(permission.getIsActive())) {
+            throw new AppException(ErrorCode.PERMISSION_INACTIVE);
+        }
 
         Optional<RolePermission> existingOpt = rolePermissionRepository
                 .findByRole_IdAndPermission_Id(role.getId(), permission.getId());
@@ -94,16 +102,26 @@ public class RolePermissionServiceImpl implements RolePermissionService {
     public void delete(UUID id) {
         RolePermission rolePermission = rolePermissionRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_PERMISSION_NOT_FOUND));
-        rolePermissionRepository.deleteById(rolePermission.getId());
+        rolePermission.setIsActive(false);
+        rolePermissionRepository.save(rolePermission);
     }
 
     @Override
     public PageResponse<RolePermissionResponse> getAll(
             UUID roleId, UUID permissionId, String search, Boolean isActive,
             int page, int size, String sortBy, String sortDir) {
+        String resolvedSortBy = sortBy;
+        if ("roleName".equalsIgnoreCase(sortBy)) {
+            resolvedSortBy = "role.name";
+        } else if ("permissionName".equalsIgnoreCase(sortBy)) {
+            resolvedSortBy = "permission.name";
+        } else if ("permissionGroup".equalsIgnoreCase(sortBy)) {
+            resolvedSortBy = "permission.permissionGroup";
+        }
+
         Sort sort = sortDir.equalsIgnoreCase("desc")
-                ? Sort.by(sortBy).descending()
-                : Sort.by(sortBy).ascending();
+                ? Sort.by(resolvedSortBy).descending()
+                : Sort.by(resolvedSortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<RolePermissionResponse> result = rolePermissionRepository
                 .findAllWithFilters(roleId, permissionId, search, isActive, pageable)
@@ -127,14 +145,25 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         Role role = roleRepository.findById(request.getRoleId())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
-        List<UUID> permissionIds = request.getPermissionIds();
-        if (permissionIds == null || permissionIds.isEmpty()) {
+        if (!Boolean.TRUE.equals(role.getIsActive())) {
+            throw new AppException(ErrorCode.ROLE_INACTIVE);
+        }
+
+        List<UUID> rawPermissionIds = request.getPermissionIds();
+        if (rawPermissionIds == null || rawPermissionIds.isEmpty()) {
             return Collections.emptyList();
         }
 
+        List<UUID> permissionIds = rawPermissionIds.stream().distinct().toList();
+
         List<Permission> permissions = permissionRepository.findAllById(permissionIds);
-        if (permissions.isEmpty()) {
-            return Collections.emptyList();
+        if (permissions.size() != permissionIds.size()) {
+            throw new AppException(ErrorCode.PERMISSION_NOT_FOUND);
+        }
+
+        boolean hasInactive = permissions.stream().anyMatch(p -> !Boolean.TRUE.equals(p.getIsActive()));
+        if (hasInactive) {
+            throw new AppException(ErrorCode.PERMISSION_INACTIVE);
         }
 
         List<RolePermission> existingList = rolePermissionRepository

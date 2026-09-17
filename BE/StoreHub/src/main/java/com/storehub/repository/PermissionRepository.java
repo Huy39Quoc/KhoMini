@@ -20,10 +20,6 @@ public interface PermissionRepository extends JpaRepository<Permission, UUID> {
 
     boolean existsByNameAndIdNot(String name, UUID id);
 
-    boolean existsByPermissionGroup(String permissionGroup);
-
-    boolean existsByPermissionGroupAndIdNot(String permissionGroup, UUID id);
-
     @Query("""
             SELECT p FROM Permission p
             WHERE (:search IS NULL

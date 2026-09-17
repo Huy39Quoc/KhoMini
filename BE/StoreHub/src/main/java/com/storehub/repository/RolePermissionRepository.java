@@ -16,6 +16,10 @@ import java.util.UUID;
 @Repository
 public interface RolePermissionRepository extends JpaRepository<RolePermission, UUID> {
 
+    @Override
+    @EntityGraph(attributePaths = {"role", "permission"})
+    Optional<RolePermission> findById(UUID id);
+
     boolean existsByRole_IdAndPermission_Id(UUID roleId, UUID permissionId);
 
     @EntityGraph(attributePaths = {"role", "permission"})
@@ -34,6 +38,12 @@ public interface RolePermissionRepository extends JpaRepository<RolePermission, 
     List<RolePermission> findAllByRole_IdAndPermission_IdIn(UUID roleId, List<UUID> permissionIds);
 
     void deleteAllByRole_Id(UUID roleId);
+
+    boolean existsByPermission_Id(UUID permissionId);
+
+    boolean existsByPermission_IdAndIsActiveTrue(UUID permissionId);
+
+    void deleteAllByPermission_Id(UUID permissionId);
 
     @EntityGraph(attributePaths = {"role", "permission"})
     @Query("""

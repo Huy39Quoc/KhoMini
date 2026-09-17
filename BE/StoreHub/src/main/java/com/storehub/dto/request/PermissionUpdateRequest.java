@@ -9,11 +9,11 @@ import lombok.*;
 @Builder
 public class PermissionUpdateRequest {
 
-    @NotNull(message = "Permission name is required")
+    @NotBlank(message = "Permission name is required")
     @Size(min = 2, max = 100, message = "Permission name must be between 2 and 100 characters")
     private String name;
 
-    @NotNull(message = "Permission group is required")
+    @NotBlank(message = "Permission group is required")
     @Size(min = 2, max = 100, message = "Permission group must be between 2 and 100 characters")
     private String permissionGroup;
 

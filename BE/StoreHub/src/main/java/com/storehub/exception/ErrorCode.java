@@ -12,6 +12,7 @@ public enum ErrorCode {
     CANNOT_DELETE_SYSTEM_ROLE(102, "Cannot delete default system role", HttpStatus.FORBIDDEN),
     CANNOT_MODIFY_SYSTEM_ROLE(103, "Cannot modify name of default system role", HttpStatus.FORBIDDEN),
     ROLE_IN_USE(104, "Cannot delete role because it is currently assigned to users", HttpStatus.CONFLICT),
+    ROLE_INACTIVE(105, "Role is inactive", HttpStatus.BAD_REQUEST),
 
     // ========================= USER (200 - 299) =========================
     USER_NOT_FOUND(200, "User not found", HttpStatus.NOT_FOUND),
@@ -56,7 +57,11 @@ public enum ErrorCode {
     // ========================= PERMISSION (900 - 999) =========================
     PERMISSION_NOT_FOUND(900, "Permission not found", HttpStatus.NOT_FOUND),
     PERMISSION_NAME_EXISTED(901, "Permission name already exists", HttpStatus.BAD_REQUEST),
-    PERMISSION_GROUP_EXISTED(902, "Permission group already exists", HttpStatus.BAD_REQUEST);
+    PERMISSION_GROUP_EXISTED(902, "Permission group already exists", HttpStatus.BAD_REQUEST),
+    PERMISSION_IN_USE(903, "Cannot delete permission because it is currently assigned to roles", HttpStatus.CONFLICT),
+    CANNOT_DELETE_SYSTEM_PERMISSION(904, "Cannot delete default system permission", HttpStatus.FORBIDDEN),
+    CANNOT_MODIFY_SYSTEM_PERMISSION(905, "Cannot modify name of default system permission", HttpStatus.FORBIDDEN),
+    PERMISSION_INACTIVE(906, "Permission is inactive", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
