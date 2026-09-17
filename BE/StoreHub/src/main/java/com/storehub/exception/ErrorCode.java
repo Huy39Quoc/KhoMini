@@ -42,7 +42,7 @@ public enum ErrorCode {
     INVALID_REQUEST(601, "Invalid request", HttpStatus.BAD_REQUEST),
 
     // ========================= BOOKING & ACCESS (700 - 799) =================
-    BOOKING_NOT_FOUND(700, "Booking not found or does not belong to user", HttpStatus.NOT_FOUND),
+    BOOKING_NOT_FOUND(700, "Booking not found or does not beUUID to user", HttpStatus.NOT_FOUND),
     BOOKING_NOT_CHECKED_IN(701, "Storage unit has not been checked in yet", HttpStatus.FORBIDDEN),
     INVALID_PIN_FORMAT(702, "PIN must be exactly 6 digits", HttpStatus.BAD_REQUEST),
     UNIT_TYPE_NOT_FOUND(703, "Unit type not found", HttpStatus.NOT_FOUND),
@@ -61,7 +61,17 @@ public enum ErrorCode {
     PERMISSION_IN_USE(903, "Cannot delete permission because it is currently assigned to roles", HttpStatus.CONFLICT),
     CANNOT_DELETE_SYSTEM_PERMISSION(904, "Cannot delete default system permission", HttpStatus.FORBIDDEN),
     CANNOT_MODIFY_SYSTEM_PERMISSION(905, "Cannot modify name of default system permission", HttpStatus.FORBIDDEN),
-    PERMISSION_INACTIVE(906, "Permission is inactive", HttpStatus.BAD_REQUEST);
+    PERMISSION_INACTIVE(906, "Permission is inactive", HttpStatus.BAD_REQUEST),
+
+    // ========================= FACILITY (1000 - 1099) =========================
+    FACILITY_NOT_FOUND(1000, "Facility not found", HttpStatus.NOT_FOUND),
+
+    // ========================= FACILITY_POLICY (1100 - 1199) =========================
+    FACILITY_POLICY_NOT_FOUND(1100, "Facility policy not found", HttpStatus.NOT_FOUND),
+    FACILITY_POLICY_ALREADY_EXISTS(1101, "This facility already has a policy configured", HttpStatus.BAD_REQUEST),
+
+    // ========================= SUPPORT_TICKET (1200 - 1299) =========================
+    TICKET_NOT_FOUND(1200, "Support ticket not found or does not belong to user", HttpStatus.NOT_FOUND);
 
     private final int code;
     private final String message;

@@ -1,5 +1,8 @@
 package com.storehub.entity;
 
+import com.storehub.enums.PaymentMethod;
+import com.storehub.enums.PaymentStatus;
+import com.storehub.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -25,14 +28,17 @@ public class Payment extends BaseEntity {
     @Column(name = "amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "payment_type", nullable = false, length = 30)
-    private String paymentType;
+    private PaymentType paymentType;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private PaymentStatus status;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", length = 50)
-    private String paymentMethod;
+    private PaymentMethod paymentMethod;
 
     @Column(name = "payment_time", nullable = false)
     private LocalDateTime paymentTime;

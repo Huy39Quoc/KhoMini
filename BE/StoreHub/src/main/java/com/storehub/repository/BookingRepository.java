@@ -12,13 +12,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface BookingRepository extends JpaRepository<Booking, Long> {
+public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     @Query("SELECT b FROM Booking b " +
             "JOIN FETCH b.storageUnit su " +
             "LEFT JOIN FETCH su.facility " +
             "LEFT JOIN FETCH su.unitType " +
             "WHERE b.customer.id = :customerId AND b.status IN (:statuses) " +
+            "AND b.endDate >= CURRENT_DATE " +
             "ORDER BY b.startDate DESC")
     List<Booking> findActiveBookingsByCustomerId(
             @Param("customerId") UUID customerId,

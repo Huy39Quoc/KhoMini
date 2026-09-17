@@ -10,9 +10,9 @@ import java.util.UUID;
 
 public interface CustomerTicketService {
 
-    TicketResponse createTicket(User customer, CreateTicketRequest request);
+    TicketResponse createTicket(String customerEmail, CreateTicketRequest request);
 
-    PageResponse<TicketResponse> getMyTickets(User customer, Pageable pageable);
+    PageResponse<TicketResponse> getMyTickets(String customerEmail, Pageable pageable);
 
-    TicketResponse getTicketDetail(UUID ticketId, User customer);
+    TicketResponse getTicketDetail(UUID ticketId, String customerEmail);
 }

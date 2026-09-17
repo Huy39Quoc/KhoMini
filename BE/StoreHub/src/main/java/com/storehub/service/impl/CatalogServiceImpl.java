@@ -47,7 +47,7 @@ public class CatalogServiceImpl implements CatalogService {
         List<Object[]> results = unitTypeRepository.findCatalogUnitTypesWithAvailableCount(facilityId);
         return results.stream().map(row -> {
             UnitType ut = (UnitType) row[0];
-            Long count = (Long) row[1];
+            UUID count = (UUID) row[1];
             return UnitTypeCatalogResponse.builder()
                     .id(ut.getId())
                     .typeName(ut.getTypeName())
