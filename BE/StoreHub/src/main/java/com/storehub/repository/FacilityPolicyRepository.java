@@ -3,6 +3,7 @@ package com.storehub.repository;
 import com.storehub.entity.FacilityPolicy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,9 +14,17 @@ import java.util.UUID;
 
 @Repository
 public interface FacilityPolicyRepository extends JpaRepository<FacilityPolicy, UUID> {
+
+    @Override
+    @EntityGraph(attributePaths = {"facility"})
+    Optional<FacilityPolicy> findById(UUID id);
+
+    @EntityGraph(attributePaths = {"facility"})
     Optional<FacilityPolicy> findByFacility_Id(UUID facilityId);
+
     boolean existsByFacility_Id(UUID facilityId);
 
+    @EntityGraph(attributePaths = {"facility"})
     @Query("""
             SELECT fp FROM FacilityPolicy fp
             WHERE (:search IS NULL

@@ -15,8 +15,6 @@ public interface FacilityPolicyMapper {
     @Mapping(source = "facility.name", target = "facilityName")
     FacilityPolicyResponse toResponse(FacilityPolicy entity);
 
-    // facility is resolved from facilityId and set explicitly in the service, so only
-    // depositPercentage/dailyLateFee/cancellationRefundDays are patched here.
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateEntityFromRequest(FacilityPolicyUpdateRequest request, @MappingTarget FacilityPolicy entity);
 }

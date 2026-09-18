@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -37,6 +38,15 @@ public class ReportServiceImpl implements ReportService {
 
         List<FacilityRevenueResponse> byFacility = paymentRepository.sumRevenueByFacility(from, to);
         SystemRevenueSummaryResponse systemSummary = paymentRepository.sumSystemRevenue(from, to);
+        if (systemSummary == null) {
+            systemSummary = SystemRevenueSummaryResponse.builder()
+                    .totalRevenue(BigDecimal.ZERO)
+                    .depositRevenue(BigDecimal.ZERO)
+                    .rentalFeeRevenue(BigDecimal.ZERO)
+                    .extraChargeRevenue(BigDecimal.ZERO)
+                    .paymentCount(0L)
+                    .build();
+        }
 
         return RevenueReportResponse.builder()
                 .fromDate(fromDate)
@@ -57,8 +67,16 @@ public class ReportServiceImpl implements ReportService {
         for (Object[] row : rows) {
             UUID facilityId = (UUID) row[0];
             String facilityName = (String) row[1];
-            UnitStatus status = (UnitStatus) row[2];
-            Long count = (Long) row[3];
+            
+            UnitStatus status;
+            if (row[2] instanceof UnitStatus us) {
+                status = us;
+            } else if (row[2] instanceof String str) {
+                status = UnitStatus.valueOf(str);
+            } else {
+                continue;
+            }
+            Long count = row[3] instanceof Number num ? num.longValue() : 0L;
 
             facilityNames.putIfAbsent(facilityId, facilityName);
             long[] bucket = counts.computeIfAbsent(facilityId, k -> new long[5]);

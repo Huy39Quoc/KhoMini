@@ -49,11 +49,15 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
 
     @Override
     public FacilityPolicyResponse create(FacilityPolicyCreateRequest request) {
+        if (request.getCancellationFullRefundHours() != null
+                && request.getCancellationPartialRefundHours() != null
+                && request.getCancellationFullRefundHours() < request.getCancellationPartialRefundHours()) {
+            throw new AppException(ErrorCode.FACILITY_POLICY_INVALID_CANCELLATION);
+        }
+
         Facility facility = facilityRepository.findById(request.getFacilityId())
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
 
-        // one policy per facility (OneToOne, unique facility_id) - reject a second create,
-        // point the caller at update instead
         if (facilityPolicyRepository.existsByFacility_Id(facility.getId())) {
             throw new AppException(ErrorCode.FACILITY_POLICY_ALREADY_EXISTS);
         }
@@ -61,8 +65,17 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
         FacilityPolicy policy = FacilityPolicy.builder()
                 .facility(facility)
                 .depositPercentage(request.getDepositPercentage())
+                .renewalWindowDays(request.getRenewalWindowDays())
+                .cancellationFullRefundHours(request.getCancellationFullRefundHours())
+                .cancellationPartialRefundHours(request.getCancellationPartialRefundHours())
+                .cancellationPartialRefundPercent(request.getCancellationPartialRefundPercent())
+                .returnNoticeDays(request.getReturnNoticeDays())
+                .depositRefundSlaDays(request.getDepositRefundSlaDays())
                 .dailyLateFee(request.getDailyLateFee())
-                .cancellationRefundDays(request.getCancellationRefundDays())
+                .overdueGraceDays(request.getOverdueGraceDays())
+                .overdueAccessDisableDays(request.getOverdueAccessDisableDays())
+                .overdueSealingDays(request.getOverdueSealingDays())
+                .minimumRentalMonths(request.getMinimumRentalMonths())
                 .build();
 
         FacilityPolicy saved = facilityPolicyRepository.save(policy);
@@ -73,6 +86,17 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     public FacilityPolicyResponse update(UUID id, FacilityPolicyUpdateRequest request) {
         FacilityPolicy policy = facilityPolicyRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_POLICY_NOT_FOUND));
+
+        int fullHours = request.getCancellationFullRefundHours() != null
+                ? request.getCancellationFullRefundHours()
+                : policy.getCancellationFullRefundHours();
+        int partialHours = request.getCancellationPartialRefundHours() != null
+                ? request.getCancellationPartialRefundHours()
+                : policy.getCancellationPartialRefundHours();
+
+        if (fullHours < partialHours) {
+            throw new AppException(ErrorCode.FACILITY_POLICY_INVALID_CANCELLATION);
+        }
 
         facilityPolicyMapper.updateEntityFromRequest(request, policy);
         FacilityPolicy updated = facilityPolicyRepository.save(policy);
@@ -88,9 +112,10 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
 
     @Override
     public PageResponse<FacilityPolicyResponse> getAll(String search, int page, int size, String sortBy, String sortDir) {
+        String resolvedSortBy = "facilityName".equalsIgnoreCase(sortBy) ? "facility.name" : sortBy;
         Sort sort = sortDir.equalsIgnoreCase("desc")
-                ? Sort.by(sortBy).descending()
-                : Sort.by(sortBy).ascending();
+                ? Sort.by(resolvedSortBy).descending()
+                : Sort.by(resolvedSortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<FacilityPolicyResponse> result = facilityPolicyRepository.findAllWithFilters(search, pageable)
                 .map(facilityPolicyMapper::toResponse);

@@ -4,7 +4,6 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -13,18 +12,42 @@ import java.util.UUID;
 public class FacilityPolicyCreateRequest {
 
     @NotNull(message = "Facility id is required")
-    private UUID facilityId;
+    private java.util.UUID facilityId;
 
-    @NotNull(message = "Deposit percentage is required")
-    @DecimalMin(value = "0.0", message = "Deposit percentage must not be negative")
-    @DecimalMax(value = "100.0", message = "Deposit percentage must not exceed 100")
+    @NotNull @DecimalMin(value = "0.0") @DecimalMax(value = "100.0")
     private Double depositPercentage;
 
-    @NotNull(message = "Daily late fee is required")
-    @DecimalMin(value = "0.0", message = "Daily late fee must not be negative")
+    @NotNull @Min(0)
+    private Integer renewalWindowDays;
+
+
+    @NotNull @Min(0)
+    private Integer cancellationFullRefundHours;
+
+    @NotNull @Min(0)
+    private Integer cancellationPartialRefundHours;
+
+    @NotNull @DecimalMin(value = "0.0") @DecimalMax(value = "100.0")
+    private Double cancellationPartialRefundPercent;
+
+    @NotNull @Min(0)
+    private Integer returnNoticeDays;
+
+    @NotNull @Min(0)
+    private Integer depositRefundSlaDays;
+
+    @NotNull @DecimalMin(value = "0.0")
     private BigDecimal dailyLateFee;
 
-    @NotNull(message = "Cancellation refund days is required")
-    @Min(value = 0, message = "Cancellation refund days must not be negative")
-    private Integer cancellationRefundDays;
+    @NotNull @Min(0)
+    private Integer overdueGraceDays;
+
+    @NotNull @Min(0)
+    private Integer overdueAccessDisableDays;
+
+    @NotNull @Min(0)
+    private Integer overdueSealingDays;
+
+    @NotNull @Min(1)
+    private Integer minimumRentalMonths;
 }

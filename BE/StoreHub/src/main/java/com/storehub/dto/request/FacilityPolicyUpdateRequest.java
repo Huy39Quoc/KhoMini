@@ -11,13 +11,39 @@ import java.math.BigDecimal;
 @Builder
 public class FacilityPolicyUpdateRequest {
 
-    @DecimalMin(value = "0.0", message = "Deposit percentage must not be negative")
-    @DecimalMax(value = "100.0", message = "Deposit percentage must not exceed 100")
+    @DecimalMin(value = "0.0") @DecimalMax(value = "100.0")
     private Double depositPercentage;
 
-    @DecimalMin(value = "0.0", message = "Daily late fee must not be negative")
+    @Min(0)
+    private Integer renewalWindowDays;
+
+    @Min(0)
+    private Integer cancellationFullRefundHours;
+
+    @Min(0)
+    private Integer cancellationPartialRefundHours;
+
+    @DecimalMin(value = "0.0") @DecimalMax(value = "100.0")
+    private Double cancellationPartialRefundPercent;
+
+    @Min(0)
+    private Integer returnNoticeDays;
+
+    @Min(0)
+    private Integer depositRefundSlaDays;
+
+    @DecimalMin(value = "0.0")
     private BigDecimal dailyLateFee;
 
-    @Min(value = 0, message = "Cancellation refund days must not be negative")
-    private Integer cancellationRefundDays;
+    @Min(0)
+    private Integer overdueGraceDays;
+
+    @Min(0)
+    private Integer overdueAccessDisableDays;
+
+    @Min(0)
+    private Integer overdueSealingDays;
+
+    @Min(1)
+    private Integer minimumRentalMonths;
 }

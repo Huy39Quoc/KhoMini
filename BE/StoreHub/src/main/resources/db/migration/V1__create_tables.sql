@@ -133,11 +133,23 @@ CREATE TABLE IF NOT EXISTS facilities
     created_at     TIMESTAMP    NOT NULL,
     updated_at     TIMESTAMP    NOT NULL,
     name           VARCHAR(150) NOT NULL,
+    code           VARCHAR(30)  NOT NULL,
     address        VARCHAR(255) NOT NULL,
     city           VARCHAR(50),
     contact_phone  VARCHAR(20),
+    email          VARCHAR(150),
+    manager_id     UUID,
+    status         VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
+    open_time      TIME         NOT NULL DEFAULT '08:00',
+    close_time     TIME         NOT NULL DEFAULT '20:00',
+    description    TEXT,
 
-    CONSTRAINT pk_facilities PRIMARY KEY (id)
+    CONSTRAINT pk_facilities PRIMARY KEY (id),
+    CONSTRAINT uc_facilities_code UNIQUE (code),
+
+    CONSTRAINT fk_facilities_manager
+    FOREIGN KEY (manager_id)
+    REFERENCES users(id)
     );
 
 
@@ -193,13 +205,22 @@ CREATE TABLE IF NOT EXISTS storage_units
 
 CREATE TABLE IF NOT EXISTS facility_policies
 (
-    id                       UUID           NOT NULL,
-    created_at               TIMESTAMP      NOT NULL,
-    updated_at               TIMESTAMP      NOT NULL,
-    facility_id              UUID           NOT NULL,
-    deposit_percentage       DOUBLE PRECISION NOT NULL,
-    daily_late_fee           NUMERIC(12,2)  NOT NULL,
-    cancellation_refund_days INTEGER        NOT NULL,
+    id                                   UUID             NOT NULL,
+    created_at                           TIMESTAMP        NOT NULL,
+    updated_at                           TIMESTAMP        NOT NULL,
+    facility_id                          UUID             NOT NULL,
+    deposit_percentage                   DOUBLE PRECISION NOT NULL,
+    renewal_window_days                  INTEGER          NOT NULL DEFAULT 3,
+    cancellation_full_refund_hours       INTEGER          NOT NULL DEFAULT 48,
+    cancellation_partial_refund_hours    INTEGER          NOT NULL DEFAULT 24,
+    cancellation_partial_refund_percent  DOUBLE PRECISION NOT NULL DEFAULT 50.0,
+    return_notice_days                  INTEGER          NOT NULL DEFAULT 0,
+    deposit_refund_sla_days              INTEGER          NOT NULL DEFAULT 5,
+    daily_late_fee                       NUMERIC(12,2)    NOT NULL,
+    overdue_grace_days                   INTEGER          NOT NULL DEFAULT 1,
+    overdue_access_disable_days          INTEGER          NOT NULL DEFAULT 3,
+    overdue_sealing_days                 INTEGER          NOT NULL DEFAULT 7,
+    minimum_rental_months                INTEGER          NOT NULL DEFAULT 1,
 
     CONSTRAINT pk_facility_policies PRIMARY KEY (id),
 
