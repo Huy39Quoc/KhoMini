@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/admin_api_service.dart';
+import '../../widgets/state_views.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -182,17 +183,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 future: _usersFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const AppLoadingState(message: 'Loading users...');
                   }
                   if (snapshot.hasError) {
                     return ListView(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            "Couldn't load users: ${snapshot.error.toString().replaceAll('Exception: ', '')}",
-                            style: const TextStyle(color: AppColors.error),
-                          ),
+                        AppErrorState(
+                          message: snapshot.error.toString().replaceAll('Exception: ', ''),
+                          onRetry: _loadUsers,
                         ),
                       ],
                     );
@@ -218,9 +216,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   if (users.isEmpty) {
                     return ListView(
                       children: const [
-                        Padding(
-                          padding: EdgeInsets.all(40),
-                          child: Center(child: Text('No users match this filter.')),
+                        AppEmptyState(
+                          icon: Icons.people_outline,
+                          title: 'No users found',
+                          message: 'No users match this filter.',
                         ),
                       ],
                     );

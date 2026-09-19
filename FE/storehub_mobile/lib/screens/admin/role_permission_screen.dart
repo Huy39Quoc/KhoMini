@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/admin_api_service.dart';
+import '../../widgets/state_views.dart';
 
 /// RBAC Matrix: pick a role, see every permission grouped by category, and
 /// (for Admins) toggle which ones that role has. All data - roles,
@@ -167,17 +168,11 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
         title: const Text('Roles & Permissions'),
       ),
       body: _isLoadingRoles
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingState(message: 'Loading roles & permissions...')
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      "Couldn't load roles/permissions: $_error",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.error),
-                    ),
-                  ),
+              ? AppErrorState(
+                  message: _error!,
+                  onRetry: _loadRolesAndPermissions,
                 )
               : Column(
                   children: [

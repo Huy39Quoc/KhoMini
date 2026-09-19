@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/storage_api_service.dart';
 import '../../../models/my_unit_model.dart';
+import '../../../widgets/state_views.dart';
 import '../tickets/create_ticket_screen.dart';
 import 'contract_operation_dialog.dart';
 import 'smart_key_screen.dart';
@@ -217,38 +218,23 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
           future: _unitsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const AppLoadingState(message: 'Loading your units...');
             } else if (snapshot.hasError) {
               return ListView(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Text(
-                      "Couldn't load your units: ${snapshot.error.toString().replaceAll('Exception: ', '')}",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.error, fontSize: 14),
-                    ),
+                  AppErrorState(
+                    message: snapshot.error.toString().replaceAll('Exception: ', ''),
+                    onRetry: _loadUnits,
                   ),
                 ],
               );
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return ListView(
-                children: [
-                  const SizedBox(height: 100),
-                  Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
-                  const SizedBox(height: 16),
-                  const Center(
-                    child: Text(
-                      'No rented storage units yet',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Center(
-                    child: Text(
-                      'Units you rent will show up here.',
-                      style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
-                    ),
+                children: const [
+                  AppEmptyState(
+                    icon: Icons.inventory_2_outlined,
+                    title: 'No rented storage units yet',
+                    message: 'Units you rent will show up here.',
                   ),
                 ],
               );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/ticket_api_service.dart';
+import '../../../widgets/state_views.dart';
 import 'create_ticket_screen.dart';
 
 class TicketListScreen extends StatefulWidget {
@@ -67,42 +68,24 @@ class _TicketListScreenState extends State<TicketListScreen> {
           future: _ticketsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const AppLoadingState(message: 'Loading your tickets...');
             } else if (snapshot.hasError) {
               return ListView(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Text(
-                      "Couldn't load tickets: ${snapshot.error.toString().replaceAll('Exception: ', '')}",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.error, fontSize: 14),
-                    ),
+                  AppErrorState(
+                    message: snapshot.error.toString().replaceAll('Exception: ', ''),
+                    onRetry: _loadTickets,
                   ),
                 ],
               );
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return ListView(
-                children: [
-                  const SizedBox(height: 80),
-                  Icon(Icons.support_agent, size: 64, color: Colors.grey.shade400),
-                  const SizedBox(height: 16),
-                  const Center(
-                    child: Text(
-                      'No support requests yet',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(
+                children: const [
+                  AppEmptyState(
+                    icon: Icons.support_agent,
+                    title: 'No support requests yet',
+                    message:
                         'If you run into an issue with your unit, PIN, or payment, tap + to let us know.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
-                      ),
-                    ),
                   ),
                 ],
               );
