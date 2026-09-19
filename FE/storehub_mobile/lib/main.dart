@@ -25,3 +25,4 @@ class StoreHubApp extends StatelessWidget {
     );
   }
 }
+
