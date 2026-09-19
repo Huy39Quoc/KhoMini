@@ -24,13 +24,14 @@ class StorageApiService {
     }
   }
 
-  // Lấy thông tin smart access (mã PIN / mã QR) theo bookingId
+  // Lấy thông tin smart access (mã PIN / mã QR) theo bookingId.
+  // BE trả về dạng bọc { success, message, data: { accessPin, ... } };
+  // trước đây hàm này trả nguyên cả bọc đó ra ngoài (không bóc "data"),
+  // khiến accessPin/qrCodeToken/tokenExpiresAt luôn bị đọc là null.
   Future<Map<String, dynamic>> getSmartAccess(String bookingId) async {
     try {
       final response = await _dio.get(ApiEndpoints.smartAccess(bookingId));
-      return response.data is Map<String, dynamic>
-          ? response.data
-          : Map<String, dynamic>.from(response.data);
+      return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to get smart access: $message');
@@ -53,12 +54,16 @@ class StorageApiService {
 
   // Gia hạn thời gian thuê kho
   // BE (ExtendRentalRequest) nhận field tên "extraMonths", không phải "months".
-  Future<void> extendRental(String bookingId, int months) async {
+  // Trả về nguyên ContractOperationResponse thật từ BE (newEndDate,
+  // additionalFee, updatedTotalFee...) để FE hiển thị đúng số tiền thật,
+  // thay vì tự tính (không có công thức thuế/giảm giá nào ở FE cả).
+  Future<Map<String, dynamic>> extendRental(String bookingId, int months) async {
     try {
-      await _dio.post(
+      final response = await _dio.post(
         ApiEndpoints.extendRental(bookingId),
         data: {'extraMonths': months},
       );
+      return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to extend rental: $message');
@@ -68,23 +73,34 @@ class StorageApiService {
   // Gửi yêu cầu trả kho (checkout)
   // BE (CheckoutRequest) bắt buộc "scheduledReturnTime" (phải ở tương lai);
   // trước đây không gửi gì nên luôn bị lỗi validate ở BE.
-  Future<void> checkoutRental(
+  // Cũng trả về ContractOperationResponse thật (message, scheduledReturnTime...).
+  Future<Map<String, dynamic>> checkoutRental(
     String bookingId,
     DateTime scheduledReturnTime, {
     String? notes,
   }) async {
     try {
-      await _dio.post(
+      final response = await _dio.post(
         ApiEndpoints.checkoutRental(bookingId),
         data: {
           'scheduledReturnTime': _formatLocalDateTime(scheduledReturnTime),
           if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
         },
       );
+      return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to checkout rental: $message');
     }
+  }
+
+  Map<String, dynamic> _unwrapMap(dynamic data) {
+    if (data is Map && data['data'] is Map) {
+      return Map<String, dynamic>.from(data['data']);
+    }
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return {};
   }
 
   // Format "yyyy-MM-ddTHH:mm:ss" (không có mili-giây/timezone) để khớp

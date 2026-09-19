@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,10 +37,48 @@ class AuthApiService {
         }
       }
 
+      // BE's UserResponse (data['user']) does NOT include the user's role at
+      // all (UserMapper explicitly ignores it), so every account used to be
+      // routed to the Customer UI regardless of its real role. The access
+      // token itself DOES carry a "role" claim (see JwtServiceImpl on the
+      // BE), so we decode it here and merge it into the user map. This is a
+      // FE-only fix; nothing on the BE is touched.
+      if (accessToken is String && accessToken.isNotEmpty) {
+        final claims = _decodeJwtPayload(accessToken);
+        final role = claims?['role'];
+        if (role is String && role.isNotEmpty) {
+          final userMap = data['user'];
+          if (userMap is Map) {
+            final merged = Map<String, dynamic>.from(userMap);
+            merged['roleName'] = role;
+            data['user'] = merged;
+          }
+        }
+      }
+
       return data;
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Login failed: $message');
+    }
+  }
+
+  /// Decodes the middle (payload) segment of a JWT and returns its claims
+  /// as a Map. Returns null if the token is malformed. This does NOT verify
+  /// the token's signature - it is only used to read non-sensitive display
+  /// claims (role, userId, fullName) already trusted because the token was
+  /// just issued by our own backend over HTTPS.
+  Map<String, dynamic>? _decodeJwtPayload(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      var payload = parts[1];
+      payload = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final map = jsonDecode(decoded);
+      return map is Map<String, dynamic> ? map : null;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -68,6 +108,25 @@ class AuthApiService {
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Registration failed: $message');
+    }
+  }
+
+  // BE always responds with a generic success message regardless of
+  // whether the email exists, so we simply surface that message to the UI.
+  Future<String> forgotPassword(String email) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.forgotPassword,
+        data: {'email': email},
+      );
+      final body = response.data;
+      if (body is Map && body['message'] is String) {
+        return body['message'] as String;
+      }
+      return 'If this email exists, a reset link has been sent.';
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Request failed: $message');
     }
   }
 

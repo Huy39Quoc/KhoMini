@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../services/admin_api_service.dart';
 import '../../services/auth_api_service.dart';
 import '../auth/login_screen.dart';
+import 'role_permission_screen.dart';
 import 'user_management_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -17,6 +18,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _authApiService = AuthApiService();
   bool _isLoading = true;
   int _totalUsers = 0;
+  int _totalRoles = 0;
+  int _totalPermissions = 0;
+  int _activeUsers = 0;
   String? _errorMessage;
 
   @override
@@ -32,10 +36,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     });
 
     try {
-      final total = await _adminApiService.getTotalUsersCount();
+      final results = await Future.wait([
+        _adminApiService.getTotalUsersCount(),
+        _adminApiService.getUsers(),
+        _adminApiService.getRoles(),
+        _adminApiService.getPermissions(),
+      ]);
+      final total = results[0] as int;
+      final users = results[1] as List<dynamic>;
+      final roles = results[2] as List<dynamic>;
+      final permissions = results[3] as List<dynamic>;
+      final active = users
+          .whereType<Map>()
+          .where((u) => u['isActive'] == true)
+          .length;
+
       if (!mounted) return;
       setState(() {
         _totalUsers = total;
+        _activeUsers = active;
+        _totalRoles = roles.length;
+        _totalPermissions = permissions.length;
         _isLoading = false;
       });
     } catch (e) {
@@ -60,10 +81,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('System Administration'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: 'Sign Out',
@@ -84,53 +104,102 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppColors.errorContainer,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                      child: Text(_errorMessage!, style: const TextStyle(color: AppColors.error)),
                     ),
-                  Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Row(
-                        children: [
-                          const CircleAvatar(
-                            radius: 30,
-                            backgroundColor: AppColors.primary,
-                            child: Icon(Icons.people, size: 32, color: Colors.white),
-                          ),
-                          const SizedBox(width: 16),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Total Registered Users', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                              Text('$_totalUsers', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+
+                  // Real stats bento grid
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.5,
+                    children: [
+                      _statCard('Total Users', '$_totalUsers', Icons.people, AppColors.primaryContainer),
+                      _statCard('Active Users', '$_activeUsers', Icons.verified_user, AppColors.success),
+                      _statCard('Roles', '$_totalRoles', Icons.badge, AppColors.secondaryContainer),
+                      _statCard('Permissions', '$_totalPermissions', Icons.lock_outline, AppColors.secondary),
+                    ],
                   ),
                   const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: () {
+
+                  const Text('Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 10),
+                  _actionTile(
+                    icon: Icons.manage_accounts,
+                    title: 'Users & Role Assignment',
+                    subtitle: 'View accounts and assign a role to each user',
+                    onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const UserManagementScreen()),
                       );
                     },
-                    icon: const Icon(Icons.manage_accounts),
-                    label: const Text('Manage Users & Permissions'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _actionTile(
+                    icon: Icons.security,
+                    title: 'Roles & Permissions (RBAC)',
+                    subtitle: 'Control exactly what each role can access',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RolePermissionScreen()),
+                      );
+                    },
                   ),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _statCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.surfaceContainerHigh),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: AppColors.primaryContainer),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+        onTap: onTap,
+      ),
     );
   }
 }

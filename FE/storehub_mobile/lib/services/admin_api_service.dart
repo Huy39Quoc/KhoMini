@@ -76,6 +76,77 @@ class AdminApiService {
     }
   }
 
+  // ---- RBAC: Permissions & Role-Permissions ----
+  // These BE endpoints (PermissionController, RolePermissionController)
+  // existed already but had no FE screen calling them at all.
+
+  Future<List<dynamic>> getPermissions() async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.permissions,
+        queryParameters: {'size': 200},
+      );
+      return _extractList(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load permissions: $message');
+    }
+  }
+
+  Future<List<dynamic>> getRolePermissionsByRole(String roleId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.rolePermissionsByRole(roleId));
+      // This endpoint returns a plain List (not a paginated PageResponse).
+      final data = response.data;
+      if (data is Map && data['data'] is List) return data['data'];
+      if (data is List) return data;
+      return [];
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load role permissions: $message');
+    }
+  }
+
+  Future<void> bulkAssignPermissions(String roleId, List<String> permissionIds) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.rolePermissionsBulkAssign,
+        data: {
+          'roleId': roleId,
+          'permissionIds': permissionIds,
+        },
+      );
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to update role permissions: $message');
+    }
+  }
+
+  Future<void> revokeRolePermission(String rolePermissionId) async {
+    try {
+      await _dio.delete(ApiEndpoints.rolePermissionDetail(rolePermissionId));
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to revoke permission: $message');
+    }
+  }
+
+  Future<void> createRole(String name, String? description) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.roles,
+        data: {
+          'name': name,
+          if (description != null && description.trim().isNotEmpty)
+            'description': description.trim(),
+        },
+      );
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to create role: $message');
+    }
+  }
+
   // Trước đây gọi PUT /users/{id}/role - endpoint này KHÔNG tồn tại trên BE
   // (luôn lỗi 404). BE chỉ hỗ trợ đổi role thông qua PUT /users/{id} với
   // UserUpdateRequest {roleId, phone, ...}, trong đó "phone" là bắt buộc

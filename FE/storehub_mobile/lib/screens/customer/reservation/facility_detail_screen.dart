@@ -70,8 +70,6 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.facilityName),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
       ),
       body: FutureBuilder<List<UnitTypeModel>>(
         future: _unitTypesFuture,

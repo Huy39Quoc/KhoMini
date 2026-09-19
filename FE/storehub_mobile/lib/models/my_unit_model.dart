@@ -13,6 +13,10 @@ class MyUnitModel {
   final DateTime? startDate;
   final DateTime? endDate;
   final bool hasActiveAccess;
+  final String dimensions;
+  final double? areaSqm;
+  final int? rentalMonths;
+  final double? depositPaid;
 
   MyUnitModel({
     required this.bookingId,
@@ -26,7 +30,18 @@ class MyUnitModel {
     this.startDate,
     this.endDate,
     this.hasActiveAccess = false,
+    this.dimensions = '',
+    this.areaSqm,
+    this.rentalMonths,
+    this.depositPaid,
   });
+
+  /// Current monthly rate derived from the real totalRentalFee /
+  /// rentalMonths already returned by the BE - not a client-side estimate.
+  double? get monthlyRate {
+    if (rentalMonths == null || rentalMonths == 0) return null;
+    return totalRentalFee / rentalMonths!;
+  }
 
   // Giữ lại để không phá vỡ các chỗ đã dùng u.id trước đây.
   String get id => bookingId;
@@ -59,6 +74,10 @@ class MyUnitModel {
           : null,
       // Dùng trực tiếp cờ hasActiveAccess do BE trả về thay vì tự đoán qua status.
       hasActiveAccess: json['hasActiveAccess'] == true,
+      dimensions: json['dimensions']?.toString() ?? '',
+      areaSqm: (json['areaSqm'] as num?)?.toDouble(),
+      rentalMonths: (json['rentalMonths'] as num?)?.toInt(),
+      depositPaid: (json['depositPaid'] as num?)?.toDouble(),
     );
   }
 }
