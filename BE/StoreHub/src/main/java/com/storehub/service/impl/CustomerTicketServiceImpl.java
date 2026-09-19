@@ -11,6 +11,7 @@ import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.SupportTicketRepository;
+import com.storehub.repository.UserRepository;
 import com.storehub.service.CustomerTicketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,10 +29,12 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
 
     private final SupportTicketRepository ticketRepository;
     private final BookingRepository bookingRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
-    public TicketResponse createTicket(User customer, CreateTicketRequest request) {
+    public TicketResponse createTicket(String customerEmail, CreateTicketRequest request) {
+        User customer = resolveCustomer(customerEmail);
         Booking booking = null;
 
         if (request.getBookingId() != null) {
@@ -58,7 +61,8 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<TicketResponse> getMyTickets(User customer, Pageable pageable) {
+    public PageResponse<TicketResponse> getMyTickets(String customerEmail, Pageable pageable) {
+        User customer = resolveCustomer(customerEmail);
         Page<SupportTicket> ticketPage = ticketRepository.findAllByCustomerId(customer.getId(), pageable);
 
         List<TicketResponse> responses = ticketPage.getContent().stream()
@@ -76,11 +80,17 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
 
     @Override
     @Transactional(readOnly = true)
-    public TicketResponse getTicketDetail(UUID ticketId, User customer) {
+    public TicketResponse getTicketDetail(UUID ticketId, String customerEmail) {
+        User customer = resolveCustomer(customerEmail);
         SupportTicket ticket = ticketRepository.findByIdAndCustomerId(ticketId, customer.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         return mapToResponse(ticket);
+    }
+
+    private User resolveCustomer(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     }
 
     private TicketResponse mapToResponse(SupportTicket t) {
