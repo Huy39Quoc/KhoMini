@@ -4,8 +4,7 @@ class UserModel {
   final String fullName;
   final String email;
   final String phone;
-  final String role;
-  final bool isActive;
+  final String roleName;
 
   UserModel({
     required this.id,
@@ -13,19 +12,32 @@ class UserModel {
     required this.fullName,
     required this.email,
     required this.phone,
-    required this.role,
-    required this.isActive,
+    required this.roleName,
   });
+
+  String get role => roleName;
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id']?.toString() ?? '',
-      username: json['username'] ?? '',
-      fullName: json['fullName'] ?? '',
-      email: json['email'] ?? '',
-      phone: json['phone'] ?? '',
-      role: json['role'] ?? 'STORAGE_CUSTOMER',
-      isActive: json['isActive'] ?? true,
+      username: json['username']?.toString() ?? json['email']?.toString() ?? '',
+      fullName: json['fullName']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      phone: json['phone']?.toString() ?? '',
+      roleName: json['roleName']?.toString() ??
+          (json['role'] is Map
+              ? json['role']['name']?.toString()
+              : json['role']?.toString()) ??
+          'CUSTOMER',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'username': username,
+        'fullName': fullName,
+        'email': email,
+        'phone': phone,
+        'roleName': roleName,
+      };
 }

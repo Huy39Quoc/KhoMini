@@ -1,27 +1,66 @@
+import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
-import '../models/ticket_model.dart';
 
 class TicketApiService {
-  final HttpClient _http = HttpClient();
+  final Dio _dio = HttpClient.instance.dio;
 
-  Future<List<TicketModel>> getMyTickets() async {
-    final res = await _http.get(ApiEndpoints.tickets);
-    final List<dynamic> list =
-        res['data']?['content'] ?? res['data']?['items'] ?? [];
-    return list.map((e) => TicketModel.fromJson(e)).toList();
+  Future<List<dynamic>> getMyTickets() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.tickets);
+      final data = response.data;
+      if (data is List) {
+        return data;
+      } else if (data is Map) {
+        if (data['data'] is Map && data['data']['content'] is List) {
+          return data['data']['content'];
+        } else if (data['content'] is List) {
+          return data['content'];
+        } else if (data['result'] is List) {
+          return data['result'];
+        } else if (data['data'] is List) {
+          return data['data'];
+        }
+      }
+      return [];
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load tickets: $message');
+    }
   }
 
-  Future<void> createTicket(String category, String title, String description,
-      String? bookingId) async {
-    await _http.post(
-      ApiEndpoints.tickets,
-      body: {
-        'category': category,
-        'title': title,
-        'description': description,
-        'bookingId': bookingId,
-      },
-    );
+  Future<void> createTicket(
+    String category,
+    String title,
+    String description,
+    String? bookingId,
+  ) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.tickets,
+        data: {
+          'category': category,
+          'title': title,
+          'description': description,
+          if (bookingId != null && bookingId.isNotEmpty)
+            'bookingId': bookingId,
+        },
+      );
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to create ticket: $message');
+    }
+  }
+
+  Future<Map<String, dynamic>> getTicketDetail(String ticketId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.ticketDetail(ticketId));
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : Map<String, dynamic>.from(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load ticket detail: $message');
+    }
   }
 }

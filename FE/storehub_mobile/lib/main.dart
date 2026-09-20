@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'core/constants/app_colors.dart';
+import 'core/theme/app_theme.dart';
 import 'screens/auth/login_screen.dart';
 
 void main() {
@@ -14,11 +14,12 @@ class StoreHubApp extends StatelessWidget {
     return MaterialApp(
       title: 'StoreHub',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
       home: const LoginScreen(),
+      routes: {
+        '/login': (context) => const LoginScreen(),
+      },
     );
   }
 }
+

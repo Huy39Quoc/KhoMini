@@ -47,4 +47,5 @@ VALUES
         'CUSTOMER',
         'Store customer',
         TRUE
-    );
+    )
+    ON CONFLICT (id) DO NOTHING;

@@ -33,33 +33,18 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/api-docs/**",
             "/v3/api-docs/**",
-            "/api/v1/catalog/**"
+            "/api/v1/catalog/**",
+            "/api/v1/pricing/**"
     };
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                // Disable CSRF — not needed for stateless JWT APIs
-                .csrf(AbstractHttpConfigurer::disable)
-
-                // Configure route permissions
+        http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-//                        .requestMatchers(PUBLIC_URLS).permitAll()
-//                        .requestMatchers("/api/v1/admin/**").hasRole("admin")
-//                        .requestMatchers("/api/v1/instructor/**").hasAnyRole("instructor", "admin")
-//                        .anyRequest().authenticated()
-                                .anyRequest().permitAll()
-                )
-
-                // Stateless session — no HTTP session stored server-side
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-
-                // Use our custom auth provider
-                .authenticationProvider(authenticationProvider())
-
-                // Add JWT filter before Spring's username/password filter
+                        .requestMatchers(PUBLIC_URLS).permitAll()
+                        .anyRequest().authenticated()
+                ).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                ).authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

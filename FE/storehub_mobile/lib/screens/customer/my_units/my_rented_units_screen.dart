@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../models/my_unit_model.dart';
-import '../../../services/auth_api_service.dart';
 import '../../../services/storage_api_service.dart';
-import '../../auth/login_screen.dart';
-import '../tickets/ticket_list_screen.dart';
+import '../../../models/my_unit_model.dart';
+import '../../../widgets/state_views.dart';
+import '../tickets/create_ticket_screen.dart';
 import 'contract_operation_dialog.dart';
 import 'smart_key_screen.dart';
 
@@ -19,149 +19,419 @@ class MyRentedUnitsScreen extends StatefulWidget {
 class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   final StorageApiService _storageService = StorageApiService();
   late Future<List<MyUnitModel>> _unitsFuture;
+  final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
+  final _dateFmt = DateFormat('MMM d, yyyy');
 
   @override
   void initState() {
     super.initState();
-    _refresh();
+    _loadUnits();
   }
 
-  void _refresh() {
+  void _loadUnits() {
     setState(() {
-      _unitsFuture = _storageService.getMyRentedUnits();
+      _unitsFuture = _storageService.getMyRentedUnits().then((response) {
+        return response.map((item) {
+          if (item is MyUnitModel) return item;
+          return MyUnitModel.fromJson(item as Map<String, dynamic>);
+        }).toList();
+      });
     });
+  }
+
+  void _showUnitActions(MyUnitModel unit) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Unit ${unit.unitCode}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.key, color: AppColors.primaryContainer),
+                ),
+                title: const Text('Smart Access (PIN / QR)'),
+                enabled: unit.hasActiveAccess,
+                subtitle: unit.hasActiveAccess ? null : const Text('Not available for this unit'),
+                onTap: unit.hasActiveAccess
+                    ? () {
+                        Navigator.pop(ctx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SmartKeyScreen(
+                              bookingId: unit.bookingId,
+                              unitNumber: unit.unitCode,
+                            ),
+                          ),
+                        );
+                      }
+                    : null,
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.update, color: AppColors.primaryContainer),
+                ),
+                title: const Text('Extend Rental'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openContractOperation(unit, isExtension: true);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.errorContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.logout, color: AppColors.error),
+                ),
+                title: const Text('Request Checkout'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openContractOperation(unit, isExtension: false);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.report_problem_outlined, color: AppColors.secondary),
+                ),
+                title: const Text('Report an Issue'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CreateTicketScreen(
+                        preselectedBookingId: unit.bookingId,
+                        preselectedUnitLabel: '${unit.unitCode} • ${unit.facilityName}',
+                      ),
+                    ),
+                  );
+                  if (result == true) _loadUnits();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openContractOperation(
+    MyUnitModel unit, {
+    required bool isExtension,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => ContractOperationDialog(
+        unit: unit,
+        isExtension: isExtension,
+      ),
+    );
+    if (result == true) {
+      _loadUnits();
+    }
+  }
+
+  void _logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    if (!context.mounted) return;
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/login',
+      (route) => false,
+    );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'ACTIVE':
+        return AppColors.success;
+      case 'CONFIRMED':
+        return AppColors.secondaryContainer;
+      case 'PENDING_PAYMENT':
+        return AppColors.warning;
+      case 'COMPLETED':
+        return AppColors.outline;
+      case 'CANCELLED':
+        return AppColors.error;
+      default:
+        return AppColors.outline;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('My Active Storage Units'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        title: const Text('My Storage Units'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.support_agent_outlined),
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const TicketListScreen())),
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadUnits,
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await AuthApiService().logout();
-              if (context.mounted) {
-                Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()));
-              }
-            },
+            tooltip: 'Sign out',
+            onPressed: () => _logout(context),
           ),
         ],
       ),
-      body: FutureBuilder<List<MyUnitModel>>(
-        future: _unitsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final list = snapshot.data ?? [];
-          if (list.isEmpty) {
-            return const Center(
-                child: Text('No active storage rentals found.'));
-          }
+      body: RefreshIndicator(
+        onRefresh: () async => _loadUnits(),
+        child: FutureBuilder<List<MyUnitModel>>(
+          future: _unitsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const AppLoadingState(message: 'Loading your units...');
+            } else if (snapshot.hasError) {
+              return ListView(
+                children: [
+                  AppErrorState(
+                    message: snapshot.error.toString().replaceAll('Exception: ', ''),
+                    onRetry: _loadUnits,
+                  ),
+                ],
+              );
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return ListView(
+                children: const [
+                  AppEmptyState(
+                    icon: Icons.inventory_2_outlined,
+                    title: 'No rented storage units yet',
+                    message: 'Units you rent will show up here.',
+                  ),
+                ],
+              );
+            }
 
-          return RefreshIndicator(
-            onRefresh: () async => _refresh(),
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: list.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, i) => _buildUnitCard(list[i]),
-            ),
-          );
-        },
+            final units = snapshot.data!;
+            final activeCount = units.where((u) => u.status == 'ACTIVE').length;
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white10,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.inventory_2, color: AppColors.secondaryContainer, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$activeCount active of ${units.length} unit${units.length == 1 ? '' : 's'}',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            const Text(
+                              'Tap a unit to access its smart key, extend, or report an issue',
+                              style: TextStyle(color: Colors.white70, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                ...units.map((unit) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildUnitCard(unit),
+                    )),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildUnitCard(MyUnitModel u) {
-    final currency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-    final active = u.hasActiveAccess;
-
+  Widget _buildUnitCard(MyUnitModel unit) {
+    final monthlyRate = unit.monthlyRate;
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                    u.unitCode.isNotEmpty
-                        ? 'Unit: ${u.unitCode}'
-                        : 'Pending Handover',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
-                Chip(
-                    label: Text(u.status,
-                        style:
-                            const TextStyle(fontSize: 11, color: Colors.white)),
-                    backgroundColor:
-                        active ? AppColors.success : AppColors.accent),
-              ],
-            ),
-            Text(u.facilityName,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text(u.facilityAddress,
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 12)),
-            const Divider(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Expiry: ${u.endDate}'),
-                Text(currency.format(u.totalRentalFee),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, color: AppColors.primary)),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: active
-                        ? () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _showUnitActions(unit),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Unit ${unit.unitCode}',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(
+                          unit.dimensions.isNotEmpty
+                              ? '${unit.typeName} • ${unit.dimensions}'
+                              : unit.typeName,
+                          style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _statusColor(unit.status).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      unit.status.replaceAll('_', ' '),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: _statusColor(unit.status),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 14, color: AppColors.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      unit.facilityName.isNotEmpty
+                          ? '${unit.facilityName}${unit.facilityAddress.isNotEmpty ? ', ${unit.facilityAddress}' : ''}'
+                          : 'Facility not specified',
+                      style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    if (monthlyRate != null) ...[
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Monthly rate',
+                                style: TextStyle(fontSize: 10, color: AppColors.onSurfaceVariant)),
+                            Text(_currency.format(monthlyRate),
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Ends on',
+                              style: TextStyle(fontSize: 10, color: AppColors.onSurfaceVariant)),
+                          Text(
+                            unit.endDate != null ? _dateFmt.format(unit.endDate!) : '-',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: unit.hasActiveAccess
+                          ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
                                   builder: (_) => SmartKeyScreen(
-                                      bookingId: u.bookingId,
-                                      unitCode: u.unitCode)),
-                            )
-                        : null,
-                    icon: const Icon(Icons.vpn_key),
-                    label: const Text('Smart Key'),
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            active ? AppColors.primary : Colors.grey.shade300,
-                        foregroundColor: Colors.white),
+                                    bookingId: unit.bookingId,
+                                    unitNumber: unit.unitCode,
+                                  ),
+                                ),
+                              );
+                            }
+                          : null,
+                      icon: const Icon(Icons.key, size: 16),
+                      label: const Text('Smart Key', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () => showModalBottomSheet(
-                    context: context,
-                    builder: (_) => ContractOperationDialog(
-                        bookingId: u.bookingId, onComplete: _refresh),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showUnitActions(unit),
+                      icon: const Icon(Icons.more_horiz, size: 16),
+                      label: const Text('Manage', style: TextStyle(fontSize: 12)),
+                      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+                    ),
                   ),
-                  child: const Text('Contract'),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

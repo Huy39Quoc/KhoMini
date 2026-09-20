@@ -12,6 +12,7 @@ public enum ErrorCode {
     CANNOT_DELETE_SYSTEM_ROLE(102, "Cannot delete default system role", HttpStatus.FORBIDDEN),
     CANNOT_MODIFY_SYSTEM_ROLE(103, "Cannot modify name of default system role", HttpStatus.FORBIDDEN),
     ROLE_IN_USE(104, "Cannot delete role because it is currently assigned to users", HttpStatus.CONFLICT),
+    ROLE_INACTIVE(105, "Role is inactive", HttpStatus.BAD_REQUEST),
 
     // ========================= USER (200 - 299) =========================
     USER_NOT_FOUND(200, "User not found", HttpStatus.NOT_FOUND),
@@ -44,7 +45,16 @@ public enum ErrorCode {
     BOOKING_NOT_FOUND(700, "Booking not found or does not belong to user", HttpStatus.NOT_FOUND),
     BOOKING_NOT_CHECKED_IN(701, "Storage unit has not been checked in yet", HttpStatus.FORBIDDEN),
     INVALID_PIN_FORMAT(702, "PIN must be exactly 6 digits", HttpStatus.BAD_REQUEST),
-    
+    UNIT_TYPE_NOT_FOUND(703, "Unit type not found", HttpStatus.NOT_FOUND),
+    STORAGE_UNIT_NOT_FOUND(704, "Storage unit not found", HttpStatus.NOT_FOUND),
+    INVALID_PRICING_TARGET(705, "Provide either unitTypeId or storageUnitId, but not both or neither", HttpStatus.BAD_REQUEST),
+    UNIT_TYPE_PRICE_NOT_CONFIGURED(706, "Unit type monthly price is not configured", HttpStatus.INTERNAL_SERVER_ERROR),
+    NO_AVAILABLE_UNIT(707, "No available storage unit found for the selected type and facility", HttpStatus.CONFLICT),
+
+    // ========================= PAYMENT (750 - 799) =========================
+    PAYMENT_NOT_FOUND(750, "Payment transaction not found", HttpStatus.NOT_FOUND),
+    PAYMENT_ALREADY_PROCESSED(751, "Payment has already been processed", HttpStatus.CONFLICT),
+
     // ========================= ROLE_PERMISSION (800 - 899) =========================
     ROLE_PERMISSION_NOT_FOUND(800, "Role-permission mapping not found", HttpStatus.NOT_FOUND),
     ROLE_PERMISSION_ALREADY_EXISTS(801, "This permission is already assigned to the role", HttpStatus.BAD_REQUEST),
@@ -52,7 +62,11 @@ public enum ErrorCode {
     // ========================= PERMISSION (900 - 999) =========================
     PERMISSION_NOT_FOUND(900, "Permission not found", HttpStatus.NOT_FOUND),
     PERMISSION_NAME_EXISTED(901, "Permission name already exists", HttpStatus.BAD_REQUEST),
-    PERMISSION_GROUP_EXISTED(902, "Permission group already exists", HttpStatus.BAD_REQUEST);
+    PERMISSION_GROUP_EXISTED(902, "Permission group already exists", HttpStatus.BAD_REQUEST),
+    PERMISSION_IN_USE(903, "Cannot delete permission because it is currently assigned to roles", HttpStatus.CONFLICT),
+    CANNOT_DELETE_SYSTEM_PERMISSION(904, "Cannot delete default system permission", HttpStatus.FORBIDDEN),
+    CANNOT_MODIFY_SYSTEM_PERMISSION(905, "Cannot modify name of default system permission", HttpStatus.FORBIDDEN),
+    PERMISSION_INACTIVE(906, "Permission is inactive", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

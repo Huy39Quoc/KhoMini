@@ -1,28 +1,66 @@
 class ApiEndpoints {
   static const String baseUrl = 'http://10.0.2.2:8080/api/v1';
 
-  // --- PHÂN KHU 1: AUTHENTICATION ---
-  static const String login = '$baseUrl/auth/login';
-  static const String register = '$baseUrl/auth/register';
+  // ---- Auth (AuthController) ----
+  static const String login = '/auth/login';
+  static const String register = '/auth/register';
+  static const String refreshToken = '/auth/refresh-token';
+  static const String logout = '/auth/logout';
+  static const String forgotPassword = '/auth/forgot-password';
+  static const String resetPassword = '/auth/reset-password';
+  static const String changePassword = '/auth/change-password';
 
-  // --- PHÂN KHU 2: THÀNH VIÊN 1 (ADMIN & OPERATIONS) ---
-  static const String users = '$baseUrl/users';
-  static String userRole(String userId) => '$baseUrl/users/$userId/role';
-  static const String roles = '$baseUrl/roles';
-
-  // --- PHÂN KHU 3: THÀNH VIÊN 3 (ACTIVE STORAGE & SMART KEY) ---
-  static const String myUnits = '$baseUrl/customer/my-units';
+  // ---- Customer Storage (CustomerStorageController) ----
+  static const String myUnits = '/customer/storage/my-units';
   static String smartAccess(String bookingId) =>
-      '$baseUrl/customer/my-units/$bookingId/access';
+      '/customer/storage/$bookingId/access';
   static String updatePin(String bookingId) =>
-      '$baseUrl/customer/my-units/$bookingId/access/pin';
+      '/customer/storage/$bookingId/access/pin';
   static String extendRental(String bookingId) =>
-      '$baseUrl/customer/my-units/$bookingId/extend';
-  static String requestCheckout(String bookingId) =>
-      '$baseUrl/customer/my-units/$bookingId/checkout';
+      '/customer/storage/$bookingId/extend';
+  static String checkoutRental(String bookingId) =>
+      '/customer/storage/$bookingId/checkout';
 
-  // --- PHÂN KHU 4: THÀNH VIÊN 3 (SUPPORT TICKETS) ---
-  static const String tickets = '$baseUrl/customer/tickets';
-  static String ticketDetail(String ticketId) =>
-      '$baseUrl/customer/tickets/$ticketId';
+  // ---- Customer Tickets (CustomerTicketController) ----
+  static const String tickets = '/customer/tickets';
+  static String ticketDetail(String ticketId) => '/customer/tickets/$ticketId';
+
+  // ---- Users (UserController) ----
+  static const String users = '/users';
+  static String userDetail(String userId) => '/users/$userId';
+  static String toggleUserActive(String userId) =>
+      '/users/$userId/toggle-active';
+
+  // ---- Roles (RoleController) ----
+  static const String roles = '/roles';
+  static String roleDetail(String roleId) => '/roles/$roleId';
+
+  // ---- Permissions (PermissionController) ----
+  static const String permissions = '/permissions';
+  static String permissionDetail(String permissionId) =>
+      '/permissions/$permissionId';
+
+  // ---- Role <-> Permission assignments (RolePermissionController) ----
+  static const String rolePermissions = '/role-permissions';
+  static String rolePermissionDetail(String rolePermissionId) =>
+      '/role-permissions/$rolePermissionId';
+  static const String rolePermissionsBulkAssign =
+      '/role-permissions/bulk-assign';
+  static String rolePermissionsByRole(String roleId) =>
+      '/role-permissions/by-role/$roleId';
+
+  // ---- Catalog (CatalogController) ----
+  static const String catalogOverview = '/catalog/overview';
+  static const String facilities = '/catalog/facilities';
+  static const String unitTypes = '/catalog/unit-types';
+
+  // ---- Pricing (PricingController) ----
+  static const String pricingQuote = '/pricing/quote';
+
+  // ---- Bookings (BookingController) ----
+  static const String bookings = '/bookings';
+
+  // ---- Payments (PaymentController) ----
+  static const String paymentInitiate = '/payments/initiate';
+  static const String paymentConfirm = '/payments/confirm';
 }

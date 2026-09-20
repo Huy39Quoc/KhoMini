@@ -1,101 +1,204 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../services/admin_api_service.dart';
 import '../../services/auth_api_service.dart';
 import '../auth/login_screen.dart';
+import 'role_permission_screen.dart';
 import 'user_management_screen.dart';
 
-class AdminDashboardScreen extends StatelessWidget {
-  final String userRole;
-  const AdminDashboardScreen({super.key, required this.userRole});
+class AdminDashboardScreen extends StatefulWidget {
+  const AdminDashboardScreen({super.key});
+
+  @override
+  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  final _adminApiService = AdminApiService();
+  final _authApiService = AuthApiService();
+  bool _isLoading = true;
+  int _totalUsers = 0;
+  int _totalRoles = 0;
+  int _totalPermissions = 0;
+  int _activeUsers = 0;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        _adminApiService.getTotalUsersCount(),
+        _adminApiService.getUsers(),
+        _adminApiService.getRoles(),
+        _adminApiService.getPermissions(),
+      ]);
+      final total = results[0] as int;
+      final users = results[1] as List<dynamic>;
+      final roles = results[2] as List<dynamic>;
+      final permissions = results[3] as List<dynamic>;
+      final active = users
+          .whereType<Map>()
+          .where((u) => u['isActive'] == true)
+          .length;
+
+      if (!mounted) return;
+      setState(() {
+        _totalUsers = total;
+        _activeUsers = active;
+        _totalRoles = roles.length;
+        _totalPermissions = permissions.length;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _logout() async {
+    await _authApiService.logout();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isAdmin = userRole.contains('ADMIN');
-
     return Scaffold(
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title:
-            Text(isAdmin ? 'System Administration' : 'Operations Management'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        title: const Text('System Administration'),
         actions: [
           IconButton(
+            tooltip: 'Sign Out',
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await AuthApiService().logout();
-              if (context.mounted) {
-                Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()));
-              }
-            },
+            onPressed: _logout,
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildCard('Total Revenue (MTD)', '184,500,000 ₫', Icons.trending_up,
-              Colors.green),
-          const SizedBox(height: 12),
-          _buildCard(
-              'System Occupancy Rate', '86.4%', Icons.pie_chart, Colors.teal),
-          const SizedBox(height: 12),
-          _buildCard('Active Storage Facilities', '8 Locations', Icons.business,
-              Colors.blue),
-          const SizedBox(height: 24),
-          const Text('System Management',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.manage_accounts,
-                      color: AppColors.primary),
-                  title: const Text('User Account & Role Controls'),
-                  subtitle: const Text('Assign roles and branch permissions'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const UserManagementScreen())),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.policy, color: AppColors.accent),
-                  title: const Text('General Rental Policies'),
-                  subtitle: const Text(
-                      'Deposit rates, overdue fees, cancellation rules'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Standard facility policies loaded.')),
-                    );
-                  },
-                ),
-              ],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadStats,
+              child: ListView(
+                padding: const EdgeInsets.all(16.0),
+                children: [
+                  if (_errorMessage != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(_errorMessage!, style: const TextStyle(color: AppColors.error)),
+                    ),
+
+                  // Real stats bento grid
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.5,
+                    children: [
+                      _statCard('Total Users', '$_totalUsers', Icons.people, AppColors.primaryContainer),
+                      _statCard('Active Users', '$_activeUsers', Icons.verified_user, AppColors.success),
+                      _statCard('Roles', '$_totalRoles', Icons.badge, AppColors.secondaryContainer),
+                      _statCard('Permissions', '$_totalPermissions', Icons.lock_outline, AppColors.secondary),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  const Text('Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 10),
+                  _actionTile(
+                    icon: Icons.manage_accounts,
+                    title: 'Users & Role Assignment',
+                    subtitle: 'View accounts and assign a role to each user',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const UserManagementScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _actionTile(
+                    icon: Icons.security,
+                    title: 'Roles & Permissions (RBAC)',
+                    subtitle: 'Control exactly what each role can access',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RolePermissionScreen()),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
+    );
+  }
+
+  Widget _statCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.surfaceContainerHigh),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
         ],
       ),
     );
   }
 
-  Widget _buildCard(String title, String val, IconData icon, Color col) {
+  Widget _actionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
     return Card(
-      elevation: 2,
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: col.withValues(alpha: 0.15),
-          child: Icon(icon, color: col),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: AppColors.primaryContainer),
         ),
-        title: Text(title,
-            style:
-                const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-        trailing: Text(val,
-            style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold, color: col)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+        onTap: onTap,
       ),
     );
   }
