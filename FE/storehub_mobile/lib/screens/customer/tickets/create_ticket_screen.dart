@@ -4,8 +4,7 @@ import '../../../services/storage_api_service.dart';
 import '../../../services/ticket_api_service.dart';
 
 class CreateTicketScreen extends StatefulWidget {
-  /// Optionally pre-select which rented unit this ticket is about (e.g. when
-  /// opened from a "Report an issue" action on a specific unit card).
+  
   final String? preselectedBookingId;
   final String? preselectedUnitLabel;
 
@@ -19,9 +18,6 @@ class CreateTicketScreen extends StatefulWidget {
   State<CreateTicketScreen> createState() => _CreateTicketScreenState();
 }
 
-/// Category values match com.storehub.enums.TicketCategory on the BE
-/// exactly - sending anything else makes the BE reject the request with a
-/// 400 (invalid enum value).
 const Map<String, _CategoryInfo> _kCategories = {
   'PIN_CODE': _CategoryInfo('Access PIN issue', Icons.pin_outlined),
   'LOCK_ISSUE': _CategoryInfo('Lock / door issue', Icons.lock_outline),
@@ -49,7 +45,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
 
   bool _isLoading = false;
   bool _isLoadingUnits = true;
-  List<Map<String, String>> _units = []; // [{bookingId, label}]
+  List<Map<String, String>> _units = []; 
   String? _unitsError;
 
   @override
@@ -150,7 +146,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Related unit picker
+           
                 const Text('Related unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 4),
                 const Text(
@@ -183,7 +179,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 ],
                 const SizedBox(height: 20),
 
-                // Category
+              
                 const Text('Issue category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
                 Wrap(
@@ -205,7 +201,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Title
+            
                 const Text('Title', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -223,7 +219,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Description
+            
                 const Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
                 TextFormField(

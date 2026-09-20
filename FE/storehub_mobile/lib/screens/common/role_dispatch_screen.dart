@@ -15,10 +15,6 @@ class RoleDispatchScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final role = user.role.toUpperCase().replaceAll('ROLE_', '');
 
-    // Real role names as seeded on the BE (db/migration/V2__seed_roles.sql):
-    // ADMIN, FACILITY_MANAGER, BUSINESS_MANAGER, STAFF, CUSTOMER.
-    // The extra aliases below are kept just in case a differently-named
-    // role is ever added on the BE side without updating this screen.
     if (role == 'ADMIN' || role == 'SYSTEM_ADMIN') {
       return const AdminDashboardScreen();
     } else if (role == 'BUSINESS_MANAGER' ||

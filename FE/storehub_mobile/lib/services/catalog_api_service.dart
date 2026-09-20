@@ -6,13 +6,6 @@ import '../models/facility_model.dart';
 class CatalogApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  /// GET /catalog/facilities - CatalogController.getFacilities() takes no
-  /// query parameters at all (it just returns every facility), so no
-  /// filters are sent here; filtering happens client-side in ExploreScreen.
-  /// Previously this silently fell back to hard-coded demo facilities on
-  /// ANY failure (network error, auth error, 500...) which could show fake
-  /// data to the user with no indication it wasn't real. Now it throws like
-  /// every other service method, so the screen can show a real error state.
   Future<List<FacilityModel>> getFacilities() async {
     try {
       final response = await _dio.get(ApiEndpoints.facilities);
@@ -32,11 +25,6 @@ class CatalogApiService {
     }
   }
 
-  /// GET /catalog/unit-types?facilityId=... - real per-unit-type data
-  /// (dimensions, areaSqm, basePricePerMonth, availableUnitsCount).
-  /// FacilityResponse itself doesn't carry area/price/availability, so
-  /// ExploreScreen aggregates this per facility to show real numbers
-  /// instead of guessing at fields the BE doesn't return.
   Future<List<dynamic>> getUnitTypes({String? facilityId}) async {
     try {
       final response = await _dio.get(
@@ -56,11 +44,6 @@ class CatalogApiService {
     }
   }
 
-  /// Convenience: facility list, each enriched with real stats computed
-  /// from its unit types (min/max area, cheapest monthly rate, units
-  /// available right now). One request per facility, run in parallel -
-  /// acceptable for the small number of facilities a self-storage business
-  /// actually has.
   Future<List<FacilityModel>> getFacilitiesWithStats() async {
     final facilities = await getFacilities();
     final enriched = await Future.wait(facilities.map((f) async {
@@ -68,9 +51,6 @@ class CatalogApiService {
         final unitTypes = await getUnitTypes(facilityId: f.id);
         return f.withUnitTypeStats(unitTypes);
       } catch (_) {
-        // If a single facility's unit-type lookup fails, still show the
-        // facility itself rather than failing the whole list - its stats
-        // just stay at "not available" instead of guessed values.
         return f;
       }
     }));

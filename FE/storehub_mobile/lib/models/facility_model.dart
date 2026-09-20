@@ -1,10 +1,3 @@
-/// Matches BE FacilityResponse exactly: { id, name, address, city,
-/// contactPhone, createdAt }. The Facility entity has no district, no
-/// air-conditioning flag, and no area/price/availability fields - those
-/// used to be guessed from field names the BE never sends. Real
-/// area/price/availability now comes from aggregating GET
-/// /catalog/unit-types?facilityId=... (see withUnitTypeStats), and stay
-/// null ("not loaded yet") rather than silently defaulting to 0.
 class FacilityModel {
   final String id;
   final String name;
@@ -12,7 +5,6 @@ class FacilityModel {
   final String city;
   final String contactPhone;
 
-  // Derived from unit types (nullable = not computed / no unit types yet)
   final double? minAreaSqm;
   final double? maxAreaSqm;
   final double? minPricePerMonth;
@@ -45,9 +37,6 @@ class FacilityModel {
   String get fullAddress =>
       [address, city].where((s) => s.isNotEmpty).join(', ');
 
-  /// Returns a copy of this facility with real stats computed from its
-  /// unit types (as returned by GET /catalog/unit-types?facilityId=...:
-  /// areaSqm, basePricePerMonth, availableUnitsCount per type).
   FacilityModel withUnitTypeStats(List<dynamic> unitTypes) {
     if (unitTypes.isEmpty) {
       return FacilityModel(

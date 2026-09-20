@@ -21,9 +21,6 @@ class _ExploreScreenState extends State<ExploreScreen>
   bool _loading = true;
   String? _error;
 
-  // Bộ lọc diện tích - dữ liệu thật, tổng hợp từ /catalog/unit-types.
-  // (Bộ lọc máy lạnh 24/7 và quận/huyện đã bị bỏ: BE không lưu 2 thông tin
-  // này ở đâu cả, nên trước đây luôn lọc sai / không match được gì.)
   RangeValues _areaRange = const RangeValues(0, 50);
 
   late final AnimationController _fadeCtrl;
@@ -53,9 +50,6 @@ class _ExploreScreenState extends State<ExploreScreen>
       _error = null;
     });
     try {
-      // Gọi danh sách chi nhánh + tổng hợp số liệu thật từ unit-types của
-      // từng chi nhánh (diện tích, giá, số ô trống) - không còn dùng dữ
-      // liệu demo hard-code khi lỗi mạng nữa.
       final list = await _catalogService.getFacilitiesWithStats();
       if (!mounted) return;
       setState(() {
@@ -79,8 +73,6 @@ class _ExploreScreenState extends State<ExploreScreen>
       final matchQ = q.isEmpty ||
           f.name.toLowerCase().contains(q) ||
           f.fullAddress.toLowerCase().contains(q);
-      // Nếu chưa có dữ liệu diện tích (chưa có unit type nào), không loại
-      // chi nhánh đó khỏi kết quả vì không có gì để so sánh.
       final matchArea = f.minAreaSqm == null ||
           f.maxAreaSqm == null ||
           (f.minAreaSqm! <= _areaRange.end && f.maxAreaSqm! >= _areaRange.start);
@@ -129,7 +121,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Bộ lọc tìm kiếm',
+                    const Text('Search Filters',
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
                     TextButton(
@@ -139,17 +131,17 @@ class _ExploreScreenState extends State<ExploreScreen>
                           tempMax = 50;
                         });
                       },
-                      child: const Text('Xoá tất cả',
+                      child: const Text('Clear all',
                           style: TextStyle(color: AppColors.primary)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                // Diện tích
+                // Area
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Diện tích (m²)',
+                    const Text('Area (m²)',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     Text(
                       '${tempMin.toInt()} – ${tempMax.toInt()} m²',
@@ -188,7 +180,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                       });
                       _fadeCtrl.forward(from: 0);
                     },
-                    child: const Text('Áp dụng',
+                    child: const Text('Apply',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
@@ -208,7 +200,6 @@ class _ExploreScreenState extends State<ExploreScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header gradient ──────────────────────────────────────────
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -221,16 +212,15 @@ class _ExploreScreenState extends State<ExploreScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Khám phá chi nhánh',
+                  const Text('Explore Facilities',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  const Text('Tìm kho phù hợp với nhu cầu của bạn',
+                  const Text('Find the right storage for your needs',
                       style: TextStyle(color: Colors.white70, fontSize: 13)),
                   const SizedBox(height: 14),
-                  // Search bar
                   Row(
                     children: [
                       Expanded(
@@ -247,7 +237,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                               _fadeCtrl.forward(from: 0);
                             }),
                             decoration: const InputDecoration(
-                              hintText: 'Tìm tên chi nhánh, địa chỉ...',
+                              hintText: 'Search by facility name or address...',
                               prefixIcon: Icon(Icons.search,
                                   color: AppColors.primary, size: 20),
                               border: InputBorder.none,
@@ -258,7 +248,6 @@ class _ExploreScreenState extends State<ExploreScreen>
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Filter button
                       GestureDetector(
                         onTap: _showFilterSheet,
                         child: Stack(
@@ -302,7 +291,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                 ],
               ),
             ),
-            // ── Active filter chips ──────────────────────────────────────
+
             if (_activeFilterCount > 0)
               Container(
                 color: Colors.white,
@@ -323,7 +312,6 @@ class _ExploreScreenState extends State<ExploreScreen>
                   ],
                 ),
               ),
-            // ── Body ─────────────────────────────────────────────────────
             Expanded(child: _buildBody()),
           ],
         ),
@@ -355,7 +343,7 @@ class _ExploreScreenState extends State<ExploreScreen>
           children: [
             CircularProgressIndicator(color: AppColors.primary),
             SizedBox(height: 12),
-            Text('Đang tải danh sách chi nhánh...'),
+            Text('Loading facilities...'),
           ],
         ),
       );
@@ -376,7 +364,7 @@ class _ExploreScreenState extends State<ExploreScreen>
               ElevatedButton.icon(
                 onPressed: _loadFacilities,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Thử lại'),
+                label: const Text('Try again'),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white),
@@ -393,7 +381,7 @@ class _ExploreScreenState extends State<ExploreScreen>
           children: [
             Icon(Icons.search_off, size: 56, color: Colors.grey.shade400),
             const SizedBox(height: 12),
-            const Text('Không tìm thấy chi nhánh phù hợp.',
+            const Text('No matching facilities found.',
                 style: TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 8),
             TextButton(
@@ -402,7 +390,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                 _areaRange = const RangeValues(0, 50);
                 _applyFilter();
               }),
-              child: const Text('Xoá bộ lọc'),
+              child: const Text('Clear filters'),
             ),
           ],
         ),
@@ -436,7 +424,6 @@ class _ExploreScreenState extends State<ExploreScreen>
   }
 }
 
-// ── FacilityCard widget ───────────────────────────────────────────────────────
 
 class _FacilityCard extends StatelessWidget {
   final FacilityModel facility;
@@ -447,9 +434,6 @@ class _FacilityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final available = facility.availableUnits;
-    // Không có "totalUnits" thật từ BE (chỉ có số ô đang trống), nên không
-    // vẽ thanh tỉ lệ giả - chỉ hiện đúng số ô trống thật, hoặc "Chưa rõ"
-    // nếu chi nhánh chưa có loại kho nào.
     final availColor = available == null
         ? Colors.grey
         : available > 5
@@ -458,10 +442,10 @@ class _FacilityCard extends StatelessWidget {
                 ? Colors.orange
                 : AppColors.error;
     final availLabel = available == null
-        ? 'Chưa có thông tin'
+        ? 'Not available'
         : available > 0
-            ? 'Còn $available ô trống'
-            : 'Hết chỗ';
+            ? '$available units available'
+            : 'Fully booked';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -544,7 +528,6 @@ class _FacilityCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Info section
               Padding(
                 padding: const EdgeInsets.all(14),
                 child: Row(
@@ -559,14 +542,14 @@ class _FacilityCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Text('Từ',
+                        const Text('From',
                             style: TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textSecondary)),
                         Text(
                           facility.minPricePerMonth != null
-                              ? '${_formatPrice(facility.minPricePerMonth!)}/tháng'
-                              : 'Liên hệ',
+                              ? '${_formatPrice(facility.minPricePerMonth!)}/month'
+                              : 'Contact us',
                           style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -577,7 +560,6 @@ class _FacilityCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // CTA
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                 child: SizedBox(
@@ -591,7 +573,7 @@ class _FacilityCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
-                    child: const Text('Xem chi tiết & Đặt chỗ',
+                    child: const Text('View Details & Reserve',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),

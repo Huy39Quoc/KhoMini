@@ -81,7 +81,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           BottomNavigationBarItem(
               icon: Icon(Icons.inventory_2_outlined), label: 'My Units'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.explore_outlined), label: 'Khám phá'),
+              icon: Icon(Icons.explore_outlined), label: 'Explore'),
           BottomNavigationBarItem(
               icon: Icon(Icons.support_agent_outlined), label: 'Support'),
         ],

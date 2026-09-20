@@ -246,7 +246,6 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
-                // Real summary banner (no simulated sensors/telemetry)
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(

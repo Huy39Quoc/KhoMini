@@ -45,7 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // Extract user map whether returned directly or nested under data
       Map<String, dynamic>? userMap;
       if (res['user'] is Map<String, dynamic>) {
         userMap = res['user'] as Map<String, dynamic>;
@@ -177,7 +176,6 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Brand header card
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -223,7 +221,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Auth card
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -284,7 +281,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         validator: (value) {
                           final v = value?.trim() ?? '';
-                          // BE only accepts login by a valid email (LoginRequest requires @Email)
                           if (v.isEmpty) {
                             return 'Email is required';
                           }

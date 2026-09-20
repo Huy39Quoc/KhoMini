@@ -5,12 +5,6 @@ import '../core/network/http_client.dart';
 class AdminApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  // BE (GET /users) trả về danh sách có phân trang: { data: { content: [...] } }.
-  // Trước đây chỉ kiểm tra data['data'] is List (luôn false) nên danh sách
-  // người dùng luôn hiện trống.
-  // BE (GET /users) chỉ trả về 1 trang (mặc định 10 bản ghi). Trước đây
-  // lấy .length của trang đó làm "tổng số user" là sai; endpoint có sẵn
-  // "totalElements" trong phần phân trang nên đọc trực tiếp từ đó.
   Future<int> getTotalUsersCount() async {
     try {
       final response = await _dio.get(
@@ -39,7 +33,6 @@ class AdminApiService {
     }
   }
 
-  // BE (GET /roles) cũng trả về dữ liệu phân trang tương tự.
   Future<List<dynamic>> getRoles() async {
     try {
       final response = await _dio.get(ApiEndpoints.roles);
@@ -66,7 +59,6 @@ class AdminApiService {
     return [];
   }
 
-  // BE định nghĩa endpoint này là PATCH, trước đây FE gọi bằng PUT -> lỗi 405.
   Future<void> toggleUserActive(String userId) async {
     try {
       await _dio.patch(ApiEndpoints.toggleUserActive(userId));
@@ -75,10 +67,6 @@ class AdminApiService {
       throw Exception('Failed to toggle user status: $message');
     }
   }
-
-  // ---- RBAC: Permissions & Role-Permissions ----
-  // These BE endpoints (PermissionController, RolePermissionController)
-  // existed already but had no FE screen calling them at all.
 
   Future<List<dynamic>> getPermissions() async {
     try {
@@ -95,8 +83,8 @@ class AdminApiService {
 
   Future<List<dynamic>> getRolePermissionsByRole(String roleId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.rolePermissionsByRole(roleId));
-      // This endpoint returns a plain List (not a paginated PageResponse).
+      final response =
+          await _dio.get(ApiEndpoints.rolePermissionsByRole(roleId));
       final data = response.data;
       if (data is Map && data['data'] is List) return data['data'];
       if (data is List) return data;
@@ -107,7 +95,8 @@ class AdminApiService {
     }
   }
 
-  Future<void> bulkAssignPermissions(String roleId, List<String> permissionIds) async {
+  Future<void> bulkAssignPermissions(
+      String roleId, List<String> permissionIds) async {
     try {
       await _dio.post(
         ApiEndpoints.rolePermissionsBulkAssign,
@@ -147,10 +136,6 @@ class AdminApiService {
     }
   }
 
-  // Trước đây gọi PUT /users/{id}/role - endpoint này KHÔNG tồn tại trên BE
-  // (luôn lỗi 404). BE chỉ hỗ trợ đổi role thông qua PUT /users/{id} với
-  // UserUpdateRequest {roleId, phone, ...}, trong đó "phone" là bắt buộc
-  // nên phải truyền lại số điện thoại hiện tại của user.
   Future<void> updateUserRole(
     String userId,
     String roleId,

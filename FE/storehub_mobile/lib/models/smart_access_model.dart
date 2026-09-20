@@ -1,5 +1,3 @@
-// Matches BE SmartAccessResponse: { bookingId, unitCode, accessPin,
-// qrCodeToken, pinUpdatedAt, tokenExpiresAt }
 class SmartAccessModel {
   final String bookingId;
   final String unitCode;
@@ -21,8 +19,6 @@ class SmartAccessModel {
     return SmartAccessModel(
       bookingId: json['bookingId']?.toString() ?? '',
       unitCode: json['unitCode']?.toString() ?? '',
-      // No fake fallback PIN: an empty string means "not available", and
-      // the UI shows that honestly instead of a made-up default.
       accessPin: json['accessPin']?.toString() ?? '',
       qrCodeToken: json['qrCodeToken']?.toString() ?? '',
       pinUpdatedAt: json['pinUpdatedAt'] != null

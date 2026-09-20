@@ -28,7 +28,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   int _extraMonths = 3;
   DateTime? _scheduledReturnTime;
   bool _isLoading = false;
-  Map<String, dynamic>? _result; // Real ContractOperationResponse once submitted
+  Map<String, dynamic>? _result; 
 
   @override
   void dispose() {

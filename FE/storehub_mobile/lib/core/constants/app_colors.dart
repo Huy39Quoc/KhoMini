@@ -1,13 +1,4 @@
 import 'package:flutter/material.dart';
-
-/// StoreHub design tokens.
-///
-/// Source of truth: the approved product design (Plus Jakarta Sans,
-/// deep slate primary + safety-orange accent). Field names that already
-/// existed before this redesign (primary, primaryDark, accent, background,
-/// cardBg, textPrimary, textSecondary, border) are kept so every existing
-/// screen keeps compiling and picks up the new look automatically. New
-/// fields are added alongside for screens built against the new design.
 class AppColors {
   // ---- Legacy-named tokens (kept for backward compatibility) ----
   static const Color primary = Color(0xFF131B2E); // was blue, now brand slate

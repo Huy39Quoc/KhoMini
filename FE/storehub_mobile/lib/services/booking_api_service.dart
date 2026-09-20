@@ -2,17 +2,9 @@ import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 
-/// Wires the real BookingController / PaymentController endpoints.
-/// Previously payment_screen.dart faked the whole flow client-side
-/// (Future.delayed + a random booking code); this service actually
-/// creates the booking and payment records on the BE.
 class BookingApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  /// POST /bookings - creates a real booking (status PENDING_PAYMENT).
-  /// The BE recalculates the price itself from unitTypeId/startDate/
-  /// rentalMonths (same PricingService used by /pricing/quote), and picks
-  /// an available StorageUnit for that facility + unit type.
   Future<Map<String, dynamic>> createBooking({
     required String facilityId,
     required String unitTypeId,
@@ -36,10 +28,6 @@ class BookingApiService {
     }
   }
 
-  /// POST /payments/initiate - creates a PENDING payment for the booking
-  /// and returns a real transactionId + a real VietQR image URL.
-  /// paymentType matches com.storehub.enums.PaymentType: DEPOSIT,
-  /// RENTAL_FEE, EXTRA_CHARGE.
   Future<Map<String, dynamic>> initiatePayment({
     required String bookingId,
     String paymentType = 'DEPOSIT',
@@ -61,8 +49,6 @@ class BookingApiService {
     }
   }
 
-  /// POST /payments/confirm - marks the payment PAID, the booking
-  /// CONFIRMED, and the storage unit OCCUPIED on the BE.
   Future<Map<String, dynamic>> confirmPayment({
     required String transactionId,
   }) async {
