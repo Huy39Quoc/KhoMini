@@ -117,7 +117,8 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
 
         StorageUnit storageUnit = booking.getStorageUnit();
 
-        if (!UnitStatus.RESERVED.name().equals(storageUnit.getStatus())) {
+        // Storage unit phải đang ở trạng thái RESERVED mới được check-in
+        if (storageUnit.getStatus() != UnitStatus.RESERVED) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
@@ -138,11 +139,13 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
 
         handoverRecordRepository.save(record);
 
+        // Update booking
         booking.setStatus(BookingStatus.ACTIVE);
         booking.setHandedOverByStaffId(staff.getId());
         booking.setHandoverTime(now);
 
-        storageUnit.setStatus(UnitStatus.OCCUPIED.name());
+        // Update storage unit
+        storageUnit.setStatus(UnitStatus.OCCUPIED);
 
         bookingRepository.save(booking);
         storageUnitRepository.save(storageUnit);
@@ -197,13 +200,16 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
 
         handoverRecordRepository.save(record);
 
+        // Update booking
         booking.setStatus(BookingStatus.COMPLETED);
 
         if (booking.getReturnTime() == null) {
             booking.setReturnTime(now);
         }
 
-        storageUnit.setStatus(UnitStatus.UNDER_MAINTENANCE.name());
+        // Sau khi customer trả storage,
+        // unit chuyển sang UNDER_MAINTENANCE để staff kiểm tra
+        storageUnit.setStatus(UnitStatus.UNDER_MAINTENANCE);
 
         bookingRepository.save(booking);
         storageUnitRepository.save(storageUnit);
@@ -240,7 +246,7 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
             throw new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND);
         }
 
-        storageUnit.setStatus(request.getStatus().name());
+        storageUnit.setStatus(request.getStatus());
 
         storageUnitRepository.save(storageUnit);
 
@@ -336,7 +342,7 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
                 .lockCondition(lockCondition)
                 .notes(record.getNotes())
                 .bookingStatus(booking.getStatus())
-                .unitStatus(storageUnit.getStatus())
+                .unitStatus(storageUnit.getStatus().name())
                 .staffId(staff.getId())
                 .staffName(staff.getFullName())
                 .recordedAt(record.getRecordedAt())
