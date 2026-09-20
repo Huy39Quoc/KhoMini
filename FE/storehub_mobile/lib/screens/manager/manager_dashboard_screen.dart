@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
 import '../../services/auth_api_service.dart';
 import '../auth/login_screen.dart';
 
@@ -22,8 +21,6 @@ class ManagerDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Facility Manager Console'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: 'Sign Out',

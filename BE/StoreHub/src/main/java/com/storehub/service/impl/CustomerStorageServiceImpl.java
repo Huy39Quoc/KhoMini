@@ -191,7 +191,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 .status(b.getStatus())
                 .totalRentalFee(b.getTotalRentalFee())
                 .depositPaid(b.getDepositPaid())
-                .hasActiveAccess(b.getStatus() == BookingStatus.ACTIVE)
+                .activeAccess(b.getStatus() == BookingStatus.ACTIVE)
                 .build();
     }
 }
