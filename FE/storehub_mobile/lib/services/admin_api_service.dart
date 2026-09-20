@@ -5,12 +5,6 @@ import '../core/network/http_client.dart';
 class AdminApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  // BE (GET /users) trả về danh sách có phân trang: { data: { content: [...] } }.
-  // Trước đây chỉ kiểm tra data['data'] is List (luôn false) nên danh sách
-  // người dùng luôn hiện trống.
-  // BE (GET /users) chỉ trả về 1 trang (mặc định 10 bản ghi). Trước đây
-  // lấy .length của trang đó làm "tổng số user" là sai; endpoint có sẵn
-  // "totalElements" trong phần phân trang nên đọc trực tiếp từ đó.
   Future<int> getTotalUsersCount() async {
     try {
       final response = await _dio.get(
@@ -39,7 +33,6 @@ class AdminApiService {
     }
   }
 
-  // BE (GET /roles) cũng trả về dữ liệu phân trang tương tự.
   Future<List<dynamic>> getRoles() async {
     try {
       final response = await _dio.get(ApiEndpoints.roles);
@@ -66,7 +59,6 @@ class AdminApiService {
     return [];
   }
 
-  // BE định nghĩa endpoint này là PATCH, trước đây FE gọi bằng PUT -> lỗi 405.
   Future<void> toggleUserActive(String userId) async {
     try {
       await _dio.patch(ApiEndpoints.toggleUserActive(userId));
@@ -76,10 +68,74 @@ class AdminApiService {
     }
   }
 
-  // Trước đây gọi PUT /users/{id}/role - endpoint này KHÔNG tồn tại trên BE
-  // (luôn lỗi 404). BE chỉ hỗ trợ đổi role thông qua PUT /users/{id} với
-  // UserUpdateRequest {roleId, phone, ...}, trong đó "phone" là bắt buộc
-  // nên phải truyền lại số điện thoại hiện tại của user.
+  Future<List<dynamic>> getPermissions() async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.permissions,
+        queryParameters: {'size': 200},
+      );
+      return _extractList(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load permissions: $message');
+    }
+  }
+
+  Future<List<dynamic>> getRolePermissionsByRole(String roleId) async {
+    try {
+      final response =
+          await _dio.get(ApiEndpoints.rolePermissionsByRole(roleId));
+      final data = response.data;
+      if (data is Map && data['data'] is List) return data['data'];
+      if (data is List) return data;
+      return [];
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load role permissions: $message');
+    }
+  }
+
+  Future<void> bulkAssignPermissions(
+      String roleId, List<String> permissionIds) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.rolePermissionsBulkAssign,
+        data: {
+          'roleId': roleId,
+          'permissionIds': permissionIds,
+        },
+      );
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to update role permissions: $message');
+    }
+  }
+
+  Future<void> revokeRolePermission(String rolePermissionId) async {
+    try {
+      await _dio.delete(ApiEndpoints.rolePermissionDetail(rolePermissionId));
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to revoke permission: $message');
+    }
+  }
+
+  Future<void> createRole(String name, String? description) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.roles,
+        data: {
+          'name': name,
+          if (description != null && description.trim().isNotEmpty)
+            'description': description.trim(),
+        },
+      );
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to create role: $message');
+    }
+  }
+
   Future<void> updateUserRole(
     String userId,
     String roleId,

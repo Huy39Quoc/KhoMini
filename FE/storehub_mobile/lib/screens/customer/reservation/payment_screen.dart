@@ -1,13 +1,12 @@
-import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../services/booking_api_service.dart';
 
 class PaymentScreen extends StatefulWidget {
+  final String bookingId;
+  final String bookingCode;
   final String facilityName;
   final String unitTypeName;
   final String unitTypeDimensions;
@@ -15,10 +14,11 @@ class PaymentScreen extends StatefulWidget {
   final int rentalMonths;
   final double totalRentalFee;
   final double depositAmount;
-  final double initialPayment;
 
   const PaymentScreen({
     super.key,
+    required this.bookingId,
+    required this.bookingCode,
     required this.facilityName,
     required this.unitTypeName,
     required this.unitTypeDimensions,
@@ -26,7 +26,6 @@ class PaymentScreen extends StatefulWidget {
     required this.rentalMonths,
     required this.totalRentalFee,
     required this.depositAmount,
-    required this.initialPayment,
   });
 
   @override
@@ -35,19 +34,15 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen>
     with TickerProviderStateMixin {
-  // Trạng thái màn hình
+  final BookingApiService _bookingService = BookingApiService();
+
   bool _isSuccess = false;
   bool _isConfirming = false;
 
-  // Timer đếm ngược QR (15 phút)
-  static const _qrDuration = Duration(minutes: 15);
-  late Duration _remaining;
-  Timer? _timer;
+  bool _isInitiating = true;
+  String? _initError;
+  Map<String, dynamic>? _payment; 
 
-  // Mã đặt chỗ ngẫu nhiên khi thành công
-  late final String _bookingCode;
-
-  // Animation cho success
   late final AnimationController _successCtrl;
   late final Animation<double> _successScale;
   late final Animation<double> _successFade;
@@ -55,49 +50,47 @@ class _PaymentScreenState extends State<PaymentScreen>
   @override
   void initState() {
     super.initState();
-    _remaining = _qrDuration;
-    _bookingCode = _generateBookingCode();
 
     _successCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _successScale = CurvedAnimation(
-        parent: _successCtrl, curve: Curves.elasticOut);
-    _successFade = CurvedAnimation(
-        parent: _successCtrl, curve: Curves.easeIn);
+    _successScale =
+        CurvedAnimation(parent: _successCtrl, curve: Curves.elasticOut);
+    _successFade = CurvedAnimation(parent: _successCtrl, curve: Curves.easeIn);
 
-    _startTimer();
+    _initiatePayment();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _successCtrl.dispose();
     super.dispose();
   }
 
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      if (_remaining.inSeconds <= 0) {
-        _timer?.cancel();
-        return;
-      }
-      setState(() => _remaining -= const Duration(seconds: 1));
+  Future<void> _initiatePayment() async {
+    setState(() {
+      _isInitiating = true;
+      _initError = null;
     });
-  }
-
-  String _generateBookingCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final rng = Random();
-    return 'KM-${List.generate(8, (_) => chars[rng.nextInt(chars.length)]).join()}';
-  }
-
-  String _formatTimer() {
-    final m = _remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = _remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$m:$s';
+    try {
+      final payment = await _bookingService.initiatePayment(
+        bookingId: widget.bookingId,
+        paymentType: 'DEPOSIT',
+        paymentMethod: 'BANK_TRANSFER',
+      );
+      if (!mounted) return;
+      setState(() {
+        _payment = payment;
+        _isInitiating = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _initError = e.toString().replaceAll('Exception: ', '');
+        _isInitiating = false;
+      });
+    }
   }
 
   String _formatDate(DateTime d) =>
@@ -108,24 +101,32 @@ class _PaymentScreenState extends State<PaymentScreen>
     return '${s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} ₫';
   }
 
-  // QR content giả theo định dạng VietQR cơ bản
-  String get _qrContent {
-    final amount = widget.initialPayment.toInt();
-    return 'KHOMINI|ACC:9704366456789|BNK:MB|AMT:$amount|MSG:DATCHO ${_bookingCode.replaceAll('-', '')}';
-  }
-
   Future<void> _confirmPayment() async {
+    final transactionId = _payment?['transactionId']?.toString();
+    if (transactionId == null || transactionId.isEmpty) return;
+
     setState(() => _isConfirming = true);
-    // Giả lập gọi API xác nhận (~1.5s)
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (!mounted) return;
-    _timer?.cancel();
-    setState(() {
-      _isConfirming = false;
-      _isSuccess = true;
-    });
-    _successCtrl.forward();
-    HapticFeedback.mediumImpact();
+    try {
+      final confirmed =
+          await _bookingService.confirmPayment(transactionId: transactionId);
+      if (!mounted) return;
+      setState(() {
+        _payment = confirmed;
+        _isConfirming = false;
+        _isSuccess = true;
+      });
+      _successCtrl.forward();
+      HapticFeedback.mediumImpact();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isConfirming = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   @override
@@ -133,16 +134,55 @@ class _PaymentScreenState extends State<PaymentScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(_isSuccess ? 'Đặt chỗ thành công' : 'Thanh toán cọc'),
+        title: Text(_isSuccess ? 'Booking Confirmed' : 'Deposit Payment'),
         backgroundColor: const Color(0xFF1E3C72),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: _isSuccess ? _buildSuccessBody() : _buildPaymentBody(),
+      body: _isSuccess
+          ? _buildSuccessBody()
+          : _isInitiating
+              ? const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: AppColors.primary),
+                      SizedBox(height: 12),
+                      Text('Setting up your payment...'),
+                    ],
+                  ),
+                )
+              : _initError != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline,
+                                size: 48, color: AppColors.error),
+                            const SizedBox(height: 12),
+                            Text(_initError!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    color: AppColors.textSecondary)),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _initiatePayment,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Try again'),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : _buildPaymentBody(),
     );
   }
 
-  // ── Màn hình Thành công ────────────────────────────────────────────────────
 
   Widget _buildSuccessBody() {
     return FadeTransition(
@@ -151,7 +191,7 @@ class _PaymentScreenState extends State<PaymentScreen>
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 20),
-          // Check icon
+   
           Center(
             child: ScaleTransition(
               scale: _successScale,
@@ -176,7 +216,7 @@ class _PaymentScreenState extends State<PaymentScreen>
             ),
           ),
           const SizedBox(height: 24),
-          const Text('Đặt chỗ thành công! 🎉',
+          const Text('Booking Confirmed! 🎉',
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 22,
@@ -184,12 +224,12 @@ class _PaymentScreenState extends State<PaymentScreen>
                   color: AppColors.textPrimary)),
           const SizedBox(height: 8),
           const Text(
-              'Chúng tôi đã ghi nhận yêu cầu của bạn.\nNhân viên sẽ liên hệ để xác nhận trong vòng 24h.',
+              'Your storage unit has been confirmed and reserved.\nPlease visit the facility on your scheduled date to check in.',
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 13, color: AppColors.textSecondary, height: 1.5)),
           const SizedBox(height: 28),
-          // Mã đặt chỗ
+       
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -200,10 +240,10 @@ class _PaymentScreenState extends State<PaymentScreen>
             ),
             child: Column(
               children: [
-                const Text('Mã đặt chỗ của bạn',
+                const Text('Your booking code',
                     style: TextStyle(color: Colors.white70, fontSize: 13)),
                 const SizedBox(height: 8),
-                Text(_bookingCode,
+                Text(widget.bookingCode,
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 26,
@@ -212,9 +252,9 @@ class _PaymentScreenState extends State<PaymentScreen>
                 const SizedBox(height: 12),
                 GestureDetector(
                   onTap: () {
-                    Clipboard.setData(ClipboardData(text: _bookingCode));
+                    Clipboard.setData(ClipboardData(text: widget.bookingCode));
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Đã sao chép mã đặt chỗ'),
+                        content: Text('Booking code copied'),
                         backgroundColor: AppColors.success));
                   },
                   child: Container(
@@ -229,7 +269,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                       children: [
                         Icon(Icons.copy, color: Colors.white70, size: 14),
                         SizedBox(width: 4),
-                        Text('Sao chép mã',
+                        Text('Copy code',
                             style: TextStyle(
                                 color: Colors.white70, fontSize: 12)),
                       ],
@@ -240,12 +280,12 @@ class _PaymentScreenState extends State<PaymentScreen>
             ),
           ),
           const SizedBox(height: 20),
-          // Thông tin đặt chỗ
+        
           _summaryCard(),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () {
-              // Quay về màn hình chính
+             
               int count = 0;
               Navigator.popUntil(context, (_) => count++ >= 2);
             },
@@ -256,7 +296,7 @@ class _PaymentScreenState extends State<PaymentScreen>
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Về trang chủ',
+            child: const Text('Back to Home',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 12),
@@ -268,7 +308,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                   borderRadius: BorderRadius.circular(12)),
               side: const BorderSide(color: AppColors.primary),
             ),
-            child: const Text('Xem kho của tôi',
+            child: const Text('View My Units',
                 style: TextStyle(color: AppColors.primary)),
           ),
         ],
@@ -276,23 +316,25 @@ class _PaymentScreenState extends State<PaymentScreen>
     );
   }
 
-  // ── Màn hình Thanh toán ────────────────────────────────────────────────────
 
   Widget _buildPaymentBody() {
-    final isExpired = _remaining.inSeconds <= 0;
+    final payment = _payment!;
+    final amount = (payment['amount'] as num?)?.toDouble() ?? widget.depositAmount;
+    final transactionId = payment['transactionId']?.toString() ?? '';
+    final qrCodeUrl = payment['qrCodeUrl']?.toString() ?? '';
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Tóm tắt đơn hàng
-        const Text('📋 Tóm tắt đặt chỗ',
+      
+        const Text('📋 Booking Summary',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         _summaryCard(),
         const SizedBox(height: 20),
 
-        // QR Payment
-        const Text('📱 Quét QR để thanh toán',
+     
+        const Text('📱 Scan QR to Pay',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         Container(
@@ -309,7 +351,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              // Bank header
+   
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -327,7 +369,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                         Icon(Icons.qr_code_scanner,
                             color: Colors.white, size: 16),
                         SizedBox(width: 6),
-                        Text('VietQR · MBBank',
+                        Text('VietQR',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -338,94 +380,53 @@ class _PaymentScreenState extends State<PaymentScreen>
                 ],
               ),
               const SizedBox(height: 16),
-              // QR code
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (isExpired)
-                    Container(
+
+              qrCodeUrl.isEmpty
+                  ? Container(
                       width: 200,
                       height: 200,
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
                       ),
                       child: const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.timer_off,
-                                size: 40, color: Colors.grey),
-                            SizedBox(height: 8),
-                            Text('QR đã hết hạn',
-                                style: TextStyle(color: Colors.grey)),
-                          ],
-                        ),
+                        child: Text('No QR code available',
+                            style: TextStyle(color: Colors.grey)),
                       ),
                     )
-                  else
-                    QrImageView(
-                      data: _qrContent,
-                      version: QrVersions.auto,
-                      size: 200,
-                      backgroundColor: Colors.white,
-                      eyeStyle: const QrEyeStyle(
-                        eyeShape: QrEyeShape.square,
-                        color: Color(0xFF1E3C72),
-                      ),
-                      dataModuleStyle: const QrDataModuleStyle(
-                        dataModuleShape: QrDataModuleShape.circle,
-                        color: Color(0xFF1E3C72),
+                  : Image.network(
+                      qrCodeUrl,
+                      width: 200,
+                      height: 200,
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return const SizedBox(
+                          width: 200,
+                          height: 200,
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 200,
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Text(
+                              "Couldn't load the QR image.\nUse the transaction code below to transfer manually.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey, fontSize: 12),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                ],
-              ),
               const SizedBox(height: 14),
-              // Timer
-              if (!isExpired)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _remaining.inMinutes < 2
-                        ? Colors.red.shade50
-                        : Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.timer,
-                          size: 16,
-                          color: _remaining.inMinutes < 2
-                              ? Colors.red
-                              : AppColors.primary),
-                      const SizedBox(width: 6),
-                      Text('QR hết hạn sau ${_formatTimer()}',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: _remaining.inMinutes < 2
-                                  ? Colors.red
-                                  : AppColors.primary,
-                              fontSize: 13)),
-                    ],
-                  ),
-                )
-              else
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() => _remaining = _qrDuration);
-                    _startTimer();
-                  },
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Tạo QR mới'),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white),
-                ),
-              const SizedBox(height: 12),
-              // Số tiền cần chuyển
+    
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -437,11 +438,11 @@ class _PaymentScreenState extends State<PaymentScreen>
                 ),
                 child: Column(
                   children: [
-                    const Text('Số tiền cần chuyển',
+                    const Text('Amount to transfer',
                         style: TextStyle(
                             color: AppColors.textSecondary, fontSize: 12)),
                     const SizedBox(height: 4),
-                    Text(_formatPrice(widget.initialPayment),
+                    Text(_formatPrice(amount),
                         style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -450,12 +451,11 @@ class _PaymentScreenState extends State<PaymentScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Nội dung: ',
+                        const Text('Transaction code: ',
                             style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textSecondary)),
-                        Text(
-                            'DATCHO ${_bookingCode.replaceAll('-', '')}',
+                        Text(transactionId,
                             style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -463,12 +463,11 @@ class _PaymentScreenState extends State<PaymentScreen>
                         const SizedBox(width: 4),
                         GestureDetector(
                           onTap: () {
-                            Clipboard.setData(ClipboardData(
-                                text:
-                                    'DATCHO ${_bookingCode.replaceAll('-', '')}'));
+                            Clipboard.setData(
+                                ClipboardData(text: transactionId));
                             ScaffoldMessenger.of(context)
                                 .showSnackBar(const SnackBar(
-                                    content: Text('Đã sao chép nội dung'),
+                                    content: Text('Transaction code copied'),
                                     backgroundColor: AppColors.success));
                           },
                           child: const Icon(Icons.copy,
@@ -484,7 +483,7 @@ class _PaymentScreenState extends State<PaymentScreen>
         ),
         const SizedBox(height: 20),
 
-        // Hướng dẫn
+   
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -500,30 +499,30 @@ class _PaymentScreenState extends State<PaymentScreen>
                   Icon(Icons.info_outline,
                       color: Colors.amber, size: 18),
                   SizedBox(width: 6),
-                  Text('Hướng dẫn thanh toán',
+                  Text('Payment Instructions',
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.orange)),
                 ],
               ),
               SizedBox(height: 8),
-              _Step(step: '1', text: 'Mở app ngân hàng → Chuyển tiền → QR'),
-              _Step(step: '2', text: 'Quét mã QR bên trên'),
+              _Step(step: '1', text: 'Open your banking app → Transfer → Scan QR'),
+              _Step(step: '2', text: 'Scan the QR code above'),
               _Step(
                   step: '3',
-                  text: 'Nhập đúng số tiền & nội dung chuyển khoản'),
-              _Step(step: '4', text: 'Nhấn "Xác nhận đã thanh toán" bên dưới'),
+                  text: 'Enter the exact amount & note the transaction code'),
+              _Step(step: '4', text: 'Tap "Confirm Payment" below'),
             ],
           ),
         ),
         const SizedBox(height: 24),
 
-        // CTA buttons
+   
         SizedBox(
           width: double.infinity,
           height: 52,
           child: ElevatedButton(
-            onPressed: _isConfirming || isExpired ? null : _confirmPayment,
+            onPressed: _isConfirming ? null : _confirmPayment,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
               foregroundColor: Colors.white,
@@ -542,7 +541,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                     children: [
                       Icon(Icons.check_circle_outline, size: 20),
                       SizedBox(width: 8),
-                      Text('Xác nhận đã thanh toán',
+                      Text('Confirm Payment',
                           style: TextStyle(
                               fontSize: 15, fontWeight: FontWeight.bold)),
                     ],
@@ -552,7 +551,7 @@ class _PaymentScreenState extends State<PaymentScreen>
         const SizedBox(height: 10),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Thanh toán sau',
+          child: const Text('Pay later',
               style:
                   TextStyle(color: AppColors.textSecondary, fontSize: 14)),
         ),
@@ -577,39 +576,39 @@ class _PaymentScreenState extends State<PaymentScreen>
       child: Column(
         children: [
           _summaryRow(
+              icon: Icons.confirmation_number_outlined,
+              label: 'Booking code',
+              value: widget.bookingCode),
+          const Divider(height: 16),
+          _summaryRow(
               icon: Icons.warehouse_outlined,
-              label: 'Chi nhánh',
+              label: 'Facility',
               value: widget.facilityName),
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.category_outlined,
-              label: 'Loại kho',
+              label: 'Unit type',
               value: '${widget.unitTypeName} (${widget.unitTypeDimensions})'),
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.calendar_today_outlined,
-              label: 'Ngày bắt đầu',
+              label: 'Start date',
               value: _formatDate(widget.startDate)),
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.date_range_outlined,
-              label: 'Chu kỳ thuê',
-              value: '${widget.rentalMonths} tháng'),
+              label: 'Rental period',
+              value: '${widget.rentalMonths} months'),
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.account_balance_wallet_outlined,
-              label: 'Tiền thuê',
+              label: 'Rental fee',
               value: _formatPrice(widget.totalRentalFee)),
-          const Divider(height: 16),
-          _summaryRow(
-              icon: Icons.shield_outlined,
-              label: 'Tiền cọc',
-              value: _formatPrice(widget.depositAmount)),
           const Divider(height: 16, thickness: 1.5),
           _summaryRow(
-              icon: Icons.payment,
-              label: '💳 Thanh toán trước',
-              value: _formatPrice(widget.initialPayment),
+              icon: Icons.shield_outlined,
+              label: '💳 Deposit',
+              value: _formatPrice(widget.depositAmount),
               isHighlight: true),
         ],
       ),
@@ -649,7 +648,6 @@ class _PaymentScreenState extends State<PaymentScreen>
   }
 }
 
-// ── Step widget ───────────────────────────────────────────────────────────────
 
 class _Step extends StatelessWidget {
   final String step;

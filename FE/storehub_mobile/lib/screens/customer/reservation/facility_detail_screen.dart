@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/unit_type_model.dart';
+import '../../../services/booking_api_service.dart';
 import '../../../services/catalog_api_service.dart';
 import 'payment_screen.dart';
 
@@ -8,14 +9,12 @@ class FacilityDetailScreen extends StatefulWidget {
   final String facilityId;
   final String facilityName;
   final String facilityAddress;
-  final bool has24hAC;
 
   const FacilityDetailScreen({
     super.key,
     required this.facilityId,
     required this.facilityName,
     this.facilityAddress = '',
-    this.has24hAC = false,
   });
 
   @override
@@ -24,6 +23,7 @@ class FacilityDetailScreen extends StatefulWidget {
 
 class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   final CatalogApiService _catalogService = CatalogApiService();
+  final BookingApiService _bookingService = BookingApiService();
   late Future<List<UnitTypeModel>> _unitTypesFuture;
 
   UnitTypeModel? _selectedType;
@@ -33,8 +33,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   Map<String, dynamic>? _quote;
   bool _isQuoting = false;
   String? _quoteError;
+  bool _isBooking = false;
 
-  // Preset chu kỳ thuê
   static const _presets = [1, 3, 6, 12];
 
   @override
@@ -67,19 +67,10 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       setState(() => _quote = quote);
     } catch (e) {
       if (!mounted) return;
-      // Nếu API chưa sẵn sàng, tạo quote giả từ pricePerMonth
-      if (_selectedType != null) {
-        final monthly = _selectedType!.pricePerMonth;
-        setState(() => _quote = {
-              'totalRentalFee': (monthly * _rentalMonths).round(),
-              'depositAmount': (monthly * 2).round(),
-              'initialPaymentAmount':
-                  (monthly * 2 + monthly).round(),
-            });
-      } else {
-        setState(
-            () => _quoteError = e.toString().replaceAll('Exception: ', ''));
-      }
+      setState(() {
+        _quote = null;
+        _quoteError = e.toString().replaceAll('Exception: ', '');
+      });
     } finally {
       if (mounted) setState(() => _isQuoting = false);
     }
@@ -103,7 +94,6 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         builder: (context, snapshot) {
           return CustomScrollView(
             slivers: [
-              // ── SliverAppBar với gradient ────────────────────────────
               SliverAppBar(
                 expandedHeight: 160,
                 pinned: true,
@@ -151,13 +141,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                             const SizedBox(height: 8),
                             Row(
                               children: [
-                                if (widget.has24hAC)
-                                  _badgeChip(
-                                      Icons.ac_unit, '❄️ Máy lạnh 24/7',
-                                      Colors.lightBlue.shade700),
-                                const SizedBox(width: 6),
                                 _badgeChip(Icons.access_time,
-                                    '🔑 Truy cập 24/7', Colors.green.shade700),
+                                    '🔑 24/7 Access', Colors.green.shade700),
                               ],
                             ),
                           ],
@@ -168,7 +153,6 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                 ),
               ),
 
-              // ── Body ────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -179,7 +163,6 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           );
         },
       ),
-      // ── Bottom CTA ───────────────────────────────────────────────────
       bottomNavigationBar: _selectedType != null && _quote != null
           ? _buildBottomCTA()
           : null,
@@ -213,16 +196,15 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Chọn loại kho ─────────────────────────────────────────────
-        _sectionHeader('📦 Chọn loại kho', subtitle: 'Chọn kích thước phù hợp'),
+        _sectionHeader('📦 Choose a Unit Type', subtitle: 'Pick the size that fits'),
         const SizedBox(height: 10),
         if (snapshot.hasError)
           _errorBanner(
-              'Không tải được loại kho. Vui lòng kiểm tra kết nối mạng.')
+              "Couldn't load unit types. Please check your network connection.")
         else if (unitTypes.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: Text('Không có loại kho nào.')),
+            child: Center(child: Text('No unit types available.')),
           )
         else
           ...unitTypes.map((type) => _UnitTypeCard(
@@ -239,30 +221,27 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
         const SizedBox(height: 24),
 
-        // ── Lịch hẹn ngày nhận kho ───────────────────────────────────
-        _sectionHeader('📅 Lịch hẹn ngày nhận kho',
-            subtitle: 'Chọn ngày bắt đầu thuê'),
+        _sectionHeader('📅 Move-in Appointment',
+            subtitle: 'Choose your rental start date'),
         const SizedBox(height: 10),
         _buildDatePicker(),
 
         const SizedBox(height: 24),
 
-        // ── Chu kỳ thuê ───────────────────────────────────────────────
-        _sectionHeader('🗓 Chu kỳ thuê',
-            subtitle: 'Thuê càng dài, giá càng ưu đãi'),
+        _sectionHeader('🗓 Rental Period',
+            subtitle: 'The longer you rent, the better the rate'),
         const SizedBox(height: 10),
         _buildRentalPeriodSection(),
 
         const SizedBox(height: 24),
 
-        // ── Bảng kê chi phí ───────────────────────────────────────────
         if (_selectedType != null) ...[
-          _sectionHeader('💰 Bảng kê chi phí', subtitle: 'Tự động cập nhật'),
+          _sectionHeader('💰 Cost Breakdown', subtitle: 'Updates automatically'),
           const SizedBox(height: 10),
           _buildQuoteSection(),
         ],
 
-        const SizedBox(height: 100), // space for bottom bar
+        const SizedBox(height: 100), 
       ],
     );
   }
@@ -353,7 +332,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Ngày bắt đầu thuê',
+                const Text('Rental start date',
                     style: TextStyle(
                         fontSize: 12, color: AppColors.textSecondary)),
                 const SizedBox(height: 2),
@@ -419,7 +398,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                                 color: isSelected
                                     ? Colors.white
                                     : AppColors.textPrimary)),
-                        Text('tháng',
+                        Text('mo',
                             style: TextStyle(
                                 fontSize: 11,
                                 color: isSelected
@@ -434,7 +413,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           }).toList(),
         ),
         const SizedBox(height: 10),
-        // Stepper tuỳ chỉnh
+        // Custom stepper
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
@@ -444,7 +423,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Số tháng tuỳ chỉnh:',
+              const Text('Custom months:',
                   style: TextStyle(color: AppColors.textSecondary)),
               Row(
                 children: [
@@ -506,7 +485,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
               CircularProgressIndicator(
                   color: AppColors.primary, strokeWidth: 2),
               SizedBox(height: 8),
-              Text('Đang tính chi phí...',
+              Text('Calculating cost...',
                   style: TextStyle(color: AppColors.textSecondary)),
             ],
           ),
@@ -543,7 +522,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             children: [
               const Icon(Icons.receipt_long, color: AppColors.primary, size: 20),
               const SizedBox(width: 6),
-              const Text('Bảng kê chi phí',
+              const Text('Cost Breakdown',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -556,7 +535,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text('$_rentalMonths tháng',
+                child: Text('$_rentalMonths mo',
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -566,15 +545,15 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           ),
           const Divider(height: 20),
           _quoteLine(
-              'Tiền thuê (${'$_rentalMonths'} tháng)', total, isHighlight: false),
+              'Rental fee ($_rentalMonths mo)', total, isHighlight: false),
           const SizedBox(height: 8),
-          _quoteLine('Tiền cọc (hoàn trả khi trả kho)', deposit,
+          _quoteLine('Deposit (refunded at checkout)', deposit,
               isHighlight: false),
           const Divider(height: 20),
-          _quoteLine('💳 Thanh toán trước', initial, isHighlight: true),
+          _quoteLine('💳 Due Now', initial, isHighlight: true),
           const SizedBox(height: 6),
           const Text(
-              '* Tiền cọc sẽ được hoàn lại khi kết thúc hợp đồng thuê.',
+              '* The deposit will be refunded when your rental ends.',
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         ],
       ),
@@ -620,7 +599,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Thanh toán trước',
+              const Text('Due now',
                   style: TextStyle(
                       fontSize: 11, color: AppColors.textSecondary)),
               Text(_formatPrice(initial is num ? initial : null),
@@ -633,29 +612,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           const SizedBox(width: 16),
           Expanded(
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PaymentScreen(
-                      facilityName: widget.facilityName,
-                      unitTypeName: _selectedType!.name,
-                      unitTypeDimensions: _selectedType!.dimensions,
-                      startDate: _startDate,
-                      rentalMonths: _rentalMonths,
-                      totalRentalFee:
-                          (_quote!['totalRentalFee'] as num?)?.toDouble() ??
-                              0,
-                      depositAmount:
-                          (_quote!['depositAmount'] as num?)?.toDouble() ?? 0,
-                      initialPayment:
-                          (_quote!['initialPaymentAmount'] as num?)
-                                  ?.toDouble() ??
-                              0,
-                    ),
-                  ),
-                );
-              },
+              onPressed: _isBooking ? null : _handleReserve,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -663,26 +620,84 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
+                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
               ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.lock_outline, size: 18),
-                  SizedBox(width: 6),
-                  Text('Tiến hành đặt chỗ',
-                      style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.bold)),
-                ],
-              ),
+              child: _isBooking
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.lock_outline, size: 18),
+                        SizedBox(width: 6),
+                        Text('Proceed to Book',
+                            style: TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
             ),
           ),
         ],
       ),
     );
   }
+
+  Future<void> _handleReserve() async {
+    if (_selectedType == null || _quote == null) return;
+    setState(() => _isBooking = true);
+    try {
+      final booking = await _bookingService.createBooking(
+        facilityId: widget.facilityId,
+        unitTypeId: _selectedType!.id,
+        startDate: _startDate,
+        rentalMonths: _rentalMonths,
+      );
+      if (!mounted) return;
+
+      final bookingId = booking['id']?.toString() ?? '';
+      final bookingCode = booking['bookingCode']?.toString() ?? '';
+      if (bookingId.isEmpty) {
+        throw Exception('Server did not return a booking id.');
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PaymentScreen(
+            bookingId: bookingId,
+            bookingCode: bookingCode,
+            facilityName: widget.facilityName,
+            unitTypeName: _selectedType!.name,
+            unitTypeDimensions: _selectedType!.dimensions,
+            startDate: _startDate,
+            rentalMonths: _rentalMonths,
+            totalRentalFee:
+                (booking['totalRentalFee'] as num?)?.toDouble() ??
+                    (_quote!['totalRentalFee'] as num?)?.toDouble() ??
+                    0,
+            depositAmount:
+                (_quote!['depositAmount'] as num?)?.toDouble() ?? 0,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isBooking = false);
+    }
+  }
 }
 
-// ── UnitTypeCard widget ───────────────────────────────────────────────────────
 
 class _UnitTypeCard extends StatelessWidget {
   final UnitTypeModel type;
@@ -724,7 +739,6 @@ class _UnitTypeCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              // Size icon
               Container(
                 width: 52,
                 height: 52,
@@ -754,7 +768,7 @@ class _UnitTypeCard extends StatelessWidget {
                     Row(
                       children: [
                         _chip(Icons.inventory_2_outlined,
-                            '${type.availableUnits} ô trống',
+                            '${type.availableUnits} available',
                             type.availableUnits > 0
                                 ? AppColors.success
                                 : AppColors.error),
@@ -776,7 +790,7 @@ class _UnitTypeCard extends StatelessWidget {
                             ? AppColors.primary
                             : AppColors.textPrimary),
                   ),
-                  const Text('/tháng',
+                  const Text('/mo',
                       style: TextStyle(
                           fontSize: 11, color: AppColors.textSecondary)),
                   if (isSelected)

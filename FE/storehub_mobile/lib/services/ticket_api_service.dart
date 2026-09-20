@@ -5,9 +5,6 @@ import '../core/network/http_client.dart';
 class TicketApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  // BE trả về danh sách có phân trang: { data: { content: [...], page, ... } },
-  // trước đây chỉ kiểm tra data['data'] is List (luôn false vì đó là Map)
-  // nên màn hình danh sách ticket luôn hiện trống dù đã có ticket.
   Future<List<dynamic>> getMyTickets() async {
     try {
       final response = await _dio.get(ApiEndpoints.tickets);
@@ -32,8 +29,6 @@ class TicketApiService {
     }
   }
 
-  // BE (CreateTicketRequest) bắt buộc "title" (trước đây không gửi) và
-  // dùng field "bookingId" chứ không phải "unitId".
   Future<void> createTicket(
     String category,
     String title,
