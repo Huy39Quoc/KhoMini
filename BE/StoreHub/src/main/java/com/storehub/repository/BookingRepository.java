@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,20 +16,74 @@ import java.util.UUID;
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
-    @Query("SELECT b FROM Booking b " +
-            "JOIN FETCH b.storageUnit su " +
-            "LEFT JOIN FETCH su.facility " +
-            "LEFT JOIN FETCH su.unitType " +
-            "WHERE b.customer.id = :customerId AND b.status IN (:statuses) " +
-            "ORDER BY b.startDate DESC")
+    @Query("""
+            SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            LEFT JOIN FETCH su.facility
+            LEFT JOIN FETCH su.unitType
+            WHERE b.customer.id = :customerId
+            AND b.status IN (:statuses)
+            ORDER BY b.startDate DESC
+            """)
     List<Booking> findActiveBookingsByCustomerId(
             @Param("customerId") UUID customerId,
             @Param("statuses") List<BookingStatus> statuses
     );
 
-    @Query("SELECT b FROM Booking b WHERE b.id = :id AND b.customer.id = :customerId")
+    @Query("""
+            SELECT b FROM Booking b
+            WHERE b.id = :id
+            AND b.customer.id = :customerId
+            """)
     Optional<Booking> findByIdAndCustomerId(
             @Param("id") UUID id,
             @Param("customerId") UUID customerId
+    );
+
+    @Query("""
+            SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            JOIN FETCH su.facility f
+            LEFT JOIN FETCH su.unitType
+            WHERE f.id = :facilityId
+            AND b.status = :status
+            AND b.startDate = :date
+            ORDER BY b.startDate ASC
+            """)
+    List<Booking> findCheckInSchedule(
+            @Param("facilityId") UUID facilityId,
+            @Param("status") BookingStatus status,
+            @Param("date") LocalDate date
+    );
+
+    @Query("""
+            SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            JOIN FETCH su.facility f
+            LEFT JOIN FETCH su.unitType
+            WHERE f.id = :facilityId
+            AND b.status = :status
+            AND b.returnTime >= :startOfDay
+            AND b.returnTime < :endOfDay
+            ORDER BY b.returnTime ASC
+            """)
+    List<Booking> findCheckOutSchedule(
+            @Param("facilityId") UUID facilityId,
+            @Param("status") BookingStatus status,
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay
+    );
+
+    @Query("""
+            SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            JOIN FETCH su.facility f
+            LEFT JOIN FETCH su.unitType
+            WHERE b.id = :bookingId
+            AND f.id = :facilityId
+            """)
+    Optional<Booking> findByIdAndFacilityId(
+            @Param("bookingId") UUID bookingId,
+            @Param("facilityId") UUID facilityId
     );
 }
