@@ -4,7 +4,7 @@ import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
 import '../auth/login_screen.dart';
 import 'my_units/my_rented_units_screen.dart';
-import 'reservation/facility_detail_screen.dart';
+import 'reservation/explore_screen.dart';
 import 'tickets/ticket_list_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -27,10 +27,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     _screens = [
       _buildHomeOverview(),
       const MyRentedUnitsScreen(),
-      const FacilityDetailScreen(
-        facilityId: '',
-        facilityName: 'Storage Reservation',
-      ),
+      const ExploreScreen(),
       const TicketListScreen(),
     ];
   }
@@ -84,7 +81,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           BottomNavigationBarItem(
               icon: Icon(Icons.inventory_2_outlined), label: 'My Units'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.add_business_outlined), label: 'Reserve'),
+              icon: Icon(Icons.explore_outlined), label: 'Khám phá'),
           BottomNavigationBarItem(
               icon: Icon(Icons.support_agent_outlined), label: 'Support'),
         ],

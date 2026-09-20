@@ -59,4 +59,11 @@ class ApiEndpoints {
 
   // ---- Pricing (PricingController) ----
   static const String pricingQuote = '/pricing/quote';
+
+  // ---- Bookings (BookingController) ----
+  static const String bookings = '/bookings';
+
+  // ---- Payments (PaymentController) ----
+  static const String paymentInitiate = '/payments/initiate';
+  static const String paymentConfirm = '/payments/confirm';
 }
