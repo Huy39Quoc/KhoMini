@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,20 +20,30 @@ class AuthApiService {
           ? response.data
           : Map<String, dynamic>.from(response.data);
 
-      // BE trả về dạng { success, message, data: { accessToken, refreshToken, user } }
       final data =
           body['data'] is Map ? Map<String, dynamic>.from(body['data']) : body;
 
       final accessToken = data['accessToken'];
       final refreshToken = data['refreshToken'];
 
-      // Lưu token để HttpClient tự đính Authorization: Bearer ... cho các request sau.
-      // Trước đây bước này bị thiếu -> mọi API cần đăng nhập đều gọi mà không có token.
       if (accessToken is String && accessToken.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('jwt_token', accessToken);
         if (refreshToken is String && refreshToken.isNotEmpty) {
           await prefs.setString('refresh_token', refreshToken);
+        }
+      }
+
+      if (accessToken is String && accessToken.isNotEmpty) {
+        final claims = _decodeJwtPayload(accessToken);
+        final role = claims?['role'];
+        if (role is String && role.isNotEmpty) {
+          final userMap = data['user'];
+          if (userMap is Map) {
+            final merged = Map<String, dynamic>.from(userMap);
+            merged['roleName'] = role;
+            data['user'] = merged;
+          }
         }
       }
 
@@ -42,8 +54,20 @@ class AuthApiService {
     }
   }
 
-  // BE (RegisterRequest) bắt buộc cả username và phone (số VN hợp lệ),
-  // trước đây 2 trường này bị thiếu -> đăng ký luôn thất bại.
+  Map<String, dynamic>? _decodeJwtPayload(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      var payload = parts[1];
+      payload = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final map = jsonDecode(decoded);
+      return map is Map<String, dynamic> ? map : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>> register(
     String username,
     String email,
@@ -71,11 +95,23 @@ class AuthApiService {
     }
   }
 
-  // BE (/auth/logout) yêu cầu bắt buộc refreshToken trong body.
-  // Trước đây không gửi gì -> BE trả lỗi 400 và exception này làm nút
-  // "Sign Out" không bao giờ đưa được người dùng về màn hình login.
-  // Giờ luôn dọn sạch token cục bộ (dù server lỗi/refresh token đã hết hạn)
-  // để người dùng chắc chắn thoát được khỏi phiên đăng nhập.
+  Future<String> forgotPassword(String email) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.forgotPassword,
+        data: {'email': email},
+      );
+      final body = response.data;
+      if (body is Map && body['message'] is String) {
+        return body['message'] as String;
+      }
+      return 'If this email exists, a reset link has been sent.';
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Request failed: $message');
+    }
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     final refreshToken = prefs.getString('refresh_token');
@@ -87,8 +123,6 @@ class AuthApiService {
         );
       }
     } on DioException catch (_) {
-      // Bỏ qua lỗi từ server (vd token đã bị thu hồi/hết hạn) - vẫn đăng
-      // xuất cục bộ để không kẹt người dùng lại trong app.
     } finally {
       await prefs.remove('jwt_token');
       await prefs.remove('refresh_token');

@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/admin_api_service.dart';
 import '../../services/auth_api_service.dart';
+import '../admin/role_permission_screen.dart';
 import '../auth/login_screen.dart';
 
 class OperationsDashboardScreen extends StatefulWidget {
   const OperationsDashboardScreen({super.key});
 
   @override
-  State<OperationsDashboardScreen> createState() =>
-      _OperationsDashboardScreenState();
+  State<OperationsDashboardScreen> createState() => _OperationsDashboardScreenState();
 }
 
 class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
@@ -17,6 +17,9 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
   final _authApiService = AuthApiService();
   bool _isLoading = true;
   int _userCount = 0;
+  int _activeUsers = 0;
+  int _totalRoles = 0;
+  int _totalPermissions = 0;
   String? _errorMessage;
 
   @override
@@ -32,10 +35,24 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
     });
 
     try {
-      final total = await _adminApiService.getTotalUsersCount();
+      final results = await Future.wait([
+        _adminApiService.getTotalUsersCount(),
+        _adminApiService.getUsers(),
+        _adminApiService.getRoles(),
+        _adminApiService.getPermissions(),
+      ]);
+      final total = results[0] as int;
+      final users = results[1] as List<dynamic>;
+      final roles = results[2] as List<dynamic>;
+      final permissions = results[3] as List<dynamic>;
+      final active = users.whereType<Map>().where((u) => u['isActive'] == true).length;
+
       if (!mounted) return;
       setState(() {
         _userCount = total;
+        _activeUsers = active;
+        _totalRoles = roles.length;
+        _totalPermissions = permissions.length;
         _isLoading = false;
       });
     } catch (e) {
@@ -60,10 +77,9 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Operations Console'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: 'Sign Out',
@@ -84,68 +100,98 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppColors.errorContainer,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(_errorMessage!,
-                          style: const TextStyle(color: Colors.red)),
+                      child: Text(_errorMessage!, style: const TextStyle(color: AppColors.error)),
                     ),
-                  Card(
+
+                  const Text('System Overview',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 10),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.5,
+                    children: [
+                      _statCard('Registered Users', '$_userCount', Icons.people, AppColors.primaryContainer),
+                      _statCard('Active Users', '$_activeUsers', Icons.verified_user, AppColors.success),
+                      _statCard('Roles Defined', '$_totalRoles', Icons.badge, AppColors.secondaryContainer),
+                      _statCard('Permissions', '$_totalPermissions', Icons.lock_outline, AppColors.secondary),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  const Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.hub_outlined,
-                                  color: AppColors.primary),
-                              SizedBox(width: 8),
-                              Text(
-                                'System Operations Overview',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                          Text(
+                            'Business Policies',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 12),
-                          Text('Active Registered Accounts: $_userCount'),
-                          const SizedBox(height: 4),
-                          const Text('Data Source: Live Database Query'),
+                          SizedBox(height: 8),
+                          Text(
+                            'Facility rental policies, deposit rules, late-fee thresholds, and cancellation rules '
+                            'are configured on the backend and are not yet exposed through a management API - '
+                            'this app will not display placeholder numbers for them.',
+                            style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 12),
+                          ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Business Policies Management',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Facility rental policies, late fee thresholds, and cancellation rules are maintained via backend database migrations.',
-                            style: TextStyle(color: Colors.grey, fontSize: 13),
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: _fetchLiveMetrics,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Sync Real-time Metrics'),
-                          ),
-                        ],
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.security, color: AppColors.primaryContainer),
                       ),
+                      title: const Text('Roles & Permissions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text('View what each role can access (read-only)', style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const RolePermissionScreen(readOnly: true)),
+                        );
+                      },
                     ),
                   ),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _statCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.surfaceContainerHigh),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
+        ],
+      ),
     );
   }
 }

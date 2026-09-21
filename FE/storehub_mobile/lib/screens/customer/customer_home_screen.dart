@@ -4,7 +4,7 @@ import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
 import '../auth/login_screen.dart';
 import 'my_units/my_rented_units_screen.dart';
-import 'reservation/facility_detail_screen.dart';
+import 'reservation/explore_screen.dart';
 import 'tickets/ticket_list_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -27,10 +27,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     _screens = [
       _buildHomeOverview(),
       const MyRentedUnitsScreen(),
-      const FacilityDetailScreen(
-        facilityId: '',
-        facilityName: 'Storage Reservation',
-      ),
+      const ExploreScreen(),
       const TicketListScreen(),
     ];
   }
@@ -75,7 +72,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        selectedItemColor: AppColors.primary,
+        selectedItemColor: AppColors.secondaryContainer,
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -84,7 +81,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           BottomNavigationBarItem(
               icon: Icon(Icons.inventory_2_outlined), label: 'My Units'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.add_business_outlined), label: 'Reserve'),
+              icon: Icon(Icons.explore_outlined), label: 'Explore'),
           BottomNavigationBarItem(
               icon: Icon(Icons.support_agent_outlined), label: 'Support'),
         ],
@@ -134,9 +131,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
-              ),
+              color: AppColors.primaryContainer,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -154,9 +149,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 const SizedBox(height: 14),
                 ElevatedButton(
                   onPressed: () => setState(() => _currentIndex = 1),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      foregroundColor: Colors.black),
                   child: const Text('View Smart Access Keys'),
                 )
               ],
@@ -168,14 +160,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildActionCard('My Units', Icons.vpn_key, Colors.teal,
+              _buildActionCard('My Units', Icons.vpn_key, AppColors.primaryContainer,
                   () => setState(() => _currentIndex = 1)),
               const SizedBox(width: 12),
               _buildActionCard('Reserve Unit', Icons.add_circle_outline,
-                  Colors.indigo, () => setState(() => _currentIndex = 2)),
+                  AppColors.secondary, () => setState(() => _currentIndex = 2)),
               const SizedBox(width: 12),
               _buildActionCard('Get Support', Icons.headset_mic_outlined,
-                  Colors.deepOrange, () => setState(() => _currentIndex = 3)),
+                  AppColors.secondaryContainer, () => setState(() => _currentIndex = 3)),
             ],
           )
         ],

@@ -17,7 +17,8 @@ class RoleDispatchScreen extends StatelessWidget {
 
     if (role == 'ADMIN' || role == 'SYSTEM_ADMIN') {
       return const AdminDashboardScreen();
-    } else if (role == 'BUSINESS_OPERATIONS_MANAGER' ||
+    } else if (role == 'BUSINESS_MANAGER' ||
+        role == 'BUSINESS_OPERATIONS_MANAGER' ||
         role == 'OPERATIONS_MANAGER') {
       return const OperationsDashboardScreen();
     } else if (role == 'FACILITY_MANAGER') {

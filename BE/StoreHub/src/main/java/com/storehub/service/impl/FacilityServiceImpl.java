@@ -12,6 +12,8 @@ import com.storehub.exception.ErrorCode;
 import com.storehub.mapper.FacilityMapper;
 import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 import com.storehub.service.FacilityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +35,7 @@ public class FacilityServiceImpl implements FacilityService {
     private final FacilityRepository facilityRepository;
     private final UserRepository userRepository;
     private final FacilityMapper facilityMapper;
+    private final ActivityLogService activityLogService;
 
     @Override
     public FacilityResponse getById(UUID id) {
@@ -61,6 +64,10 @@ public class FacilityServiceImpl implements FacilityService {
         }
 
         Facility saved = facilityRepository.save(facility);
+
+        activityLogService.record(ActivityAction.FACILITY_CREATE, "FACILITY", saved.getId(),
+                "Created facility: " + saved.getName() + " (" + saved.getCode() + ")", null, saved.getCode());
+
         return facilityMapper.toResponse(saved);
     }
 
@@ -91,6 +98,10 @@ public class FacilityServiceImpl implements FacilityService {
         }
 
         Facility updated = facilityRepository.save(facility);
+
+        activityLogService.record(ActivityAction.FACILITY_UPDATE, "FACILITY", updated.getId(),
+                "Updated facility: " + updated.getName(), null, updated.getStatus());
+
         return facilityMapper.toResponse(updated);
     }
 
@@ -99,6 +110,9 @@ public class FacilityServiceImpl implements FacilityService {
         Facility facility = facilityRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
         facilityRepository.deleteById(facility.getId());
+
+        activityLogService.record(ActivityAction.FACILITY_DEACTIVATE, "FACILITY", facility.getId(),
+                "Deleted facility: " + facility.getName(), null, null);
     }
 
     @Override

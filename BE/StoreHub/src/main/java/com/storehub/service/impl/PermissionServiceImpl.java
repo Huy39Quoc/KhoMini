@@ -21,6 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.*;
 
 import java.util.*;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 
 @Service
 @RequiredArgsConstructor
@@ -28,10 +30,10 @@ import java.util.*;
 @Transactional
 public class PermissionServiceImpl implements PermissionService {
 
-
     private final PermissionRepository permissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final PermissionMapper permissionMapper;
+    private final ActivityLogService activityLogService;
 
     @Override
     public PermissionResponse getById(UUID id) {
@@ -53,6 +55,9 @@ public class PermissionServiceImpl implements PermissionService {
         permission.setPermissionGroup(trimmedGroup);
         Permission saved = permissionRepository.save(permission);
 
+        activityLogService.record(ActivityAction.PERMISSION_CREATE, "PERMISSION", saved.getId(),
+                "Created permission: " + saved.getName(), null, saved.getName());
+
         return permissionMapper.toResponse(saved);
     }
 
@@ -68,10 +73,15 @@ public class PermissionServiceImpl implements PermissionService {
             throw new AppException(ErrorCode.PERMISSION_NAME_EXISTED);
         }
 
+        String oldName = permission.getName();
         permissionMapper.updateEntityFromRequest(request, permission);
         permission.setName(trimmedName);
         permission.setPermissionGroup(trimmedGroup);
         Permission updated = permissionRepository.save(permission);
+
+        activityLogService.record(ActivityAction.PERMISSION_UPDATE, "PERMISSION", updated.getId(),
+                "Updated permission: " + updated.getName(), oldName, updated.getName());
+
         return permissionMapper.toResponse(updated);
     }
 
@@ -84,6 +94,9 @@ public class PermissionServiceImpl implements PermissionService {
         rolePermissionRepository.deleteAllByPermission_Id(permission.getId());
 
         permissionRepository.deleteById(permission.getId());
+
+        activityLogService.record(ActivityAction.PERMISSION_DELETE, "PERMISSION", permission.getId(),
+                "Deleted permission: " + permission.getName(), permission.getName(), null);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.storehub.repository;
 
 import com.storehub.entity.StorageUnit;
+import com.storehub.enums.UnitStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +16,15 @@ public interface StorageUnitRepository extends JpaRepository<StorageUnit, UUID> 
 
     @EntityGraph(attributePaths = {"facility", "unitType"})
     Optional<StorageUnit> findWithDetailsById(UUID id);
+
+    // Derived query type-safe bằng Enum UnitStatus – không hardcode magic string
+    List<StorageUnit> findByFacility_IdAndUnitType_IdAndStatus(
+            UUID facilityId,
+            UUID unitTypeId,
+            UnitStatus status
+    );
+    @EntityGraph(attributePaths = {"facility", "unitType"})
+
     @Query("""
             SELECT su.facility.id, su.facility.name, su.status, COUNT(su)
             FROM StorageUnit su

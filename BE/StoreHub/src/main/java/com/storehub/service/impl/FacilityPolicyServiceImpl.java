@@ -11,6 +11,8 @@ import com.storehub.exception.ErrorCode;
 import com.storehub.mapper.FacilityPolicyMapper;
 import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.FacilityRepository;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 import com.storehub.service.FacilityPolicyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +34,7 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     private final FacilityPolicyRepository facilityPolicyRepository;
     private final FacilityRepository facilityRepository;
     private final FacilityPolicyMapper facilityPolicyMapper;
+    private final ActivityLogService activityLogService;
 
     @Override
     public FacilityPolicyResponse getById(UUID id) {
@@ -79,6 +82,10 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
                 .build();
 
         FacilityPolicy saved = facilityPolicyRepository.save(policy);
+
+        activityLogService.record(ActivityAction.FACILITY_POLICY_CREATE, "FACILITY_POLICY", saved.getId(),
+                "Created policy for facility " + facility.getName(), null, facility.getId());
+
         return facilityPolicyMapper.toResponse(saved);
     }
 
@@ -100,6 +107,10 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
 
         facilityPolicyMapper.updateEntityFromRequest(request, policy);
         FacilityPolicy updated = facilityPolicyRepository.save(policy);
+
+        activityLogService.record(ActivityAction.FACILITY_POLICY_UPDATE, "FACILITY_POLICY", updated.getId(),
+                "Updated policy for facility " + (policy.getFacility() != null ? policy.getFacility().getName() : updated.getId()), null, updated.getId());
+
         return facilityPolicyMapper.toResponse(updated);
     }
 
@@ -108,6 +119,9 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
         FacilityPolicy policy = facilityPolicyRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_POLICY_NOT_FOUND));
         facilityPolicyRepository.deleteById(policy.getId());
+
+        activityLogService.record(ActivityAction.FACILITY_POLICY_UPDATE, "FACILITY_POLICY", policy.getId(),
+                "Deleted policy for facility " + (policy.getFacility() != null ? policy.getFacility().getName() : id), null, null);
     }
 
     @Override

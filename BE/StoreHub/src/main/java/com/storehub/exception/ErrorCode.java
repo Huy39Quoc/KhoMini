@@ -49,7 +49,12 @@ public enum ErrorCode {
     STORAGE_UNIT_NOT_FOUND(704, "Storage unit not found", HttpStatus.NOT_FOUND),
     INVALID_PRICING_TARGET(705, "Provide either unitTypeId or storageUnitId, but not both or neither", HttpStatus.BAD_REQUEST),
     UNIT_TYPE_PRICE_NOT_CONFIGURED(706, "Unit type monthly price is not configured", HttpStatus.INTERNAL_SERVER_ERROR),
-    
+    NO_AVAILABLE_UNIT(707, "No available storage unit found for the selected type and facility", HttpStatus.CONFLICT),
+
+    // ========================= PAYMENT (750 - 799) =========================
+    PAYMENT_NOT_FOUND(750, "Payment transaction not found", HttpStatus.NOT_FOUND),
+    PAYMENT_ALREADY_PROCESSED(751, "Payment has already been processed", HttpStatus.CONFLICT),
+
     // ========================= ROLE_PERMISSION (800 - 899) =========================
     ROLE_PERMISSION_NOT_FOUND(800, "Role-permission mapping not found", HttpStatus.NOT_FOUND),
     ROLE_PERMISSION_ALREADY_EXISTS(801, "This permission is already assigned to the role", HttpStatus.BAD_REQUEST),
@@ -71,7 +76,11 @@ public enum ErrorCode {
     FACILITY_POLICY_INVALID_CANCELLATION(1102, "Cancellation full refund hours must be greater than or equal to partial refund hours", HttpStatus.BAD_REQUEST),
 
     // ========================= SUPPORT_TICKET (1200 - 1299) =========================
-    TICKET_NOT_FOUND(1200, "Support ticket not found or does not belong to user", HttpStatus.NOT_FOUND);
+    TICKET_NOT_FOUND(1200, "Support ticket not found or does not belong to user", HttpStatus.NOT_FOUND),
+
+    // ========================= ACTIVITY_LOG (1300 - 1399) =========================
+    ACTIVITY_LOG_NOT_FOUND(1300, "Activity log entry not found", HttpStatus.NOT_FOUND);
+
 
     private final int code;
     private final String message;

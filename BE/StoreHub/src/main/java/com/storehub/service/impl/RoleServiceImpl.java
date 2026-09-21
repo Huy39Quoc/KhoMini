@@ -22,6 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.*;
 
 import java.util.*;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +43,7 @@ public class RoleServiceImpl implements RoleService {
     private final UserRepository userRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final RoleMapper roleMapper;
+    private final ActivityLogService activityLogService;
 
     @Override
     public RoleResponse getById(UUID id){
@@ -58,6 +61,9 @@ public class RoleServiceImpl implements RoleService {
         Role role = roleMapper.toEntity(request);
         role.setName(trimmedName);
         Role saved = roleRepository.save(role);
+
+        activityLogService.record(ActivityAction.ROLE_CREATE, "ROLE", saved.getId(),
+                "Created role: " + saved.getName(), null, saved.getName());
 
         return roleMapper.toResponse(saved);
     }
@@ -79,9 +85,14 @@ public class RoleServiceImpl implements RoleService {
             throw new AppException(ErrorCode.ROLE_NAME_EXISTED);
         }
 
+        String oldName = role.getName();
         roleMapper.updateEntityFromRequest(request, role);
         role.setName(trimmedName);
         Role updated = roleRepository.save(role);
+
+        activityLogService.record(ActivityAction.ROLE_UPDATE, "ROLE", updated.getId(),
+                "Updated role: " + updated.getName(), oldName, updated.getName());
+
         return roleMapper.toResponse(updated);
     }
 
@@ -104,6 +115,9 @@ public class RoleServiceImpl implements RoleService {
         rolePermissionRepository.deleteAllByRole_Id(role.getId());
 
         roleRepository.deleteById(role.getId());
+
+        activityLogService.record(ActivityAction.ROLE_DELETE, "ROLE", role.getId(),
+                "Deleted role: " + role.getName(), role.getName(), null);
     }
 
     @Override

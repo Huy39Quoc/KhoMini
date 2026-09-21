@@ -29,5 +29,6 @@ public class MyUnitResponse {
     private BookingStatus status;
     private BigDecimal totalRentalFee;
     private BigDecimal depositPaid;
-    private boolean hasActiveAccess;
+    // Lombok sinh isActiveAccess(), Jackson serialize thành "activeAccess"
+    private boolean activeAccess;
 }

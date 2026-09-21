@@ -305,6 +305,38 @@ CREATE TABLE IF NOT EXISTS payments
     REFERENCES bookings(id)
     );
 
+-- =========================================================
+-- ACTIVITY_LOGS
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS activity_logs
+(
+    id                UUID         NOT NULL,
+    created_at        TIMESTAMP    NOT NULL,
+    updated_at        TIMESTAMP    NOT NULL,
+    user_id           UUID,
+    log_type          VARCHAR(20)  NOT NULL,
+    action            VARCHAR(100) NOT NULL,
+    email_attempted   VARCHAR(150),
+    resource_type     VARCHAR(100),
+    resource_id       UUID,
+    description       VARCHAR(500),
+    old_value         TEXT,
+    new_value         TEXT,
+    status            VARCHAR(20)  NOT NULL,
+    ip_address        VARCHAR(45),
+    user_agent        VARCHAR(255),
+
+    CONSTRAINT pk_activity_logs PRIMARY KEY (id),
+
+    CONSTRAINT fk_activity_logs_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(id)
+    );
+
+CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_log_type ON activity_logs(log_type);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
 
 -- =========================================================
 -- HANDOVER RECORDS
@@ -333,29 +365,6 @@ CREATE TABLE IF NOT EXISTS handover_records
     REFERENCES users(id)
     );
 
-
--- =========================================================
--- ACTIVITY LOGS
--- =========================================================
-
-CREATE TABLE IF NOT EXISTS activity_logs
-(
-    id          UUID         NOT NULL,
-    created_at  TIMESTAMP    NOT NULL,
-    updated_at  TIMESTAMP    NOT NULL,
-    user_id     UUID,
-    username    VARCHAR(50),
-    action      VARCHAR(100) NOT NULL,
-    details     TEXT,
-    ip_address  VARCHAR(45),
-    timestamp   TIMESTAMP    NOT NULL,
-
-    CONSTRAINT pk_activity_logs PRIMARY KEY (id),
-
-    CONSTRAINT fk_activity_logs_user
-    FOREIGN KEY (user_id)
-    REFERENCES users(id)
-    );
 
 -- =========================================================
 -- SUPPORT_TICKETS
@@ -394,3 +403,4 @@ CREATE TABLE IF NOT EXISTS support_tickets
     FOREIGN KEY (assigned_staff_id)
     REFERENCES users(id)
     );
+

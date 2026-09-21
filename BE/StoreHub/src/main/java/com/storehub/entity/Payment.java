@@ -1,6 +1,5 @@
 package com.storehub.entity;
 
-import com.storehub.enums.PaymentMethod;
 import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
 import jakarta.persistence.*;
@@ -36,9 +35,8 @@ public class Payment extends BaseEntity {
     @Column(name = "status", nullable = false, length = 30)
     private PaymentStatus status;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", length = 50)
-    private PaymentMethod paymentMethod;
+    private String paymentMethod;
 
     @Column(name = "payment_time", nullable = false)
     private LocalDateTime paymentTime;

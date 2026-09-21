@@ -3,19 +3,18 @@ package com.storehub.repository;
 import com.storehub.dto.response.FacilityRevenueResponse;
 import com.storehub.dto.response.SystemRevenueSummaryResponse;
 import com.storehub.entity.Payment;
-import com.storehub.enums.PaymentStatus;
-import com.storehub.enums.PaymentType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
+
+    Optional<Payment> findByTransactionId(String transactionId);
 
     @Query("""
             SELECT new com.storehub.dto.response.FacilityRevenueResponse(

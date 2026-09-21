@@ -41,6 +41,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
+    private final com.storehub.service.ActivityLogService activityLogService;
 
 
     @Override
@@ -69,6 +70,9 @@ public class AuthServiceImpl implements AuthService {
         User saved = userRepository.save(user);
         log.info("User registered successfully with id: {}", saved.getId());
 
+        activityLogService.record(saved.getId(), ActivityAction.USER_CREATE, "USER", saved.getId(),
+                "Customer self-registered account: " + saved.getUsername(), null, saved.getEmail());
+
         emailService.sendWelcomeEmail(saved.getEmail(), saved.getFullName());
 
         UserResponse userResponse = userMapper.toResponse(saved);
@@ -90,14 +94,26 @@ public class AuthServiceImpl implements AuthService {
                     )
             );
         } catch (BadCredentialsException e) {
+            User attemptedUser = userRepository.findByEmail(request.getEmail()).orElse(null);
+            activityLogService.recordLogin(
+                    attemptedUser != null ? attemptedUser.getId() : null,
+                    request.getEmail(),
+                    false,
+                    "Invalid credentials (wrong password)"
+            );
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> {
+                    activityLogService.recordLogin(null, request.getEmail(), false, "User not found");
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                });
 
         // Revoke old refresh tokens
         refreshTokenRepository.revokeAllUserTokensByType(user, TokenType.REFRESH);
+
+        activityLogService.recordLogin(user.getId(), request.getEmail(), true, null);
 
         return buildAuthResponse(user);
     }
@@ -112,6 +128,10 @@ public class AuthServiceImpl implements AuthService {
 
         refreshToken.setRevoked(true);
         refreshTokenRepository.save(refreshToken);
+
+        if (refreshToken.getUser() != null) {
+            activityLogService.recordLogout(refreshToken.getUser().getId());
+        }
 
     }
 
@@ -164,6 +184,9 @@ public class AuthServiceImpl implements AuthService {
             refreshTokenRepository.save(tokenEntity);
             emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), resetToken);
             log.info("Password reset email sent to: {}", user.getEmail());
+
+            activityLogService.record(user.getId(), ActivityAction.PASSWORD_RESET_REQUESTED, "USER", user.getId(),
+                    "Password reset requested", null, null);
         });
     }
 
@@ -197,6 +220,9 @@ public class AuthServiceImpl implements AuthService {
         // Revoke tất cả token — bắt đăng nhập lại
         refreshTokenRepository.revokeAllUserTokens(user);
 
+        activityLogService.record(user.getId(), ActivityAction.PASSWORD_RESET_COMPLETED, "USER", user.getId(),
+                "Password reset completed via token", null, null);
+
     }
 
 
@@ -223,6 +249,9 @@ public class AuthServiceImpl implements AuthService {
 
         // Revoke tất cả token — bắt đăng nhập lại trên tất cả thiết bị
         refreshTokenRepository.revokeAllUserTokens(user);
+
+        activityLogService.record(user.getId(), ActivityAction.PASSWORD_CHANGE, "USER", user.getId(),
+                "Password changed successfully", null, null);
 
     }
 
