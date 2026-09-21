@@ -13,7 +13,8 @@ public interface FacilityOperationsService {
 
     List<DailyScheduleResponse> getDailySchedule(
             UUID facilityId,
-            LocalDate date
+            LocalDate date,
+            String staffEmail
     );
 
     HandoverResponse checkIn(
@@ -33,6 +34,7 @@ public interface FacilityOperationsService {
     String updateUnitStatus(
             UUID unitId,
             UUID facilityId,
+            String staffEmail,
             UpdateUnitStatusRequest request
     );
 }

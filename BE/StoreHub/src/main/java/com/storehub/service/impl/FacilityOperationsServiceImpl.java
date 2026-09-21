@@ -15,9 +15,7 @@ import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.HandoverRecordRepository;
 import com.storehub.repository.StorageUnitRepository;
-import com.storehub.repository.UserRepository;
-import com.storehub.enums.ActivityAction;
-import com.storehub.service.ActivityLogService;
+import com.storehub.entity.FacilityAccess;
 import com.storehub.service.FacilityOperationsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,33 +30,35 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class FacilityOperationsServiceImpl implements FacilityOperationsService {
+public class FacilityOperationsServiceImpl
+        implements FacilityOperationsService {
 
     private final BookingRepository bookingRepository;
     private final HandoverRecordRepository handoverRecordRepository;
     private final StorageUnitRepository storageUnitRepository;
-    private final UserRepository userRepository;
-    private final ActivityLogService activityLogService;
+    private final FacilityAccess facilityAccess;
 
     @Override
     @Transactional(readOnly = true)
     public List<DailyScheduleResponse> getDailySchedule(
             UUID facilityId,
-            LocalDate date
+            LocalDate date,
+            String staffEmail
     ) {
-
         if (facilityId == null || date == null) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
+        facilityAccess.require(staffEmail, facilityId);
+
         List<DailyScheduleResponse> result = new ArrayList<>();
 
-        // Customer check-in trong ngày
-        List<Booking> checkInBookings = bookingRepository.findCheckInSchedule(
-                facilityId,
-                BookingStatus.CONFIRMED,
-                date
-        );
+        List<Booking> checkInBookings =
+                bookingRepository.findCheckInSchedule(
+                        facilityId,
+                        BookingStatus.CONFIRMED,
+                        date
+                );
 
         for (Booking booking : checkInBookings) {
             result.add(toScheduleResponse(
@@ -68,16 +68,16 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
             ));
         }
 
-        // Customer check-out trong ngày
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
 
-        List<Booking> checkOutBookings = bookingRepository.findCheckOutSchedule(
-                facilityId,
-                BookingStatus.ACTIVE,
-                startOfDay,
-                endOfDay
-        );
+        List<Booking> checkOutBookings =
+                bookingRepository.findCheckOutSchedule(
+                        facilityId,
+                        BookingStatus.ACTIVE,
+                        startOfDay,
+                        endOfDay
+                );
 
         for (Booking booking : checkOutBookings) {
             result.add(toScheduleResponse(
@@ -90,7 +90,9 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
         result.sort(
                 Comparator.comparing(
                         DailyScheduleResponse::getScheduledTime,
-                        Comparator.nullsLast(Comparator.naturalOrder())
+                        Comparator.nullsLast(
+                                Comparator.naturalOrder()
+                        )
                 )
         );
 
@@ -105,29 +107,51 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
             String staffEmail,
             HandoverRequest request
     ) {
+        User staff = facilityAccess.require(
+                staffEmail,
+                facilityId
+        );
 
         Booking booking = bookingRepository
-                .findByIdAndFacilityId(bookingId, facilityId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
-
-        if (booking.getStatus() != BookingStatus.CONFIRMED) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
-        }
+                .lockById(bookingId)
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.BOOKING_NOT_FOUND
+                ));
 
         if (booking.getStorageUnit() == null) {
-            throw new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND);
+            throw new AppException(
+                    ErrorCode.STORAGE_UNIT_NOT_FOUND
+            );
         }
 
-        StorageUnit storageUnit = booking.getStorageUnit();
+        if (booking.getStorageUnit().getFacility() == null
+                || !facilityId.equals(
+                booking.getStorageUnit()
+                        .getFacility()
+                        .getId()
+        )) {
+            throw new AppException(
+                    ErrorCode.BOOKING_NOT_FOUND
+            );
+        }
 
-        // Storage unit phải đang ở trạng thái RESERVED mới được check-in
+        if (booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new AppException(
+                    ErrorCode.INVALID_REQUEST
+            );
+        }
+
+        StorageUnit storageUnit = storageUnitRepository
+                .lockById(booking.getStorageUnit().getId())
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.STORAGE_UNIT_NOT_FOUND
+                ));
+
         if (storageUnit.getStatus() != UnitStatus.RESERVED) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+            throw new AppException(
+                    ErrorCode.INVALID_REQUEST
+            );
         }
-
-        User staff = userRepository
-                .findByEmail(staffEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -142,20 +166,14 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
 
         handoverRecordRepository.save(record);
 
-        // Update booking
         booking.setStatus(BookingStatus.ACTIVE);
         booking.setHandedOverByStaffId(staff.getId());
         booking.setHandoverTime(now);
 
-        // Update storage unit
         storageUnit.setStatus(UnitStatus.OCCUPIED);
 
         bookingRepository.save(booking);
         storageUnitRepository.save(storageUnit);
-
-        activityLogService.record(staff.getId(), ActivityAction.HANDOVER_COMPLETE, "BOOKING", booking.getId(),
-                "Check-in handover completed for unit " + storageUnit.getUnitCode() + " by staff " + staff.getEmail(),
-                UnitStatus.RESERVED, UnitStatus.OCCUPIED);
 
         return toHandoverResponse(
                 booking,
@@ -175,24 +193,51 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
             String staffEmail,
             HandoverRequest request
     ) {
+        User staff = facilityAccess.require(
+                staffEmail,
+                facilityId
+        );
 
         Booking booking = bookingRepository
-                .findByIdAndFacilityId(bookingId, facilityId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
-
-        if (booking.getStatus() != BookingStatus.ACTIVE) {
-            throw new AppException(ErrorCode.BOOKING_NOT_CHECKED_IN);
-        }
+                .lockById(bookingId)
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.BOOKING_NOT_FOUND
+                ));
 
         if (booking.getStorageUnit() == null) {
-            throw new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND);
+            throw new AppException(
+                    ErrorCode.STORAGE_UNIT_NOT_FOUND
+            );
         }
 
-        StorageUnit storageUnit = booking.getStorageUnit();
+        if (booking.getStorageUnit().getFacility() == null
+                || !facilityId.equals(
+                booking.getStorageUnit()
+                        .getFacility()
+                        .getId()
+        )) {
+            throw new AppException(
+                    ErrorCode.BOOKING_NOT_FOUND
+            );
+        }
 
-        User staff = userRepository
-                .findByEmail(staffEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        if (booking.getStatus() != BookingStatus.ACTIVE) {
+            throw new AppException(
+                    ErrorCode.BOOKING_NOT_CHECKED_IN
+            );
+        }
+
+        StorageUnit storageUnit = storageUnitRepository
+                .lockById(booking.getStorageUnit().getId())
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.STORAGE_UNIT_NOT_FOUND
+                ));
+
+        if (storageUnit.getStatus() != UnitStatus.OCCUPIED) {
+            throw new AppException(
+                    ErrorCode.UNIT_UNAVAILABLE
+            );
+        }
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -207,23 +252,13 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
 
         handoverRecordRepository.save(record);
 
-        // Update booking
         booking.setStatus(BookingStatus.COMPLETED);
+        booking.setReturnTime(now);
 
-        if (booking.getReturnTime() == null) {
-            booking.setReturnTime(now);
-        }
-
-        // Sau khi customer trả storage,
-        // unit chuyển sang UNDER_MAINTENANCE để staff kiểm tra
         storageUnit.setStatus(UnitStatus.UNDER_MAINTENANCE);
 
         bookingRepository.save(booking);
         storageUnitRepository.save(storageUnit);
-
-        activityLogService.record(staff.getId(), ActivityAction.CHECKOUT_INSPECTION_COMPLETE, "BOOKING", booking.getId(),
-                "Check-out inspection completed for unit " + storageUnit.getUnitCode() + " by staff " + staff.getEmail(),
-                UnitStatus.OCCUPIED, UnitStatus.UNDER_MAINTENANCE);
 
         return toHandoverResponse(
                 booking,
@@ -240,37 +275,51 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
     public String updateUnitStatus(
             UUID unitId,
             UUID facilityId,
+            String staffEmail,
             UpdateUnitStatusRequest request
     ) {
-
-        if (unitId == null || facilityId == null || request == null
+        if (unitId == null
+                || facilityId == null
+                || request == null
                 || request.getStatus() == null) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+            throw new AppException(
+                    ErrorCode.INVALID_REQUEST
+            );
         }
+
+        facilityAccess.require(staffEmail, facilityId);
 
         StorageUnit storageUnit = storageUnitRepository
-                .findWithDetailsById(unitId)
-                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND));
+                .lockById(unitId)
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.STORAGE_UNIT_NOT_FOUND
+                ));
 
         if (storageUnit.getFacility() == null
-                || !facilityId.equals(storageUnit.getFacility().getId())) {
-            throw new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND);
+                || !facilityId.equals(
+                storageUnit.getFacility().getId()
+        )) {
+            throw new AppException(
+                    ErrorCode.STORAGE_UNIT_NOT_FOUND
+            );
         }
 
-        UnitStatus oldStatus = storageUnit.getStatus();
-        storageUnit.setStatus(request.getStatus());
+        if (storageUnit.getStatus() != UnitStatus.UNDER_MAINTENANCE
+                || request.getStatus() != UnitStatus.AVAILABLE) {
+            throw new AppException(
+                    ErrorCode.UNIT_UNAVAILABLE
+            );
+        }
 
+        storageUnit.setStatus(UnitStatus.AVAILABLE);
         storageUnitRepository.save(storageUnit);
-
-        activityLogService.record(ActivityAction.STORAGE_UNIT_STATUS_CHANGE, "STORAGE_UNIT", storageUnit.getId(),
-                "Storage unit " + storageUnit.getUnitCode() + " status changed to " + request.getStatus(),
-                oldStatus, request.getStatus());
 
         return "Storage unit status updated successfully";
     }
 
-    private String buildUnitCondition(HandoverRequest request) {
-
+    private String buildUnitCondition(
+            HandoverRequest request
+    ) {
         return "Unit: "
                 + request.getUnitCondition()
                 + " | Lock: "
@@ -282,12 +331,11 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
             String scheduleType,
             LocalDateTime scheduledTime
     ) {
-
         StorageUnit storageUnit = booking.getStorageUnit();
 
+        UUID customerId = null;
         String customerName = null;
         String customerEmail = null;
-        UUID customerId = null;
 
         if (booking.getCustomer() != null) {
             customerId = booking.getCustomer().getId();
@@ -295,17 +343,19 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
             customerEmail = booking.getCustomer().getEmail();
         }
 
-        String facilityName = null;
         UUID facilityId = null;
+        String facilityName = null;
 
-        if (storageUnit != null && storageUnit.getFacility() != null) {
+        if (storageUnit != null
+                && storageUnit.getFacility() != null) {
             facilityId = storageUnit.getFacility().getId();
             facilityName = storageUnit.getFacility().getName();
         }
 
         String unitType = null;
 
-        if (storageUnit != null && storageUnit.getUnitType() != null) {
+        if (storageUnit != null
+                && storageUnit.getUnitType() != null) {
             unitType = storageUnit.getUnitType().getTypeName();
         }
 
@@ -347,7 +397,6 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
             User staff,
             String message
     ) {
-
         return HandoverResponse.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())

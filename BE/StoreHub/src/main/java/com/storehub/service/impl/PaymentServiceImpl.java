@@ -14,10 +14,7 @@ import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
-import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
-import com.storehub.enums.ActivityAction;
-import com.storehub.service.ActivityLogService;
 import com.storehub.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,34 +26,65 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class PaymentServiceImpl implements PaymentService {
+public class PaymentServiceImpl
+        implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
-    private final StorageUnitRepository storageUnitRepository;
-    private final ActivityLogService activityLogService;
 
     @Override
     @Transactional
-    public PaymentResponse initiatePayment(String customerEmail, PaymentInitiationRequest request) {
-        // 1. Xác định khách hàng
-        User customer = userRepository.findByEmail(customerEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+    public PaymentResponse initiatePayment(
+            String customerEmail,
+            PaymentInitiationRequest request
+    ) {
+        User customer = userRepository
+                .findByEmail(customerEmail)
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.USER_NOT_FOUND
+                ));
 
-        // 2. Tìm booking của khách
-        Booking booking = bookingRepository.findByIdAndCustomerId(request.getBookingId(), customer.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+        Booking booking = bookingRepository
+                .findByIdAndCustomerId(
+                        request.getBookingId(),
+                        customer.getId()
+                )
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.BOOKING_NOT_FOUND
+                ));
 
-        // 3. Xác định số tiền cần thanh toán (Enum == so sánh type-safe)
-        BigDecimal payableAmount = (request.getPaymentType() == PaymentType.DEPOSIT)
-                ? (booking.getStorageUnit().getUnitType() != null
-                    ? booking.getStorageUnit().getUnitType().getDepositAmount()
-                    : BigDecimal.ZERO)
-                : booking.getTotalRentalFee();
+        if (booking.getStorageUnit() == null
+                || booking.getStorageUnit().getUnitType() == null) {
+            throw new AppException(
+                    ErrorCode.STORAGE_UNIT_NOT_FOUND
+            );
+        }
 
-        // 4. Tạo transaction ID và payment
-        String transactionId = "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        BigDecimal payableAmount;
+
+        if (request.getPaymentType() == PaymentType.DEPOSIT) {
+            payableAmount = booking
+                    .getStorageUnit()
+                    .getUnitType()
+                    .getDepositAmount();
+        } else {
+            payableAmount = booking.getTotalRentalFee();
+        }
+
+        if (payableAmount == null
+                || payableAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(
+                    ErrorCode.INVALID_REQUEST
+            );
+        }
+
+        String transactionId =
+                "TXN-"
+                        + UUID.randomUUID()
+                        .toString()
+                        .substring(0, 8)
+                        .toUpperCase();
 
         Payment payment = Payment.builder()
                 .transactionId(transactionId)
@@ -68,15 +96,13 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentTime(LocalDateTime.now())
                 .build();
 
-        Payment savedPayment = paymentRepository.save(payment);
+        Payment savedPayment =
+                paymentRepository.save(payment);
 
-        activityLogService.record(customer.getId(), ActivityAction.PAYMENT_INITIATED, "PAYMENT", savedPayment.getId(),
-                "Payment initiated: " + transactionId + " with amount " + payableAmount + " (" + request.getPaymentType() + ")",
-                null, payableAmount);
-
-        // 5. Sinh QR Code VietQR
         String qrCodeUrl = String.format(
-                "https://img.vietqr.io/image/970422-STOREHUB-%s.png?amount=%s&addInfo=%s",
+                "https://img.vietqr.io/image/"
+                        + "970422-STOREHUB-%s.png"
+                        + "?amount=%s&addInfo=%s",
                 "compact2",
                 payableAmount.toPlainString(),
                 transactionId
@@ -97,39 +123,69 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public PaymentResponse confirmPayment(PaymentConfirmationRequest request) {
-        // 1. Tìm giao dịch
-        Payment payment = paymentRepository.findByTransactionId(request.getTransactionId())
-                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+    public PaymentResponse confirmPayment(
+            PaymentConfirmationRequest request
+    ) {
+        Payment payment = paymentRepository
+                .lockByTransactionId(
+                        request.getTransactionId()
+                )
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.PAYMENT_NOT_FOUND
+                ));
 
-        // 2. Kiểm tra đã xử lý chưa (so sánh Enum == type-safe)
-        if (payment.getStatus() == PaymentStatus.PAID) {
-            throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new AppException(
+                    ErrorCode.PAYMENT_ALREADY_PROCESSED
+            );
         }
 
-        // 3. Cập nhật trạng thái payment
+        Booking booking = payment.getBooking();
+
+        if (booking == null) {
+            throw new AppException(
+                    ErrorCode.BOOKING_NOT_FOUND
+            );
+        }
+
+        /*
+         * Tiền cọc chỉ hợp lệ khi:
+         * - booking đang chờ thanh toán
+         * - unit vẫn đang RESERVED
+         */
+        if (payment.getPaymentType() == PaymentType.DEPOSIT) {
+            if (booking.getStatus() != BookingStatus.PENDING_PAYMENT
+                    || booking.getStorageUnit() == null
+                    || booking.getStorageUnit().getStatus()
+                    != UnitStatus.RESERVED) {
+                throw new AppException(
+                        ErrorCode.UNIT_UNAVAILABLE
+                );
+            }
+        }
+
         payment.setStatus(PaymentStatus.PAID);
         payment.setPaymentTime(LocalDateTime.now());
+
         paymentRepository.save(payment);
 
-        // 4. Cập nhật booking
-        Booking booking = payment.getBooking();
         if (payment.getPaymentType() == PaymentType.DEPOSIT) {
-            booking.setDepositPaid(booking.getDepositPaid().add(payment.getAmount()));
+            booking.setDepositPaid(
+                    booking.getDepositPaid()
+                            .add(payment.getAmount())
+            );
+
+            booking.setStatus(
+                    BookingStatus.CONFIRMED
+            );
         }
-        booking.setStatus(BookingStatus.CONFIRMED);
+
         bookingRepository.save(booking);
 
-        // 5. Cập nhật trạng thái kho → OCCUPIED
-        if (booking.getStorageUnit() != null) {
-            booking.getStorageUnit().setStatus(UnitStatus.OCCUPIED);
-            storageUnitRepository.save(booking.getStorageUnit());
-        }
-
-        UUID customerId = booking.getCustomer() != null ? booking.getCustomer().getId() : null;
-        activityLogService.record(customerId, ActivityAction.PAYMENT_CONFIRMED, "PAYMENT", payment.getId(),
-                "Payment confirmed: " + payment.getTransactionId() + " with amount " + payment.getAmount(),
-                PaymentStatus.PENDING, PaymentStatus.PAID);
+        /*
+         * Không chuyển unit sang OCCUPIED tại đây.
+         * Unit chỉ chuyển sang OCCUPIED khi staff thực hiện check-in.
+         */
 
         return PaymentResponse.builder()
                 .id(payment.getId())

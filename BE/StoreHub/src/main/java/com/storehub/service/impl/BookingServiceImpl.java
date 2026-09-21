@@ -14,8 +14,6 @@ import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
-import com.storehub.enums.ActivityAction;
-import com.storehub.service.ActivityLogService;
 import com.storehub.service.BookingService;
 import com.storehub.service.PricingService;
 import lombok.RequiredArgsConstructor;
@@ -23,50 +21,67 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class BookingServiceImpl implements BookingService {
+public class BookingServiceImpl
+        implements BookingService {
 
     private final BookingRepository bookingRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final UserRepository userRepository;
     private final PricingService pricingService;
-    private final ActivityLogService activityLogService;
 
     @Override
     @Transactional
-    public BookingResponse createBooking(String customerEmail, BookingCreationRequest request) {
-        // 1. Xác định khách hàng từ email JWT
-        User customer = userRepository.findByEmail(customerEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+    public BookingResponse createBooking(
+            String customerEmail,
+            BookingCreationRequest request
+    ) {
+        User customer = userRepository
+                .findByEmail(customerEmail)
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.USER_NOT_FOUND
+                ));
 
-        // 2. Tìm kho khả dụng – derived query type-safe với Enum
-        List<StorageUnit> availableUnits = storageUnitRepository.findByFacility_IdAndUnitType_IdAndStatus(
-                request.getFacilityId(),
-                request.getUnitTypeId(),
-                UnitStatus.AVAILABLE
-        );
-        if (availableUnits.isEmpty()) {
-            throw new AppException(ErrorCode.NO_AVAILABLE_UNIT);
-        }
-        StorageUnit selectedUnit = availableUnits.get(0);
+        /*
+         * Khóa một unit AVAILABLE trong transaction.
+         * FOR UPDATE SKIP LOCKED giúp tránh hai booking
+         * cùng lấy một storage unit.
+         */
+        StorageUnit selectedUnit = storageUnitRepository
+                .claimAvailableUnitId(
+                        request.getFacilityId(),
+                        request.getUnitTypeId()
+                )
+                .flatMap(storageUnitRepository::findById)
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.NO_AVAILABLE_UNIT
+                ));
 
-        // 3. Tính báo giá
-        RentalQuoteRequest quoteRequest = RentalQuoteRequest.builder()
-                .unitTypeId(request.getUnitTypeId())
-                .startDate(request.getStartDate())
-                .rentalMonths(request.getRentalMonths())
-                .build();
-        RentalQuoteResponse quote = pricingService.calculateRentalQuote(quoteRequest);
+        RentalQuoteRequest quoteRequest =
+                RentalQuoteRequest.builder()
+                        .unitTypeId(request.getUnitTypeId())
+                        .startDate(request.getStartDate())
+                        .rentalMonths(request.getRentalMonths())
+                        .build();
 
-        // 4. Đặt trạng thái kho là RESERVED (gán Enum trực tiếp, không dùng .name())
+        RentalQuoteResponse quote =
+                pricingService.calculateRentalQuote(
+                        quoteRequest
+                );
+
+        /*
+         * Sau khi giữ chỗ, unit ở trạng thái RESERVED.
+         * Chỉ sau khi thanh toán cọc mới chuyển booking sang CONFIRMED.
+         * Chỉ khi staff check-in mới chuyển unit sang OCCUPIED.
+         */
         selectedUnit.setStatus(UnitStatus.RESERVED);
         storageUnitRepository.save(selectedUnit);
 
-        // 5. Tạo booking
-        String bookingCode = "BK-" + System.currentTimeMillis();
+        String bookingCode =
+                "BK-" + System.currentTimeMillis();
+
         Booking booking = Booking.builder()
                 .bookingCode(bookingCode)
                 .customer(customer)
@@ -79,11 +94,8 @@ public class BookingServiceImpl implements BookingService {
                 .status(BookingStatus.PENDING_PAYMENT)
                 .build();
 
-        Booking savedBooking = bookingRepository.save(booking);
-
-        activityLogService.record(customer.getId(), ActivityAction.RESERVATION_CREATE, "BOOKING", savedBooking.getId(),
-                "Created reservation " + savedBooking.getBookingCode() + " for unit " + selectedUnit.getUnitCode(),
-                null, savedBooking.getTotalRentalFee());
+        Booking savedBooking =
+                bookingRepository.save(booking);
 
         return BookingResponse.builder()
                 .id(savedBooking.getId())
@@ -103,7 +115,9 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional(readOnly = true)
-    public RentalQuoteResponse getRentalQuote(RentalQuoteRequest request) {
+    public RentalQuoteResponse getRentalQuote(
+            RentalQuoteRequest request
+    ) {
         return pricingService.calculateRentalQuote(request);
     }
 }
