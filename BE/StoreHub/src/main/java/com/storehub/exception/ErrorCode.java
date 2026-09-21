@@ -50,7 +50,23 @@ public enum ErrorCode {
     INVALID_PRICING_TARGET(705, "Provide either unitTypeId or storageUnitId, but not both or neither", HttpStatus.BAD_REQUEST),
     UNIT_TYPE_PRICE_NOT_CONFIGURED(706, "Unit type monthly price is not configured", HttpStatus.INTERNAL_SERVER_ERROR),
     NO_AVAILABLE_UNIT(707, "No available storage unit found for the selected type and facility", HttpStatus.CONFLICT),
+    FACILITY_NOT_FOUND(
+            708,
+            "Facility not found",
+            HttpStatus.NOT_FOUND
+    ),
 
+    UNIT_UNAVAILABLE(
+            709,
+            "Storage unit is not available for this operation",
+            HttpStatus.CONFLICT
+    ),
+
+    UNIT_CODE_EXISTED(
+            710,
+            "Unit code already exists at this facility",
+            HttpStatus.CONFLICT
+    ),
     // ========================= PAYMENT (750 - 799) =========================
     PAYMENT_NOT_FOUND(750, "Payment transaction not found", HttpStatus.NOT_FOUND),
     PAYMENT_ALREADY_PROCESSED(751, "Payment has already been processed", HttpStatus.CONFLICT),
