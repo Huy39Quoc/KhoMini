@@ -266,6 +266,28 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
+        if ("FACILITY_MANAGER".equals(role)) {
+            Facility previousFacility = user.getFacility();
+
+            if (previousFacility != null
+                    && !facilityId.equals(previousFacility.getId())
+                    && previousFacility.getManager() != null
+                    && userId.equals(previousFacility.getManager().getId())) {
+                previousFacility.setManager(null);
+            }
+
+            User previousManager = facility.getManager();
+
+            if (previousManager != null
+                    && !userId.equals(previousManager.getId())
+                    && previousManager.getFacility() != null
+                    && facilityId.equals(previousManager.getFacility().getId())) {
+                previousManager.setFacility(null);
+            }
+
+            facility.setManager(user);
+        }
+
         user.setFacility(facility);
 
         return new FacilityStaffResponse(
