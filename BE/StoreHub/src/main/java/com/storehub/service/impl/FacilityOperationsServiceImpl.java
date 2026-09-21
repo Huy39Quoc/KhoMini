@@ -16,6 +16,8 @@ import com.storehub.repository.BookingRepository;
 import com.storehub.repository.HandoverRecordRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 import com.storehub.service.FacilityOperationsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,7 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
     private final HandoverRecordRepository handoverRecordRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final UserRepository userRepository;
+    private final ActivityLogService activityLogService;
 
     @Override
     @Transactional(readOnly = true)
@@ -150,6 +153,10 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
         bookingRepository.save(booking);
         storageUnitRepository.save(storageUnit);
 
+        activityLogService.record(staff.getId(), ActivityAction.HANDOVER_COMPLETE, "BOOKING", booking.getId(),
+                "Check-in handover completed for unit " + storageUnit.getUnitCode() + " by staff " + staff.getEmail(),
+                UnitStatus.RESERVED, UnitStatus.OCCUPIED);
+
         return toHandoverResponse(
                 booking,
                 storageUnit,
@@ -214,6 +221,10 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
         bookingRepository.save(booking);
         storageUnitRepository.save(storageUnit);
 
+        activityLogService.record(staff.getId(), ActivityAction.CHECKOUT_INSPECTION_COMPLETE, "BOOKING", booking.getId(),
+                "Check-out inspection completed for unit " + storageUnit.getUnitCode() + " by staff " + staff.getEmail(),
+                UnitStatus.OCCUPIED, UnitStatus.UNDER_MAINTENANCE);
+
         return toHandoverResponse(
                 booking,
                 storageUnit,
@@ -246,9 +257,14 @@ public class FacilityOperationsServiceImpl implements FacilityOperationsService 
             throw new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND);
         }
 
+        UnitStatus oldStatus = storageUnit.getStatus();
         storageUnit.setStatus(request.getStatus());
 
         storageUnitRepository.save(storageUnit);
+
+        activityLogService.record(ActivityAction.STORAGE_UNIT_STATUS_CHANGE, "STORAGE_UNIT", storageUnit.getId(),
+                "Storage unit " + storageUnit.getUnitCode() + " status changed to " + request.getStatus(),
+                oldStatus, request.getStatus());
 
         return "Storage unit status updated successfully";
     }

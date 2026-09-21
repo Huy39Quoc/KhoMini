@@ -14,6 +14,8 @@ import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 import com.storehub.service.BookingService;
 import com.storehub.service.PricingService;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,7 @@ public class BookingServiceImpl implements BookingService {
     private final StorageUnitRepository storageUnitRepository;
     private final UserRepository userRepository;
     private final PricingService pricingService;
+    private final ActivityLogService activityLogService;
 
     @Override
     @Transactional
@@ -77,6 +80,10 @@ public class BookingServiceImpl implements BookingService {
                 .build();
 
         Booking savedBooking = bookingRepository.save(booking);
+
+        activityLogService.record(customer.getId(), ActivityAction.RESERVATION_CREATE, "BOOKING", savedBooking.getId(),
+                "Created reservation " + savedBooking.getBookingCode() + " for unit " + selectedUnit.getUnitCode(),
+                null, savedBooking.getTotalRentalFee());
 
         return BookingResponse.builder()
                 .id(savedBooking.getId())

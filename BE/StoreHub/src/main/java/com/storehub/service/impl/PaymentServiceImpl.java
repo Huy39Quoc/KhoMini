@@ -16,6 +16,8 @@ import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 import com.storehub.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final StorageUnitRepository storageUnitRepository;
+    private final ActivityLogService activityLogService;
 
     @Override
     @Transactional
@@ -66,6 +69,10 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
 
         Payment savedPayment = paymentRepository.save(payment);
+
+        activityLogService.record(customer.getId(), ActivityAction.PAYMENT_INITIATED, "PAYMENT", savedPayment.getId(),
+                "Payment initiated: " + transactionId + " with amount " + payableAmount + " (" + request.getPaymentType() + ")",
+                null, payableAmount);
 
         // 5. Sinh QR Code VietQR
         String qrCodeUrl = String.format(
@@ -118,6 +125,11 @@ public class PaymentServiceImpl implements PaymentService {
             booking.getStorageUnit().setStatus(UnitStatus.OCCUPIED);
             storageUnitRepository.save(booking.getStorageUnit());
         }
+
+        UUID customerId = booking.getCustomer() != null ? booking.getCustomer().getId() : null;
+        activityLogService.record(customerId, ActivityAction.PAYMENT_CONFIRMED, "PAYMENT", payment.getId(),
+                "Payment confirmed: " + payment.getTransactionId() + " with amount " + payment.getAmount(),
+                PaymentStatus.PENDING, PaymentStatus.PAID);
 
         return PaymentResponse.builder()
                 .id(payment.getId())

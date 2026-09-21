@@ -16,6 +16,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +33,7 @@ public class CustomerTicketController {
     private final CustomerTicketService customerTicketService;
 
     @PostMapping
+    @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Tạo mới một yêu cầu hỗ trợ sự cố kho")
     public ResponseEntity<ApiResponse<TicketResponse>> createTicket(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -46,6 +48,7 @@ public class CustomerTicketController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Lấy danh sách các yêu cầu hỗ trợ của khách hàng (có phân trang)")
     public ResponseEntity<ApiResponse<PageResponse<TicketResponse>>> getMyTickets(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -60,6 +63,7 @@ public class CustomerTicketController {
     }
 
     @GetMapping("/{ticketId}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Xem chi tiết tiến trình xử lý của một yêu cầu hỗ trợ")
     public ResponseEntity<ApiResponse<TicketResponse>> getTicketDetail(
             @PathVariable UUID ticketId,

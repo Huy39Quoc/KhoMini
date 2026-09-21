@@ -11,6 +11,8 @@ import com.storehub.exception.ErrorCode;
 import com.storehub.mapper.UserMapper;
 import com.storehub.repository.RoleRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 import com.storehub.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +36,7 @@ public class UserServiceImpl implements UserService {
     private final RoleRepository roleRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final ActivityLogService activityLogService;
 
 
     @Override
@@ -66,6 +69,8 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         User saved = userRepository.save(user);
+        activityLogService.record(ActivityAction.USER_CREATE, "USER", saved.getId(),
+                "Created user: " + saved.getUsername(), null, saved.getEmail());
         return userMapper.toResponse(saved);
     }
 
@@ -83,14 +88,20 @@ public class UserServiceImpl implements UserService {
         }
 
         // Update role if provided
+        boolean roleChanged = false;
         if (request.getRoleId() != null) {
             Role role = roleRepository.findById(request.getRoleId())
                     .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
             user.setRole(role);
+            roleChanged = true;
         }
 
         userMapper.updateEntityFromRequest(request, user);
         User updated = userRepository.save(user);
+
+        ActivityAction action = roleChanged ? ActivityAction.USER_ASSIGN_ROLE : ActivityAction.USER_UPDATE;
+        activityLogService.record(action, "USER", updated.getId(),
+                "Updated user: " + updated.getUsername(), null, updated.getEmail());
 
         return userMapper.toResponse(updated);
     }
@@ -105,6 +116,9 @@ public class UserServiceImpl implements UserService {
 
         userRepository.deleteById(id);
         log.info("User deleted successfully with id: {}", id);
+
+        activityLogService.record(ActivityAction.USER_DEACTIVATE, "USER", id,
+                "Deleted user with id: " + id, null, null);
     }
 
 
@@ -149,8 +163,14 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        user.setIsActive(!user.getIsActive());
+        boolean oldStatus = user.getIsActive();
+        user.setIsActive(!oldStatus);
         User updated = userRepository.save(user);
+
+        ActivityAction action = updated.getIsActive() ? ActivityAction.USER_ACTIVATE : ActivityAction.USER_DEACTIVATE;
+        activityLogService.record(action, "USER", updated.getId(),
+                "Toggled user active status for " + updated.getUsername() + " to: " + updated.getIsActive(),
+                oldStatus, updated.getIsActive());
 
         return userMapper.toResponse(updated);
     }
