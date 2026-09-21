@@ -35,18 +35,17 @@ public class FacilityOperationsController {
 
     @GetMapping("/daily-schedule")
     @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
-    @Operation(
-            summary = "Get daily check-in and check-out schedule"
-    )
+    @Operation(summary = "Get daily check-in and check-out schedule")
     public ResponseEntity<ApiResponse<List<DailyScheduleResponse>>> getDailySchedule(
             @RequestParam UUID facilityId,
-            @RequestParam LocalDate date
+            @RequestParam LocalDate date,
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
-
         List<DailyScheduleResponse> result =
                 facilityOperationsService.getDailySchedule(
                         facilityId,
-                        date
+                        date,
+                        userDetails.getUsername()
                 );
 
         return ResponseEntity.ok(
@@ -118,21 +117,19 @@ public class FacilityOperationsController {
 
     @PatchMapping("/units/{unitId}/status")
     @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
-    @Operation(
-            summary = "Update storage unit status"
-    )
+    @Operation(summary = "Update storage unit status")
     public ResponseEntity<ApiResponse<String>> updateUnitStatus(
             @PathVariable UUID unitId,
             @RequestParam UUID facilityId,
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody @Valid UpdateUnitStatusRequest request
     ) {
-
-        String result =
-                facilityOperationsService.updateUnitStatus(
-                        unitId,
-                        facilityId,
-                        request
-                );
+        String result = facilityOperationsService.updateUnitStatus(
+                unitId,
+                facilityId,
+                userDetails.getUsername(),
+                request
+        );
 
         return ResponseEntity.ok(
                 ApiResponse.<String>builder()
