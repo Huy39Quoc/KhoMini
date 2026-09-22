@@ -7,8 +7,12 @@ class HttpClient {
   static final HttpClient _instance = HttpClient._internal();
   late final Dio dio;
 
+  // Dùng riêng một Dio "trần" (không gắn interceptor) để gọi refresh-token,
+  // tránh việc request refresh cũng bị interceptor 401 bắt lại -> vòng lặp vô hạn.
   late final Dio _plainDio;
 
+  // Gom các request đang chờ refresh xong để tránh gọi refresh-token nhiều lần
+  // cùng lúc khi nhiều API 401 song song.
   bool _isRefreshing = false;
   final List<void Function(String?)> _pendingCallbacks = [];
 
@@ -44,6 +48,11 @@ class HttpClient {
           }
           return handler.next(options);
         },
+        // Access token của BE là JWT ngắn hạn. Trước đây khi hết hạn, mọi
+        // API sẽ lỗi 401 vĩnh viễn cho tới khi người dùng tự đăng xuất/đăng
+        // nhập lại (trước cả khi sửa logout thì coi như bị kẹt hoàn toàn).
+        // Giờ tự động dùng refresh_token để lấy access token mới và gọi
+        // lại đúng request đó một lần.
         onError: (error, handler) async {
           final isUnauthorized = error.response?.statusCode == 401;
           final isRefreshCall =
@@ -55,6 +64,8 @@ class HttpClient {
 
           final newToken = await _refreshAccessToken();
           if (newToken == null) {
+            // Refresh thất bại (refresh token cũng hết hạn/không có) ->
+            // dọn sạch session cục bộ để lần vào app tiếp theo quay lại login.
             final prefs = await SharedPreferences.getInstance();
             await prefs.remove('jwt_token');
             await prefs.remove('refresh_token');
@@ -76,6 +87,7 @@ class HttpClient {
 
   Future<String?> _refreshAccessToken() async {
     if (_isRefreshing) {
+      // Đã có 1 lệnh refresh đang chạy, đợi kết quả của nó thay vì gọi thêm.
       final completer = Completer<String?>();
       _pendingCallbacks.add((token) => completer.complete(token));
       return completer.future;
@@ -128,12 +140,14 @@ class HttpClient {
 
   static HttpClient get instance => _instance;
 
+  // Wrapper cho phương thức GET
   Future<Response> get(String path,
       {Map<String, dynamic>? queryParameters, Options? options}) async {
     return await dio.get(path,
         queryParameters: queryParameters, options: options);
   }
 
+  // Wrapper cho phương thức POST
   Future<Response> post(String path,
       {dynamic data,
       Map<String, dynamic>? queryParameters,
@@ -142,6 +156,7 @@ class HttpClient {
         data: data, queryParameters: queryParameters, options: options);
   }
 
+  // Wrapper cho phương thức PUT
   Future<Response> put(String path,
       {dynamic data,
       Map<String, dynamic>? queryParameters,
@@ -150,6 +165,7 @@ class HttpClient {
         data: data, queryParameters: queryParameters, options: options);
   }
 
+  // Wrapper cho phương thức DELETE
   Future<Response> delete(String path,
       {dynamic data,
       Map<String, dynamic>? queryParameters,

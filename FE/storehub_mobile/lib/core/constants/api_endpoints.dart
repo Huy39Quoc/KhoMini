@@ -1,3 +1,6 @@
+/// All backend endpoints, relative to [baseUrl]. Kept 1:1 with the
+/// @RequestMapping / @GetMapping / @PostMapping paths declared in the
+/// Spring Boot controllers under BE/StoreHub/src/main/java/com/storehub/controller.
 class ApiEndpoints {
   static const String baseUrl = 'http://10.0.2.2:8080/api/v1';
 

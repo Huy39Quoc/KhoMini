@@ -6,6 +6,7 @@ import '../core/network/http_client.dart';
 class StorageApiService {
   final Dio _dio = HttpClient.instance.dio;
 
+  // Lấy danh sách kho đang thuê của khách hàng
   Future<List<dynamic>> getMyRentedUnits() async {
     try {
       final response = await _dio.get(ApiEndpoints.myUnits);
@@ -23,6 +24,10 @@ class StorageApiService {
     }
   }
 
+  // Lấy thông tin smart access (mã PIN / mã QR) theo bookingId.
+  // BE trả về dạng bọc { success, message, data: { accessPin, ... } };
+  // trước đây hàm này trả nguyên cả bọc đó ra ngoài (không bóc "data"),
+  // khiến accessPin/qrCodeToken/tokenExpiresAt luôn bị đọc là null.
   Future<Map<String, dynamic>> getSmartAccess(String bookingId) async {
     try {
       final response = await _dio.get(ApiEndpoints.smartAccess(bookingId));
@@ -33,6 +38,8 @@ class StorageApiService {
     }
   }
 
+  // Cập nhật mã PIN mới cho ngăn kho
+  // BE (UpdatePinRequest) nhận field tên "newPin", không phải "pin".
   Future<void> updatePin(String bookingId, String newPin) async {
     try {
       await _dio.put(
@@ -45,6 +52,11 @@ class StorageApiService {
     }
   }
 
+  // Gia hạn thời gian thuê kho
+  // BE (ExtendRentalRequest) nhận field tên "extraMonths", không phải "months".
+  // Trả về nguyên ContractOperationResponse thật từ BE (newEndDate,
+  // additionalFee, updatedTotalFee...) để FE hiển thị đúng số tiền thật,
+  // thay vì tự tính (không có công thức thuế/giảm giá nào ở FE cả).
   Future<Map<String, dynamic>> extendRental(String bookingId, int months) async {
     try {
       final response = await _dio.post(
@@ -58,6 +70,10 @@ class StorageApiService {
     }
   }
 
+  // Gửi yêu cầu trả kho (checkout)
+  // BE (CheckoutRequest) bắt buộc "scheduledReturnTime" (phải ở tương lai);
+  // trước đây không gửi gì nên luôn bị lỗi validate ở BE.
+  // Cũng trả về ContractOperationResponse thật (message, scheduledReturnTime...).
   Future<Map<String, dynamic>> checkoutRental(
     String bookingId,
     DateTime scheduledReturnTime, {
@@ -87,6 +103,8 @@ class StorageApiService {
     return {};
   }
 
+  // Format "yyyy-MM-ddTHH:mm:ss" (không có mili-giây/timezone) để khớp
+  // với kiểu LocalDateTime ở BE.
   String _formatLocalDateTime(DateTime dt) {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${dt.year.toString().padLeft(4, '0')}-${two(dt.month)}-${two(dt.day)}'
