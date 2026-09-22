@@ -50,7 +50,8 @@ public enum ErrorCode {
     INVALID_PRICING_TARGET(705, "Provide either unitTypeId or storageUnitId, but not both or neither", HttpStatus.BAD_REQUEST),
     UNIT_TYPE_PRICE_NOT_CONFIGURED(706, "Unit type monthly price is not configured", HttpStatus.INTERNAL_SERVER_ERROR),
     NO_AVAILABLE_UNIT(707, "No available storage unit found for the selected type and facility", HttpStatus.CONFLICT),
-
+    BOOKING_EXPIRED(708, "Booking has expired. Please create a new booking.", HttpStatus.GONE),
+    BOOKING_CANCEL_NOT_ALLOWED(711, "Only PENDING_PAYMENT bookings can be cancelled by the customer", HttpStatus.CONFLICT),
 
     UNIT_UNAVAILABLE(
             709,
@@ -91,7 +92,10 @@ public enum ErrorCode {
     TICKET_NOT_FOUND(1200, "Support ticket not found or does not belong to user", HttpStatus.NOT_FOUND),
 
     // ========================= ACTIVITY_LOG (1300 - 1399) =========================
-    ACTIVITY_LOG_NOT_FOUND(1300, "Activity log entry not found", HttpStatus.NOT_FOUND);
+    ACTIVITY_LOG_NOT_FOUND(1300, "Activity log entry not found", HttpStatus.NOT_FOUND),
+
+    // ========================= WAITLIST (1400 - 1499) =========================
+    WAITLIST_ALREADY_JOINED(1400, "You are already on the waitlist for this unit type at this facility", HttpStatus.CONFLICT);
 
 
     private final int code;

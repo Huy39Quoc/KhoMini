@@ -68,4 +68,7 @@ public class Booking extends BaseEntity {
 
     @Column(name = "return_time")
     private LocalDateTime returnTime;
+
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
 }

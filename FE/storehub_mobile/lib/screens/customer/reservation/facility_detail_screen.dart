@@ -511,6 +511,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
     final total = _quote!['totalRentalFee'];
     final deposit = _quote!['depositAmount'];
+    final extraFees = _quote!['totalExtraFees'];
     final initial = _quote!['initialPaymentAmount'];
 
     return Container(
@@ -560,6 +561,9 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
               'Rental fee ($_rentalMonths mo)', total, isHighlight: false),
           const SizedBox(height: 8),
           _quoteLine('Deposit (refunded at checkout)', deposit,
+              isHighlight: false),
+          const SizedBox(height: 8),
+          _quoteLine('Management fee ($_rentalMonths mo)', extraFees,
               isHighlight: false),
           const Divider(height: 20),
           _quoteLine('💳 Due Now', initial, isHighlight: true),
@@ -681,6 +685,12 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         throw Exception('Server did not return a booking id.');
       }
 
+      DateTime? expiresAt;
+      final expiresAtStr = booking['expiresAt']?.toString();
+      if (expiresAtStr != null && expiresAtStr.isNotEmpty) {
+        expiresAt = DateTime.tryParse(expiresAtStr);
+      }
+
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -697,21 +707,99 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                     (_quote!['totalRentalFee'] as num?)?.toDouble() ??
                     0,
             depositAmount:
-                (_quote!['depositAmount'] as num?)?.toDouble() ?? 0,
+                (booking['depositAmount'] as num?)?.toDouble() ??
+                    (_quote!['depositAmount'] as num?)?.toDouble() ?? 0,
+            totalExtraFees:
+                (booking['totalExtraFees'] as num?)?.toDouble() ??
+                    (_quote!['totalExtraFees'] as num?)?.toDouble() ?? 0,
+            initialPaymentAmount:
+                (booking['initialPaymentAmount'] as num?)?.toDouble() ??
+                    (_quote!['initialPaymentAmount'] as num?)?.toDouble() ?? 0,
+            expiresAt: expiresAt,
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString().replaceAll('Exception: ', '');
+
+      if (msg.toLowerCase().contains('no available') ||
+          msg.toLowerCase().contains('no_available_unit')) {
+        _showWaitlistDialog();
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
+          content: Text(msg),
           backgroundColor: AppColors.error,
         ),
       );
     } finally {
       if (mounted) setState(() => _isBooking = false);
     }
+  }
+
+  void _showWaitlistDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.hourglass_top, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('No Units Available'),
+          ],
+        ),
+        content: Text(
+          'All units of type "${_selectedType?.name ?? ''}" at this facility are currently fully booked.\n\n'
+          'Would you like to join the waitlist? We will notify you by email as soon as a unit becomes available.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Not now'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await _bookingService.joinWaitlist(
+                  facilityId: widget.facilityId,
+                  unitTypeId: _selectedType!.id,
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          "You're on the waitlist! We'll notify you when a unit is available."),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString().replaceAll('Exception: ', '')),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Join Waitlist'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

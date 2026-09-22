@@ -96,4 +96,18 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             UUID unitId,
             List<BookingStatus> statuses
     );
-}
+
+    @Query("""
+            SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            LEFT JOIN FETCH su.facility
+            LEFT JOIN FETCH su.unitType
+            WHERE b.status = :status
+            AND b.expiresAt IS NOT NULL
+            AND b.expiresAt < :now
+            """)
+    List<Booking> findExpiredPendingBookings(
+            @Param("status") BookingStatus status,
+            @Param("now") LocalDateTime now
+    );
+}

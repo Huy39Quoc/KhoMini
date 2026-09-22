@@ -15,8 +15,10 @@ import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.service.EmailService;
 import com.storehub.service.PaymentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,12 +28,13 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class PaymentServiceImpl
-        implements PaymentService {
+@Slf4j
+public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -41,24 +44,21 @@ public class PaymentServiceImpl
     ) {
         User customer = userRepository
                 .findByEmail(customerEmail)
-                .orElseThrow(() -> new AppException(
-                        ErrorCode.USER_NOT_FOUND
-                ));
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         Booking booking = bookingRepository
-                .findByIdAndCustomerId(
-                        request.getBookingId(),
-                        customer.getId()
-                )
-                .orElseThrow(() -> new AppException(
-                        ErrorCode.BOOKING_NOT_FOUND
-                ));
+                .findByIdAndCustomerId(request.getBookingId(), customer.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (booking.getExpiresAt() != null
+                && booking.getExpiresAt().isBefore(LocalDateTime.now())
+                && booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+            throw new AppException(ErrorCode.BOOKING_EXPIRED);
+        }
 
         if (booking.getStorageUnit() == null
                 || booking.getStorageUnit().getUnitType() == null) {
-            throw new AppException(
-                    ErrorCode.STORAGE_UNIT_NOT_FOUND
-            );
+            throw new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND);
         }
 
         BigDecimal payableAmount;
@@ -74,9 +74,7 @@ public class PaymentServiceImpl
 
         if (payableAmount == null
                 || payableAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new AppException(
-                    ErrorCode.INVALID_REQUEST
-            );
+            throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
         String transactionId =
@@ -96,8 +94,7 @@ public class PaymentServiceImpl
                 .paymentTime(LocalDateTime.now())
                 .build();
 
-        Payment savedPayment =
-                paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
 
         String qrCodeUrl = String.format(
                 "https://img.vietqr.io/image/"
@@ -123,69 +120,70 @@ public class PaymentServiceImpl
 
     @Override
     @Transactional
-    public PaymentResponse confirmPayment(
-            PaymentConfirmationRequest request
-    ) {
+    public PaymentResponse confirmPayment(PaymentConfirmationRequest request) {
         Payment payment = paymentRepository
-                .lockByTransactionId(
-                        request.getTransactionId()
-                )
-                .orElseThrow(() -> new AppException(
-                        ErrorCode.PAYMENT_NOT_FOUND
-                ));
+                .lockByTransactionId(request.getTransactionId())
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
         if (payment.getStatus() != PaymentStatus.PENDING) {
-            throw new AppException(
-                    ErrorCode.PAYMENT_ALREADY_PROCESSED
-            );
+            throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
 
         Booking booking = payment.getBooking();
 
         if (booking == null) {
-            throw new AppException(
-                    ErrorCode.BOOKING_NOT_FOUND
-            );
+            throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
         }
 
-        /*
-         * Tiền cọc chỉ hợp lệ khi:
-         * - booking đang chờ thanh toán
-         * - unit vẫn đang RESERVED
-         */
+        if (booking.getExpiresAt() != null
+                && booking.getExpiresAt().isBefore(LocalDateTime.now())
+                && booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+            throw new AppException(ErrorCode.BOOKING_EXPIRED);
+        }
+
         if (payment.getPaymentType() == PaymentType.DEPOSIT) {
             if (booking.getStatus() != BookingStatus.PENDING_PAYMENT
                     || booking.getStorageUnit() == null
-                    || booking.getStorageUnit().getStatus()
-                    != UnitStatus.RESERVED) {
-                throw new AppException(
-                        ErrorCode.UNIT_UNAVAILABLE
-                );
+                    || booking.getStorageUnit().getStatus() != UnitStatus.RESERVED) {
+                throw new AppException(ErrorCode.UNIT_UNAVAILABLE);
             }
         }
 
         payment.setStatus(PaymentStatus.PAID);
         payment.setPaymentTime(LocalDateTime.now());
-
         paymentRepository.save(payment);
 
         if (payment.getPaymentType() == PaymentType.DEPOSIT) {
             booking.setDepositPaid(
-                    booking.getDepositPaid()
-                            .add(payment.getAmount())
+                    booking.getDepositPaid().add(payment.getAmount())
             );
-
-            booking.setStatus(
-                    BookingStatus.CONFIRMED
-            );
+            booking.setStatus(BookingStatus.CONFIRMED);
         }
 
         bookingRepository.save(booking);
 
-        /*
-         * Không chuyển unit sang OCCUPIED tại đây.
-         * Unit chỉ chuyển sang OCCUPIED khi staff thực hiện check-in.
-         */
+        if (payment.getPaymentType() == PaymentType.DEPOSIT
+                && booking.getStatus() == BookingStatus.CONFIRMED) {
+            try {
+                User customer = booking.getCustomer();
+                var unit = booking.getStorageUnit();
+                var facility = unit != null ? unit.getFacility() : null;
+
+                emailService.sendBookingConfirmationEmail(
+                        customer.getEmail(),
+                        customer.getFullName(),
+                        booking.getBookingCode(),
+                        facility != null ? facility.getName() : "–",
+                        unit != null ? unit.getUnitCode() : "–",
+                        booking.getStartDate(),
+                        booking.getEndDate(),
+                        payment.getAmount().add(booking.getTotalRentalFee())
+                );
+            } catch (Exception e) {
+                log.warn("Failed to send booking confirmation email for booking {}: {}",
+                        booking.getId(), e.getMessage());
+            }
+        }
 
         return PaymentResponse.builder()
                 .id(payment.getId())

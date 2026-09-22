@@ -5,6 +5,8 @@ import com.storehub.dto.request.RentalQuoteRequest;
 import com.storehub.dto.response.BookingResponse;
 import com.storehub.dto.response.RentalQuoteResponse;
 
+import java.util.UUID;
+
 public interface BookingService {
 
     /**
@@ -26,4 +28,6 @@ public interface BookingService {
      * @return bảng kê chi tiết chi phí
      */
     RentalQuoteResponse getRentalQuote(RentalQuoteRequest request);
+
+    void cancelBooking(UUID bookingId, String customerEmail);
 }

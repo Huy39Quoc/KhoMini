@@ -171,6 +171,37 @@ CREATE TABLE IF NOT EXISTS unit_types
     CONSTRAINT pk_unit_types PRIMARY KEY (id)
     );
 
+-- =========================================================
+-- WAITLISTS
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS waitlists
+(
+    id           UUID        NOT NULL,
+    created_at   TIMESTAMP   NOT NULL,
+    updated_at   TIMESTAMP   NOT NULL,
+    customer_id  UUID        NOT NULL,
+    facility_id  UUID        NOT NULL,
+    unit_type_id UUID        NOT NULL,
+    status       VARCHAR(20) NOT NULL,
+
+    CONSTRAINT pk_waitlists PRIMARY KEY (id),
+
+    CONSTRAINT fk_waitlists_customer
+    FOREIGN KEY (customer_id)
+    REFERENCES users(id),
+
+    CONSTRAINT fk_waitlists_facility
+    FOREIGN KEY (facility_id)
+    REFERENCES facilities(id),
+
+    CONSTRAINT fk_waitlists_unit_type
+    FOREIGN KEY (unit_type_id)
+    REFERENCES unit_types(id)
+    );
+
+CREATE INDEX IF NOT EXISTS idx_waitlist_facility_unittype_status
+    ON waitlists(facility_id, unit_type_id, status);
 
 -- =========================================================
 -- STORAGE UNITS
@@ -258,6 +289,7 @@ CREATE TABLE IF NOT EXISTS bookings
     access_pin               VARCHAR(10),
     qr_access_token          VARCHAR(255),
     pin_updated_at           TIMESTAMP,
+    expires_at               TIMESTAMP,
 
     CONSTRAINT pk_bookings PRIMARY KEY (id),
 

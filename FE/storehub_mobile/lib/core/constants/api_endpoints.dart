@@ -62,6 +62,10 @@ class ApiEndpoints {
 
   // ---- Bookings (BookingController) ----
   static const String bookings = '/bookings';
+  static const String pricingQuoteBooking = '/bookings/quote';
+  static String cancelBooking(String bookingId) => '/bookings/$bookingId';
+
+  static const String waitlist = '/waitlist';
 
   // ---- Payments (PaymentController) ----
   static const String paymentInitiate = '/payments/initiate';
