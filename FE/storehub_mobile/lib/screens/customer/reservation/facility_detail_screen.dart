@@ -35,6 +35,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   String? _quoteError;
   bool _isBooking = false;
 
+  // Rental period presets
   static const _presets = [1, 3, 6, 12];
 
   @override
@@ -67,6 +68,10 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       setState(() => _quote = quote);
     } catch (e) {
       if (!mounted) return;
+      // This used to fabricate a fake price breakdown on any API error
+      // (deposit guessed as 2x monthly rent) and show it as if real. Now
+      // it surfaces the real error so the user can retry, instead of
+      // guessing at numbers.
       setState(() {
         _quote = null;
         _quoteError = e.toString().replaceAll('Exception: ', '');
@@ -94,6 +99,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         builder: (context, snapshot) {
           return CustomScrollView(
             slivers: [
+              // ── SliverAppBar with gradient ────────────────────────────
               SliverAppBar(
                 expandedHeight: 160,
                 pinned: true,
@@ -153,6 +159,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                 ),
               ),
 
+              // ── Body ────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -163,6 +170,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           );
         },
       ),
+      // ── Bottom CTA ───────────────────────────────────────────────────
       bottomNavigationBar: _selectedType != null && _quote != null
           ? _buildBottomCTA()
           : null,
@@ -196,6 +204,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Unit type selection ─────────────────────────────────────
         _sectionHeader('📦 Choose a Unit Type', subtitle: 'Pick the size that fits'),
         const SizedBox(height: 10),
         if (snapshot.hasError)
@@ -221,6 +230,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
         const SizedBox(height: 24),
 
+        // ── Move-in appointment ──────────────────────────────────────
         _sectionHeader('📅 Move-in Appointment',
             subtitle: 'Choose your rental start date'),
         const SizedBox(height: 10),
@@ -228,6 +238,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
         const SizedBox(height: 24),
 
+        // ── Rental period ─────────────────────────────────────────────
         _sectionHeader('🗓 Rental Period',
             subtitle: 'The longer you rent, the better the rate'),
         const SizedBox(height: 10),
@@ -235,13 +246,14 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
         const SizedBox(height: 24),
 
+        // ── Cost breakdown ────────────────────────────────────────────
         if (_selectedType != null) ...[
           _sectionHeader('💰 Cost Breakdown', subtitle: 'Updates automatically'),
           const SizedBox(height: 10),
           _buildQuoteSection(),
         ],
 
-        const SizedBox(height: 100), 
+        const SizedBox(height: 100), // space for bottom bar
       ],
     );
   }
@@ -646,6 +658,11 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     );
   }
 
+  // Creates a real booking (POST /bookings) before opening the payment
+  // screen. This step used to be skipped entirely: tapping the button
+  // went straight to PaymentScreen with numbers computed on the FE, no
+  // booking was ever created in the DB, so after "paying" the unit never
+  // showed up in "My Units".
   Future<void> _handleReserve() async {
     if (_selectedType == null || _quote == null) return;
     setState(() => _isBooking = true);
@@ -698,6 +715,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   }
 }
 
+// ── UnitTypeCard widget ───────────────────────────────────────────────────────
 
 class _UnitTypeCard extends StatelessWidget {
   final UnitTypeModel type;
@@ -739,6 +757,7 @@ class _UnitTypeCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
+              // Size icon
               Container(
                 width: 52,
                 height: 52,

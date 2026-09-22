@@ -15,6 +15,7 @@ class UserModel {
     required this.roleName,
   });
 
+  // Getter cho các màn hình dùng u.role
   String get role => roleName;
 
   factory UserModel.fromJson(Map<String, dynamic> json) {

@@ -35,6 +35,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     });
   }
 
+  // Trước đây danh sách role bị hard-code cứng bằng tên (không đảm bảo khớp
+  // với dữ liệu role thật trong DB) và gọi một endpoint không tồn tại
+  // (PUT /users/{id}/role). Giờ lấy danh sách role thật từ GET /roles, và
+  // cập nhật qua đúng endpoint PUT /users/{id} với {roleId, phone}.
   Future<void> _showAssignRoleSheet(String userId, String username, String currentPhone) async {
     List<dynamic> roles;
     try {

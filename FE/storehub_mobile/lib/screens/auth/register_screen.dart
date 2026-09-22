@@ -183,6 +183,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     validator: (value) {
                       final v = value?.trim() ?? '';
                       if (v.isEmpty) return 'Email is required';
+                      // Mirrors the BE pattern: ^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$
                       if (!RegExp(r'^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$').hasMatch(v)) {
                         return 'Enter a valid email address';
                       }
@@ -204,6 +205,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     validator: (value) {
                       final v = value?.trim() ?? '';
                       if (v.isEmpty) return 'Phone number is required';
+                      // Mirrors the BE pattern: ^(0|\+84)(3|5|7|8|9)[0-9]{8}$
                       if (!RegExp(r'^(0|\+84)(3|5|7|8|9)[0-9]{8}$').hasMatch(v)) {
                         return 'Enter a valid Vietnamese phone number (e.g. 0912345678)';
                       }

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
-import '../../services/auth_api_service.dart';
-import '../auth/login_screen.dart';
+import '../common/profile_screen.dart';
 import 'role_permission_screen.dart';
 import 'user_management_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
-  const AdminDashboardScreen({super.key});
+  final UserModel user;
+  const AdminDashboardScreen({super.key, required this.user});
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -15,7 +16,6 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _adminApiService = AdminApiService();
-  final _authApiService = AuthApiService();
   bool _isLoading = true;
   int _totalUsers = 0;
   int _totalRoles = 0;
@@ -68,16 +68,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  Future<void> _logout() async {
-    await _authApiService.logout();
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,10 +76,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         title: const Text('System Administration'),
         actions: [
           IconButton(
-            tooltip: 'Sign Out',
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+            tooltip: 'Profile',
+            icon: CircleAvatar(
+              radius: 15,
+              backgroundColor: AppColors.primaryContainer,
+              child: Text(
+                widget.user.fullName.isNotEmpty
+                    ? widget.user.fullName.substring(0, 1).toUpperCase()
+                    : '?',
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ProfileScreen(user: widget.user)),
+              );
+            },
           ),
+          const SizedBox(width: 6),
         ],
       ),
       body: _isLoading
@@ -99,6 +104,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
+                  Text('Welcome back, ${widget.user.fullName.isNotEmpty ? widget.user.fullName : widget.user.username}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  const Text('Here is what is happening across the platform today.',
+                      style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                  const SizedBox(height: 16),
+
                   if (_errorMessage != null)
                     Container(
                       padding: const EdgeInsets.all(12),

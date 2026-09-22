@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
-import '../../services/auth_api_service.dart';
 import '../admin/role_permission_screen.dart';
-import '../auth/login_screen.dart';
+import '../common/profile_screen.dart';
 
 class OperationsDashboardScreen extends StatefulWidget {
-  const OperationsDashboardScreen({super.key});
+  final UserModel user;
+  const OperationsDashboardScreen({super.key, required this.user});
 
   @override
   State<OperationsDashboardScreen> createState() => _OperationsDashboardScreenState();
@@ -14,7 +15,6 @@ class OperationsDashboardScreen extends StatefulWidget {
 
 class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
   final _adminApiService = AdminApiService();
-  final _authApiService = AuthApiService();
   bool _isLoading = true;
   int _userCount = 0;
   int _activeUsers = 0;
@@ -64,16 +64,6 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
     }
   }
 
-  Future<void> _logout() async {
-    await _authApiService.logout();
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -82,10 +72,25 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
         title: const Text('Operations Console'),
         actions: [
           IconButton(
-            tooltip: 'Sign Out',
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+            tooltip: 'Profile',
+            icon: CircleAvatar(
+              radius: 15,
+              backgroundColor: AppColors.primaryContainer,
+              child: Text(
+                widget.user.fullName.isNotEmpty
+                    ? widget.user.fullName.substring(0, 1).toUpperCase()
+                    : '?',
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ProfileScreen(user: widget.user)),
+              );
+            },
           ),
+          const SizedBox(width: 6),
         ],
       ),
       body: _isLoading
@@ -95,6 +100,13 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  Text('Welcome back, ${widget.user.fullName.isNotEmpty ? widget.user.fullName : widget.user.username}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  const Text('System-wide metrics at a glance.',
+                      style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                  const SizedBox(height: 16),
+
                   if (_errorMessage != null)
                     Container(
                       padding: const EdgeInsets.all(12),
