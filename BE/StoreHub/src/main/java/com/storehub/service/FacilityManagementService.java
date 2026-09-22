@@ -54,4 +54,10 @@ public interface FacilityManagementService {
             UUID facilityId,
             String managerEmail
     );
+
+    void unassignStaff(
+            UUID facilityId,
+            UUID userId,
+            String managerEmail
+    );
 }

@@ -162,4 +162,23 @@ public class FacilityManagementController {
                 )
         );
     }
+
+    @DeleteMapping("/{facilityId}/staff/{userId}")
+    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    public ApiResponse<Void> unassignStaff(
+            @PathVariable UUID facilityId,
+            @PathVariable UUID userId,
+            @AuthenticationPrincipal UserDetails principal
+    ) {
+        service.unassignStaff(
+                facilityId,
+                userId,
+                principal.getUsername()
+        );
+
+        return ApiResponse.success(
+                "Staff unassigned from facility successfully",
+                null
+        );
+    }
 }

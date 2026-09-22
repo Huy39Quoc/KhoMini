@@ -342,4 +342,26 @@ public class FacilityManagementServiceImpl
                 unit.getStatus()
         );
     }
+
+    @Override
+    @Transactional
+    public void unassignStaff(
+            UUID facilityId,
+            UUID userId,
+            String managerEmail
+    ) {
+        access.require(managerEmail, facilityId);
+
+        User staff = users.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (staff.getRole() == null
+                || !"STAFF".equals(staff.getRole().getName())
+                || staff.getFacility() == null
+                || !facilityId.equals(staff.getFacility().getId())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
+        staff.setFacility(null);
+    }
 }
