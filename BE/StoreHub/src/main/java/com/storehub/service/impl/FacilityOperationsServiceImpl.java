@@ -3,6 +3,7 @@ package com.storehub.service.impl;
 import com.storehub.dto.request.HandoverRequest;
 import com.storehub.dto.request.UpdateUnitStatusRequest;
 import com.storehub.dto.response.DailyScheduleResponse;
+import com.storehub.dto.response.HandoverRecordResponse;
 import com.storehub.dto.response.HandoverResponse;
 import com.storehub.entity.Booking;
 import com.storehub.entity.HandoverRecord;
@@ -17,6 +18,7 @@ import com.storehub.repository.HandoverRecordRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.entity.FacilityAccess;
 import com.storehub.service.FacilityOperationsService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -97,6 +99,34 @@ public class FacilityOperationsServiceImpl
         );
 
         return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HandoverRecordResponse> getHandoverHistory(
+            UUID bookingId,
+            UUID facilityId,
+            String staffEmail
+    ) {
+        facilityAccess.require(staffEmail, facilityId);
+
+        bookingRepository.findByIdAndFacilityId(bookingId, facilityId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        return handoverRecordRepository
+                .findByBookingIdOrderByRecordedAtDesc(bookingId)
+                .stream()
+                .map(record -> new HandoverRecordResponse(
+                        record.getId(),
+                        bookingId,
+                        record.getRecordType(),
+                        record.getUnitCondition(),
+                        record.getNotes(),
+                        record.getStaff().getId(),
+                        record.getStaff().getFullName(),
+                        record.getRecordedAt()
+                ))
+                .toList();
     }
 
     @Override

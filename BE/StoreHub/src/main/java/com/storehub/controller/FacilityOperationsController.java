@@ -4,6 +4,7 @@ import com.storehub.common.response.ApiResponse;
 import com.storehub.dto.request.HandoverRequest;
 import com.storehub.dto.request.UpdateUnitStatusRequest;
 import com.storehub.dto.response.DailyScheduleResponse;
+import com.storehub.dto.response.HandoverRecordResponse;
 import com.storehub.dto.response.HandoverResponse;
 import com.storehub.service.FacilityOperationsService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,6 +57,30 @@ public class FacilityOperationsController {
                         .build()
         );
     }
+
+    @GetMapping("/{bookingId}/handover-records")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @Operation(summary = "Get handover history of a booking")
+    public ResponseEntity<ApiResponse<List<HandoverRecordResponse>>> getHandoverHistory(
+            @PathVariable UUID bookingId,
+            @RequestParam UUID facilityId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        List<HandoverRecordResponse> result =
+                facilityOperationsService.getHandoverHistory(
+                        bookingId,
+                        facilityId,
+                        userDetails.getUsername()
+                );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Handover history retrieved successfully",
+                        result
+                )
+        );
+    }
+
 
     @PostMapping("/{bookingId}/check-in")
     @PreAuthorize("hasRole('STAFF')")

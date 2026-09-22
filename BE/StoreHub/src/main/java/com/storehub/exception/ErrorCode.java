@@ -50,11 +50,7 @@ public enum ErrorCode {
     INVALID_PRICING_TARGET(705, "Provide either unitTypeId or storageUnitId, but not both or neither", HttpStatus.BAD_REQUEST),
     UNIT_TYPE_PRICE_NOT_CONFIGURED(706, "Unit type monthly price is not configured", HttpStatus.INTERNAL_SERVER_ERROR),
     NO_AVAILABLE_UNIT(707, "No available storage unit found for the selected type and facility", HttpStatus.CONFLICT),
-    FACILITY_NOT_FOUND(
-            708,
-            "Facility not found",
-            HttpStatus.NOT_FOUND
-    ),
+
 
     UNIT_UNAVAILABLE(
             709,
