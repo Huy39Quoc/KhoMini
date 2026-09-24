@@ -4,6 +4,8 @@ import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
 import '../admin/role_permission_screen.dart';
 import '../common/profile_screen.dart';
+import 'facility_management_screen.dart';
+import 'reports_screen.dart';
 
 class OperationsDashboardScreen extends StatefulWidget {
   final UserModel user;
@@ -137,28 +139,54 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Business Policies',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Facility rental policies, deposit rules, late-fee thresholds, and cancellation rules '
-                            'are configured on the backend and are not yet exposed through a management API - '
-                            'this app will not display placeholder numbers for them.',
-                            style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 12),
-                          ),
-                        ],
+                  const Text('Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 10),
+                  Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.insert_chart_outlined_rounded, color: AppColors.primaryContainer),
                       ),
+                      title: const Text('Revenue & Occupancy Reports', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text('Real revenue and unit occupancy, system-wide and per facility', style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ReportsScreen()),
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
+                  Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.warehouse_outlined, color: AppColors.primaryContainer),
+                      ),
+                      title: const Text('Facilities & Policies', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text('Manage facilities and their rental policies', style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const FacilityManagementScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Card(
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),

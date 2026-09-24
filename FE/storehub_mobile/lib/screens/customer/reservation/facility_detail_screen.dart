@@ -219,13 +219,18 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           ...unitTypes.map((type) => _UnitTypeCard(
                 type: type,
                 isSelected: _selectedType?.id == type.id,
-                onTap: () {
-                  setState(() {
-                    _selectedType = type;
-                    _quote = null;
-                  });
-                  _refreshQuote();
-                },
+                onTap: type.availableUnits > 0
+                    ? () {
+                        setState(() {
+                          _selectedType = type;
+                          _quote = null;
+                        });
+                        _refreshQuote();
+                      }
+                    : null,
+                onJoinWaitlist: type.availableUnits > 0
+                    ? null
+                    : () => _joinWaitlist(type.id, type.name),
               )),
 
         const SizedBox(height: 24),
@@ -511,7 +516,6 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
     final total = _quote!['totalRentalFee'];
     final deposit = _quote!['depositAmount'];
-    final extraFees = _quote!['totalExtraFees'];
     final initial = _quote!['initialPaymentAmount'];
 
     return Container(
@@ -561,9 +565,6 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
               'Rental fee ($_rentalMonths mo)', total, isHighlight: false),
           const SizedBox(height: 8),
           _quoteLine('Deposit (refunded at checkout)', deposit,
-              isHighlight: false),
-          const SizedBox(height: 8),
-          _quoteLine('Management fee ($_rentalMonths mo)', extraFees,
               isHighlight: false),
           const Divider(height: 20),
           _quoteLine('💳 Due Now', initial, isHighlight: true),
@@ -667,6 +668,29 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   // went straight to PaymentScreen with numbers computed on the FE, no
   // booking was ever created in the DB, so after "paying" the unit never
   // showed up in "My Units".
+  // POST /waitlist - lets the customer register interest when a unit type
+  // has 0 AVAILABLE units right now; the BE notifies them once one frees up.
+  Future<void> _joinWaitlist(String unitTypeId, String unitTypeName) async {
+    try {
+      final message = await _bookingService.joinWaitlist(
+        facilityId: widget.facilityId,
+        unitTypeId: unitTypeId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _handleReserve() async {
     if (_selectedType == null || _quote == null) return;
     setState(() => _isBooking = true);
@@ -683,12 +707,6 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       final bookingCode = booking['bookingCode']?.toString() ?? '';
       if (bookingId.isEmpty) {
         throw Exception('Server did not return a booking id.');
-      }
-
-      DateTime? expiresAt;
-      final expiresAtStr = booking['expiresAt']?.toString();
-      if (expiresAtStr != null && expiresAtStr.isNotEmpty) {
-        expiresAt = DateTime.tryParse(expiresAtStr);
       }
 
       Navigator.push(
@@ -708,98 +726,25 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                     0,
             depositAmount:
                 (booking['depositAmount'] as num?)?.toDouble() ??
-                    (_quote!['depositAmount'] as num?)?.toDouble() ?? 0,
-            totalExtraFees:
-                (booking['totalExtraFees'] as num?)?.toDouble() ??
-                    (_quote!['totalExtraFees'] as num?)?.toDouble() ?? 0,
-            initialPaymentAmount:
-                (booking['initialPaymentAmount'] as num?)?.toDouble() ??
-                    (_quote!['initialPaymentAmount'] as num?)?.toDouble() ?? 0,
-            expiresAt: expiresAt,
+                    (_quote!['depositAmount'] as num?)?.toDouble() ??
+                    0,
+            expiresAt: booking['expiresAt'] != null
+                ? DateTime.tryParse(booking['expiresAt'].toString())
+                : null,
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      final msg = e.toString().replaceAll('Exception: ', '');
-
-      if (msg.toLowerCase().contains('no available') ||
-          msg.toLowerCase().contains('no_available_unit')) {
-        _showWaitlistDialog();
-        return;
-      }
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(msg),
+          content: Text(e.toString().replaceAll('Exception: ', '')),
           backgroundColor: AppColors.error,
         ),
       );
     } finally {
       if (mounted) setState(() => _isBooking = false);
     }
-  }
-
-  void _showWaitlistDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.hourglass_top, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('No Units Available'),
-          ],
-        ),
-        content: Text(
-          'All units of type "${_selectedType?.name ?? ''}" at this facility are currently fully booked.\n\n'
-          'Would you like to join the waitlist? We will notify you by email as soon as a unit becomes available.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Not now'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await _bookingService.joinWaitlist(
-                  facilityId: widget.facilityId,
-                  unitTypeId: _selectedType!.id,
-                );
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                          "You're on the waitlist! We'll notify you when a unit is available."),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(e.toString().replaceAll('Exception: ', '')),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Join Waitlist'),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -808,13 +753,18 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 class _UnitTypeCard extends StatelessWidget {
   final UnitTypeModel type;
   final bool isSelected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final VoidCallback? onJoinWaitlist;
 
   const _UnitTypeCard(
-      {required this.type, required this.isSelected, required this.onTap});
+      {required this.type,
+      required this.isSelected,
+      required this.onTap,
+      this.onJoinWaitlist});
 
   @override
   Widget build(BuildContext context) {
+    final soldOut = type.availableUnits <= 0;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
@@ -824,7 +774,9 @@ class _UnitTypeCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: isSelected
                 ? AppColors.primary.withValues(alpha: 0.06)
-                : Colors.white,
+                : soldOut
+                    ? AppColors.background
+                    : Colors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
                 color: isSelected ? AppColors.primary : AppColors.border,
@@ -885,29 +837,39 @@ class _UnitTypeCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _formatP(type.pricePerMonth),
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textPrimary),
+              if (soldOut)
+                OutlinedButton(
+                  onPressed: onJoinWaitlist,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
-                  const Text('/mo',
+                  child: const Text('Join Waitlist', style: TextStyle(fontSize: 11)),
+                )
+              else
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _formatP(type.pricePerMonth),
                       style: TextStyle(
-                          fontSize: 11, color: AppColors.textSecondary)),
-                  if (isSelected)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Icon(Icons.check_circle,
-                          color: AppColors.primary, size: 20),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textPrimary),
                     ),
-                ],
-              ),
+                    const Text('/mo',
+                        style: TextStyle(
+                            fontSize: 11, color: AppColors.textSecondary)),
+                    if (isSelected)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Icon(Icons.check_circle,
+                            color: AppColors.primary, size: 20),
+                      ),
+                  ],
+                ),
             ],
           ),
         ),

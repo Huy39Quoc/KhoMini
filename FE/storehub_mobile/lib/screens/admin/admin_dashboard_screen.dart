@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
 import '../common/profile_screen.dart';
+import 'activity_log_screen.dart';
 import 'role_permission_screen.dart';
 import 'user_management_screen.dart';
 
@@ -161,6 +162,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const RolePermissionScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _actionTile(
+                    icon: Icons.history,
+                    title: 'Activity Log',
+                    subtitle: 'Login history and system-wide audit trail',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ActivityLogScreen()),
                       );
                     },
                   ),
