@@ -16,6 +16,8 @@ import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 import com.storehub.service.CustomerStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final ActivityLogService activityLogService;
 
     @Override
     @Transactional(readOnly = true)
@@ -56,14 +59,22 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     public SmartAccessResponse getSmartAccessInfo(UUID bookingId, String customerEmail) {
         Booking booking = validateActiveBooking(bookingId, resolveCustomerId(customerEmail));
 
+        boolean isNewPin = false;
         if (booking.getAccessPin() == null || booking.getAccessPin().isBlank()) {
             booking.setAccessPin(generateRandomPin());
             booking.setPinUpdatedAt(LocalDateTime.now());
+            isNewPin = true;
         }
 
         String qrToken = "ACCESS:" + booking.getId() + ":" + UUID.randomUUID() + ":" + System.currentTimeMillis();
         booking.setQrAccessToken(qrToken);
         bookingRepository.save(booking);
+
+        if (isNewPin) {
+            UUID customerId = resolveCustomerId(customerEmail);
+            activityLogService.record(customerId, ActivityAction.ACCESS_CREDENTIAL_ISSUE, "BOOKING", booking.getId(),
+                    "Issued initial access PIN for booking " + booking.getBookingCode(), null, null);
+        }
 
         return SmartAccessResponse.builder()
                 .bookingId(booking.getId())
@@ -84,6 +95,10 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         booking.setPinUpdatedAt(LocalDateTime.now());
         bookingRepository.save(booking);
 
+        UUID customerId = resolveCustomerId(customerEmail);
+        activityLogService.record(customerId, ActivityAction.ACCESS_CREDENTIAL_UPDATE, "BOOKING", booking.getId(),
+                "Updated access PIN for booking " + booking.getBookingCode(), null, null);
+
         return SmartAccessResponse.builder()
                 .bookingId(booking.getId())
                 .unitCode(booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "Unassigned")
@@ -97,7 +112,8 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     @Override
     @Transactional
     public ContractOperationResponse extendRental(UUID bookingId, String customerEmail, ExtendRentalRequest request) {
-        Booking booking = validateActiveBooking(bookingId, resolveCustomerId(customerEmail));
+        UUID customerId = resolveCustomerId(customerEmail);
+        Booking booking = validateActiveBooking(bookingId, customerId);
 
         LocalDate oldEndDate = booking.getEndDate();
         int extraMonths = request.getExtraMonths();
@@ -116,6 +132,10 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
         bookingRepository.save(booking);
 
+        activityLogService.record(customerId, ActivityAction.CONTRACT_EXTENDED, "BOOKING", booking.getId(),
+                "Extended rental for booking " + booking.getBookingCode() + " by " + extraMonths + " month(s) until " + newEndDate,
+                oldEndDate, newEndDate);
+
         return ContractOperationResponse.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
@@ -132,10 +152,15 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     @Override
     @Transactional
     public ContractOperationResponse requestCheckout(UUID bookingId, String customerEmail, CheckoutRequest request) {
-        Booking booking = validateActiveBooking(bookingId, resolveCustomerId(customerEmail));
+        UUID customerId = resolveCustomerId(customerEmail);
+        Booking booking = validateActiveBooking(bookingId, customerId);
 
         booking.setReturnTime(request.getScheduledReturnTime());
         bookingRepository.save(booking);
+
+        activityLogService.record(customerId, ActivityAction.CHECKOUT_REQUEST, "BOOKING", booking.getId(),
+                "Requested checkout for booking " + booking.getBookingCode() + " at " + request.getScheduledReturnTime(),
+                null, request.getScheduledReturnTime());
 
         return ContractOperationResponse.builder()
                 .bookingId(booking.getId())

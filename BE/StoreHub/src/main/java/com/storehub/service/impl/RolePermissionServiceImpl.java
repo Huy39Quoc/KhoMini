@@ -15,6 +15,8 @@ import com.storehub.repository.PermissionRepository;
 import com.storehub.repository.RolePermissionRepository;
 import com.storehub.repository.RoleRepository;
 import com.storehub.service.RolePermissionService;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -37,6 +39,7 @@ public class RolePermissionServiceImpl implements RolePermissionService {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final RolePermissionMapper rolePermissionMapper;
+    private final ActivityLogService activityLogService;
 
     @Override
     public RolePermissionResponse getById(UUID id) {
@@ -74,6 +77,10 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 existing.setDescription(request.getDescription());
             }
             RolePermission updated = rolePermissionRepository.save(existing);
+
+            activityLogService.record(ActivityAction.ROLE_PERMISSION_ASSIGN, "ROLE_PERMISSION", updated.getId(),
+                    "Re-activated permission " + permission.getName() + " for role " + role.getName(), null, role.getName());
+
             return rolePermissionMapper.toResponse(updated);
         }
 
@@ -85,6 +92,10 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 .build();
 
         RolePermission saved = rolePermissionRepository.save(rolePermission);
+
+        activityLogService.record(ActivityAction.ROLE_PERMISSION_ASSIGN, "ROLE_PERMISSION", saved.getId(),
+                "Assigned permission " + permission.getName() + " to role " + role.getName(), null, role.getName());
+
         return rolePermissionMapper.toResponse(saved);
     }
 
@@ -93,8 +104,20 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         RolePermission rolePermission = rolePermissionRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_PERMISSION_NOT_FOUND));
 
+        Boolean oldActive = rolePermission.getIsActive();
+
         rolePermissionMapper.updateEntityFromRequest(request, rolePermission);
         RolePermission updated = rolePermissionRepository.save(rolePermission);
+
+        ActivityAction action = (oldActive != null && oldActive && Boolean.FALSE.equals(updated.getIsActive()))
+                ? ActivityAction.ROLE_PERMISSION_REVOKE
+                : ActivityAction.ROLE_PERMISSION_ASSIGN;
+
+        activityLogService.record(action, "ROLE_PERMISSION", updated.getId(),
+                "Updated role permission assignment: role " + updated.getRole().getName()
+                        + ", permission " + updated.getPermission().getName(),
+                oldActive, updated.getIsActive());
+
         return rolePermissionMapper.toResponse(updated);
     }
 
@@ -104,6 +127,9 @@ public class RolePermissionServiceImpl implements RolePermissionService {
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_PERMISSION_NOT_FOUND));
         rolePermission.setIsActive(false);
         rolePermissionRepository.save(rolePermission);
+
+        activityLogService.record(ActivityAction.ROLE_PERMISSION_REVOKE, "ROLE_PERMISSION", rolePermission.getId(),
+                "Revoked permission " + rolePermission.getPermission().getName() + " from role " + rolePermission.getRole().getName(), null, null);
     }
 
     @Override
@@ -192,6 +218,10 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         }
 
         List<RolePermission> saved = rolePermissionRepository.saveAll(toSave);
+
+        activityLogService.record(ActivityAction.ROLE_PERMISSION_ASSIGN, "ROLE_PERMISSION", role.getId(),
+                "Bulk assigned " + saved.size() + " permissions to role: " + role.getName(), null, role.getName());
+
         return saved.stream()
                 .map(rolePermissionMapper::toResponse)
                 .toList();

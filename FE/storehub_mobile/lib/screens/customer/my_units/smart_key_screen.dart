@@ -220,6 +220,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                 ),
                 const SizedBox(height: 12),
 
+                // QR card - real qrCodeToken from the BE
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(

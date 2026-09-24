@@ -16,54 +16,66 @@ import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.service.BookingService;
 import com.storehub.service.PricingService;
+import com.storehub.service.WaitlistService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BookingServiceImpl implements BookingService {
+
+    private static final int BOOKING_EXPIRY_MINUTES = 30;
 
     private final BookingRepository bookingRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final UserRepository userRepository;
     private final PricingService pricingService;
+    private final WaitlistService waitlistService;
 
     @Override
     @Transactional
-    public BookingResponse createBooking(String customerEmail, BookingCreationRequest request) {
-        // 1. Xác định khách hàng từ email JWT
-        User customer = userRepository.findByEmail(customerEmail)
+    public BookingResponse createBooking(
+            String customerEmail,
+            BookingCreationRequest request
+    ) {
+        User customer = userRepository
+                .findByEmail(customerEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. Tìm kho khả dụng – derived query type-safe với Enum
-        List<StorageUnit> availableUnits = storageUnitRepository.findByFacility_IdAndUnitType_IdAndStatus(
-                request.getFacilityId(),
-                request.getUnitTypeId(),
-                UnitStatus.AVAILABLE
-        );
-        if (availableUnits.isEmpty()) {
-            throw new AppException(ErrorCode.NO_AVAILABLE_UNIT);
-        }
-        StorageUnit selectedUnit = availableUnits.get(0);
+        StorageUnit selectedUnit = storageUnitRepository
+                .claimAvailableUnitId(
+                        request.getFacilityId(),
+                        request.getUnitTypeId()
+                )
+                .flatMap(storageUnitRepository::findById)
+                .orElseThrow(() -> new AppException(
+                        ErrorCode.NO_AVAILABLE_UNIT
+                ));
 
-        // 3. Tính báo giá
-        RentalQuoteRequest quoteRequest = RentalQuoteRequest.builder()
-                .unitTypeId(request.getUnitTypeId())
-                .startDate(request.getStartDate())
-                .rentalMonths(request.getRentalMonths())
-                .build();
-        RentalQuoteResponse quote = pricingService.calculateRentalQuote(quoteRequest);
+        RentalQuoteRequest quoteRequest =
+                RentalQuoteRequest.builder()
+                        .unitTypeId(request.getUnitTypeId())
+                        .startDate(request.getStartDate())
+                        .rentalMonths(request.getRentalMonths())
+                        .build();
 
-        // 4. Đặt trạng thái kho là RESERVED (gán Enum trực tiếp, không dùng .name())
+        RentalQuoteResponse quote =
+                pricingService.calculateRentalQuote(quoteRequest);
+
         selectedUnit.setStatus(UnitStatus.RESERVED);
         storageUnitRepository.save(selectedUnit);
 
-        // 5. Tạo booking
         String bookingCode = "BK-" + System.currentTimeMillis();
+
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(BOOKING_EXPIRY_MINUTES);
+
         Booking booking = Booking.builder()
                 .bookingCode(bookingCode)
                 .customer(customer)
@@ -74,6 +86,7 @@ public class BookingServiceImpl implements BookingService {
                 .totalRentalFee(quote.getTotalRentalFee())
                 .depositPaid(BigDecimal.ZERO)
                 .status(BookingStatus.PENDING_PAYMENT)
+                .expiresAt(expiresAt)
                 .build();
 
         Booking savedBooking = bookingRepository.save(booking);
@@ -88,15 +101,57 @@ public class BookingServiceImpl implements BookingService {
                 .endDate(savedBooking.getEndDate())
                 .rentalMonths(savedBooking.getRentalMonths())
                 .totalRentalFee(savedBooking.getTotalRentalFee())
+                .depositAmount(quote.getDepositAmount())
+                .totalExtraFees(quote.getTotalExtraFees())
+                .initialPaymentAmount(quote.getInitialPaymentAmount())
                 .depositPaid(savedBooking.getDepositPaid())
                 .status(savedBooking.getStatus())
                 .createdAt(savedBooking.getCreatedAt())
+                .expiresAt(expiresAt)
                 .build();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public RentalQuoteResponse getRentalQuote(RentalQuoteRequest request) {
+    public RentalQuoteResponse getRentalQuote(
+            RentalQuoteRequest request
+    ) {
         return pricingService.calculateRentalQuote(request);
+    }
+
+    @Override
+    @Transactional
+    public void cancelBooking(UUID bookingId, String customerEmail) {
+        User customer = userRepository.findByEmail(customerEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        Booking booking = bookingRepository.findByIdAndCustomerId(bookingId, customer.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            throw new AppException(ErrorCode.BOOKING_CANCEL_NOT_ALLOWED);
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        bookingRepository.save(booking);
+
+        StorageUnit unit = booking.getStorageUnit();
+        if (unit != null) {
+            unit.setStatus(UnitStatus.AVAILABLE);
+            storageUnitRepository.save(unit);
+
+            try {
+                UUID facilityId = unit.getFacility() != null ? unit.getFacility().getId() : null;
+                UUID unitTypeId = unit.getUnitType() != null ? unit.getUnitType().getId() : null;
+                if (facilityId != null && unitTypeId != null) {
+                    waitlistService.notifyNextInWaitlist(facilityId, unitTypeId);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to notify waitlist after booking {} cancelled: {}",
+                        bookingId, e.getMessage());
+            }
+        }
+
+        log.info("Booking {} cancelled by customer {}", bookingId, customerEmail);
     }
 }

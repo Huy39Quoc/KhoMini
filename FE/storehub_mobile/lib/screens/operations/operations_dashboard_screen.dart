@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
-import '../../services/auth_api_service.dart';
 import '../admin/role_permission_screen.dart';
-import '../auth/login_screen.dart';
+import '../common/profile_screen.dart';
+import 'facility_management_screen.dart';
+import 'reports_screen.dart';
 
 class OperationsDashboardScreen extends StatefulWidget {
-  const OperationsDashboardScreen({super.key});
+  final UserModel user;
+  const OperationsDashboardScreen({super.key, required this.user});
 
   @override
   State<OperationsDashboardScreen> createState() => _OperationsDashboardScreenState();
@@ -14,7 +17,6 @@ class OperationsDashboardScreen extends StatefulWidget {
 
 class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
   final _adminApiService = AdminApiService();
-  final _authApiService = AuthApiService();
   bool _isLoading = true;
   int _userCount = 0;
   int _activeUsers = 0;
@@ -64,16 +66,6 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
     }
   }
 
-  Future<void> _logout() async {
-    await _authApiService.logout();
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -82,10 +74,25 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
         title: const Text('Operations Console'),
         actions: [
           IconButton(
-            tooltip: 'Sign Out',
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+            tooltip: 'Profile',
+            icon: CircleAvatar(
+              radius: 15,
+              backgroundColor: AppColors.primaryContainer,
+              child: Text(
+                widget.user.fullName.isNotEmpty
+                    ? widget.user.fullName.substring(0, 1).toUpperCase()
+                    : '?',
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ProfileScreen(user: widget.user)),
+              );
+            },
           ),
+          const SizedBox(width: 6),
         ],
       ),
       body: _isLoading
@@ -95,6 +102,13 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  Text('Welcome back, ${widget.user.fullName.isNotEmpty ? widget.user.fullName : widget.user.username}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  const Text('System-wide metrics at a glance.',
+                      style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                  const SizedBox(height: 16),
+
                   if (_errorMessage != null)
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -125,28 +139,54 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Business Policies',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Facility rental policies, deposit rules, late-fee thresholds, and cancellation rules '
-                            'are configured on the backend and are not yet exposed through a management API - '
-                            'this app will not display placeholder numbers for them.',
-                            style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 12),
-                          ),
-                        ],
+                  const Text('Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 10),
+                  Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.insert_chart_outlined_rounded, color: AppColors.primaryContainer),
                       ),
+                      title: const Text('Revenue & Occupancy Reports', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text('Real revenue and unit occupancy, system-wide and per facility', style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ReportsScreen()),
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
+                  Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.warehouse_outlined, color: AppColors.primaryContainer),
+                      ),
+                      title: const Text('Facilities & Policies', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text('Manage facilities and their rental policies', style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const FacilityManagementScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Card(
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),

@@ -35,6 +35,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   String? _quoteError;
   bool _isBooking = false;
 
+  // Rental period presets
   static const _presets = [1, 3, 6, 12];
 
   @override
@@ -67,6 +68,10 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       setState(() => _quote = quote);
     } catch (e) {
       if (!mounted) return;
+      // This used to fabricate a fake price breakdown on any API error
+      // (deposit guessed as 2x monthly rent) and show it as if real. Now
+      // it surfaces the real error so the user can retry, instead of
+      // guessing at numbers.
       setState(() {
         _quote = null;
         _quoteError = e.toString().replaceAll('Exception: ', '');
@@ -94,6 +99,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         builder: (context, snapshot) {
           return CustomScrollView(
             slivers: [
+              // ── SliverAppBar with gradient ────────────────────────────
               SliverAppBar(
                 expandedHeight: 160,
                 pinned: true,
@@ -153,6 +159,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                 ),
               ),
 
+              // ── Body ────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -163,6 +170,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           );
         },
       ),
+      // ── Bottom CTA ───────────────────────────────────────────────────
       bottomNavigationBar: _selectedType != null && _quote != null
           ? _buildBottomCTA()
           : null,
@@ -196,6 +204,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Unit type selection ─────────────────────────────────────
         _sectionHeader('📦 Choose a Unit Type', subtitle: 'Pick the size that fits'),
         const SizedBox(height: 10),
         if (snapshot.hasError)
@@ -210,17 +219,23 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           ...unitTypes.map((type) => _UnitTypeCard(
                 type: type,
                 isSelected: _selectedType?.id == type.id,
-                onTap: () {
-                  setState(() {
-                    _selectedType = type;
-                    _quote = null;
-                  });
-                  _refreshQuote();
-                },
+                onTap: type.availableUnits > 0
+                    ? () {
+                        setState(() {
+                          _selectedType = type;
+                          _quote = null;
+                        });
+                        _refreshQuote();
+                      }
+                    : null,
+                onJoinWaitlist: type.availableUnits > 0
+                    ? null
+                    : () => _joinWaitlist(type.id, type.name),
               )),
 
         const SizedBox(height: 24),
 
+        // ── Move-in appointment ──────────────────────────────────────
         _sectionHeader('📅 Move-in Appointment',
             subtitle: 'Choose your rental start date'),
         const SizedBox(height: 10),
@@ -228,6 +243,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
         const SizedBox(height: 24),
 
+        // ── Rental period ─────────────────────────────────────────────
         _sectionHeader('🗓 Rental Period',
             subtitle: 'The longer you rent, the better the rate'),
         const SizedBox(height: 10),
@@ -235,13 +251,14 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
         const SizedBox(height: 24),
 
+        // ── Cost breakdown ────────────────────────────────────────────
         if (_selectedType != null) ...[
           _sectionHeader('💰 Cost Breakdown', subtitle: 'Updates automatically'),
           const SizedBox(height: 10),
           _buildQuoteSection(),
         ],
 
-        const SizedBox(height: 100), 
+        const SizedBox(height: 100), // space for bottom bar
       ],
     );
   }
@@ -646,6 +663,34 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     );
   }
 
+  // Creates a real booking (POST /bookings) before opening the payment
+  // screen. This step used to be skipped entirely: tapping the button
+  // went straight to PaymentScreen with numbers computed on the FE, no
+  // booking was ever created in the DB, so after "paying" the unit never
+  // showed up in "My Units".
+  // POST /waitlist - lets the customer register interest when a unit type
+  // has 0 AVAILABLE units right now; the BE notifies them once one frees up.
+  Future<void> _joinWaitlist(String unitTypeId, String unitTypeName) async {
+    try {
+      final message = await _bookingService.joinWaitlist(
+        facilityId: widget.facilityId,
+        unitTypeId: unitTypeId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _handleReserve() async {
     if (_selectedType == null || _quote == null) return;
     setState(() => _isBooking = true);
@@ -680,7 +725,12 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                     (_quote!['totalRentalFee'] as num?)?.toDouble() ??
                     0,
             depositAmount:
-                (_quote!['depositAmount'] as num?)?.toDouble() ?? 0,
+                (booking['depositAmount'] as num?)?.toDouble() ??
+                    (_quote!['depositAmount'] as num?)?.toDouble() ??
+                    0,
+            expiresAt: booking['expiresAt'] != null
+                ? DateTime.tryParse(booking['expiresAt'].toString())
+                : null,
           ),
         ),
       );
@@ -698,17 +748,23 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   }
 }
 
+// ── UnitTypeCard widget ───────────────────────────────────────────────────────
 
 class _UnitTypeCard extends StatelessWidget {
   final UnitTypeModel type;
   final bool isSelected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final VoidCallback? onJoinWaitlist;
 
   const _UnitTypeCard(
-      {required this.type, required this.isSelected, required this.onTap});
+      {required this.type,
+      required this.isSelected,
+      required this.onTap,
+      this.onJoinWaitlist});
 
   @override
   Widget build(BuildContext context) {
+    final soldOut = type.availableUnits <= 0;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
@@ -718,7 +774,9 @@ class _UnitTypeCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: isSelected
                 ? AppColors.primary.withValues(alpha: 0.06)
-                : Colors.white,
+                : soldOut
+                    ? AppColors.background
+                    : Colors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
                 color: isSelected ? AppColors.primary : AppColors.border,
@@ -739,6 +797,7 @@ class _UnitTypeCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
+              // Size icon
               Container(
                 width: 52,
                 height: 52,
@@ -778,29 +837,39 @@ class _UnitTypeCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _formatP(type.pricePerMonth),
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textPrimary),
+              if (soldOut)
+                OutlinedButton(
+                  onPressed: onJoinWaitlist,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
-                  const Text('/mo',
+                  child: const Text('Join Waitlist', style: TextStyle(fontSize: 11)),
+                )
+              else
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _formatP(type.pricePerMonth),
                       style: TextStyle(
-                          fontSize: 11, color: AppColors.textSecondary)),
-                  if (isSelected)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Icon(Icons.check_circle,
-                          color: AppColors.primary, size: 20),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textPrimary),
                     ),
-                ],
-              ),
+                    const Text('/mo',
+                        style: TextStyle(
+                            fontSize: 11, color: AppColors.textSecondary)),
+                    if (isSelected)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Icon(Icons.check_circle,
+                            color: AppColors.primary, size: 20),
+                      ),
+                  ],
+                ),
             ],
           ),
         ),

@@ -15,5 +15,5 @@ public class UnitTypeCatalogResponse {
     private Double areaSqm;
     private BigDecimal basePricePerMonth;
     private BigDecimal depositAmount;
-    private Long availableUnitsCount;
+    private UUID availableUnitsCount;
 }

@@ -21,6 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.*;
 
 import java.util.*;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 
 @Service
 @RequiredArgsConstructor
@@ -28,21 +30,10 @@ import java.util.*;
 @Transactional
 public class PermissionServiceImpl implements PermissionService {
 
-    private static final Set<String> SYSTEM_PERMISSIONS = Set.of(
-            "USER_VIEW", "USER_CREATE", "USER_UPDATE", "USER_DELETE",
-            "ROLE_VIEW", "ROLE_CREATE", "ROLE_UPDATE", "ROLE_DELETE",
-            "FACILITY_VIEW", "FACILITY_CREATE", "FACILITY_UPDATE", "FACILITY_DELETE",
-            "STORAGE_UNIT_VIEW", "STORAGE_UNIT_CREATE", "STORAGE_UNIT_UPDATE", "STORAGE_UNIT_DELETE",
-            "BOOKING_VIEW", "BOOKING_CREATE", "BOOKING_UPDATE", "BOOKING_CANCEL",
-            "PAYMENT_VIEW", "PAYMENT_CREATE",
-            "SUPPORT_VIEW", "SUPPORT_CREATE", "SUPPORT_UPDATE",
-            "REPORT_VIEW",
-            "POLICY_VIEW", "POLICY_UPDATE"
-    );
-
     private final PermissionRepository permissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final PermissionMapper permissionMapper;
+    private final ActivityLogService activityLogService;
 
     @Override
     public PermissionResponse getById(UUID id) {
@@ -64,6 +55,9 @@ public class PermissionServiceImpl implements PermissionService {
         permission.setPermissionGroup(trimmedGroup);
         Permission saved = permissionRepository.save(permission);
 
+        activityLogService.record(ActivityAction.PERMISSION_CREATE, "PERMISSION", saved.getId(),
+                "Created permission: " + saved.getName(), null, saved.getName());
+
         return permissionMapper.toResponse(saved);
     }
 
@@ -75,20 +69,19 @@ public class PermissionServiceImpl implements PermissionService {
         String trimmedName = request.getName() != null ? request.getName().trim() : permission.getName();
         String trimmedGroup = request.getPermissionGroup() != null ? request.getPermissionGroup().trim() : permission.getPermissionGroup();
 
-        // Protect default system permissions from being renamed
-        if (SYSTEM_PERMISSIONS.contains(permission.getName().toUpperCase())
-                && !permission.getName().equalsIgnoreCase(trimmedName)) {
-            throw new AppException(ErrorCode.CANNOT_MODIFY_SYSTEM_PERMISSION);
-        }
-
         if (permissionRepository.existsByNameAndIdNot(trimmedName, permission.getId())) {
             throw new AppException(ErrorCode.PERMISSION_NAME_EXISTED);
         }
 
+        String oldName = permission.getName();
         permissionMapper.updateEntityFromRequest(request, permission);
         permission.setName(trimmedName);
         permission.setPermissionGroup(trimmedGroup);
         Permission updated = permissionRepository.save(permission);
+
+        activityLogService.record(ActivityAction.PERMISSION_UPDATE, "PERMISSION", updated.getId(),
+                "Updated permission: " + updated.getName(), oldName, updated.getName());
+
         return permissionMapper.toResponse(updated);
     }
 
@@ -97,15 +90,13 @@ public class PermissionServiceImpl implements PermissionService {
         Permission permission = permissionRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
 
-        // Protect default system permissions from deletion
-        if (SYSTEM_PERMISSIONS.contains(permission.getName().toUpperCase())) {
-            throw new AppException(ErrorCode.CANNOT_DELETE_SYSTEM_PERMISSION);
-        }
-
         // Cascade delete any role-permission associations to prevent foreign key violation
         rolePermissionRepository.deleteAllByPermission_Id(permission.getId());
 
         permissionRepository.deleteById(permission.getId());
+
+        activityLogService.record(ActivityAction.PERMISSION_DELETE, "PERMISSION", permission.getId(),
+                "Deleted permission: " + permission.getName(), permission.getName(), null);
     }
 
     @Override
