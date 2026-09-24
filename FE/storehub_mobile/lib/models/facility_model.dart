@@ -1,8 +1,7 @@
-/// Matches BE FacilityResponse exactly: { id, name, address, city,
-/// contactPhone, createdAt }. The Facility entity has no district, no
-/// air-conditioning flag, and no area/price/availability fields - those
-/// used to be guessed from field names the BE never sends. Real
-/// area/price/availability now comes from aggregating GET
+/// Matches BE FacilityResponse: { id, name, code, address, city,
+/// contactPhone, email, managerId, managerName, status, openTime,
+/// closeTime, description, createdAt, updatedAt }. Area/price/availability
+/// still aren't facility fields - those come from aggregating GET
 /// /catalog/unit-types?facilityId=... (see withUnitTypeStats), and stay
 /// null ("not loaded yet") rather than silently defaulting to 0.
 class FacilityModel {
@@ -11,6 +10,7 @@ class FacilityModel {
   final String address;
   final String city;
   final String contactPhone;
+  final String status; // ACTIVE, INACTIVE, MAINTENANCE
 
   // Derived from unit types (nullable = not computed / no unit types yet)
   final double? minAreaSqm;
@@ -25,6 +25,7 @@ class FacilityModel {
     required this.address,
     required this.city,
     this.contactPhone = '',
+    this.status = 'ACTIVE',
     this.minAreaSqm,
     this.maxAreaSqm,
     this.minPricePerMonth,
@@ -39,8 +40,11 @@ class FacilityModel {
       address: json['address']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       contactPhone: json['contactPhone']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'ACTIVE',
     );
   }
+
+  bool get isBookable => status == 'ACTIVE';
 
   String get fullAddress =>
       [address, city].where((s) => s.isNotEmpty).join(', ');
@@ -56,6 +60,7 @@ class FacilityModel {
         address: address,
         city: city,
         contactPhone: contactPhone,
+        status: status,
         unitTypeCount: 0,
         availableUnits: 0,
       );
@@ -68,6 +73,9 @@ class FacilityModel {
       if (raw is! Map) continue;
       final area = (raw['areaSqm'] as num?)?.toDouble();
       final price = (raw['basePricePerMonth'] as num?)?.toDouble();
+      // Note: this field has been observed coming back as a UUID string
+      // instead of a count on some BE builds (likely an upstream bug) - the
+      // `as num?` cast safely yields null / 0 rather than crashing.
       final available = (raw['availableUnitsCount'] as num?)?.toInt() ?? 0;
 
       if (area != null) {
@@ -86,6 +94,7 @@ class FacilityModel {
       address: address,
       city: city,
       contactPhone: contactPhone,
+      status: status,
       minAreaSqm: minArea,
       maxAreaSqm: maxArea,
       minPricePerMonth: minPrice,

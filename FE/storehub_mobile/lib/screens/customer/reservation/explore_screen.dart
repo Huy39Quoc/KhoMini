@@ -60,7 +60,9 @@ class _ExploreScreenState extends State<ExploreScreen>
       final list = await _catalogService.getFacilitiesWithStats();
       if (!mounted) return;
       setState(() {
-        _allFacilities = list;
+        // Chỉ hiện chi nhánh đang hoạt động (status thật từ BE) - chi nhánh
+        // INACTIVE/MAINTENANCE không nên cho khách đặt chỗ.
+        _allFacilities = list.where((f) => f.isBookable).toList();
         _applyFilter();
         _loading = false;
       });
