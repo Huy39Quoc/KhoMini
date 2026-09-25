@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
@@ -30,7 +29,6 @@ public class FacilityPolicyController {
     private final FacilityPolicyService facilityPolicyService;
 
     @GetMapping("{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER')")
     @Operation(summary = "Lấy chính sách cơ sở theo ID")
     public ResponseEntity<ApiResponse<FacilityPolicyResponse>> getById(@PathVariable UUID id) {
         FacilityPolicyResponse response = facilityPolicyService.getById(id);
@@ -38,7 +36,6 @@ public class FacilityPolicyController {
     }
 
     @GetMapping("/by-facility/{facilityId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER')")
     @Operation(summary = "Get facility policy by facility ID")
     public ResponseEntity<ApiResponse<FacilityPolicyResponse>> getByFacilityId(
             @PathVariable UUID facilityId) {
@@ -47,7 +44,6 @@ public class FacilityPolicyController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Create a new facility policy")
     public ResponseEntity<ApiResponse<FacilityPolicyResponse>> create(
             @Valid @RequestBody FacilityPolicyCreateRequest request) {
@@ -59,7 +55,6 @@ public class FacilityPolicyController {
     }
 
     @PutMapping("{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update an existing facility policy")
     public ResponseEntity<ApiResponse<FacilityPolicyResponse>> update(
             @PathVariable UUID id,
@@ -72,7 +67,6 @@ public class FacilityPolicyController {
     }
 
     @DeleteMapping("{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a facility policy")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         facilityPolicyService.delete(id);
@@ -82,7 +76,6 @@ public class FacilityPolicyController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER')")
     @Operation(summary = "Get all facility policies with pagination and search")
     public ResponseEntity<ApiResponse<PageResponse<FacilityPolicyResponse>>> getAll(
             @RequestParam(required = false) String search,

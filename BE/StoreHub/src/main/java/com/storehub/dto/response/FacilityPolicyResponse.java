@@ -12,10 +12,9 @@ public class FacilityPolicyResponse {
     private UUID id;
     private UUID facilityId;
     private String facilityName;
-
     private Double depositPercentage;
-    private Integer renewalWindowDays;
 
+    private Integer renewalWindowDays;
 
     private Integer cancellationFullRefundHours;
     private Integer cancellationPartialRefundHours;

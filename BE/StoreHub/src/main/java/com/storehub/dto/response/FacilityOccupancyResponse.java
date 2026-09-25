@@ -2,13 +2,11 @@ package com.storehub.dto.response;
 
 import lombok.*;
 
-import java.util.UUID;
-
 @Data
 @AllArgsConstructor
 @Builder
 public class FacilityOccupancyResponse {
-    private UUID facilityId;
+    private Long facilityId;
     private String facilityName;
     private long totalUnits;
     private long occupiedUnits;

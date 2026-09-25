@@ -49,12 +49,7 @@ public enum ErrorCode {
     STORAGE_UNIT_NOT_FOUND(704, "Storage unit not found", HttpStatus.NOT_FOUND),
     INVALID_PRICING_TARGET(705, "Provide either unitTypeId or storageUnitId, but not both or neither", HttpStatus.BAD_REQUEST),
     UNIT_TYPE_PRICE_NOT_CONFIGURED(706, "Unit type monthly price is not configured", HttpStatus.INTERNAL_SERVER_ERROR),
-    NO_AVAILABLE_UNIT(707, "No available storage unit found for the selected type and facility", HttpStatus.CONFLICT),
-
-    // ========================= PAYMENT (750 - 799) =========================
-    PAYMENT_NOT_FOUND(750, "Payment transaction not found", HttpStatus.NOT_FOUND),
-    PAYMENT_ALREADY_PROCESSED(751, "Payment has already been processed", HttpStatus.CONFLICT),
-
+    
     // ========================= ROLE_PERMISSION (800 - 899) =========================
     ROLE_PERMISSION_NOT_FOUND(800, "Role-permission mapping not found", HttpStatus.NOT_FOUND),
     ROLE_PERMISSION_ALREADY_EXISTS(801, "This permission is already assigned to the role", HttpStatus.BAD_REQUEST),
@@ -69,7 +64,7 @@ public enum ErrorCode {
     // ========================= FACILITY (1000 - 1099) =========================
     FACILITY_NOT_FOUND(1000, "Facility not found", HttpStatus.NOT_FOUND),
     FACILITY_CODE_EXISTED(1001, "Facility code already exists", HttpStatus.BAD_REQUEST),
-    INVALID_MANAGER_TO_ASSIGN(1002,"Invalid manager to assign for this facility",HttpStatus.BAD_REQUEST),
+    
     // ========================= FACILITY_POLICY (1100 - 1199) =========================
     FACILITY_POLICY_NOT_FOUND(1100, "Facility policy not found", HttpStatus.NOT_FOUND),
     FACILITY_POLICY_ALREADY_EXISTS(1101, "This facility already has a policy configured", HttpStatus.BAD_REQUEST),
@@ -80,8 +75,6 @@ public enum ErrorCode {
 
     // ========================= ACTIVITY_LOG (1300 - 1399) =========================
     ACTIVITY_LOG_NOT_FOUND(1300, "Activity log entry not found", HttpStatus.NOT_FOUND);
-
-
     private final int code;
     private final String message;
     private final HttpStatus httpStatus;
