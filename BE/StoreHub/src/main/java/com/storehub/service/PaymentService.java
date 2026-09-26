@@ -4,6 +4,8 @@ import com.storehub.dto.request.PaymentConfirmationRequest;
 import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
 
+import java.util.UUID;
+
 public interface PaymentService {
 
     /**
@@ -25,4 +27,6 @@ public interface PaymentService {
      * @return chi tiết giao dịch đã xác nhận
      */
     PaymentResponse confirmPayment(PaymentConfirmationRequest request);
+
+    PaymentResponse getPendingExtensionPayment(String customerEmail, UUID bookingId);
 }

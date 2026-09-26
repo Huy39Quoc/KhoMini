@@ -23,6 +23,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Service
@@ -122,6 +125,33 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
 
         activityLogService.record(ActivityAction.FACILITY_POLICY_UPDATE, "FACILITY_POLICY", policy.getId(),
                 "Deleted policy for facility " + (policy.getFacility() != null ? policy.getFacility().getName() : id), null, null);
+    }
+
+    @Override
+    public boolean isWithinRenewalWindow(UUID facilityId, LocalDate currentEndDate) {
+        return facilityPolicyRepository.findByFacility_Id(facilityId)
+                .map(policy -> {
+                    if (policy.getRenewalWindowDays() == null) {
+                        return true;
+                    }
+                    LocalDate windowOpensAt = currentEndDate.minusDays(policy.getRenewalWindowDays());
+                    LocalDate today = LocalDate.now();
+                    return !today.isBefore(windowOpensAt);
+                })
+                .orElse(true);
+    }
+
+    @Override
+    public boolean isReturnNoticeSatisfied(UUID facilityId, LocalDateTime scheduledReturnTime) {
+        return facilityPolicyRepository.findByFacility_Id(facilityId)
+                .map(policy -> {
+                    if (policy.getReturnNoticeDays() == null) {
+                        return true;
+                    }
+                    long daysNotice = ChronoUnit.DAYS.between(LocalDateTime.now(), scheduledReturnTime);
+                    return daysNotice >= policy.getReturnNoticeDays();
+                })
+                .orElse(true);
     }
 
     @Override

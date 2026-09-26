@@ -5,11 +5,17 @@ import com.storehub.dto.request.FacilityPolicyCreateRequest;
 import com.storehub.dto.request.FacilityPolicyUpdateRequest;
 import com.storehub.dto.response.FacilityPolicyResponse;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public interface FacilityPolicyService {
 
     FacilityPolicyResponse getById(UUID id);
+
+    boolean isWithinRenewalWindow(UUID facilityId, LocalDate currentEndDate);
+
+    boolean isReturnNoticeSatisfied(UUID facilityId, LocalDateTime scheduledReturnTime);
 
     FacilityPolicyResponse getByFacilityId(UUID facilityId);
 

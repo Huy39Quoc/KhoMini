@@ -6,6 +6,7 @@ import com.storehub.dto.request.ExtendRentalRequest;
 import com.storehub.dto.request.UpdatePinRequest;
 import com.storehub.dto.response.ContractOperationResponse;
 import com.storehub.dto.response.MyUnitResponse;
+import com.storehub.dto.response.PaymentResponse;
 import com.storehub.dto.response.SmartAccessResponse;
 import com.storehub.service.CustomerStorageService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -98,6 +99,19 @@ public class CustomerStorageController {
         return ResponseEntity.ok(ApiResponse.<ContractOperationResponse>builder()
                 .success(true)
                 .message("Checkout scheduled successfully")
+                .data(response)
+                .build());
+    }
+    @GetMapping("/{bookingId}/extend/pending-payment")
+    @Operation(summary = "Lấy lại giao dịch thanh toán gia hạn đang chờ (nếu có), để tiếp tục thanh toán")
+    public ResponseEntity<ApiResponse<PaymentResponse>> getPendingExtensionPayment(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        PaymentResponse response = customerStorageService.getPendingExtensionPayment(bookingId, userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.<PaymentResponse>builder()
+                .success(true)
+                .message("Pending extension payment retrieved successfully")
                 .data(response)
                 .build());
     }

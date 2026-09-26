@@ -71,4 +71,11 @@ public class Booking extends BaseEntity {
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
+
+    @Column(name = "pending_extra_months")
+    private Integer pendingExtraMonths;
+
+    @Column(name = "pending_extension_fee", precision = 12, scale = 2)
+    private BigDecimal pendingExtensionFee;
+
 }
