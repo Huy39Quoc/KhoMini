@@ -110,4 +110,10 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("status") BookingStatus status,
             @Param("now") LocalDateTime now
     );
-}
+
+    long countByStorageUnit_Facility_IdAndStatusAndEndDateBefore(
+            UUID facilityId,
+            BookingStatus status,
+            LocalDate endDate
+    );
+}

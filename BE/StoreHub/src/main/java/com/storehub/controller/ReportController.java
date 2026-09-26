@@ -45,7 +45,7 @@ public class ReportController {
     }
 
     @GetMapping("/occupancy")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
     @Operation(summary = "Lấy báo cáo tỷ lệ lấp đầy kho")
     public ResponseEntity<ApiResponse<OccupancyReportResponse>> getOccupancyReport() {
         OccupancyReportResponse response = reportService.getOccupancyReport();

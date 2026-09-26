@@ -9,5 +9,6 @@ public record FacilityReportResponse(
         long reserved,
         long occupied,
         long underMaintenance,
+        long overdueBookings,
         double occupancyRate
 ) {}

@@ -15,8 +15,39 @@ import java.util.UUID;
 public interface SupportTicketRepository extends JpaRepository<SupportTicket, UUID> {
 
     @Query("SELECT t FROM SupportTicket t WHERE t.customer.id = :customerId")
-    Page<SupportTicket> findAllByCustomerId(@Param("customerId") UUID customerId, Pageable pageable);
+    Page<SupportTicket> findAllByCustomerId(
+            @Param("customerId") UUID customerId,
+            Pageable pageable
+    );
 
     @Query("SELECT t FROM SupportTicket t WHERE t.id = :id AND t.customer.id = :customerId")
-    Optional<SupportTicket> findByIdAndCustomerId(@Param("id") UUID id, @Param("customerId") UUID customerId);
+    Optional<SupportTicket> findByIdAndCustomerId(
+            @Param("id") UUID id,
+            @Param("customerId") UUID customerId
+    );
+
+    @Query("""
+            SELECT t
+            FROM SupportTicket t
+            JOIN t.booking b
+            JOIN b.storageUnit su
+            WHERE su.facility.id = :facilityId
+            """)
+    Page<SupportTicket> findAllByFacilityId(
+            @Param("facilityId") UUID facilityId,
+            Pageable pageable
+    );
+
+    @Query("""
+            SELECT t
+            FROM SupportTicket t
+            JOIN t.booking b
+            JOIN b.storageUnit su
+            WHERE t.id = :ticketId
+            AND su.facility.id = :facilityId
+            """)
+    Optional<SupportTicket> findByIdAndFacilityId(
+            @Param("ticketId") UUID ticketId,
+            @Param("facilityId") UUID facilityId
+    );
 }
