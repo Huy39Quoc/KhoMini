@@ -70,24 +70,19 @@ public class PricingServiceImpl implements PricingService {
         LocalDate startDate = request.getStartDate();
         LocalDate endDate = startDate.plusMonths(months);
 
-        // 1. Tiền thuê cơ bản (VNĐ scale = 0)
         BigDecimal monthlyRate = unitType.getBasePricePerMonth().setScale(0, RoundingMode.HALF_UP);
         BigDecimal totalRentalFee = monthlyRate.multiply(BigDecimal.valueOf(months)).setScale(0, RoundingMode.HALF_UP);
 
-        // 2. Tiền cọc (hỗ trợ chính sách 0% không bị fallback nhầm)
         BigDecimal defaultDeposit = (unitType.getDepositAmount() != null)
                 ? unitType.getDepositAmount().setScale(0, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
         BigDecimal depositAmount = resolveDepositAmount(facility, totalRentalFee, defaultDeposit);
 
-        // 3. Phụ phí dịch vụ
         BigDecimal totalManagementFee = STANDARD_MANAGEMENT_FEE.multiply(BigDecimal.valueOf(months)).setScale(0, RoundingMode.HALF_UP);
         BigDecimal totalExtraFees = totalManagementFee;
 
-        // 4. Tổng thanh toán đợt đầu
         BigDecimal initialPayment = totalRentalFee.add(depositAmount).add(totalExtraFees);
 
-        // 5. Tạo danh sách chi tiết các khoản chi phí
         List<FeeItemResponse> breakdown = new ArrayList<>();
         breakdown.add(FeeItemResponse.builder()
                 .feeType(RentalFeeType.RENTAL_FEE)
@@ -138,6 +133,20 @@ public class PricingServiceImpl implements PricingService {
                 .breakdown(breakdown)
                 .quotedAt(LocalDateTime.now())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal calculateExtensionFee(StorageUnit storageUnit, int extraMonths) {
+        if (storageUnit == null || storageUnit.getUnitType() == null) {
+            throw new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND);
+        }
+        UnitType unitType = storageUnit.getUnitType();
+        if (unitType.getBasePricePerMonth() == null) {
+            throw new AppException(ErrorCode.UNIT_TYPE_PRICE_NOT_CONFIGURED);
+        }
+        BigDecimal monthlyRate = unitType.getBasePricePerMonth().setScale(0, RoundingMode.HALF_UP);
+        return monthlyRate.multiply(BigDecimal.valueOf(extraMonths)).setScale(0, RoundingMode.HALF_UP);
     }
 
     private BigDecimal resolveDepositAmount(Facility facility, BigDecimal totalRentalFee, BigDecimal defaultDeposit) {

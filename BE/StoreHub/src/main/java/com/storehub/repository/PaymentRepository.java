@@ -3,6 +3,8 @@ package com.storehub.repository;
 import com.storehub.dto.response.FacilityRevenueResponse;
 import com.storehub.dto.response.SystemRevenueSummaryResponse;
 import com.storehub.entity.Payment;
+import com.storehub.enums.PaymentStatus;
+import com.storehub.enums.PaymentType;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -20,6 +22,9 @@ public interface PaymentRepository
         extends JpaRepository<Payment, UUID> {
 
     Optional<Payment> findByTransactionId(String transactionId);
+
+    Optional<Payment> findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+            UUID bookingId, PaymentType paymentType, PaymentStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

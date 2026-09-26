@@ -98,9 +98,16 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   child: const Icon(Icons.update, color: AppColors.primaryContainer),
                 ),
                 title: const Text('Extend Rental'),
+                subtitle: unit.hasPendingExtension
+                    ? const Text('Resume your pending extension payment')
+                    : null,
                 onTap: () {
                   Navigator.pop(ctx);
-                  _openContractOperation(unit, isExtension: true);
+                  _openContractOperation(
+                    unit,
+                    isExtension: true,
+                    resumePending: unit.hasPendingExtension,
+                  );
                 },
               ),
               ListTile(
@@ -152,12 +159,14 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   Future<void> _openContractOperation(
     MyUnitModel unit, {
     required bool isExtension,
+    bool resumePending = false,
   }) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => ContractOperationDialog(
         unit: unit,
         isExtension: isExtension,
+        resumePending: resumePending,
       ),
     );
     if (result == true) {
@@ -246,7 +255,6 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
-                // Real summary banner (no simulated sensors/telemetry)
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -359,6 +367,32 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                 ],
               ),
+              if (unit.hasPendingExtension) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryContainer.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.hourglass_top, size: 16, color: AppColors.secondary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          unit.pendingExtensionFee != null
+                              ? 'Extension of ${unit.pendingExtraMonths ?? '?'} month(s) awaiting payment '
+                                  '(${_currency.format(unit.pendingExtensionFee)}). Tap "Extend Rental" to finish paying.'
+                              : 'You have an extension request awaiting payment.',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(10),

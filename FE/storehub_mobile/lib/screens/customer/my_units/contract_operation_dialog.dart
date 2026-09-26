@@ -7,11 +7,13 @@ import '../../../services/storage_api_service.dart';
 class ContractOperationDialog extends StatefulWidget {
   final MyUnitModel unit;
   final bool isExtension;
+  final bool resumePending;
 
   const ContractOperationDialog({
     super.key,
     required this.unit,
     required this.isExtension,
+    this.resumePending = false,
   });
 
   @override
@@ -28,7 +30,61 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   int _extraMonths = 3;
   DateTime? _scheduledReturnTime;
   bool _isLoading = false;
-  Map<String, dynamic>? _result; // Real ContractOperationResponse once submitted
+  bool _isConfirmingPayment = false;
+  bool _isResuming = false;
+  String? _resumeError;
+  Map<String, dynamic>? _result;
+  Map<String, dynamic>? _paymentConfirmed; 
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.resumePending) {
+      _loadPendingExtensionPayment();
+    }
+  }
+
+  Future<void> _loadPendingExtensionPayment() async {
+    setState(() {
+      _isResuming = true;
+      _resumeError = null;
+    });
+    try {
+      final payment = await _storageService.getPendingExtensionPayment(widget.unit.bookingId);
+      if (!mounted) return;
+      if (payment == null) {
+        setState(() {
+          _isResuming = false;
+          _resumeError = 'No pending extension payment was found for this unit anymore.';
+        });
+        return;
+      }
+      setState(() {
+        _isResuming = false;
+        _result = {
+          'paymentRequired': true,
+          'transactionId': payment['transactionId'],
+          'qrCodeUrl': payment['qrCodeUrl'],
+          'additionalFee': payment['amount'],
+          'newEndDate': widget.unit.endDate != null && widget.unit.pendingExtraMonths != null
+              ? DateTime(
+                  widget.unit.endDate!.year,
+                  widget.unit.endDate!.month + widget.unit.pendingExtraMonths!,
+                  widget.unit.endDate!.day,
+                ).toIso8601String()
+              : null,
+          'updatedTotalFee': widget.unit.totalRentalFee +
+              (widget.unit.pendingExtensionFee ?? 0),
+        };
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isResuming = false;
+        _resumeError = e.toString().replaceAll('Exception: ', '');
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -105,8 +161,61 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     }
   }
 
+  bool get _needsExtensionPayment =>
+      widget.isExtension &&
+      _result != null &&
+      _result!['paymentRequired'] == true &&
+      _paymentConfirmed == null;
+
+  Future<void> _confirmExtensionPayment() async {
+    final transactionId = _result?['transactionId']?.toString();
+    if (transactionId == null || transactionId.isEmpty) return;
+
+    setState(() => _isConfirmingPayment = true);
+    try {
+      final confirmed = await _storageService.confirmExtensionPayment(transactionId);
+      if (!mounted) return;
+      setState(() {
+        _paymentConfirmed = confirmed;
+        _isConfirmingPayment = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isConfirmingPayment = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.resumePending && _isResuming) {
+      return const AlertDialog(
+        content: SizedBox(
+          height: 80,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+    if (widget.resumePending && _resumeError != null) {
+      return AlertDialog(
+        title: const Text('Unable to resume payment'),
+        content: Text(_resumeError!, style: const TextStyle(fontSize: 13)),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true), 
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    }
+    if (_needsExtensionPayment) {
+      return _buildExtensionPaymentDialog();
+    }
     if (_result != null) {
       return _buildResultDialog();
     }
@@ -232,9 +341,99 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     );
   }
 
+  Widget _buildExtensionPaymentDialog() {
+    final result = _result!;
+    final qrCodeUrl = result['qrCodeUrl']?.toString() ?? '';
+    final transactionId = result['transactionId']?.toString() ?? '';
+    final fee = num.tryParse(result['additionalFee']?.toString() ?? '') ?? 0;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Pay extension fee'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Extension fee: ${_currency.format(fee)}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'The rental is only extended once this payment is confirmed.',
+              style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: qrCodeUrl.isEmpty
+                  ? Container(
+                      width: 180,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Text('No QR code available',
+                            style: TextStyle(color: Colors.grey)),
+                      ),
+                    )
+                  : Image.network(
+                      qrCodeUrl,
+                      width: 180,
+                      height: 180,
+                      loadingBuilder: (context, child, progress) =>
+                          progress == null
+                              ? child
+                              : const SizedBox(
+                                  width: 180,
+                                  height: 180,
+                                  child: Center(child: CircularProgressIndicator()),
+                                ),
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Center(
+                          child: Text("Couldn't load QR", style: TextStyle(color: Colors.grey)),
+                        ),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 8),
+            Text('Transaction code: $transactionId',
+                style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isConfirmingPayment ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isConfirmingPayment ? null : _confirmExtensionPayment,
+          child: _isConfirmingPayment
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Text("I've paid"),
+        ),
+      ],
+    );
+  }
+
   Widget _buildResultDialog() {
     final result = _result!;
-    final message = result['message']?.toString();
+    final message = (widget.isExtension && _paymentConfirmed != null)
+        ? 'Payment confirmed. Your rental has been extended.'
+        : result['message']?.toString();
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Row(
