@@ -138,4 +138,12 @@ public interface PaymentRepository
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
     );
+
+    Optional<Payment>
+    findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
+            UUID bookingId,
+            PaymentType paymentType,
+            PaymentStatus status,
+            String note
+    );
 }

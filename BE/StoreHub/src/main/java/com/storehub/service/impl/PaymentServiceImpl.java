@@ -38,7 +38,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final ActivityLogService activityLogService;
-
+    private static final String RENTAL_EXTENSION_NOTE =
+            "RENTAL_EXTENSION";
     @Override
     @Transactional
     public PaymentResponse initiatePayment(
@@ -100,6 +101,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentType(request.getPaymentType())
                 .status(PaymentStatus.PENDING)
                 .paymentMethod(request.getPaymentMethod())
+                .note(request.getPaymentType() == PaymentType.EXTRA_CHARGE
+                        ? RENTAL_EXTENSION_NOTE
+                        : null)
                 .paymentTime(LocalDateTime.now())
                 .build();
 
@@ -115,6 +119,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentMethod(savedPayment.getPaymentMethod())
                 .qrCodeUrl(buildQrCodeUrl(transactionId, payableAmount))
                 .paymentTime(savedPayment.getPaymentTime())
+                .note(payment.getNote())
                 .build();
     }
 
@@ -172,6 +177,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         if (payment.getPaymentType() == PaymentType.EXTRA_CHARGE
+                && RENTAL_EXTENSION_NOTE.equals(payment.getNote())
                 && booking.getPendingExtraMonths() != null) {
             var oldEndDate = booking.getEndDate();
 
@@ -229,6 +235,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(payment.getStatus())
                 .paymentMethod(payment.getPaymentMethod())
                 .paymentTime(payment.getPaymentTime())
+                .note(payment.getNote())
                 .build();
     }
 
@@ -245,9 +252,16 @@ public class PaymentServiceImpl implements PaymentService {
             throw new AppException(ErrorCode.PAYMENT_NOT_FOUND);
         }
 
-        Payment payment = paymentRepository.findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
-                        bookingId, PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING)
-                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+        Payment payment = paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
+                        bookingId,
+                        PaymentType.EXTRA_CHARGE,
+                        PaymentStatus.PENDING,
+                        RENTAL_EXTENSION_NOTE
+                )
+                .orElseThrow(() ->
+                        new AppException(ErrorCode.PAYMENT_NOT_FOUND)
+                );
 
         return PaymentResponse.builder()
                 .id(payment.getId())
@@ -259,6 +273,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentMethod(payment.getPaymentMethod())
                 .qrCodeUrl(buildQrCodeUrl(payment.getTransactionId(), payment.getAmount()))
                 .paymentTime(payment.getPaymentTime())
+                .note(payment.getNote())
                 .build();
     }
 }

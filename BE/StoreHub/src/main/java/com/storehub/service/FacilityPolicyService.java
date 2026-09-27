@@ -4,6 +4,7 @@ import com.storehub.common.response.PageResponse;
 import com.storehub.dto.request.FacilityPolicyCreateRequest;
 import com.storehub.dto.request.FacilityPolicyUpdateRequest;
 import com.storehub.dto.response.FacilityPolicyResponse;
+import com.storehub.dto.response.OverdueConfigResponse;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,15 +14,26 @@ public interface FacilityPolicyService {
 
     FacilityPolicyResponse getById(UUID id);
 
-    boolean isWithinRenewalWindow(UUID facilityId, LocalDate currentEndDate);
+    boolean isWithinRenewalWindow(
+            UUID facilityId,
+            LocalDate currentEndDate
+    );
 
-    boolean isReturnNoticeSatisfied(UUID facilityId, LocalDateTime scheduledReturnTime);
+    boolean isReturnNoticeSatisfied(
+            UUID facilityId,
+            LocalDateTime scheduledReturnTime
+    );
+
+    OverdueConfigResponse getOverdueConfig(UUID facilityId);
 
     FacilityPolicyResponse getByFacilityId(UUID facilityId);
 
     FacilityPolicyResponse create(FacilityPolicyCreateRequest request);
 
-    FacilityPolicyResponse update(UUID id, FacilityPolicyUpdateRequest request);
+    FacilityPolicyResponse update(
+            UUID id,
+            FacilityPolicyUpdateRequest request
+    );
 
     void delete(UUID id);
 

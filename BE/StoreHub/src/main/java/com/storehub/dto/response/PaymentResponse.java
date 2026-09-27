@@ -12,6 +12,7 @@ import java.util.UUID;
 @Data
 @Builder
 public class PaymentResponse {
+
     private UUID id;
     private String transactionId;
     private UUID bookingId;
@@ -19,6 +20,7 @@ public class PaymentResponse {
     private PaymentType paymentType;
     private PaymentStatus status;
     private String paymentMethod;
+    private String note;
     private String qrCodeUrl;
     private LocalDateTime paymentTime;
 }

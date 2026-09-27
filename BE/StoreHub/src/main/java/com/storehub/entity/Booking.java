@@ -78,4 +78,21 @@ public class Booking extends BaseEntity {
     @Column(name = "pending_extension_fee", precision = 12, scale = 2)
     private BigDecimal pendingExtensionFee;
 
+    @Column(name = "overdue_detected_at")
+    private LocalDateTime overdueDetectedAt;
+
+    @Column(
+            name = "overdue_fee_accrued",
+            nullable = false,
+            precision = 12,
+            scale = 2
+    )
+    @Builder.Default
+    private BigDecimal overdueFeeAccrued = BigDecimal.ZERO;
+
+    @Column(name = "access_disabled_at")
+    private LocalDateTime accessDisabledAt;
+
+    @Column(name = "sealing_pending_at")
+    private LocalDateTime sealingPendingAt;
 }
