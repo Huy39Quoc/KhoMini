@@ -1,6 +1,6 @@
 package com.storehub.service.impl;
 
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.FacilityPolicyCreateRequest;
 import com.storehub.dto.request.FacilityPolicyUpdateRequest;
 import com.storehub.dto.response.FacilityPolicyResponse;
@@ -22,7 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.storehub.dto.response.OverdueConfigResponse;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -164,5 +164,22 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
         Page<FacilityPolicyResponse> result = facilityPolicyRepository.findAllWithFilters(search, pageable)
                 .map(facilityPolicyMapper::toResponse);
         return PageResponse.from(result);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OverdueConfigResponse getOverdueConfig(UUID facilityId) {
+        FacilityPolicy policy = facilityPolicyRepository
+                .findByFacility_Id(facilityId)
+                .orElseThrow(() ->
+                        new AppException(ErrorCode.FACILITY_POLICY_NOT_FOUND)
+                );
+
+        return new OverdueConfigResponse(
+                policy.getOverdueGraceDays(),
+                policy.getDailyLateFee(),
+                policy.getOverdueAccessDisableDays(),
+                policy.getOverdueSealingDays()
+        );
     }
 }

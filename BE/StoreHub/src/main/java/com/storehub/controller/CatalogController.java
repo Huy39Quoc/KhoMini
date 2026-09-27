@@ -1,6 +1,6 @@
 package com.storehub.controller;
 
-import com.storehub.common.response.ApiResponse;
+import com.storehub.common.ApiResponse;
 import com.storehub.dto.response.CatalogOverviewResponse;
 import com.storehub.dto.response.FacilityResponse;
 import com.storehub.dto.response.UnitTypeCatalogResponse;

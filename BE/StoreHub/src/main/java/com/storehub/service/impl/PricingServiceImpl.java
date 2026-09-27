@@ -17,6 +17,8 @@ import com.storehub.service.PricingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.storehub.service.FacilityPolicyService;
+import java.util.UUID;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -33,7 +35,7 @@ public class PricingServiceImpl implements PricingService {
     private static final BigDecimal STANDARD_MANAGEMENT_FEE = BigDecimal.valueOf(50000).setScale(0, RoundingMode.UNNECESSARY);
     private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
     private static final DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,###");
-
+    private final FacilityPolicyService facilityPolicyService;
     private final UnitTypeRepository unitTypeRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final FacilityPolicyRepository facilityPolicyRepository;
@@ -167,5 +169,31 @@ public class PricingServiceImpl implements PricingService {
         }
 
         return defaultDeposit;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal calculateLateFee(
+            UUID facilityId,
+            long chargeableDays
+    ) {
+        if (chargeableDays <= 0) {
+            return BigDecimal.ZERO.setScale(
+                    2,
+                    RoundingMode.UNNECESSARY
+            );
+        }
+
+        BigDecimal dailyLateFee = facilityPolicyService
+                .getOverdueConfig(facilityId)
+                .dailyLateFee();
+
+        if (dailyLateFee == null || dailyLateFee.signum() < 0) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
+        return dailyLateFee
+                .multiply(BigDecimal.valueOf(chargeableDays))
+                .setScale(2, RoundingMode.HALF_UP);
     }
 }

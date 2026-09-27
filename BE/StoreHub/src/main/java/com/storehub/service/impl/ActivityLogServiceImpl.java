@@ -2,7 +2,7 @@ package com.storehub.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.response.ActivityLogResponse;
 import com.storehub.entity.ActivityLog;
 import com.storehub.entity.User;

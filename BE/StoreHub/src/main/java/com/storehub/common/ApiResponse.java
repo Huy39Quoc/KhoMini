@@ -1,4 +1,4 @@
-package com.storehub.common.response;
+package com.storehub.common;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;

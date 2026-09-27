@@ -1,6 +1,6 @@
 package com.storehub.service.impl;
 
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.RolePermissionBulkAssignRequest;
 import com.storehub.dto.request.RolePermissionCreateRequest;
 import com.storehub.dto.request.RolePermissionUpdateRequest;

@@ -1,4 +1,4 @@
-package com.storehub.common.response;
+package com.storehub.common;
 
 import lombok.*;
 import org.springframework.data.domain.Page;

@@ -1,6 +1,6 @@
 package com.storehub.controller;
 
-import com.storehub.common.response.ApiResponse;
+import com.storehub.common.ApiResponse;
 import com.storehub.dto.response.OccupancyReportResponse;
 import com.storehub.dto.response.RevenueReportResponse;
 import com.storehub.service.ReportService;
