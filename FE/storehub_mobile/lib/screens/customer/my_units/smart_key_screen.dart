@@ -25,6 +25,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
   final StorageApiService _storageService = StorageApiService();
   late Future<SmartAccessModel> _accessFuture;
   bool _isPinVisible = true;
+  bool _isTogglingLock = false;
   Timer? _ticker;
   Duration? _remaining;
 
@@ -65,6 +66,38 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
 
     tick();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => tick());
+  }
+
+  // Không có phần cứng khóa thật đứng sau QR/PIN, nên đây là cách duy nhất
+  // để test được hành động mở/đóng khóa - đổi trạng thái xong load lại
+  // toàn bộ access info (giống pattern _showUpdatePinDialog đang dùng).
+  Future<void> _toggleLock(bool currentlyLocked) async {
+    setState(() => _isTogglingLock = true);
+    try {
+      if (currentlyLocked) {
+        await _storageService.unlockUnit(widget.bookingId);
+      } else {
+        await _storageService.lockUnit(widget.bookingId);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(currentlyLocked ? 'Unit unlocked' : 'Unit locked'),
+          backgroundColor: currentlyLocked ? AppColors.success : AppColors.secondary,
+        ),
+      );
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isTogglingLock = false);
+    }
   }
 
   String _formatDuration(Duration d) {
@@ -281,6 +314,60 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                const SizedBox(height: 16),
+
+                // Nút Mở khóa / Khóa lại - mô phỏng hành động thật vì
+                // không có phần cứng khóa đứng sau QR/PIN để test.
+                Card(
+                  color: access.locked
+                      ? AppColors.surfaceContainerLow
+                      : AppColors.success.withValues(alpha: 0.12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(
+                          access.locked ? Icons.lock : Icons.lock_open,
+                          color: access.locked ? AppColors.onSurfaceVariant : AppColors.success,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                access.locked ? 'Unit is locked' : 'Unit is unlocked',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                access.locked
+                                    ? 'Tap to unlock (simulated - no real hardware attached)'
+                                    : 'Tap to lock it back',
+                                style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: _isTogglingLock ? null : () => _toggleLock(access.locked),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: access.locked ? AppColors.primary : AppColors.secondary,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: _isTogglingLock
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text(access.locked ? 'Unlock' : 'Lock'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
                 // PIN card
                 Card(

@@ -78,4 +78,11 @@ public class Booking extends BaseEntity {
     @Column(name = "pending_extension_fee", precision = 12, scale = 2)
     private BigDecimal pendingExtensionFee;
 
+    // Trạng thái khóa hiện tại của ngăn kho - TRUE = đang khóa (an toàn).
+    // Khách tự bấm nút Mở khóa/Khóa lại ở màn Smart Key để test, vì không
+    // có phần cứng khóa thật đứng sau QR/PIN để việc quét mã kích hoạt.
+    @Column(name = "unit_locked", nullable = false)
+    @Builder.Default
+    private Boolean unitLocked = true;
+
 }

@@ -38,6 +38,7 @@ public enum ActivityAction {
     CHECKIN_VERIFIED(false), HANDOVER_COMPLETE(true),
     ACCESS_CREDENTIAL_ISSUE(true), ACCESS_CREDENTIAL_UPDATE(false), ACCESS_CREDENTIAL_REVOKE(true),
     MASTER_KEY_OVERRIDE(true),
+    UNIT_UNLOCKED(false), UNIT_LOCKED(false),
 
     // Renewal & Overdue
     RENEWAL_REQUEST(false), RENEWAL_PAID(false), CONTRACT_EXTENDED(false),

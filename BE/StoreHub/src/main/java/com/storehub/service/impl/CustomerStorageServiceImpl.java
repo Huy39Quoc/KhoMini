@@ -93,6 +93,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 .qrCodeToken(qrToken)
                 .pinUpdatedAt(booking.getPinUpdatedAt())
                 .tokenExpiresAt(LocalDateTime.now().plusMinutes(5))
+                .locked(Boolean.TRUE.equals(booking.getUnitLocked()))
                 .build();
     }
 
@@ -116,6 +117,32 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 .qrCodeToken(booking.getQrAccessToken())
                 .pinUpdatedAt(booking.getPinUpdatedAt())
                 .tokenExpiresAt(LocalDateTime.now().plusMinutes(5))
+                .locked(Boolean.TRUE.equals(booking.getUnitLocked()))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public SmartAccessResponse setLockState(UUID bookingId, String customerEmail, boolean locked) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        Booking booking = validateActiveBooking(bookingId, customerId);
+
+        booking.setUnitLocked(locked);
+        bookingRepository.save(booking);
+
+        activityLogService.record(customerId, locked ? ActivityAction.UNIT_LOCKED : ActivityAction.UNIT_UNLOCKED,
+                "BOOKING", booking.getId(),
+                (locked ? "Locked" : "Unlocked") + " storage unit for booking " + booking.getBookingCode(),
+                null, null);
+
+        return SmartAccessResponse.builder()
+                .bookingId(booking.getId())
+                .unitCode(booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "Unassigned")
+                .accessPin(booking.getAccessPin())
+                .qrCodeToken(booking.getQrAccessToken())
+                .pinUpdatedAt(booking.getPinUpdatedAt())
+                .tokenExpiresAt(LocalDateTime.now().plusMinutes(5))
+                .locked(locked)
                 .build();
     }
 
