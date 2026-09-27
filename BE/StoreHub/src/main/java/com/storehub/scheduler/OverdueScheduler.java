@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
+import static com.storehub.common.PaymentNotes.OVERDUE_LATE_FEE;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,8 +32,7 @@ import java.util.UUID;
 @Slf4j
 public class OverdueScheduler {
 
-    public static final String OVERDUE_LATE_FEE_NOTE =
-            "OVERDUE_LATE_FEE";
+
 
     private static final ZoneId BUSINESS_ZONE =
             ZoneId.of("Asia/Ho_Chi_Minh");
@@ -192,7 +191,7 @@ public class OverdueScheduler {
                         booking.getId(),
                         PaymentType.EXTRA_CHARGE,
                         PaymentStatus.PENDING,
-                        OVERDUE_LATE_FEE_NOTE
+                        OVERDUE_LATE_FEE
                 )
                 .orElseGet(() -> Payment.builder()
                         .transactionId(createTransactionId())
@@ -201,7 +200,7 @@ public class OverdueScheduler {
                         .paymentType(PaymentType.EXTRA_CHARGE)
                         .status(PaymentStatus.PENDING)
                         .paymentMethod(null)
-                        .note(OVERDUE_LATE_FEE_NOTE)
+                        .note(OVERDUE_LATE_FEE)
                         .paymentTime(now)
                         .build());
 

@@ -23,7 +23,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import static com.storehub.common.PaymentNotes.OVERDUE_LATE_FEE;
+import static com.storehub.common.PaymentNotes.RENTAL_EXTENSION;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -38,8 +39,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final ActivityLogService activityLogService;
-    private static final String RENTAL_EXTENSION_NOTE =
-            "RENTAL_EXTENSION";
+
     @Override
     @Transactional
     public PaymentResponse initiatePayment(
@@ -102,7 +102,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(PaymentStatus.PENDING)
                 .paymentMethod(request.getPaymentMethod())
                 .note(request.getPaymentType() == PaymentType.EXTRA_CHARGE
-                        ? RENTAL_EXTENSION_NOTE
+                        ? RENTAL_EXTENSION
                         : null)
                 .paymentTime(LocalDateTime.now())
                 .build();
@@ -177,7 +177,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         if (payment.getPaymentType() == PaymentType.EXTRA_CHARGE
-                && RENTAL_EXTENSION_NOTE.equals(payment.getNote())
+                && RENTAL_EXTENSION.equals(payment.getNote())
                 && booking.getPendingExtraMonths() != null) {
             var oldEndDate = booking.getEndDate();
 
@@ -257,7 +257,7 @@ public class PaymentServiceImpl implements PaymentService {
                         bookingId,
                         PaymentType.EXTRA_CHARGE,
                         PaymentStatus.PENDING,
-                        RENTAL_EXTENSION_NOTE
+                        RENTAL_EXTENSION
                 )
                 .orElseThrow(() ->
                         new AppException(ErrorCode.PAYMENT_NOT_FOUND)
@@ -274,6 +274,55 @@ public class PaymentServiceImpl implements PaymentService {
                 .qrCodeUrl(buildQrCodeUrl(payment.getTransactionId(), payment.getAmount()))
                 .paymentTime(payment.getPaymentTime())
                 .note(payment.getNote())
+                .build();
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentResponse getPendingOverduePayment(
+            String customerEmail,
+            UUID bookingId
+    ) {
+        User customer = userRepository.findByEmail(customerEmail)
+                .orElseThrow(() ->
+                        new AppException(ErrorCode.USER_NOT_FOUND)
+                );
+
+        Booking booking = bookingRepository
+                .findByIdAndCustomerId(
+                        bookingId,
+                        customer.getId()
+                )
+                .orElseThrow(() ->
+                        new AppException(ErrorCode.BOOKING_NOT_FOUND)
+                );
+
+        Payment payment = paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
+                        bookingId,
+                        PaymentType.EXTRA_CHARGE,
+                        PaymentStatus.PENDING,
+                        OVERDUE_LATE_FEE
+                )
+                .orElseThrow(() ->
+                        new AppException(ErrorCode.PAYMENT_NOT_FOUND)
+                );
+
+        return PaymentResponse.builder()
+                .id(payment.getId())
+                .transactionId(payment.getTransactionId())
+                .bookingId(booking.getId())
+                .amount(payment.getAmount())
+                .paymentType(payment.getPaymentType())
+                .status(payment.getStatus())
+                .paymentMethod(payment.getPaymentMethod())
+                .note(payment.getNote())
+                .qrCodeUrl(buildQrCodeUrl(
+                        payment.getTransactionId(),
+                        payment.getAmount()
+                ))
+                .paymentTime(payment.getPaymentTime())
                 .build();
     }
 }

@@ -1,6 +1,6 @@
 package com.storehub.service.impl;
 
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.CreateTicketRequest;
 import com.storehub.dto.response.TicketResponse;
 import com.storehub.entity.Booking;

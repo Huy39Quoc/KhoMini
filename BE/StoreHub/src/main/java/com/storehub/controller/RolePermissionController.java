@@ -1,7 +1,7 @@
 package com.storehub.controller;
 
-import com.storehub.common.response.ApiResponse;
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.ApiResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.RolePermissionBulkAssignRequest;
 import com.storehub.dto.request.RolePermissionCreateRequest;
 import com.storehub.dto.request.RolePermissionUpdateRequest;

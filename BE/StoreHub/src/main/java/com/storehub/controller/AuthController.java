@@ -1,6 +1,6 @@
 package com.storehub.controller;
 
-import com.storehub.common.response.ApiResponse;
+import com.storehub.common.ApiResponse;
 import com.storehub.dto.request.*;
 import com.storehub.dto.response.AuthResponse;
 import com.storehub.service.AuthService;

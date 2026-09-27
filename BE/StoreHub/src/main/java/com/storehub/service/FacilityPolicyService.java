@@ -1,6 +1,6 @@
 package com.storehub.service;
 
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.FacilityPolicyCreateRequest;
 import com.storehub.dto.request.FacilityPolicyUpdateRequest;
 import com.storehub.dto.response.FacilityPolicyResponse;

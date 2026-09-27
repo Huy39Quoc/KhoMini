@@ -1,6 +1,6 @@
 package com.storehub.controller;
 
-import com.storehub.common.response.ApiResponse;
+import com.storehub.common.ApiResponse;
 import com.storehub.service.WaitlistService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

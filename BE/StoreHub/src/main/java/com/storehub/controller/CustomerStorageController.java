@@ -1,6 +1,6 @@
 package com.storehub.controller;
 
-import com.storehub.common.response.ApiResponse;
+import com.storehub.common.ApiResponse;
 import com.storehub.dto.request.CheckoutRequest;
 import com.storehub.dto.request.ExtendRentalRequest;
 import com.storehub.dto.request.UpdatePinRequest;

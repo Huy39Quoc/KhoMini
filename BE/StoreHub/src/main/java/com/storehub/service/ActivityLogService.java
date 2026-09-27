@@ -1,6 +1,6 @@
 package com.storehub.service;
 
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.response.ActivityLogResponse;
 import com.storehub.enums.ActivityAction;
 import com.storehub.enums.ActivityLogStatus;
