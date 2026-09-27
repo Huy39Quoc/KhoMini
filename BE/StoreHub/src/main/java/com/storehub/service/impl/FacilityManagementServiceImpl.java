@@ -24,7 +24,7 @@ import com.storehub.service.FacilityManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDate;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -227,10 +227,9 @@ public class FacilityManagementServiceImpl
                 ? 0
                 : 100.0 * occupied / all.size();
         long overdueBookings = bookings
-                .countByStorageUnit_Facility_IdAndStatusAndEndDateBefore(
+                .countByStorageUnit_Facility_IdAndStatusAndOverdueDetectedAtIsNotNull(
                         facilityId,
-                        BookingStatus.ACTIVE,
-                        LocalDate.now()
+                        BookingStatus.ACTIVE
                 );
 
         return new FacilityReportResponse(

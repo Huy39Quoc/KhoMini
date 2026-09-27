@@ -98,12 +98,13 @@ public class StaffTicketServiceImpl implements StaffTicketService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        if (request.getStatus() == TicketStatus.OPEN) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
-        }
+        TicketStatus oldStatus = ticket.getStatus();
+        TicketStatus newStatus = request.getStatus();
 
-        boolean needsResolution = request.getStatus() == TicketStatus.RESOLVED
-                || request.getStatus() == TicketStatus.CLOSED;
+        validateStatusTransition(oldStatus, newStatus);
+
+        boolean needsResolution = newStatus == TicketStatus.RESOLVED
+                || newStatus == TicketStatus.CLOSED;
 
         if (needsResolution
                 && !StringUtils.hasText(request.getResolutionNote())
@@ -111,9 +112,7 @@ public class StaffTicketServiceImpl implements StaffTicketService {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
-        TicketStatus oldStatus = ticket.getStatus();
-
-        ticket.setStatus(request.getStatus());
+        ticket.setStatus(newStatus);
 
         if (StringUtils.hasText(request.getResolutionNote())) {
             ticket.setResolutionNote(request.getResolutionNote().trim());
@@ -144,6 +143,25 @@ public class StaffTicketServiceImpl implements StaffTicketService {
     private SupportTicket requireTicket(UUID ticketId, UUID facilityId) {
         return ticketRepository.findByIdAndFacilityId(ticketId, facilityId)
                 .orElseThrow(() -> new AppException(ErrorCode.TICKET_NOT_FOUND));
+    }
+
+    private void validateStatusTransition(
+            TicketStatus currentStatus,
+            TicketStatus newStatus
+    ) {
+        if (currentStatus == newStatus) {
+            return;
+        }
+
+        boolean validTransition =
+                (currentStatus == TicketStatus.IN_PROGRESS
+                        && newStatus == TicketStatus.RESOLVED)
+                        || (currentStatus == TicketStatus.RESOLVED
+                        && newStatus == TicketStatus.CLOSED);
+
+        if (!validTransition) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
     }
 
     private TicketResponse toResponse(SupportTicket ticket) {
