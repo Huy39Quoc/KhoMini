@@ -15,6 +15,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TicketResponse {
+
     private UUID id;
     private String ticketCode;
     private UUID bookingId;
@@ -24,6 +25,8 @@ public class TicketResponse {
     private String description;
     private TicketStatus status;
     private String priority;
+    private UUID assignedStaffId;
+    private String assignedStaffName;
     private String resolutionNote;
     private LocalDateTime createdAt;
 }

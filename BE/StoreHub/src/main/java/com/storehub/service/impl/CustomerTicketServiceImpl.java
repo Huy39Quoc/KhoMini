@@ -90,8 +90,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
     public TicketResponse getTicketDetail(UUID ticketId, String customerEmail) {
         User customer = resolveCustomer(customerEmail);
         SupportTicket ticket = ticketRepository.findByIdAndCustomerId(ticketId, customer.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
-
+                .orElseThrow(() -> new AppException(ErrorCode.TICKET_NOT_FOUND));
         return mapToResponse(ticket);
     }
 
@@ -111,6 +110,8 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
                 .description(t.getDescription())
                 .status(t.getStatus())
                 .priority(t.getPriority())
+                .assignedStaffId(t.getAssignedStaff() != null ? t.getAssignedStaff().getId() : null)
+                .assignedStaffName(t.getAssignedStaff() != null ? t.getAssignedStaff().getFullName() : null)
                 .resolutionNote(t.getResolutionNote())
                 .createdAt(t.getCreatedAt())
                 .build();
