@@ -73,6 +73,34 @@ public class CustomerStorageController {
                 .build());
     }
 
+    @PostMapping("/{bookingId}/access/unlock")
+    @Operation(summary = "Mở khóa ngăn kho (mô phỏng - không có phần cứng khóa thật đứng sau)")
+    public ResponseEntity<ApiResponse<SmartAccessResponse>> unlockUnit(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        SmartAccessResponse response = customerStorageService.setLockState(bookingId, userDetails.getUsername(), false);
+        return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
+                .success(true)
+                .message("Unit unlocked successfully")
+                .data(response)
+                .build());
+    }
+
+    @PostMapping("/{bookingId}/access/lock")
+    @Operation(summary = "Khóa lại ngăn kho")
+    public ResponseEntity<ApiResponse<SmartAccessResponse>> lockUnit(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        SmartAccessResponse response = customerStorageService.setLockState(bookingId, userDetails.getUsername(), true);
+        return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
+                .success(true)
+                .message("Unit locked successfully")
+                .data(response)
+                .build());
+    }
+
     @PostMapping("/{bookingId}/extend")
     @Operation(summary = "Yêu cầu gia hạn hợp đồng thuê kho")
     public ResponseEntity<ApiResponse<ContractOperationResponse>> extendRental(

@@ -19,4 +19,7 @@ public class SmartAccessResponse {
     private String qrCodeToken;
     private LocalDateTime pinUpdatedAt;
     private LocalDateTime tokenExpiresAt;
+    // true = đang khóa (an toàn, mặc định), false = đang mở. Khách tự bấm
+    // nút Mở khóa/Khóa lại vì không có phần cứng thật để test quét mã.
+    private boolean locked;
 }

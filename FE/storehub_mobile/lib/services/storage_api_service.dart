@@ -48,6 +48,28 @@ class StorageApiService {
     }
   }
 
+  // Mở khóa / khóa lại ngăn kho (mô phỏng - không có phần cứng khóa thật
+  // đứng sau QR/PIN, nên đây là cách duy nhất để "thấy" hành động xảy ra).
+  Future<Map<String, dynamic>> unlockUnit(String bookingId) async {
+    try {
+      final response = await _dio.post(ApiEndpoints.unlockUnit(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to unlock unit: $message');
+    }
+  }
+
+  Future<Map<String, dynamic>> lockUnit(String bookingId) async {
+    try {
+      final response = await _dio.post(ApiEndpoints.lockUnit(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to lock unit: $message');
+    }
+  }
+
   // Gia hạn thời gian thuê kho
   Future<Map<String, dynamic>> extendRental(String bookingId, int months) async {
     try {

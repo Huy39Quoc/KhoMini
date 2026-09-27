@@ -80,17 +80,26 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
 
   void _loadUnits() {
     if (_facilityId == null) return;
-    setState(() => _unitsFuture = _opsService.getFacilityUnits(_facilityId!));
+    // FIX: cùng lỗi "setState() callback argument returned a Future" như ở
+    // ActivityLogScreen - assignment expression trong arrow function trả
+    // về chính giá trị Future vừa gán. Đổi sang block-body { }.
+    setState(() {
+      _unitsFuture = _opsService.getFacilityUnits(_facilityId!);
+    });
   }
 
   void _loadStaff() {
     if (_facilityId == null) return;
-    setState(() => _staffFuture = _opsService.getFacilityStaff(_facilityId!));
+    setState(() {
+      _staffFuture = _opsService.getFacilityStaff(_facilityId!);
+    });
   }
 
   void _loadReport() {
     if (_facilityId == null) return;
-    setState(() => _reportFuture = _opsService.getFacilityManagerReport(_facilityId!));
+    setState(() {
+      _reportFuture = _opsService.getFacilityManagerReport(_facilityId!);
+    });
   }
 
   Future<void> _openCreateUnitSheet() async {

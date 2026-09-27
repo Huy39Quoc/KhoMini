@@ -16,6 +16,10 @@ class ApiEndpoints {
       '/customer/storage/$bookingId/access';
   static String updatePin(String bookingId) =>
       '/customer/storage/$bookingId/access/pin';
+  static String unlockUnit(String bookingId) =>
+      '/customer/storage/$bookingId/access/unlock';
+  static String lockUnit(String bookingId) =>
+      '/customer/storage/$bookingId/access/lock';
   static String extendRental(String bookingId) =>
       '/customer/storage/$bookingId/extend';
   static String checkoutRental(String bookingId) =>

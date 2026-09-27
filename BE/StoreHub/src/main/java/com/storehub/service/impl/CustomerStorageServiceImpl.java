@@ -7,9 +7,6 @@ import com.storehub.dto.response.ContractOperationResponse;
 import com.storehub.dto.response.MyUnitResponse;
 import com.storehub.dto.response.SmartAccessResponse;
 import com.storehub.entity.Booking;
-import com.storehub.entity.Facility;
-import com.storehub.entity.StorageUnit;
-import com.storehub.entity.UnitType;
 import com.storehub.entity.User;
 import com.storehub.enums.BookingStatus;
 import com.storehub.exception.AppException;
@@ -20,6 +17,7 @@ import com.storehub.enums.PaymentType;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.enums.ActivityAction;
+import com.storehub.mapper.CustomerStorageMapper;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.CustomerStorageService;
 import com.storehub.service.FacilityPolicyService;
@@ -49,6 +47,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     private final PricingService pricingService;
     private final FacilityPolicyService facilityPolicyService;
     private final PaymentService paymentService;
+    private final CustomerStorageMapper customerStorageMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -86,14 +85,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                     "Issued initial access PIN for booking " + booking.getBookingCode(), null, null);
         }
 
-        return SmartAccessResponse.builder()
-                .bookingId(booking.getId())
-                .unitCode(booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "Unassigned")
-                .accessPin(booking.getAccessPin())
-                .qrCodeToken(qrToken)
-                .pinUpdatedAt(booking.getPinUpdatedAt())
-                .tokenExpiresAt(LocalDateTime.now().plusMinutes(5))
-                .build();
+        return customerStorageMapper.toSmartAccessResponse(booking);
     }
 
     @Override
@@ -109,14 +101,24 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         activityLogService.record(customerId, ActivityAction.ACCESS_CREDENTIAL_UPDATE, "BOOKING", booking.getId(),
                 "Updated access PIN for booking " + booking.getBookingCode(), null, null);
 
-        return SmartAccessResponse.builder()
-                .bookingId(booking.getId())
-                .unitCode(booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "Unassigned")
-                .accessPin(booking.getAccessPin())
-                .qrCodeToken(booking.getQrAccessToken())
-                .pinUpdatedAt(booking.getPinUpdatedAt())
-                .tokenExpiresAt(LocalDateTime.now().plusMinutes(5))
-                .build();
+        return customerStorageMapper.toSmartAccessResponse(booking);
+    }
+
+    @Override
+    @Transactional
+    public SmartAccessResponse setLockState(UUID bookingId, String customerEmail, boolean locked) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        Booking booking = validateActiveBooking(bookingId, customerId);
+
+        booking.setUnitLocked(locked);
+        bookingRepository.save(booking);
+
+        activityLogService.record(customerId, locked ? ActivityAction.UNIT_LOCKED : ActivityAction.UNIT_UNLOCKED,
+                "BOOKING", booking.getId(),
+                (locked ? "Locked" : "Unlocked") + " storage unit for booking " + booking.getBookingCode(),
+                null, null);
+
+        return customerStorageMapper.toSmartAccessResponse(booking);
     }
 
     @Override
@@ -236,29 +238,6 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     }
 
     private MyUnitResponse mapToResponse(Booking b) {
-        StorageUnit unit = b.getStorageUnit();
-        Facility facility = (unit != null) ? unit.getFacility() : null;
-        UnitType unitType = (unit != null) ? unit.getUnitType() : null;
-
-        return MyUnitResponse.builder()
-                .bookingId(b.getId())
-                .bookingCode(b.getBookingCode())
-                .facilityName(facility != null ? facility.getName() : "Unassigned Facility")
-                .facilityAddress(facility != null ? facility.getAddress() : "")
-                .unitCode(unit != null ? unit.getUnitCode() : "Unassigned")
-                .unitTypeName(unitType != null ? unitType.getTypeName() : "")
-                .dimensions(unitType != null ? unitType.getDimensions() : "")
-                .areaSqm(unitType != null ? unitType.getAreaSqm() : null)
-                .startDate(b.getStartDate())
-                .endDate(b.getEndDate())
-                .rentalMonths(b.getRentalMonths())
-                .status(b.getStatus())
-                .totalRentalFee(b.getTotalRentalFee())
-                .depositPaid(b.getDepositPaid())
-                .activeAccess(b.getStatus() == BookingStatus.ACTIVE)
-                .hasPendingExtension(b.getPendingExtraMonths() != null)
-                .pendingExtraMonths(b.getPendingExtraMonths())
-                .pendingExtensionFee(b.getPendingExtensionFee())
-                .build();
+        return customerStorageMapper.toMyUnitResponse(b);
     }
 }
