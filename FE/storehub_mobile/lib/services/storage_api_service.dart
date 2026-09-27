@@ -6,6 +6,7 @@ import '../core/network/http_client.dart';
 class StorageApiService {
   final Dio _dio = HttpClient.instance.dio;
 
+  // Lấy danh sách kho đang thuê của khách hàng
   Future<List<dynamic>> getMyRentedUnits() async {
     try {
       final response = await _dio.get(ApiEndpoints.myUnits);
@@ -23,6 +24,7 @@ class StorageApiService {
     }
   }
 
+  // Lấy thông tin smart access (mã PIN / mã QR) theo bookingId.
   Future<Map<String, dynamic>> getSmartAccess(String bookingId) async {
     try {
       final response = await _dio.get(ApiEndpoints.smartAccess(bookingId));
@@ -33,6 +35,7 @@ class StorageApiService {
     }
   }
 
+  // Cập nhật mã PIN mới cho ngăn khoá
   Future<void> updatePin(String bookingId, String newPin) async {
     try {
       await _dio.put(
@@ -45,6 +48,29 @@ class StorageApiService {
     }
   }
 
+  // Mở khóa / khóa lại ngăn kho (mô phỏng - không có phần cứng khóa thật
+  // đứng sau QR/PIN, nên đây là cách duy nhất để "thấy" hành động xảy ra).
+  Future<Map<String, dynamic>> unlockUnit(String bookingId) async {
+    try {
+      final response = await _dio.post(ApiEndpoints.unlockUnit(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to unlock unit: $message');
+    }
+  }
+
+  Future<Map<String, dynamic>> lockUnit(String bookingId) async {
+    try {
+      final response = await _dio.post(ApiEndpoints.lockUnit(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to lock unit: $message');
+    }
+  }
+
+  // Gia hạn thời gian thuê kho
   Future<Map<String, dynamic>> extendRental(String bookingId, int months) async {
     try {
       final response = await _dio.post(
@@ -58,6 +84,7 @@ class StorageApiService {
     }
   }
 
+  // Gửi yêu cầu trả kho (checkout)
   Future<Map<String, dynamic>> checkoutRental(
     String bookingId,
     DateTime scheduledReturnTime, {
@@ -75,6 +102,30 @@ class StorageApiService {
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to checkout rental: $message');
+    }
+  }
+
+  Future<Map<String, dynamic>?> getPendingExtensionPayment(String bookingId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.pendingExtensionPayment(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load pending extension payment: $message');
+    }
+  }
+
+  Future<Map<String, dynamic>> confirmExtensionPayment(String transactionId) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.paymentConfirm,
+        data: {'transactionId': transactionId},
+      );
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to confirm extension payment: $message');
     }
   }
 

@@ -40,4 +40,7 @@ public class Payment extends BaseEntity {
 
     @Column(name = "payment_time", nullable = false)
     private LocalDateTime paymentTime;
+
+    @Column(name = "note", length = 100)
+    private String note;
 }

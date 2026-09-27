@@ -1,5 +1,5 @@
 package com.storehub.service;
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.RoleCreateRequest;
 import com.storehub.dto.request.RoleUpdateRequest;
 import com.storehub.dto.response.RoleResponse;

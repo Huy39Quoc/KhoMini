@@ -1,11 +1,12 @@
 package com.storehub.controller;
 
-import com.storehub.common.response.ApiResponse;
+import com.storehub.common.ApiResponse;
 import com.storehub.dto.request.CheckoutRequest;
 import com.storehub.dto.request.ExtendRentalRequest;
 import com.storehub.dto.request.UpdatePinRequest;
 import com.storehub.dto.response.ContractOperationResponse;
 import com.storehub.dto.response.MyUnitResponse;
+import com.storehub.dto.response.PaymentResponse;
 import com.storehub.dto.response.SmartAccessResponse;
 import com.storehub.service.CustomerStorageService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -72,6 +73,34 @@ public class CustomerStorageController {
                 .build());
     }
 
+    @PostMapping("/{bookingId}/access/unlock")
+    @Operation(summary = "Mở khóa ngăn kho (mô phỏng - không có phần cứng khóa thật đứng sau)")
+    public ResponseEntity<ApiResponse<SmartAccessResponse>> unlockUnit(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        SmartAccessResponse response = customerStorageService.setLockState(bookingId, userDetails.getUsername(), false);
+        return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
+                .success(true)
+                .message("Unit unlocked successfully")
+                .data(response)
+                .build());
+    }
+
+    @PostMapping("/{bookingId}/access/lock")
+    @Operation(summary = "Khóa lại ngăn kho")
+    public ResponseEntity<ApiResponse<SmartAccessResponse>> lockUnit(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        SmartAccessResponse response = customerStorageService.setLockState(bookingId, userDetails.getUsername(), true);
+        return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
+                .success(true)
+                .message("Unit locked successfully")
+                .data(response)
+                .build());
+    }
+
     @PostMapping("/{bookingId}/extend")
     @Operation(summary = "Yêu cầu gia hạn hợp đồng thuê kho")
     public ResponseEntity<ApiResponse<ContractOperationResponse>> extendRental(
@@ -98,6 +127,19 @@ public class CustomerStorageController {
         return ResponseEntity.ok(ApiResponse.<ContractOperationResponse>builder()
                 .success(true)
                 .message("Checkout scheduled successfully")
+                .data(response)
+                .build());
+    }
+    @GetMapping("/{bookingId}/extend/pending-payment")
+    @Operation(summary = "Lấy lại giao dịch thanh toán gia hạn đang chờ (nếu có), để tiếp tục thanh toán")
+    public ResponseEntity<ApiResponse<PaymentResponse>> getPendingExtensionPayment(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        PaymentResponse response = customerStorageService.getPendingExtensionPayment(bookingId, userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.<PaymentResponse>builder()
+                .success(true)
+                .message("Pending extension payment retrieved successfully")
                 .data(response)
                 .build());
     }

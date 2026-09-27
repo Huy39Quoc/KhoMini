@@ -16,4 +16,6 @@ public class ExtendRentalRequest {
     @Min(value = 1, message = "Extension period must be at least 1 month")
     @Max(value = 36, message = "Extension period cannot exceed 36 months")
     private Integer extraMonths;
+
+    private String paymentMethod;
 }

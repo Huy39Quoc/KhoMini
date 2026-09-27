@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -5,6 +7,10 @@ import '../../../core/constants/app_colors.dart';
 import '../../../services/booking_api_service.dart';
 
 class PaymentScreen extends StatefulWidget {
+  // bookingId/bookingCode are real, coming from BookingResponse after
+  // FacilityDetailScreen successfully called POST /bookings - this screen
+  // used to not receive any bookingId at all and made up a random
+  // booking code.
   final String bookingId;
   final String bookingCode;
   final String facilityName;
@@ -14,6 +20,9 @@ class PaymentScreen extends StatefulWidget {
   final int rentalMonths;
   final double totalRentalFee;
   final double depositAmount;
+  // Real expiry from BookingResponse.expiresAt - the BE now auto-expires a
+  // PENDING_PAYMENT booking (and its reserved unit) after 30 minutes.
+  final DateTime? expiresAt;
 
   const PaymentScreen({
     super.key,
@@ -26,6 +35,7 @@ class PaymentScreen extends StatefulWidget {
     required this.rentalMonths,
     required this.totalRentalFee,
     required this.depositAmount,
+    this.expiresAt,
   });
 
   @override
@@ -36,13 +46,21 @@ class _PaymentScreenState extends State<PaymentScreen>
     with TickerProviderStateMixin {
   final BookingApiService _bookingService = BookingApiService();
 
+  // Screen state
   bool _isSuccess = false;
   bool _isConfirming = false;
+  bool _isCancelling = false;
 
+  // State for initiating the payment transaction (POST /payments/initiate)
   bool _isInitiating = true;
   String? _initError;
-  Map<String, dynamic>? _payment; 
+  Map<String, dynamic>? _payment; // Real PaymentResponse: transactionId, amount, qrCodeUrl...
 
+  // Real countdown driven by widget.expiresAt (BE-enforced booking expiry)
+  Timer? _expiryTimer;
+  Duration? _remaining;
+
+  // Animation cho success
   late final AnimationController _successCtrl;
   late final Animation<double> _successScale;
   late final Animation<double> _successFade;
@@ -60,14 +78,65 @@ class _PaymentScreenState extends State<PaymentScreen>
     _successFade = CurvedAnimation(parent: _successCtrl, curve: Curves.easeIn);
 
     _initiatePayment();
+    _startExpiryCountdown();
+  }
+
+  void _startExpiryCountdown() {
+    final expiresAt = widget.expiresAt;
+    if (expiresAt == null) return;
+    void tick() {
+      final diff = expiresAt.difference(DateTime.now());
+      if (!mounted) return;
+      setState(() => _remaining = diff.isNegative ? Duration.zero : diff);
+    }
+
+    tick();
+    _expiryTimer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
+  }
+
+  String _formatCountdown(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  bool get _isExpired => _remaining != null && _remaining == Duration.zero;
+
+  Future<void> _handleExpiredOrCancel({required bool wasExpired}) async {
+    setState(() => _isCancelling = true);
+    try {
+      if (!wasExpired) {
+        await _bookingService.cancelBooking(widget.bookingId);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(wasExpired ? 'This booking has expired.' : 'Booking cancelled.'),
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCancelling = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
     _successCtrl.dispose();
+    _expiryTimer?.cancel();
     super.dispose();
   }
 
+  // Calls the real POST /payments/initiate to get a real transactionId
+  // + a real VietQR image from the BE, instead of building a fake QR
+  // from a made-up string like before.
   Future<void> _initiatePayment() async {
     setState(() {
       _isInitiating = true;
@@ -101,7 +170,11 @@ class _PaymentScreenState extends State<PaymentScreen>
     return '${s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} ₫';
   }
 
+  // Calls the real POST /payments/confirm with the real transactionId
+  // from the initiate step. This used to just Future.delayed(1.5s) and
+  // treat it as success, with no payment/booking ever recorded in the DB.
   Future<void> _confirmPayment() async {
+    if (_isExpired) return;
     final transactionId = _payment?['transactionId']?.toString();
     if (transactionId == null || transactionId.isEmpty) return;
 
@@ -138,6 +211,63 @@ class _PaymentScreenState extends State<PaymentScreen>
         backgroundColor: const Color(0xFF1E3C72),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          if (!_isSuccess && _remaining != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _isExpired ? AppColors.error.withValues(alpha: 0.25) : Colors.white12,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.timer_outlined, size: 14, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(
+                        _isExpired ? 'Expired' : _formatCountdown(_remaining!),
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          if (!_isSuccess)
+            IconButton(
+              tooltip: 'Cancel booking',
+              icon: _isCancelling
+                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.close),
+              onPressed: _isCancelling
+                  ? null
+                  : () async {
+                      if (_isExpired) {
+                        await _handleExpiredOrCancel(wasExpired: true);
+                        return;
+                      }
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Cancel this booking?'),
+                          content: const Text('The reserved unit will be released back to availability.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep booking')),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Cancel booking'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) await _handleExpiredOrCancel(wasExpired: false);
+                    },
+            ),
+        ],
       ),
       body: _isSuccess
           ? _buildSuccessBody()
@@ -183,6 +313,7 @@ class _PaymentScreenState extends State<PaymentScreen>
     );
   }
 
+  // ── Success screen ────────────────────────────────────────────────────────
 
   Widget _buildSuccessBody() {
     return FadeTransition(
@@ -191,7 +322,7 @@ class _PaymentScreenState extends State<PaymentScreen>
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 20),
-   
+          // Check icon
           Center(
             child: ScaleTransition(
               scale: _successScale,
@@ -229,7 +360,7 @@ class _PaymentScreenState extends State<PaymentScreen>
               style: TextStyle(
                   fontSize: 13, color: AppColors.textSecondary, height: 1.5)),
           const SizedBox(height: 28),
-       
+          // Real booking code
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -280,12 +411,12 @@ class _PaymentScreenState extends State<PaymentScreen>
             ),
           ),
           const SizedBox(height: 20),
-        
+          // Booking details
           _summaryCard(),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () {
-             
+              // Back to the home screen
               int count = 0;
               Navigator.popUntil(context, (_) => count++ >= 2);
             },
@@ -316,6 +447,7 @@ class _PaymentScreenState extends State<PaymentScreen>
     );
   }
 
+  // ── Payment screen ────────────────────────────────────────────────────────
 
   Widget _buildPaymentBody() {
     final payment = _payment!;
@@ -326,14 +458,36 @@ class _PaymentScreenState extends State<PaymentScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-      
+        if (_isExpired)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.errorContainer,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.timer_off_outlined, color: AppColors.error),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'This booking has expired and the unit has been released. Please start a new reservation.',
+                    style: TextStyle(color: AppColors.error, fontSize: 12.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        // Order summary
         const Text('📋 Booking Summary',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         _summaryCard(),
         const SizedBox(height: 20),
 
-     
+        // QR Payment
         const Text('📱 Scan QR to Pay',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
@@ -351,7 +505,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-   
+              // Bank header
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -380,7 +534,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                 ],
               ),
               const SizedBox(height: 16),
-
+              // Real QR code generated by the BE (qrCodeUrl)
               qrCodeUrl.isEmpty
                   ? Container(
                       width: 200,
@@ -426,7 +580,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                       ),
                     ),
               const SizedBox(height: 14),
-    
+              // Amount to transfer - real value from the BE (PaymentResponse.amount)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -483,7 +637,7 @@ class _PaymentScreenState extends State<PaymentScreen>
         ),
         const SizedBox(height: 20),
 
-   
+        // Instructions
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -517,12 +671,12 @@ class _PaymentScreenState extends State<PaymentScreen>
         ),
         const SizedBox(height: 24),
 
-   
+        // CTA buttons
         SizedBox(
           width: double.infinity,
           height: 52,
           child: ElevatedButton(
-            onPressed: _isConfirming ? null : _confirmPayment,
+            onPressed: (_isConfirming || _isExpired) ? null : _confirmPayment,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
               foregroundColor: Colors.white,
@@ -648,6 +802,7 @@ class _PaymentScreenState extends State<PaymentScreen>
   }
 }
 
+// ── Step widget ───────────────────────────────────────────────────────────────
 
 class _Step extends StatelessWidget {
   final String step;

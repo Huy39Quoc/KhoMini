@@ -1,6 +1,6 @@
 package com.storehub.controller;
 
-import com.storehub.common.response.ApiResponse;
+import com.storehub.common.ApiResponse;
 import com.storehub.dto.request.BookingCreationRequest;
 import com.storehub.dto.request.RentalQuoteRequest;
 import com.storehub.dto.response.BookingResponse;
@@ -16,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/bookings")
@@ -36,7 +38,7 @@ public class BookingController {
 
     @PostMapping
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Tạo đơn đặt chỗ kho mới (trạng thái PENDING_PAYMENT)")
+    @Operation(summary = "Tạo đơn đặt chỗ kho mới (trạng thái PENDING_PAYMENT, hết hạn sau 30 phút)")
     public ResponseEntity<ApiResponse<BookingResponse>> createBooking(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody BookingCreationRequest request
@@ -44,5 +46,16 @@ public class BookingController {
         BookingResponse booking = bookingService.createBooking(userDetails.getUsername(), request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Booking created successfully. Please complete payment to confirm.", booking));
+    }
+
+    @DeleteMapping("/{id}")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Hủy đơn đặt chỗ đang PENDING_PAYMENT – trả kho về AVAILABLE và notify waitlist")
+    public ResponseEntity<ApiResponse<Void>> cancelBooking(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID id
+    ) {
+        bookingService.cancelBooking(id, userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success("Booking cancelled successfully", null));
     }
 }

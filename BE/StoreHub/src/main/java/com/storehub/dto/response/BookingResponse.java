@@ -21,7 +21,11 @@ public class BookingResponse {
     private LocalDate endDate;
     private Integer rentalMonths;
     private BigDecimal totalRentalFee;
+    private BigDecimal depositAmount;
+    private BigDecimal totalExtraFees;
+    private BigDecimal initialPaymentAmount;
     private BigDecimal depositPaid;
     private BookingStatus status;
     private LocalDateTime createdAt;
+    private LocalDateTime expiresAt;
 }

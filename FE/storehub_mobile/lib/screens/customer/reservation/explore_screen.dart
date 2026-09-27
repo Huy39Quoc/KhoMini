@@ -21,6 +21,10 @@ class _ExploreScreenState extends State<ExploreScreen>
   bool _loading = true;
   String? _error;
 
+  // Area filter - real data aggregated from /catalog/unit-types.
+  // (The 24/7 AC and district filters were removed: the BE doesn't store
+  // either of those anywhere, so they used to always filter incorrectly
+  // / match nothing.)
   RangeValues _areaRange = const RangeValues(0, 50);
 
   late final AnimationController _fadeCtrl;
@@ -50,10 +54,15 @@ class _ExploreScreenState extends State<ExploreScreen>
       _error = null;
     });
     try {
+      // Fetch the facility list + aggregate real stats from each facility's
+      // unit types (area, price, available units) - no more falling back
+      // to hard-coded demo data on a network error.
       final list = await _catalogService.getFacilitiesWithStats();
       if (!mounted) return;
       setState(() {
-        _allFacilities = list;
+        // Chỉ hiện chi nhánh đang hoạt động (status thật từ BE) - chi nhánh
+        // INACTIVE/MAINTENANCE không nên cho khách đặt chỗ.
+        _allFacilities = list.where((f) => f.isBookable).toList();
         _applyFilter();
         _loading = false;
       });
@@ -73,6 +82,8 @@ class _ExploreScreenState extends State<ExploreScreen>
       final matchQ = q.isEmpty ||
           f.name.toLowerCase().contains(q) ||
           f.fullAddress.toLowerCase().contains(q);
+      // If area data isn't available yet (no unit types), don't exclude
+      // the facility since there's nothing to compare against.
       final matchArea = f.minAreaSqm == null ||
           f.maxAreaSqm == null ||
           (f.minAreaSqm! <= _areaRange.end && f.maxAreaSqm! >= _areaRange.start);
@@ -200,6 +211,7 @@ class _ExploreScreenState extends State<ExploreScreen>
       body: SafeArea(
         child: Column(
           children: [
+            // ── Header gradient ──────────────────────────────────────────
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -221,6 +233,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                   const Text('Find the right storage for your needs',
                       style: TextStyle(color: Colors.white70, fontSize: 13)),
                   const SizedBox(height: 14),
+                  // Search bar
                   Row(
                     children: [
                       Expanded(
@@ -248,6 +261,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // Filter button
                       GestureDetector(
                         onTap: _showFilterSheet,
                         child: Stack(
@@ -291,7 +305,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                 ],
               ),
             ),
-
+            // ── Active filter chips ──────────────────────────────────────
             if (_activeFilterCount > 0)
               Container(
                 color: Colors.white,
@@ -312,6 +326,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                   ],
                 ),
               ),
+            // ── Body ─────────────────────────────────────────────────────
             Expanded(child: _buildBody()),
           ],
         ),
@@ -424,6 +439,7 @@ class _ExploreScreenState extends State<ExploreScreen>
   }
 }
 
+// ── FacilityCard widget ───────────────────────────────────────────────────────
 
 class _FacilityCard extends StatelessWidget {
   final FacilityModel facility;
@@ -434,6 +450,9 @@ class _FacilityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final available = facility.availableUnits;
+    // The BE has no real "totalUnits" (only the currently-available count),
+    // so no fake ratio bar is drawn - just the real available count, or
+    // "Not available" if the facility has no unit types yet.
     final availColor = available == null
         ? Colors.grey
         : available > 5
@@ -528,6 +547,7 @@ class _FacilityCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // Info section
               Padding(
                 padding: const EdgeInsets.all(14),
                 child: Row(
@@ -560,6 +580,7 @@ class _FacilityCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // CTA
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                 child: SizedBox(

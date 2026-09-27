@@ -14,6 +14,9 @@ class MyUnitModel {
   final double? areaSqm;
   final int? rentalMonths;
   final double? depositPaid;
+  final bool hasPendingExtension;
+  final int? pendingExtraMonths;
+  final double? pendingExtensionFee;
 
   MyUnitModel({
     required this.bookingId,
@@ -31,6 +34,9 @@ class MyUnitModel {
     this.areaSqm,
     this.rentalMonths,
     this.depositPaid,
+    this.hasPendingExtension = false,
+    this.pendingExtraMonths,
+    this.pendingExtensionFee,
   });
 
   double? get monthlyRate {
@@ -63,11 +69,15 @@ class MyUnitModel {
       endDate: json['endDate'] != null
           ? DateTime.tryParse(json['endDate'].toString())
           : null,
-      hasActiveAccess: json['hasActiveAccess'] == true,
+      hasActiveAccess:
+          json['activeAccess'] == true || json['hasActiveAccess'] == true,
       dimensions: json['dimensions']?.toString() ?? '',
       areaSqm: (json['areaSqm'] as num?)?.toDouble(),
       rentalMonths: (json['rentalMonths'] as num?)?.toInt(),
       depositPaid: (json['depositPaid'] as num?)?.toDouble(),
+      hasPendingExtension: json['hasPendingExtension'] == true,
+      pendingExtraMonths: (json['pendingExtraMonths'] as num?)?.toInt(),
+      pendingExtensionFee: (json['pendingExtensionFee'] as num?)?.toDouble(),
     );
   }
 }

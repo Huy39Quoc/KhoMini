@@ -15,13 +15,19 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CreateTicketRequest {
 
-    private UUID bookingId;      
+    @NotNull(
+            message = "Booking ID is required so the ticket can be routed to a facility"
+    )
+    private UUID bookingId;
 
     @NotNull(message = "Ticket category cannot be null")
     private TicketCategory category;
 
     @NotBlank(message = "Title cannot be blank")
-    @Size(max = 255, message = "Title cannot exceed 255 characters")
+    @Size(
+            max = 255,
+            message = "Title cannot exceed 255 characters"
+    )
     private String title;
 
     @NotBlank(message = "Description cannot be blank")

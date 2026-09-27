@@ -1,17 +1,19 @@
 package com.storehub.service.impl;
 
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.CreateTicketRequest;
 import com.storehub.dto.response.TicketResponse;
 import com.storehub.entity.Booking;
 import com.storehub.entity.SupportTicket;
 import com.storehub.entity.User;
+import com.storehub.enums.ActivityAction;
 import com.storehub.enums.TicketStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.SupportTicketRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.service.ActivityLogService;
 import com.storehub.service.CustomerTicketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -30,6 +32,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
     private final SupportTicketRepository ticketRepository;
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final ActivityLogService activityLogService;
 
     @Override
     @Transactional
@@ -56,6 +59,10 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
                 .build();
 
         SupportTicket savedTicket = ticketRepository.save(ticket);
+
+        activityLogService.record(customer.getId(), ActivityAction.SUPPORT_TICKET_CREATE, "SUPPORT_TICKET", savedTicket.getId(),
+                "Created support ticket: " + savedTicket.getTicketCode() + " - " + savedTicket.getTitle(), null, savedTicket.getStatus());
+
         return mapToResponse(savedTicket);
     }
 
@@ -83,8 +90,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
     public TicketResponse getTicketDetail(UUID ticketId, String customerEmail) {
         User customer = resolveCustomer(customerEmail);
         SupportTicket ticket = ticketRepository.findByIdAndCustomerId(ticketId, customer.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
-
+                .orElseThrow(() -> new AppException(ErrorCode.TICKET_NOT_FOUND));
         return mapToResponse(ticket);
     }
 
@@ -104,6 +110,8 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
                 .description(t.getDescription())
                 .status(t.getStatus())
                 .priority(t.getPriority())
+                .assignedStaffId(t.getAssignedStaff() != null ? t.getAssignedStaff().getId() : null)
+                .assignedStaffName(t.getAssignedStaff() != null ? t.getAssignedStaff().getFullName() : null)
                 .resolutionNote(t.getResolutionNote())
                 .createdAt(t.getCreatedAt())
                 .build();
