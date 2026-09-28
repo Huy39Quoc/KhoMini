@@ -21,6 +21,12 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   late Future<List<MyUnitModel>> _unitsFuture;
   final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
   final _dateFmt = DateFormat('MMM d, yyyy');
+  final _dateTimeFmt = DateFormat('MMM d, yyyy • h:mm a');
+
+  // Chỉ gia hạn khi đã nhận kho; nếu đang treo yêu cầu gia hạn thì vẫn cho mở lại
+  // để thanh toán/hủy; nợ phí trễ hạn thì phải trả trước.
+  bool _canExtend(MyUnitModel unit) =>
+      unit.isActive && (unit.hasPendingExtension || !unit.hasLateFeeDue);
 
   @override
   void initState() {
@@ -72,7 +78,11 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 ),
                 title: const Text('Smart Access (PIN / QR)'),
                 enabled: unit.hasActiveAccess,
-                subtitle: unit.hasActiveAccess ? null : const Text('Not available for this unit'),
+                subtitle: unit.hasActiveAccess
+                    ? null
+                    : Text(unit.accessDisabled
+                        ? 'Access disabled - rental is overdue'
+                        : 'Available after check-in at the facility'),
                 onTap: unit.hasActiveAccess
                     ? () {
                         Navigator.pop(ctx);
@@ -88,6 +98,23 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       }
                     : null,
               ),
+              if (unit.hasLateFeeDue)
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.errorContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.payments_outlined, color: AppColors.error),
+                  ),
+                  title: const Text('Pay Late Fee'),
+                  subtitle: Text('${_currency.format(unit.overdueFeeOutstanding)} outstanding'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openContractOperation(unit, isExtension: false, payOverdue: true);
+                  },
+                ),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -98,17 +125,24 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   child: const Icon(Icons.update, color: AppColors.primaryContainer),
                 ),
                 title: const Text('Extend Rental'),
-                subtitle: unit.hasPendingExtension
-                    ? const Text('Resume your pending extension payment')
+                enabled: _canExtend(unit),
+                subtitle: !unit.isActive
+                    ? const Text('Available after check-in at the facility')
+                    : unit.hasPendingExtension
+                        ? const Text('Resume or cancel your pending extension')
+                        : unit.hasLateFeeDue
+                            ? const Text('Pay the outstanding late fee first')
+                            : null,
+                onTap: _canExtend(unit)
+                    ? () {
+                        Navigator.pop(ctx);
+                        _openContractOperation(
+                          unit,
+                          isExtension: true,
+                          resumePending: unit.hasPendingExtension,
+                        );
+                      }
                     : null,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openContractOperation(
-                    unit,
-                    isExtension: true,
-                    resumePending: unit.hasPendingExtension,
-                  );
-                },
               ),
               ListTile(
                 leading: Container(
@@ -119,11 +153,21 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                   child: const Icon(Icons.logout, color: AppColors.error),
                 ),
-                title: const Text('Request Checkout'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openContractOperation(unit, isExtension: false);
-                },
+                title: Text(unit.scheduledReturnTime != null
+                    ? 'Reschedule Checkout'
+                    : 'Request Checkout'),
+                enabled: unit.isActive,
+                subtitle: unit.isActive
+                    ? (unit.scheduledReturnTime != null
+                        ? Text('Currently ${_dateTimeFmt.format(unit.scheduledReturnTime!)}')
+                        : null)
+                    : const Text('Available after check-in at the facility'),
+                onTap: unit.isActive
+                    ? () {
+                        Navigator.pop(ctx);
+                        _openContractOperation(unit, isExtension: false);
+                      }
+                    : null,
               ),
               ListTile(
                 leading: Container(
@@ -160,6 +204,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
     MyUnitModel unit, {
     required bool isExtension,
     bool resumePending = false,
+    bool payOverdue = false,
   }) async {
     final result = await showDialog<bool>(
       context: context,
@@ -167,6 +212,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
         unit: unit,
         isExtension: isExtension,
         resumePending: resumePending,
+        payOverdue: payOverdue,
       ),
     );
     if (result == true) {
@@ -187,6 +233,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   }
 
   Color _statusColor(String status) {
+    if (status == 'OVERDUE') return AppColors.error;
     switch (status) {
       case 'ACTIVE':
         return AppColors.success;
@@ -336,15 +383,16 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _statusColor(unit.status).withValues(alpha: 0.15),
+                      color: _statusColor(unit.overdue ? 'OVERDUE' : unit.status)
+                          .withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      unit.status.replaceAll('_', ' '),
+                      unit.overdue ? 'OVERDUE' : unit.status.replaceAll('_', ' '),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: _statusColor(unit.status),
+                        color: _statusColor(unit.overdue ? 'OVERDUE' : unit.status),
                       ),
                     ),
                   ),
@@ -367,6 +415,60 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                 ],
               ),
+              if (unit.overdue || unit.accessDisabled) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.errorContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.error),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          [
+                            'Rental overdue${unit.overdueDays > 0 ? ' by ${unit.overdueDays} day(s)' : ''}.',
+                            if (unit.hasLateFeeDue)
+                              'Late fee due: ${_currency.format(unit.overdueFeeOutstanding)}.',
+                            if (unit.accessDisabled)
+                              'Smart access has been disabled.',
+                            'Pay the fee, then extend or return the unit.',
+                          ].join(' '),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (unit.isActive && unit.scheduledReturnTime != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.event_available, size: 16, color: AppColors.secondary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Checkout scheduled for ${_dateTimeFmt.format(unit.scheduledReturnTime!)}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (unit.hasPendingExtension) ...[
                 const SizedBox(height: 10),
                 Container(
@@ -384,7 +486,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                         child: Text(
                           unit.pendingExtensionFee != null
                               ? 'Extension of ${unit.pendingExtraMonths ?? '?'} month(s) awaiting payment '
-                                  '(${_currency.format(unit.pendingExtensionFee)}). Tap "Extend Rental" to finish paying.'
+                                  '(${_currency.format(unit.pendingExtensionFee)}). Tap "Extend Rental" to pay or cancel it.'
                               : 'You have an extension request awaiting payment.',
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                         ),

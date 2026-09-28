@@ -116,6 +116,29 @@ class StorageApiService {
     }
   }
 
+  // Hủy yêu cầu gia hạn đang chờ thanh toán (DELETE /{bookingId}/extend)
+  Future<Map<String, dynamic>> cancelPendingExtension(String bookingId) async {
+    try {
+      final response = await _dio.delete(ApiEndpoints.extendRental(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to cancel extension: $message');
+    }
+  }
+
+  // Khoản phí trễ hạn đang chờ thanh toán + QR VietQR (null nếu không có)
+  Future<Map<String, dynamic>?> getPendingOverduePayment(String bookingId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.overduePayment(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load overdue payment: $message');
+    }
+  }
+
   Future<Map<String, dynamic>> confirmExtensionPayment(String transactionId) async {
     try {
       final response = await _dio.post(

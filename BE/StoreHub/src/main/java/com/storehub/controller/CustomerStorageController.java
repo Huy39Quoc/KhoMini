@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +27,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Customer Storage", description = "APIs quản lý kho đang thuê dành cho khách hàng")
 @SecurityRequirement(name = "Bearer Authentication")
+@PreAuthorize("hasRole('CUSTOMER')")
 public class CustomerStorageController {
 
     private final CustomerStorageService customerStorageService;
@@ -112,6 +114,20 @@ public class CustomerStorageController {
         return ResponseEntity.ok(ApiResponse.<ContractOperationResponse>builder()
                 .success(true)
                 .message("Rental extended successfully")
+                .data(response)
+                .build());
+    }
+
+    @DeleteMapping("/{bookingId}/extend")
+    @Operation(summary = "Hủy yêu cầu gia hạn đang chờ thanh toán")
+    public ResponseEntity<ApiResponse<ContractOperationResponse>> cancelPendingExtension(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        ContractOperationResponse response = customerStorageService.cancelPendingExtension(bookingId, userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.<ContractOperationResponse>builder()
+                .success(true)
+                .message("Pending extension cancelled successfully")
                 .data(response)
                 .build());
     }

@@ -9,6 +9,8 @@ class TicketModel {
   final String status;
   final String priority;
   final String? resolutionNote;
+  final String? assignedStaffId;
+  final String? assignedStaffName;
   final String createdAt;
 
   TicketModel({
@@ -22,6 +24,8 @@ class TicketModel {
     required this.status,
     required this.priority,
     this.resolutionNote,
+    this.assignedStaffId,
+    this.assignedStaffName,
     required this.createdAt,
   });
 
@@ -37,6 +41,8 @@ class TicketModel {
       status: json['status'] ?? 'OPEN',
       priority: json['priority'] ?? 'MEDIUM',
       resolutionNote: json['resolutionNote'],
+      assignedStaffId: json['assignedStaffId']?.toString(),
+      assignedStaffName: json['assignedStaffName'],
       createdAt: json['createdAt'] ?? '',
     );
   }

@@ -100,6 +100,17 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   Future<void> _submitTicket() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // BE (CreateTicketRequest) bắt buộc bookingId để định tuyến ticket tới đúng cơ sở.
+    if (_selectedBookingId == null || _selectedBookingId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select the storage unit this issue is about.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -282,6 +293,20 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
       );
     }
 
+    if (_units.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text(
+          'You need a booked storage unit to submit a support ticket.',
+          style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
@@ -295,16 +320,9 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           borderRadius: BorderRadius.circular(12),
           hint: const Padding(
             padding: EdgeInsets.symmetric(vertical: 14),
-            child: Text('General inquiry (no specific unit)'),
+            child: Text('Select the unit this issue is about'),
           ),
           items: [
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: Text('General inquiry (no specific unit)'),
-              ),
-            ),
             ..._units.map(
               (u) => DropdownMenuItem<String?>(
                 value: u['bookingId'],

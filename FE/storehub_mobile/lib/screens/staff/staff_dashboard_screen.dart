@@ -7,6 +7,7 @@ import '../../models/user_model.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
+import 'staff_tickets_screen.dart';
 
 class StaffDashboardScreen extends StatefulWidget {
   final UserModel user;
@@ -727,6 +728,20 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       appBar: AppBar(
         title: const Text('Staff Operations'),
         actions: [
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Support tickets',
+              icon: const Icon(Icons.support_agent_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StaffTicketsScreen(
+                    facilityId: _facilityId!,
+                    facilityName: _facilityName ?? 'your facility',
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             tooltip: 'Profile',
             icon: CircleAvatar(

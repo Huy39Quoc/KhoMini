@@ -290,6 +290,12 @@ class FacilityOpsApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
+      // BE trả 403 (ErrorCode.FORBIDDEN) khi tài khoản chưa được gán cơ sở
+      // (users.facility_id null). Đó không phải lỗi hệ thống: trả model rỗng để
+      // màn hình hiện "No facility assigned" thay vì "Something went wrong".
+      if (error.response?.statusCode == 403) {
+        return const AssignedFacilityModel(id: '', name: '', address: '');
+      }
       throw _err(error, 'load your assigned facility');
     }
   }
