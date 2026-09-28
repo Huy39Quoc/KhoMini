@@ -668,6 +668,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   MaterialPageRoute(
                     builder: (_) => StaffTicketScreen(
                       facilityId: _facilityId!,
+                      staffId: widget.user.id,
                     ),
                   ),
                 );

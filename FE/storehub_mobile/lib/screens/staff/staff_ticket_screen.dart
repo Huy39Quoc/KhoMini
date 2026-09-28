@@ -7,10 +7,12 @@ import '../../widgets/state_views.dart';
 
 class StaffTicketScreen extends StatefulWidget {
   final String facilityId;
+  final String staffId;
 
   const StaffTicketScreen({
     super.key,
     required this.facilityId,
+    required this.staffId,
   });
 
   @override
@@ -63,6 +65,11 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
       if (!mounted) return;
       _showError(_errorMessage(error));
     }
+  }
+
+  bool _isAssignedToCurrentStaff(StaffTicketModel ticket) {
+    return ticket.assignedStaffId.isNotEmpty &&
+        ticket.assignedStaffId == widget.staffId;
   }
 
   Future<void> _resolveTicket(
@@ -230,7 +237,9 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
       );
     }
 
-    if (ticket.isInProgress) {
+    final isOwner = _isAssignedToCurrentStaff(ticket);
+
+    if (ticket.isInProgress && isOwner) {
       return ElevatedButton.icon(
         onPressed: () {
           _resolveTicket(ticket);
@@ -240,7 +249,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
       );
     }
 
-    if (ticket.isResolved) {
+    if (ticket.isResolved && isOwner) {
       return ElevatedButton.icon(
         onPressed: () {
           _closeTicket(ticket);
