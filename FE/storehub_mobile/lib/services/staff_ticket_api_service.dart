@@ -1,80 +1,112 @@
 import 'package:dio/dio.dart';
+
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
-import '../models/ticket_model.dart';
+import '../mappers/staff_ticket_mapper.dart';
+import '../models/staff_ticket_model.dart';
 
-/// Kết nối StaffTicketController: nhân viên cơ sở xem ticket của cơ sở mình,
-/// tự nhận xử lý và cập nhật trạng thái (OPEN -> IN_PROGRESS -> RESOLVED -> CLOSED).
 class StaffTicketApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  Exception _err(DioException e, String action) {
-    final data = e.response?.data;
-    final message = (data is Map ? data['message'] : null) ?? e.message;
-    return Exception('Failed to $action: $message');
-  }
-
-  TicketModel _toTicket(dynamic data) {
-    final body = (data is Map && data['data'] is Map) ? data['data'] : data;
-    return TicketModel.fromJson(Map<String, dynamic>.from(body as Map));
-  }
-
-  /// GET /staff/tickets?facilityId=... (phân trang, mới nhất trước)
-  Future<List<TicketModel>> getFacilityTickets(String facilityId) async {
+  Future<List<StaffTicketModel>> getFacilityTickets(
+      String facilityId,
+      ) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.staffTickets,
-        queryParameters: {'facilityId': facilityId, 'size': 100},
+        queryParameters: {
+          'facilityId': facilityId,
+          'page': 0,
+          'size': 100,
+          'sort': 'createdAt,desc',
+        },
       );
-      final data = response.data;
-      List<dynamic> content = [];
-      if (data is Map && data['data'] is Map && data['data']['content'] is List) {
-        content = data['data']['content'];
-      } else if (data is Map && data['content'] is List) {
-        content = data['content'];
-      }
-      return content
-          .map((e) => TicketModel.fromJson(Map<String, dynamic>.from(e as Map)))
+
+      return _unwrapPageContent(response.data)
+          .map(StaffTicketMapper.asJsonMap)
+          .map(StaffTicketMapper.fromJson)
           .toList();
-    } on DioException catch (e) {
-      throw _err(e, 'load facility tickets');
+    } on DioException catch (error) {
+      throw _error(error, 'load facility tickets');
     }
   }
 
-  /// POST /staff/tickets/{id}/assign-to-me?facilityId=...
-  Future<TicketModel> assignToMe(String facilityId, String ticketId) async {
+  Future<StaffTicketModel> assignToMe({
+    required String facilityId,
+    required String ticketId,
+  }) async {
     try {
       final response = await _dio.post(
         ApiEndpoints.staffTicketAssign(ticketId),
         queryParameters: {'facilityId': facilityId},
       );
-      return _toTicket(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'assign the ticket');
+
+      return StaffTicketMapper.fromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _error(error, 'accept this ticket');
     }
   }
 
-  /// PATCH /staff/tickets/{id}/status?facilityId=...
-  /// [resolutionNote] bắt buộc khi chuyển sang RESOLVED hoặc CLOSED.
-  Future<TicketModel> updateStatus(
-    String facilityId,
-    String ticketId,
-    String status, {
+  Future<StaffTicketModel> updateStatus({
+    required String facilityId,
+    required String ticketId,
+    required String status,
     String? resolutionNote,
   }) async {
     try {
       final response = await _dio.patch(
         ApiEndpoints.staffTicketStatus(ticketId),
         queryParameters: {'facilityId': facilityId},
-        data: {
-          'status': status,
-          if (resolutionNote != null && resolutionNote.trim().isNotEmpty)
-            'resolutionNote': resolutionNote.trim(),
-        },
+        data: StaffTicketMapper.statusRequestToJson(
+          status: status,
+          resolutionNote: resolutionNote,
+        ),
       );
-      return _toTicket(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'update the ticket');
+
+      return StaffTicketMapper.fromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _error(error, 'update ticket status');
     }
+  }
+
+  List<dynamic> _unwrapPageContent(dynamic data) {
+    if (data is Map &&
+        data['data'] is Map &&
+        data['data']['content'] is List) {
+      return List<dynamic>.from(data['data']['content']);
+    }
+
+    if (data is Map && data['content'] is List) {
+      return List<dynamic>.from(data['content']);
+    }
+
+    return <dynamic>[];
+  }
+
+  Map<String, dynamic> _unwrap(dynamic data) {
+    if (data is Map && data['data'] is Map) {
+      return Map<String, dynamic>.from(data['data']);
+    }
+
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+
+    return <String, dynamic>{};
+  }
+
+  Exception _error(DioException error, String action) {
+    final data = error.response?.data;
+    final message = data is Map
+        ? data['message']?.toString()
+        : error.message;
+
+    return Exception(
+      'Failed to $action: ${message ?? 'Unknown error'}',
+    );
   }
 }
