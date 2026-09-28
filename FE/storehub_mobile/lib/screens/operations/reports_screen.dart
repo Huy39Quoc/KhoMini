@@ -21,8 +21,9 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
   final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
   final _dateFmt = DateFormat('MMM d, yyyy');
 
-  DateTime? _fromDate;
-  DateTime? _toDate;
+  // Mặc định xem 12 tháng gần nhất; luôn gửi khoảng ngày rõ ràng cho BE.
+  DateTime? _fromDate = DateTime.now().subtract(const Duration(days: 365));
+  DateTime? _toDate = DateTime.now();
   Future<Map<String, dynamic>>? _revenueFuture;
   Future<Map<String, dynamic>>? _occupancyFuture;
 
@@ -102,9 +103,26 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
             return const AppLoadingState(message: 'Loading revenue report...');
           }
           if (snapshot.hasError) {
-            return AppErrorState(
-              message: snapshot.error.toString().replaceAll('Exception: ', ''),
-              onRetry: _loadRevenue,
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _pickDateRange,
+                  icon: const Icon(Icons.date_range, size: 16),
+                  label: Text(
+                    _fromDate != null && _toDate != null
+                        ? '${_dateFmt.format(_fromDate!)} - ${_dateFmt.format(_toDate!)}'
+                        : 'All time (pick a date range)',
+                  ),
+                ),
+                SizedBox(
+                  height: 360,
+                  child: AppErrorState(
+                    message: snapshot.error.toString().replaceAll('Exception: ', ''),
+                    onRetry: _loadRevenue,
+                  ),
+                ),
+              ],
             );
           }
           final data = snapshot.data ?? {};

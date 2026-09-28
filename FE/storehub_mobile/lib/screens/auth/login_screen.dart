@@ -124,6 +124,13 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           actions: [
             TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _showResetPasswordDialog();
+              },
+              child: const Text('I have a reset link'),
+            ),
+            TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
@@ -142,6 +149,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(message)),
                         );
+                        // Email chứa link đặt lại mật khẩu -> mở luôn bước nhập link/mã
+                        _showResetPasswordDialog();
                       } catch (e) {
                         setDialogState(() => sending = false);
                         if (!dialogContext.mounted) return;
@@ -160,6 +169,127 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : const Text('Send link'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Lấy token từ link trong email (…/reset-password?token=XXX) hoặc chính chuỗi token.
+  String _extractResetToken(String input) {
+    final text = input.trim();
+    final match = RegExp(r'[?&]token=([^&\s]+)').firstMatch(text);
+    return match != null ? Uri.decodeComponent(match.group(1)!) : text;
+  }
+
+  void _showResetPasswordDialog() {
+    final tokenController = TextEditingController();
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool submitting = false;
+    bool obscure = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Set a new password'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Paste the reset link from your email (valid for 15 minutes), then choose a new password.',
+                    style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: tokenController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Reset link or code',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Reset link is required' : null,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: passwordController,
+                    obscureText: obscure,
+                    decoration: InputDecoration(
+                      labelText: 'New password',
+                      suffixIcon: IconButton(
+                        icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setDialogState(() => obscure = !obscure),
+                      ),
+                    ),
+                    validator: (v) => (v == null || v.length < 5)
+                        ? 'At least 5 characters'
+                        : null,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: confirmController,
+                    obscureText: obscure,
+                    decoration: const InputDecoration(labelText: 'Confirm new password'),
+                    validator: (v) =>
+                        v != passwordController.text ? 'Passwords do not match' : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: submitting ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: submitting
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDialogState(() => submitting = true);
+                      try {
+                        final message = await _authApiService.resetPassword(
+                          token: _extractResetToken(tokenController.text),
+                          newPassword: passwordController.text,
+                          confirmPassword: confirmController.text,
+                        );
+                        if (!dialogContext.mounted) return;
+                        Navigator.pop(dialogContext);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('$message. Please sign in with your new password.'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      } catch (e) {
+                        setDialogState(() => submitting = false);
+                        if (!dialogContext.mounted) return;
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          SnackBar(
+                            content: Text(e.toString().replaceAll('Exception: ', '')),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      }
+                    },
+              child: submitting
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Reset password'),
             ),
           ],
         ),

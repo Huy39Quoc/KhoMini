@@ -27,6 +27,17 @@ class ApiEndpoints {
   static String pendingExtensionPayment(String bookingId) =>
       '/customer/storage/$bookingId/extend/pending-payment';
 
+  // ---- Staff Tickets (StaffTicketController) ----
+  static const String staffTickets = '/staff/tickets';
+  static String staffTicketAssign(String ticketId) =>
+      '/staff/tickets/$ticketId/assign-to-me';
+  static String staffTicketStatus(String ticketId) =>
+      '/staff/tickets/$ticketId/status';
+
+  // Phí trễ hạn đang chờ thanh toán (PaymentController)
+  static String overduePayment(String bookingId) =>
+      '/payments/bookings/$bookingId/overdue';
+
   // ---- Customer Tickets (CustomerTicketController) ----
   static const String tickets = '/customer/tickets';
   static String ticketDetail(String ticketId) => '/customer/tickets/$ticketId';
@@ -113,9 +124,9 @@ class ApiEndpoints {
   // ---- Facility Operations (FacilityOperationsController) - Facility Staff ----
   static const String dailySchedule = '/facility/operations/daily-schedule';
   static String checkIn(String bookingId) => '/facility/operations/$bookingId/check-in';
+  static String handoverRecords(String bookingId) =>
+      '/facility/operations/$bookingId/handover-records';
   static String checkOut(String bookingId) => '/facility/operations/$bookingId/check-out';
   static String updateUnitStatus(String unitId) =>
       '/facility/operations/units/$unitId/status';
-  static String handoverRecords(String bookingId) =>
-      '/facility/operations/$bookingId/handover-records';
 }

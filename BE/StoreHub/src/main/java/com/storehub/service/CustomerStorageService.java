@@ -28,5 +28,7 @@ public interface CustomerStorageService {
 
     ContractOperationResponse requestCheckout(UUID bookingId, String customerEmail, CheckoutRequest request);
 
+    ContractOperationResponse cancelPendingExtension(UUID bookingId, String customerEmail);
+
     PaymentResponse getPendingExtensionPayment(UUID bookingId, String customerEmail);
 }
