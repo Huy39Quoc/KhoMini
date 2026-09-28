@@ -5,5 +5,6 @@
     <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/34ad30ad-489c-416f-babc-99bd433722d9/console_1.sql" value="34ad30ad-489c-416f-babc-99bd433722d9" />
     <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/34ad30ad-489c-416f-babc-99bd433722d9/console_2.sql" value="34ad30ad-489c-416f-babc-99bd433722d9" />
     <file url="file://$PROJECT_DIR$/StoreHub/src/main/resources/db/migration/V7__add_overdue_tracking.sql" value="34ad30ad-489c-416f-babc-99bd433722d9" />
+    <file url="file://$PROJECT_DIR$/StoreHub/src/main/resources/db/migration/V9__seed_default_unit_types.sql" value="34ad30ad-489c-416f-babc-99bd433722d9" />
   </component>
 </project>

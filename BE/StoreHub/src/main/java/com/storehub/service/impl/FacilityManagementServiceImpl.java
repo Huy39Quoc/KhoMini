@@ -24,7 +24,7 @@ import com.storehub.service.FacilityManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.storehub.dto.response.FacilityBookingResponse;
 import java.util.List;
 import java.util.UUID;
 
@@ -338,6 +338,24 @@ public class FacilityManagementServiceImpl
         }
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<FacilityBookingResponse> confirmedBookings(
+            UUID facilityId,
+            String managerEmail
+    ) {
+        access.require(managerEmail, facilityId);
+        requireFacility(facilityId);
+
+        return bookings.findByFacilityIdAndStatus(
+                        facilityId,
+                        BookingStatus.CONFIRMED
+                )
+                .stream()
+                .map(this::toFacilityBooking)
+                .toList();
+    }
+
     private FacilityUnitResponse toUnit(StorageUnit unit) {
         return new FacilityUnitResponse(
                 unit.getId(),
@@ -346,6 +364,25 @@ public class FacilityManagementServiceImpl
                 unit.getUnitType().getId(),
                 unit.getUnitType().getTypeName(),
                 unit.getStatus()
+        );
+    }
+
+    private FacilityBookingResponse toFacilityBooking(Booking booking) {
+        StorageUnit unit = booking.getStorageUnit();
+        UnitType unitType = unit.getUnitType();
+
+        return new FacilityBookingResponse(
+                booking.getId(),
+                booking.getBookingCode(),
+                booking.getCustomer().getFullName(),
+                booking.getCustomer().getEmail(),
+                booking.getStartDate(),
+                booking.getEndDate(),
+                unit.getId(),
+                unit.getUnitCode(),
+                unitType.getId(),
+                unitType.getTypeName(),
+                booking.getStatus()
         );
     }
 
