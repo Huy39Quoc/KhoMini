@@ -40,7 +40,25 @@ class FacilityOpsApiService {
       final response = await _dio.get(ApiEndpoints.myFacility);
       return _unwrap(response.data);
     } on DioException catch (e) {
+      // BE trả 403 (ErrorCode.FORBIDDEN) khi tài khoản chưa được gán cơ sở
+      // (users.facility_id null). Đó không phải lỗi hệ thống: trả về map rỗng để
+      // màn hình hiện trạng thái "No facility assigned" thay vì "Something went wrong".
+      if (e.response?.statusCode == 403) return <String, dynamic>{};
       throw _err(e, 'load your assigned facility');
+    }
+  }
+
+  /// GET /facility/operations/{bookingId}/handover-records?facilityId=...
+  /// Lịch sử biên bản bàn giao/nhận lại của một booking (Staff hoặc Manager).
+  Future<List<dynamic>> getHandoverHistory(String bookingId, String facilityId) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.handoverRecords(bookingId),
+        queryParameters: {'facilityId': facilityId},
+      );
+      return _unwrapList(response.data);
+    } on DioException catch (e) {
+      throw _err(e, 'load handover history');
     }
   }
 

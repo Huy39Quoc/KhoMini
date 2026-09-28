@@ -373,7 +373,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                   ? const AppEmptyState(
                       icon: Icons.storefront_outlined,
                       title: 'No facility assigned',
-                      message: 'Ask an administrator to assign you to a facility to manage it here.',
+                      message: 'Ask an administrator or Business Manager to assign you as manager of a facility.',
                     )
                   : TabBarView(
                       controller: _tabController,

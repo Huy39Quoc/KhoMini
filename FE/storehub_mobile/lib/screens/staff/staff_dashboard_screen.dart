@@ -5,6 +5,7 @@ import '../../models/user_model.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
+import 'staff_tickets_screen.dart';
 
 /// Flow 2 (Storage Check-in and Handover). Wires
 /// FacilityOperationsController, merged onto the BE after this screen was
@@ -204,6 +205,98 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     );
   }
 
+  // Lịch sử biên bản bàn giao/nhận lại của booking (GET .../handover-records).
+  void _showHandoverHistory(Map item) {
+    final bookingId = item['bookingId']?.toString() ?? '';
+    final facilityId = _facilityId;
+    if (bookingId.isEmpty || facilityId == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.55,
+        maxChildSize: 0.9,
+        builder: (ctx, scrollController) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Handover history - Unit ${item['unitCode'] ?? '-'}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: FutureBuilder<List<dynamic>>(
+                  future: _opsService.getHandoverHistory(bookingId, facilityId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const AppLoadingState(message: 'Loading history...');
+                    }
+                    if (snapshot.hasError) {
+                      return AppErrorState(
+                        message: snapshot.error.toString().replaceAll('Exception: ', ''),
+                      );
+                    }
+                    final records = snapshot.data ?? [];
+                    if (records.isEmpty) {
+                      return const AppEmptyState(
+                        icon: Icons.history,
+                        title: 'No records yet',
+                        message: 'No handover record has been saved for this booking.',
+                      );
+                    }
+                    return ListView.separated(
+                      controller: scrollController,
+                      itemCount: records.length,
+                      separatorBuilder: (_, __) => const Divider(height: 16),
+                      itemBuilder: (_, i) {
+                        final r = records[i] as Map;
+                        final at = r['recordedAt'] != null
+                            ? DateTime.tryParse(r['recordedAt'].toString())
+                            : null;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${(r['recordType'] ?? '').toString().replaceAll('_', ' ')}'
+                              ' • ${(r['unitCondition'] ?? '').toString().replaceAll('_', ' ')}',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                            ),
+                            if ((r['notes'] ?? '').toString().isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(r['notes'].toString(),
+                                    style: const TextStyle(fontSize: 12)),
+                              ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                '${r['staffName'] ?? 'Staff'}'
+                                '${at != null ? ' • ${_dateFmt.format(at.toLocal())} ${_timeFmt.format(at.toLocal())}' : ''}',
+                                style: const TextStyle(
+                                    fontSize: 11, color: AppColors.onSurfaceVariant),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -211,6 +304,20 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       appBar: AppBar(
         title: const Text('Staff Operations'),
         actions: [
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Support tickets',
+              icon: const Icon(Icons.support_agent_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StaffTicketsScreen(
+                    facilityId: _facilityId!,
+                    facilityName: _facilityName ?? 'your facility',
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             tooltip: 'Profile',
             icon: CircleAvatar(
@@ -237,7 +344,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   ? const AppEmptyState(
                       icon: Icons.storefront_outlined,
                       title: 'No facility assigned',
-                      message: 'Ask an administrator to assign you to a facility to see your daily schedule.',
+                      message: 'Ask your Facility Manager to assign you to a facility to see your daily schedule and tickets.',
                     )
                   : Column(
                       children: [
@@ -327,13 +434,23 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                           '${time != null ? ' • ${_timeFmt.format(time)}' : ''}',
                                           style: const TextStyle(fontSize: 12),
                                         ),
-                                        trailing: ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            minimumSize: const Size(0, 36),
-                                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                                          ),
-                                          onPressed: () => _openHandoverSheet(item, isCheckIn: isIn),
-                                          child: Text(isIn ? 'Check in' : 'Check out', style: const TextStyle(fontSize: 12)),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              tooltip: 'Handover history',
+                                              icon: const Icon(Icons.history, size: 20),
+                                              onPressed: () => _showHandoverHistory(item),
+                                            ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                minimumSize: const Size(0, 36),
+                                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                              ),
+                                              onPressed: () => _openHandoverSheet(item, isCheckIn: isIn),
+                                              child: Text(isIn ? 'Check in' : 'Check out', style: const TextStyle(fontSize: 12)),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     );
