@@ -4,7 +4,8 @@ import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 import '../mappers/facility_operations_mapper.dart';
 import '../models/facility_operations_models.dart';
-
+import '../mappers/facility_management_mapper.dart';
+import '../models/facility_management_models.dart';
 class FacilityOpsApiService {
   final Dio _dio = HttpClient.instance.dio;
 
@@ -52,33 +53,54 @@ class FacilityOpsApiService {
     );
   }
 
+  List<dynamic> _unwrapPageContent(dynamic data) {
+    if (data is Map) {
+      final payload = data['data'];
+
+      if (payload is Map &&
+          payload['content'] is List) {
+        return List<dynamic>.from(
+          payload['content'],
+        );
+      }
+
+      if (data['content'] is List) {
+        return List<dynamic>.from(
+          data['content'],
+        );
+      }
+    }
+
+    return _unwrapList(data);
+  }
+
   // =========================================================
   // Facility Manager - Flow 5
   // Tạm thời giữ Map/dynamic, sẽ đổi sang mapper khi làm Flow 5
   // =========================================================
 
-  Future<Map<String, dynamic>> getMyFacility() async {
-    try {
-      final response = await _dio.get(ApiEndpoints.myFacility);
-      return _unwrap(response.data);
-    } on DioException catch (error) {
-      throw _err(error, 'load your assigned facility');
-    }
-  }
+  // =========================================================
+// Facility Manager - Flow 5
+// =========================================================
 
-  Future<List<dynamic>> getFacilityUnits(String facilityId) async {
+  Future<List<FacilityUnitModel>> getFacilityUnits(
+      String facilityId,
+      ) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.facilityUnits(facilityId),
       );
 
-      return _unwrapList(response.data);
+      return _unwrapList(response.data)
+          .map(FacilityManagementMapper.asJsonMap)
+          .map(FacilityManagementMapper.unitFromJson)
+          .toList();
     } on DioException catch (error) {
       throw _err(error, 'load units');
     }
   }
 
-  Future<Map<String, dynamic>> createFacilityUnit(
+  Future<FacilityUnitModel> createFacilityUnit(
       String facilityId, {
         required String unitCode,
         String? floorLevel,
@@ -87,21 +109,22 @@ class FacilityOpsApiService {
     try {
       final response = await _dio.post(
         ApiEndpoints.facilityUnits(facilityId),
-        data: {
-          'unitCode': unitCode,
-          if (floorLevel != null && floorLevel.isNotEmpty)
-            'floorLevel': floorLevel,
-          'unitTypeId': unitTypeId,
-        },
+        data: FacilityManagementMapper.unitRequestToJson(
+          unitCode: unitCode,
+          floorLevel: floorLevel,
+          unitTypeId: unitTypeId,
+        ),
       );
 
-      return _unwrap(response.data);
+      return FacilityManagementMapper.unitFromJson(
+        _unwrap(response.data),
+      );
     } on DioException catch (error) {
       throw _err(error, 'create unit');
     }
   }
 
-  Future<Map<String, dynamic>> updateFacilityUnit(
+  Future<FacilityUnitModel> updateFacilityUnit(
       String facilityId,
       String unitId, {
         required String unitCode,
@@ -114,21 +137,22 @@ class FacilityOpsApiService {
           facilityId,
           unitId,
         ),
-        data: {
-          'unitCode': unitCode,
-          if (floorLevel != null && floorLevel.isNotEmpty)
-            'floorLevel': floorLevel,
-          'unitTypeId': unitTypeId,
-        },
+        data: FacilityManagementMapper.unitRequestToJson(
+          unitCode: unitCode,
+          floorLevel: floorLevel,
+          unitTypeId: unitTypeId,
+        ),
       );
 
-      return _unwrap(response.data);
+      return FacilityManagementMapper.unitFromJson(
+        _unwrap(response.data),
+      );
     } on DioException catch (error) {
       throw _err(error, 'update unit');
     }
   }
 
-  Future<Map<String, dynamic>> assignUnitToBooking(
+  Future<FacilityUnitModel> assignUnitToBooking(
       String facilityId,
       String bookingId,
       String unitId,
@@ -142,39 +166,82 @@ class FacilityOpsApiService {
         ),
       );
 
-      return _unwrap(response.data);
+      return FacilityManagementMapper.unitFromJson(
+        _unwrap(response.data),
+      );
     } on DioException catch (error) {
       throw _err(error, 'assign unit to booking');
     }
   }
 
-  Future<Map<String, dynamic>> getFacilityManagerReport(
+  Future<FacilityReportModel> getFacilityManagerReport(
       String facilityId,
       ) async {
     try {
       final response = await _dio.get(
-        ApiEndpoints.facilityManagerReport(facilityId),
+        ApiEndpoints.facilityManagerReport(
+          facilityId,
+        ),
       );
 
-      return _unwrap(response.data);
+      return FacilityManagementMapper.reportFromJson(
+        _unwrap(response.data),
+      );
     } on DioException catch (error) {
       throw _err(error, 'load facility report');
     }
   }
 
-  Future<List<dynamic>> getFacilityStaff(String facilityId) async {
+  Future<List<FacilityStaffModel>> getFacilityStaff(
+      String facilityId,
+      ) async {
     try {
       final response = await _dio.get(
-        ApiEndpoints.facilityStaffList(facilityId),
+        ApiEndpoints.facilityStaffList(
+          facilityId,
+        ),
       );
 
-      return _unwrapList(response.data);
+      return _unwrapList(response.data)
+          .map(FacilityManagementMapper.asJsonMap)
+          .map(FacilityManagementMapper.staffFromJson)
+          .toList();
     } on DioException catch (error) {
       throw _err(error, 'load staff list');
     }
   }
 
-  Future<Map<String, dynamic>> assignStaffToFacility(
+  Future<List<AssignableUserModel>>
+  getAssignableUsers() async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.users,
+        queryParameters: {
+          'page': 0,
+          'size': 200,
+          'isActive': true,
+          'sortBy': 'fullName',
+          'sortDir': 'asc',
+        },
+      );
+
+      return _unwrapPageContent(response.data)
+          .map(FacilityManagementMapper.asJsonMap)
+          .map(
+        FacilityManagementMapper
+            .assignableUserFromJson,
+      )
+          .where(
+            (user) =>
+        user.id.isNotEmpty && user.isActive,
+      )
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load assignable users');
+    }
+  }
+
+  Future<FacilityStaffModel> assignStaffToFacility(
       String facilityId,
       String userId,
       ) async {
@@ -186,7 +253,9 @@ class FacilityOpsApiService {
         ),
       );
 
-      return _unwrap(response.data);
+      return FacilityManagementMapper.staffFromJson(
+        _unwrap(response.data),
+      );
     } on DioException catch (error) {
       throw _err(error, 'assign staff');
     }
