@@ -27,6 +27,10 @@ class ApiEndpoints {
   static String pendingExtensionPayment(String bookingId) =>
       '/customer/storage/$bookingId/extend/pending-payment';
 
+  // Phí trễ hạn đang chờ thanh toán (PaymentController)
+  static String overduePayment(String bookingId) =>
+      '/payments/bookings/$bookingId/overdue';
+
   // ---- Customer Tickets (CustomerTicketController) ----
   static const String tickets = '/customer/tickets';
   static String ticketDetail(String ticketId) => '/customer/tickets/$ticketId';

@@ -9,11 +9,16 @@ class ContractOperationDialog extends StatefulWidget {
   final bool isExtension;
   final bool resumePending;
 
+  /// true = khách bấm "Pay late fee": dialog tải khoản phí trễ hạn đang chờ
+  /// (GET /payments/bookings/{id}/overdue) và cho thanh toán bằng QR.
+  final bool payOverdue;
+
   const ContractOperationDialog({
     super.key,
     required this.unit,
     required this.isExtension,
     this.resumePending = false,
+    this.payOverdue = false,
   });
 
   @override
@@ -32,6 +37,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   bool _isLoading = false;
   bool _isConfirmingPayment = false;
   bool _isResuming = false;
+  bool _isCancellingExtension = false;
   String? _resumeError;
   Map<String, dynamic>? _result;
   Map<String, dynamic>? _paymentConfirmed; 
@@ -39,8 +45,91 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   @override
   void initState() {
     super.initState();
-    if (widget.resumePending) {
+    if (widget.payOverdue) {
+      _loadOverduePayment();
+    } else if (widget.resumePending) {
       _loadPendingExtensionPayment();
+    }
+  }
+
+  Future<void> _loadOverduePayment() async {
+    setState(() {
+      _isResuming = true;
+      _resumeError = null;
+    });
+    try {
+      final payment = await _storageService.getPendingOverduePayment(widget.unit.bookingId);
+      if (!mounted) return;
+      if (payment == null) {
+        setState(() {
+          _isResuming = false;
+          _resumeError = 'There is no outstanding late fee for this unit.';
+        });
+        return;
+      }
+      setState(() {
+        _isResuming = false;
+        _result = {
+          'paymentRequired': true,
+          'transactionId': payment['transactionId'],
+          'qrCodeUrl': payment['qrCodeUrl'],
+          'additionalFee': payment['amount'],
+        };
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isResuming = false;
+        _resumeError = e.toString().replaceAll('Exception: ', '');
+      });
+    }
+  }
+
+  // Hủy yêu cầu gia hạn đang chờ thanh toán để khách không bị kẹt ở trạng thái "pending".
+  Future<void> _cancelExtension() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel extension request?'),
+        content: const Text(
+          'The pending extension and its payment code will be cancelled. '
+          'You can request a new extension at any time.',
+          style: TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep it'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel request'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() => _isCancellingExtension = true);
+    try {
+      await _storageService.cancelPendingExtension(widget.unit.bookingId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Extension request cancelled'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCancellingExtension = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
@@ -162,7 +251,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   }
 
   bool get _needsExtensionPayment =>
-      widget.isExtension &&
+      (widget.isExtension || widget.payOverdue) &&
       _result != null &&
       _result!['paymentRequired'] == true &&
       _paymentConfirmed == null;
@@ -193,7 +282,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.resumePending && _isResuming) {
+    final resuming = widget.resumePending || widget.payOverdue;
+    if (resuming && _isResuming) {
       return const AlertDialog(
         content: SizedBox(
           height: 80,
@@ -201,9 +291,9 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         ),
       );
     }
-    if (widget.resumePending && _resumeError != null) {
+    if (resuming && _resumeError != null) {
       return AlertDialog(
-        title: const Text('Unable to resume payment'),
+        title: Text(widget.payOverdue ? 'Unable to load late fee' : 'Unable to resume payment'),
         content: Text(_resumeError!, style: const TextStyle(fontSize: 13)),
         actions: [
           ElevatedButton(
@@ -349,20 +439,25 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Pay extension fee'),
+      title: Text(widget.payOverdue ? 'Pay late fee' : 'Pay extension fee'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Extension fee: ${_currency.format(fee)}',
+              widget.payOverdue
+                  ? 'Late fee: ${_currency.format(fee)}'
+                  : 'Extension fee: ${_currency.format(fee)}',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'The rental is only extended once this payment is confirmed.',
-              style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+            Text(
+              widget.payOverdue
+                  ? 'Paying the late fee does not extend the contract. To restore access, '
+                      'extend the rental or schedule a checkout.'
+                  : 'The rental is only extended once this payment is confirmed.',
+              style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
             Center(
@@ -411,12 +506,30 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         ),
       ),
       actions: [
+        if (!widget.payOverdue)
+          TextButton(
+            onPressed: (_isConfirmingPayment || _isCancellingExtension)
+                ? null
+                : _cancelExtension,
+            child: _isCancellingExtension
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Cancel request', style: TextStyle(color: AppColors.error)),
+          ),
         TextButton(
-          onPressed: _isConfirmingPayment ? null : () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
+          // true: server có thể đã tạo yêu cầu gia hạn treo -> màn danh sách cần tải lại
+          onPressed: (_isConfirmingPayment || _isCancellingExtension)
+              ? null
+              : () => Navigator.pop(context, true),
+          child: const Text('Close'),
         ),
         ElevatedButton(
-          onPressed: _isConfirmingPayment ? null : _confirmExtensionPayment,
+          onPressed: (_isConfirmingPayment || _isCancellingExtension)
+              ? null
+              : _confirmExtensionPayment,
           child: _isConfirmingPayment
               ? const SizedBox(
                   width: 20,
@@ -431,9 +544,11 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
 
   Widget _buildResultDialog() {
     final result = _result!;
-    final message = (widget.isExtension && _paymentConfirmed != null)
-        ? 'Payment confirmed. Your rental has been extended.'
-        : result['message']?.toString();
+    final message = widget.payOverdue
+        ? 'Late fee paid. Extend the rental or schedule a checkout to restore normal access.'
+        : (widget.isExtension && _paymentConfirmed != null)
+            ? 'Payment confirmed. Your rental has been extended.'
+            : result['message']?.toString();
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Row(
@@ -463,6 +578,12 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               _resultRow(
                 'New total rental fee',
                 _currency.format(num.tryParse(result['updatedTotalFee'].toString()) ?? 0),
+              ),
+          ] else if (widget.payOverdue) ...[
+            if (result['additionalFee'] != null)
+              _resultRow(
+                'Late fee paid',
+                _currency.format(num.tryParse(result['additionalFee'].toString()) ?? 0),
               ),
           ] else ...[
             if (result['scheduledReturnTime'] != null)

@@ -23,7 +23,12 @@ public interface CustomerStorageMapper {
     @Mapping(target = "unitTypeName", source = "storageUnit.unitType.typeName", defaultValue = "")
     @Mapping(target = "dimensions", source = "storageUnit.unitType.dimensions", defaultValue = "")
     @Mapping(target = "areaSqm", source = "storageUnit.unitType.areaSqm")
-    @Mapping(target = "activeAccess", expression = "java(booking.getStatus() == com.storehub.enums.BookingStatus.ACTIVE)")
+    @Mapping(target = "activeAccess", expression = "java(booking.getStatus() == com.storehub.enums.BookingStatus.ACTIVE && booking.getAccessDisabledAt() == null)")
+    @Mapping(target = "accessDisabled", expression = "java(booking.getAccessDisabledAt() != null)")
+    @Mapping(target = "overdue", expression = "java(booking.getOverdueDetectedAt() != null)")
+    @Mapping(target = "overdueDays", ignore = true)
+    @Mapping(target = "overdueFeeOutstanding", ignore = true)
+    @Mapping(target = "scheduledReturnTime", source = "returnTime")
     @Mapping(target = "hasPendingExtension", expression = "java(booking.getPendingExtraMonths() != null)")
     MyUnitResponse toMyUnitResponse(Booking booking);
 
