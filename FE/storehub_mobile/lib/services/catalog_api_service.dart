@@ -41,10 +41,9 @@ class CatalogApiService {
     try {
       final response = await _dio.get(
         ApiEndpoints.unitTypes,
-        queryParameters:
-            facilityId != null && facilityId.isNotEmpty
-                ? {'facilityId': facilityId}
-                : null,
+        queryParameters: facilityId != null && facilityId.isNotEmpty
+            ? {'facilityId': facilityId}
+            : null,
       );
       final data = response.data;
       if (data is List) return data;

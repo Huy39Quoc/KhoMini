@@ -8,7 +8,6 @@ import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
 
-
 class StaffDashboardScreen extends StatefulWidget {
   final UserModel user;
 
@@ -18,19 +17,15 @@ class StaffDashboardScreen extends StatefulWidget {
   });
 
   @override
-  State<StaffDashboardScreen> createState() =>
-      _StaffDashboardScreenState();
+  State<StaffDashboardScreen> createState() => _StaffDashboardScreenState();
 }
 
 class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
-  final FacilityOpsApiService _opsService =
-  FacilityOpsApiService();
+  final FacilityOpsApiService _opsService = FacilityOpsApiService();
 
-  final DateFormat _dateFormat =
-  DateFormat('MMM d, yyyy');
+  final DateFormat _dateFormat = DateFormat('MMM d, yyyy');
 
-  final DateFormat _timeFormat =
-  DateFormat('h:mm a');
+  final DateFormat _timeFormat = DateFormat('h:mm a');
 
   bool _isLoadingFacility = true;
 
@@ -55,8 +50,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     });
 
     try {
-      final facility =
-      await _opsService.getAssignedFacility();
+      final facility = await _opsService.getAssignedFacility();
 
       if (!mounted) {
         return;
@@ -132,8 +126,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   }
 
   Future<void> _openHandoverSheet(
-      DailyScheduleModel item,
-      ) async {
+    DailyScheduleModel item,
+  ) async {
     final bool isCheckIn = item.isCheckIn;
 
     String unitCondition = 'Good / clean';
@@ -163,8 +157,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
                       isCheckIn
@@ -182,8 +175,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                           : item.customerName,
                       style: const TextStyle(
                         fontSize: 13,
-                        color:
-                        AppColors.onSurfaceVariant,
+                        color: AppColors.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -214,12 +206,12 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       onChanged: submitting
                           ? null
                           : (value) {
-                        if (value != null) {
-                          setSheetState(() {
-                            unitCondition = value;
-                          });
-                        }
-                      },
+                              if (value != null) {
+                                setSheetState(() {
+                                  unitCondition = value;
+                                });
+                              }
+                            },
                     ),
                     const SizedBox(height: 14),
                     const Text(
@@ -244,8 +236,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                           child: Text('Unlocked'),
                         ),
                         DropdownMenuItem(
-                          value:
-                          'Damaged / needs repair',
+                          value: 'Damaged / needs repair',
                           child: Text(
                             'Damaged / needs repair',
                           ),
@@ -254,12 +245,12 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       onChanged: submitting
                           ? null
                           : (value) {
-                        if (value != null) {
-                          setSheetState(() {
-                            lockCondition = value;
-                          });
-                        }
-                      },
+                              if (value != null) {
+                                setSheetState(() {
+                                  lockCondition = value;
+                                });
+                              }
+                            },
                     ),
                     const SizedBox(height: 14),
                     TextField(
@@ -275,105 +266,87 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       onPressed: submitting
                           ? null
                           : () async {
-                        setSheetState(() {
-                          submitting = true;
-                        });
+                              setSheetState(() {
+                                submitting = true;
+                              });
 
-                        try {
-                          final HandoverModel result;
+                              try {
+                                final HandoverModel result;
 
-                          if (isCheckIn) {
-                            result =
-                            await _opsService
-                                .checkIn(
-                              bookingId:
-                              item.bookingId,
-                              facilityId:
-                              _facilityId!,
-                              unitCondition:
-                              unitCondition,
-                              lockCondition:
-                              lockCondition,
-                              notes:
-                              notesController
-                                  .text,
-                            );
-                          } else {
-                            result =
-                            await _opsService
-                                .checkOut(
-                              bookingId:
-                              item.bookingId,
-                              facilityId:
-                              _facilityId!,
-                              unitCondition:
-                              unitCondition,
-                              lockCondition:
-                              lockCondition,
-                              notes:
-                              notesController
-                                  .text,
-                            );
-                          }
+                                if (isCheckIn) {
+                                  result = await _opsService.checkIn(
+                                    bookingId: item.bookingId,
+                                    facilityId: _facilityId!,
+                                    unitCondition: unitCondition,
+                                    lockCondition: lockCondition,
+                                    notes: notesController.text,
+                                  );
+                                } else {
+                                  result = await _opsService.checkOut(
+                                    bookingId: item.bookingId,
+                                    facilityId: _facilityId!,
+                                    unitCondition: unitCondition,
+                                    lockCondition: lockCondition,
+                                    notes: notesController.text,
+                                  );
+                                }
 
-                          if (!sheetContext.mounted) {
-                            return;
-                          }
+                                if (!sheetContext.mounted) {
+                                  return;
+                                }
 
-                          Navigator.pop(
-                            sheetContext,
-                          );
+                                Navigator.pop(
+                                  sheetContext,
+                                );
 
-                          if (!mounted) {
-                            return;
-                          }
+                                if (!mounted) {
+                                  return;
+                                }
 
-                          _showSuccess(
-                            result.message.isNotEmpty
-                                ? result.message
-                                : isCheckIn
-                                ? 'Check-in completed successfully'
-                                : 'Check-out completed successfully',
-                          );
+                                _showSuccess(
+                                  result.message.isNotEmpty
+                                      ? result.message
+                                      : isCheckIn
+                                          ? 'Check-in completed successfully'
+                                          : 'Check-out completed successfully',
+                                );
 
-                          _loadSchedule();
-                        } catch (error) {
-                          if (!sheetContext.mounted) {
-                            return;
-                          }
+                                _loadSchedule();
+                              } catch (error) {
+                                if (!sheetContext.mounted) {
+                                  return;
+                                }
 
-                          setSheetState(() {
-                            submitting = false;
-                          });
+                                setSheetState(() {
+                                  submitting = false;
+                                });
 
-                          ScaffoldMessenger.of(
-                            sheetContext,
-                          ).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                _errorMessage(error),
-                              ),
-                              backgroundColor:
-                              AppColors.error,
-                            ),
-                          );
-                        }
-                      },
+                                ScaffoldMessenger.of(
+                                  sheetContext,
+                                ).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      _errorMessage(error),
+                                    ),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                              }
+                            },
                       child: submitting
                           ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child:
-                        CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
                           : Text(
-                        isCheckIn
-                            ? 'Complete Check-in'
-                            : 'Complete Check-out',
-                      ),
+                              isCheckIn
+                                  ? 'Complete Check-in'
+                                  : 'Complete Check-out',
+                            ),
                     ),
                   ],
                 ),
@@ -388,10 +361,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   }
 
   Future<void> _openHandoverHistory(
-      DailyScheduleModel item,
-      ) async {
-    final historyFuture =
-    _opsService.getHandoverHistory(
+    DailyScheduleModel item,
+  ) async {
+    final historyFuture = _opsService.getHandoverHistory(
       bookingId: item.bookingId,
       facilityId: _facilityId!,
     );
@@ -406,9 +378,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       ),
       builder: (sheetContext) {
         return SizedBox(
-          height:
-          MediaQuery.of(sheetContext).size.height *
-              0.65,
+          height: MediaQuery.of(sheetContext).size.height * 0.65,
           child: Column(
             children: [
               Padding(
@@ -422,15 +392,13 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   children: [
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
                             'Handover history',
                             style: TextStyle(
                               fontSize: 18,
-                              fontWeight:
-                              FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -438,8 +406,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                             '${item.bookingCode} • Unit ${item.unitCode}',
                             style: const TextStyle(
                               fontSize: 13,
-                              color: AppColors
-                                  .onSurfaceVariant,
+                              color: AppColors.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -456,15 +423,12 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               ),
               const Divider(height: 1),
               Expanded(
-                child: FutureBuilder<
-                    List<HandoverRecordModel>>(
+                child: FutureBuilder<List<HandoverRecordModel>>(
                   future: historyFuture,
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState ==
-                        ConnectionState.waiting) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
                       return const AppLoadingState(
-                        message:
-                        'Loading handover history...',
+                        message: 'Loading handover history...',
                       );
                     }
 
@@ -476,34 +440,28 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       );
                     }
 
-                    final records =
-                        snapshot.data ??
-                            <HandoverRecordModel>[];
+                    final records = snapshot.data ?? <HandoverRecordModel>[];
 
                     if (records.isEmpty) {
                       return const AppEmptyState(
                         icon: Icons.history,
-                        title:
-                        'No handover records',
-                        message:
-                        'This booking has not been handed over yet.',
+                        title: 'No handover records',
+                        message: 'This booking has not been handed over yet.',
                       );
                     }
 
                     return ListView.separated(
-                      padding:
-                      const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       itemCount: records.length,
-                      separatorBuilder:
-                          (context, index) {
+                      separatorBuilder: (context, index) {
                         return const SizedBox(
                           height: 10,
                         );
                       },
                       itemBuilder: (
-                          context,
-                          index,
-                          ) {
+                        context,
+                        index,
+                      ) {
                         return _buildHistoryCard(
                           records[index],
                         );
@@ -520,25 +478,20 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   }
 
   Widget _buildHistoryCard(
-      HandoverRecordModel record,
-      ) {
-    final isCheckIn =
-        record.recordType.toUpperCase() ==
-            'CHECK_IN';
+    HandoverRecordModel record,
+  ) {
+    final isCheckIn = record.recordType.toUpperCase() == 'CHECK_IN';
 
     final recordedTime = record.recordedAt == null
         ? ''
         : DateFormat(
-      'MMM d, yyyy • h:mm a',
-    ).format(record.recordedAt!);
+            'MMM d, yyyy • h:mm a',
+          ).format(record.recordedAt!);
 
     final details = <String>[
-      if (record.unitCondition.isNotEmpty)
-        record.unitCondition,
-      if (record.notes.isNotEmpty)
-        'Notes: ${record.notes}',
-      if (record.staffName.isNotEmpty)
-        'Staff: ${record.staffName}',
+      if (record.unitCondition.isNotEmpty) record.unitCondition,
+      if (record.notes.isNotEmpty) 'Notes: ${record.notes}',
+      if (record.staffName.isNotEmpty) 'Staff: ${record.staffName}',
       if (recordedTime.isNotEmpty) recordedTime,
     ];
 
@@ -548,17 +501,12 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         leading: CircleAvatar(
           backgroundColor: isCheckIn
               ? AppColors.success.withValues(
-            alpha: 0.15,
-          )
-              : AppColors.secondaryContainer
-              .withValues(alpha: 0.15),
+                  alpha: 0.15,
+                )
+              : AppColors.secondaryContainer.withValues(alpha: 0.15),
           child: Icon(
-            isCheckIn
-                ? Icons.login
-                : Icons.logout,
-            color: isCheckIn
-                ? AppColors.success
-                : AppColors.secondaryContainer,
+            isCheckIn ? Icons.login : Icons.logout,
+            color: isCheckIn ? AppColors.success : AppColors.secondaryContainer,
           ),
         ),
         title: Text(
@@ -570,34 +518,28 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         subtitle: details.isEmpty
             ? null
             : Padding(
-          padding:
-          const EdgeInsets.only(top: 4),
-          child: Text(details.join('\n')),
-        ),
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(details.join('\n')),
+              ),
       ),
     );
   }
 
   Widget _buildScheduleCard(
-      DailyScheduleModel item,
-      ) {
+    DailyScheduleModel item,
+  ) {
     final isCheckIn = item.isCheckIn;
 
-    final scheduledTime =
-    item.scheduledTime == null
+    final scheduledTime = item.scheduledTime == null
         ? ''
         : _timeFormat.format(
-      item.scheduledTime!,
-    );
+            item.scheduledTime!,
+          );
 
     final customerName =
-    item.customerName.isEmpty
-        ? 'Customer'
-        : item.customerName;
+        item.customerName.isEmpty ? 'Customer' : item.customerName;
 
-    final unitCode = item.unitCode.isEmpty
-        ? '-'
-        : item.unitCode;
+    final unitCode = item.unitCode.isEmpty ? '-' : item.unitCode;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -608,14 +550,11 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
             CircleAvatar(
               backgroundColor: isCheckIn
                   ? AppColors.success.withValues(
-                alpha: 0.15,
-              )
-                  : AppColors.secondaryContainer
-                  .withValues(alpha: 0.15),
+                      alpha: 0.15,
+                    )
+                  : AppColors.secondaryContainer.withValues(alpha: 0.15),
               child: Icon(
-                isCheckIn
-                    ? Icons.login
-                    : Icons.logout,
+                isCheckIn ? Icons.login : Icons.logout,
                 color: isCheckIn
                     ? AppColors.success
                     : AppColors.secondaryContainer,
@@ -624,8 +563,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     customerName,
@@ -637,24 +575,21 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'Unit $unitCode • '
-                        '${isCheckIn ? 'Check-in' : 'Check-out'}'
-                        '${scheduledTime.isEmpty ? '' : ' • $scheduledTime'}',
+                    '${isCheckIn ? 'Check-in' : 'Check-out'}'
+                    '${scheduledTime.isEmpty ? '' : ' • $scheduledTime'}',
                     style: const TextStyle(
                       fontSize: 12,
-                      color:
-                      AppColors.onSurfaceVariant,
+                      color: AppColors.onSurfaceVariant,
                     ),
                   ),
                   if (item.customerEmail.isNotEmpty)
                     Padding(
-                      padding:
-                      const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         item.customerEmail,
                         style: const TextStyle(
                           fontSize: 11,
-                          color: AppColors
-                              .onSurfaceVariant,
+                          color: AppColors.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -671,8 +606,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(0, 36),
-                padding:
-                const EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                 ),
               ),
@@ -680,9 +614,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                 _openHandoverSheet(item);
               },
               child: Text(
-                isCheckIn
-                    ? 'Check in'
-                    : 'Check out',
+                isCheckIn ? 'Check in' : 'Check out',
                 style: const TextStyle(
                   fontSize: 12,
                 ),
@@ -716,9 +648,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   }
 
   String _errorMessage(Object error) {
-    return error
-        .toString()
-        .replaceFirst('Exception: ', '');
+    return error.toString().replaceFirst('Exception: ', '');
   }
 
   @override
@@ -747,13 +677,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
             tooltip: 'Profile',
             icon: CircleAvatar(
               radius: 15,
-              backgroundColor:
-              AppColors.primaryContainer,
+              backgroundColor: AppColors.primaryContainer,
               child: Text(
                 widget.user.fullName.isNotEmpty
-                    ? widget.user.fullName
-                    .substring(0, 1)
-                    .toUpperCase()
+                    ? widget.user.fullName.substring(0, 1).toUpperCase()
                     : '?',
                 style: const TextStyle(
                   color: Colors.white,
@@ -794,13 +721,11 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       );
     }
 
-    if (_facilityId == null ||
-        _facilityId!.isEmpty) {
+    if (_facilityId == null || _facilityId!.isEmpty) {
       return const AppEmptyState(
         icon: Icons.storefront_outlined,
         title: 'No facility assigned',
-        message:
-        'Ask an administrator to assign you to a facility.',
+        message: 'Ask an administrator to assign you to a facility.',
       );
     }
 
@@ -808,12 +733,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       children: [
         _buildFacilityHeader(),
         Expanded(
-          child: FutureBuilder<
-              List<DailyScheduleModel>>(
+          child: FutureBuilder<List<DailyScheduleModel>>(
             future: _scheduleFuture,
             builder: (context, snapshot) {
-              if (snapshot.connectionState ==
-                  ConnectionState.waiting) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const AppLoadingState(
                   message: 'Loading schedule...',
                 );
@@ -821,30 +744,23 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
 
               if (snapshot.hasError) {
                 return AppErrorState(
-                  message:
-                  _errorMessage(snapshot.error!),
+                  message: _errorMessage(snapshot.error!),
                   onRetry: _loadSchedule,
                 );
               }
 
-              final schedules =
-                  snapshot.data ??
-                      <DailyScheduleModel>[];
+              final schedules = snapshot.data ?? <DailyScheduleModel>[];
 
               if (schedules.isEmpty) {
                 return RefreshIndicator(
                   onRefresh: _refreshSchedule,
                   child: ListView(
-                    physics:
-                    const AlwaysScrollableScrollPhysics(),
+                    physics: const AlwaysScrollableScrollPhysics(),
                     children: const [
                       AppEmptyState(
-                        icon:
-                        Icons.event_available,
-                        title:
-                        'Nothing scheduled',
-                        message:
-                        'No check-ins or check-outs for this date.',
+                        icon: Icons.event_available,
+                        title: 'Nothing scheduled',
+                        message: 'No check-ins or check-outs for this date.',
                       ),
                     ],
                   ),
@@ -854,8 +770,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               return RefreshIndicator(
                 onRefresh: _refreshSchedule,
                 child: ListView.builder(
-                  physics:
-                  const AlwaysScrollableScrollPhysics(),
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: schedules.length,
                   itemBuilder: (context, index) {
@@ -878,8 +793,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       padding: const EdgeInsets.all(16),
       color: AppColors.primaryContainer,
       child: Column(
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             _facilityName ?? 'Your facility',
@@ -900,8 +814,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               ),
               decoration: BoxDecoration(
                 color: Colors.white12,
-                borderRadius:
-                BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

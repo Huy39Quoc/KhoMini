@@ -110,7 +110,8 @@ class ApiEndpoints {
       '/facility/management/$facilityId/units';
   static String facilityUnitDetail(String facilityId, String unitId) =>
       '/facility/management/$facilityId/units/$unitId';
-  static String facilityAssignUnit(String facilityId, String bookingId, String unitId) =>
+  static String facilityAssignUnit(
+          String facilityId, String bookingId, String unitId) =>
       '/facility/management/$facilityId/bookings/$bookingId/unit/$unitId';
   static String facilityManagerReport(String facilityId) =>
       '/facility/management/$facilityId/report';
@@ -124,15 +125,15 @@ class ApiEndpoints {
       '/facility/management/$facilityId/bookings/confirmed';
   // ---- Facility Operations (FacilityOperationsController) - Facility Staff ----
   static const String dailySchedule = '/facility/operations/daily-schedule';
-  static String checkIn(String bookingId) => '/facility/operations/$bookingId/check-in';
+  static String checkIn(String bookingId) =>
+      '/facility/operations/$bookingId/check-in';
 
   static String handoverRecords(String bookingId) =>
       '/facility/operations/$bookingId/handover-records';
 
-  static String checkOut(String bookingId) => '/facility/operations/$bookingId/check-out';
+  static String checkOut(String bookingId) =>
+      '/facility/operations/$bookingId/check-out';
 
   static String updateUnitStatus(String unitId) =>
       '/facility/operations/units/$unitId/status';
-
-
 }

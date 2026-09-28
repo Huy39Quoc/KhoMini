@@ -71,7 +71,8 @@ class StorageApiService {
   }
 
   // Gia hạn thời gian thuê kho
-  Future<Map<String, dynamic>> extendRental(String bookingId, int months) async {
+  Future<Map<String, dynamic>> extendRental(
+      String bookingId, int months) async {
     try {
       final response = await _dio.post(
         ApiEndpoints.extendRental(bookingId),
@@ -105,9 +106,11 @@ class StorageApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> getPendingExtensionPayment(String bookingId) async {
+  Future<Map<String, dynamic>?> getPendingExtensionPayment(
+      String bookingId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.pendingExtensionPayment(bookingId));
+      final response =
+          await _dio.get(ApiEndpoints.pendingExtensionPayment(bookingId));
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
@@ -128,7 +131,8 @@ class StorageApiService {
   }
 
   // Khoản phí trễ hạn đang chờ thanh toán + QR VietQR (null nếu không có)
-  Future<Map<String, dynamic>?> getPendingOverduePayment(String bookingId) async {
+  Future<Map<String, dynamic>?> getPendingOverduePayment(
+      String bookingId) async {
     try {
       final response = await _dio.get(ApiEndpoints.overduePayment(bookingId));
       return _unwrapMap(response.data);
@@ -139,7 +143,8 @@ class StorageApiService {
     }
   }
 
-  Future<Map<String, dynamic>> confirmExtensionPayment(String transactionId) async {
+  Future<Map<String, dynamic>> confirmExtensionPayment(
+      String transactionId) async {
     try {
       final response = await _dio.post(
         ApiEndpoints.paymentConfirm,

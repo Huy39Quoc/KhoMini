@@ -4,8 +4,8 @@ class StaffTicketMapper {
   const StaffTicketMapper._();
 
   static StaffTicketModel fromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     return StaffTicketModel(
       id: _text(json['id']),
       ticketCode: _text(json['ticketCode']),
@@ -28,8 +28,7 @@ class StaffTicketMapper {
   }) {
     return {
       'status': status,
-      if (resolutionNote != null &&
-          resolutionNote.trim().isNotEmpty)
+      if (resolutionNote != null && resolutionNote.trim().isNotEmpty)
         'resolutionNote': resolutionNote.trim(),
     };
   }

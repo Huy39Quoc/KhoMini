@@ -86,8 +86,8 @@ class AssignableUserModel {
 
     return email;
   }
-
 }
+
 class FacilityBookingModel {
   final String id;
   final String bookingCode;

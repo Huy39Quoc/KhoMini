@@ -63,7 +63,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Unit ${unit.unitCode}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -74,7 +75,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     color: AppColors.surfaceContainer,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.key, color: AppColors.primaryContainer),
+                  child:
+                      const Icon(Icons.key, color: AppColors.primaryContainer),
                 ),
                 title: const Text('Smart Access (PIN / QR)'),
                 enabled: unit.hasActiveAccess,
@@ -106,13 +108,16 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       color: AppColors.errorContainer,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.payments_outlined, color: AppColors.error),
+                    child: const Icon(Icons.payments_outlined,
+                        color: AppColors.error),
                   ),
                   title: const Text('Pay Late Fee'),
-                  subtitle: Text('${_currency.format(unit.overdueFeeOutstanding)} outstanding'),
+                  subtitle: Text(
+                      '${_currency.format(unit.overdueFeeOutstanding)} outstanding'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    _openContractOperation(unit, isExtension: false, payOverdue: true);
+                    _openContractOperation(unit,
+                        isExtension: false, payOverdue: true);
                   },
                 ),
               ListTile(
@@ -122,7 +127,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     color: AppColors.surfaceContainer,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.update, color: AppColors.primaryContainer),
+                  child: const Icon(Icons.update,
+                      color: AppColors.primaryContainer),
                 ),
                 title: const Text('Extend Rental'),
                 enabled: _canExtend(unit),
@@ -159,7 +165,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 enabled: unit.isActive,
                 subtitle: unit.isActive
                     ? (unit.scheduledReturnTime != null
-                        ? Text('Currently ${_dateTimeFmt.format(unit.scheduledReturnTime!)}')
+                        ? Text(
+                            'Currently ${_dateTimeFmt.format(unit.scheduledReturnTime!)}')
                         : null)
                     : const Text('Available after check-in at the facility'),
                 onTap: unit.isActive
@@ -176,7 +183,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     color: AppColors.surfaceContainer,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.report_problem_outlined, color: AppColors.secondary),
+                  child: const Icon(Icons.report_problem_outlined,
+                      color: AppColors.secondary),
                 ),
                 title: const Text('Report an Issue'),
                 onTap: () async {
@@ -186,7 +194,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     MaterialPageRoute(
                       builder: (_) => CreateTicketScreen(
                         preselectedBookingId: unit.bookingId,
-                        preselectedUnitLabel: '${unit.unitCode} • ${unit.facilityName}',
+                        preselectedUnitLabel:
+                            '${unit.unitCode} • ${unit.facilityName}',
                       ),
                     ),
                   );
@@ -279,7 +288,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
               return ListView(
                 children: [
                   AppErrorState(
-                    message: snapshot.error.toString().replaceAll('Exception: ', ''),
+                    message:
+                        snapshot.error.toString().replaceAll('Exception: ', ''),
                     onRetry: _loadUnits,
                   ),
                 ],
@@ -316,7 +326,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                           color: Colors.white10,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.inventory_2, color: AppColors.secondaryContainer, size: 22),
+                        child: const Icon(Icons.inventory_2,
+                            color: AppColors.secondaryContainer, size: 22),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -325,11 +336,15 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                           children: [
                             Text(
                               '$activeCount active of ${units.length} unit${units.length == 1 ? '' : 's'}',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14),
                             ),
                             const Text(
                               'Tap a unit to access its smart key, extend, or report an issue',
-                              style: TextStyle(color: Colors.white70, fontSize: 11),
+                              style: TextStyle(
+                                  color: Colors.white70, fontSize: 11),
                             ),
                           ],
                         ),
@@ -338,7 +353,6 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-
                 ...units.map((unit) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _buildUnitCard(unit),
@@ -370,29 +384,36 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Unit ${unit.unitCode}',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
                         Text(
                           unit.dimensions.isNotEmpty
                               ? '${unit.typeName} • ${unit.dimensions}'
                               : unit.typeName,
-                          style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.onSurfaceVariant),
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _statusColor(unit.overdue ? 'OVERDUE' : unit.status)
-                          .withValues(alpha: 0.15),
+                      color:
+                          _statusColor(unit.overdue ? 'OVERDUE' : unit.status)
+                              .withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      unit.overdue ? 'OVERDUE' : unit.status.replaceAll('_', ' '),
+                      unit.overdue
+                          ? 'OVERDUE'
+                          : unit.status.replaceAll('_', ' '),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: _statusColor(unit.overdue ? 'OVERDUE' : unit.status),
+                        color: _statusColor(
+                            unit.overdue ? 'OVERDUE' : unit.status),
                       ),
                     ),
                   ),
@@ -401,14 +422,16 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.location_on_outlined, size: 14, color: AppColors.onSurfaceVariant),
+                  const Icon(Icons.location_on_outlined,
+                      size: 14, color: AppColors.onSurfaceVariant),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       unit.facilityName.isNotEmpty
                           ? '${unit.facilityName}${unit.facilityAddress.isNotEmpty ? ', ${unit.facilityAddress}' : ''}'
                           : 'Facility not specified',
-                      style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.onSurfaceVariant),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -419,7 +442,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.errorContainer,
                     borderRadius: BorderRadius.circular(10),
@@ -427,7 +451,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.error),
+                      const Icon(Icons.warning_amber_rounded,
+                          size: 16, color: AppColors.error),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -439,7 +464,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                               'Smart access has been disabled.',
                             'Pay the fee, then extend or return the unit.',
                           ].join(' '),
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -450,19 +476,22 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.event_available, size: 16, color: AppColors.secondary),
+                      const Icon(Icons.event_available,
+                          size: 16, color: AppColors.secondary),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'Checkout scheduled for ${_dateTimeFmt.format(unit.scheduledReturnTime!)}',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -473,14 +502,16 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.secondaryContainer.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.hourglass_top, size: 16, color: AppColors.secondary),
+                      const Icon(Icons.hourglass_top,
+                          size: 16, color: AppColors.secondary),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -488,7 +519,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                               ? 'Extension of ${unit.pendingExtraMonths ?? '?'} month(s) awaiting payment '
                                   '(${_currency.format(unit.pendingExtensionFee)}). Tap "Extend Rental" to pay or cancel it.'
                               : 'You have an extension request awaiting payment.',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -510,9 +542,12 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text('Monthly rate',
-                                style: TextStyle(fontSize: 10, color: AppColors.onSurfaceVariant)),
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.onSurfaceVariant)),
                             Text(_currency.format(monthlyRate),
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                style: const TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -522,10 +557,15 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('Ends on',
-                              style: TextStyle(fontSize: 10, color: AppColors.onSurfaceVariant)),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.onSurfaceVariant)),
                           Text(
-                            unit.endDate != null ? _dateFmt.format(unit.endDate!) : '-',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            unit.endDate != null
+                                ? _dateFmt.format(unit.endDate!)
+                                : '-',
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -552,8 +592,10 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                             }
                           : null,
                       icon: const Icon(Icons.key, size: 16),
-                      label: const Text('Smart Key', style: TextStyle(fontSize: 12)),
-                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+                      label: const Text('Smart Key',
+                          style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(40)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -561,8 +603,10 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () => _showUnitActions(unit),
                       icon: const Icon(Icons.more_horiz, size: 16),
-                      label: const Text('Manage', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+                      label:
+                          const Text('Manage', style: TextStyle(fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(40)),
                     ),
                   ),
                 ],

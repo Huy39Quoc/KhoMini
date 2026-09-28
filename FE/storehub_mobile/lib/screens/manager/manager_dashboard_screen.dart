@@ -9,6 +9,7 @@ import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
 import 'booking_assignment_screen.dart';
+
 class ManagerDashboardScreen extends StatefulWidget {
   final UserModel user;
 
@@ -18,18 +19,14 @@ class ManagerDashboardScreen extends StatefulWidget {
   });
 
   @override
-  State<ManagerDashboardScreen> createState() =>
-      _ManagerDashboardScreenState();
+  State<ManagerDashboardScreen> createState() => _ManagerDashboardScreenState();
 }
 
-class _ManagerDashboardScreenState
-    extends State<ManagerDashboardScreen>
+class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     with SingleTickerProviderStateMixin {
-  final FacilityOpsApiService _opsService =
-  FacilityOpsApiService();
+  final FacilityOpsApiService _opsService = FacilityOpsApiService();
 
-  final CatalogApiService _catalogService =
-  CatalogApiService();
+  final CatalogApiService _catalogService = CatalogApiService();
 
   late final TabController _tabController;
 
@@ -81,8 +78,7 @@ class _ManagerDashboardScreenState
     });
 
     try {
-      final facility =
-      await _opsService.getAssignedFacility();
+      final facility = await _opsService.getAssignedFacility();
 
       if (!mounted) {
         return;
@@ -123,8 +119,7 @@ class _ManagerDashboardScreenState
     }
 
     setState(() {
-      _unitsFuture =
-          _opsService.getFacilityUnits(facilityId);
+      _unitsFuture = _opsService.getFacilityUnits(facilityId);
     });
   }
 
@@ -136,8 +131,7 @@ class _ManagerDashboardScreenState
     }
 
     setState(() {
-      _staffFuture =
-          _opsService.getFacilityStaff(facilityId);
+      _staffFuture = _opsService.getFacilityStaff(facilityId);
     });
   }
 
@@ -149,8 +143,7 @@ class _ManagerDashboardScreenState
     }
 
     setState(() {
-      _reportFuture = _opsService
-          .getFacilityManagerReport(facilityId);
+      _reportFuture = _opsService.getFacilityManagerReport(facilityId);
     });
   }
 
@@ -184,8 +177,7 @@ class _ManagerDashboardScreenState
     }
   }
 
-  Future<List<UnitTypeModel>>
-  _loadUnitTypes() async {
+  Future<List<UnitTypeModel>> _loadUnitTypes() async {
     final values = await _catalogService.getUnitTypes(
       facilityId: _facilityId,
     );
@@ -211,7 +203,7 @@ class _ManagerDashboardScreenState
 
       _showError(
         'Could not load unit types: '
-            '${_errorMessage(error)}',
+        '${_errorMessage(error)}',
       );
       return;
     }
@@ -227,18 +219,15 @@ class _ManagerDashboardScreenState
       return;
     }
 
-    final unitCodeController =
-    TextEditingController(
+    final unitCodeController = TextEditingController(
       text: unit?.unitCode ?? '',
     );
 
-    final floorController =
-    TextEditingController(
+    final floorController = TextEditingController(
       text: unit?.floorLevel ?? '',
     );
 
-    String? selectedTypeId =
-    unit?.unitTypeId.isNotEmpty == true
+    String? selectedTypeId = unit?.unitTypeId.isNotEmpty == true
         ? unit!.unitTypeId
         : unitTypes.first.id;
 
@@ -260,9 +249,9 @@ class _ManagerDashboardScreenState
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (
-              sheetContext,
-              setSheetState,
-              ) {
+            sheetContext,
+            setSheetState,
+          ) {
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(
@@ -274,8 +263,7 @@ class _ManagerDashboardScreenState
                 child: Form(
                   key: formKey,
                   child: Column(
-                    crossAxisAlignment:
-                    CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
                         unit == null
@@ -283,28 +271,23 @@ class _ManagerDashboardScreenState
                             : 'Edit Unit ${unit.unitCode}',
                         style: const TextStyle(
                           fontSize: 18,
-                          fontWeight:
-                          FontWeight.bold,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
-                        controller:
-                        unitCodeController,
+                        controller: unitCodeController,
                         enabled: !submitting,
-                        decoration:
-                        const InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Unit code',
                           hintText: 'Example: A-101',
                         ),
                         validator: (value) {
-                          if (value == null ||
-                              value.trim().isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Unit code is required';
                           }
 
-                          if (value.trim().length >
-                              30) {
+                          if (value.trim().length > 30) {
                             return 'Maximum 30 characters';
                           }
 
@@ -313,29 +296,21 @@ class _ManagerDashboardScreenState
                       ),
                       const SizedBox(height: 14),
                       TextFormField(
-                        controller:
-                        floorController,
+                        controller: floorController,
                         enabled: !submitting,
-                        decoration:
-                        const InputDecoration(
-                          labelText:
-                          'Floor / level (optional)',
-                          hintText:
-                          'Example: Floor 2',
+                        decoration: const InputDecoration(
+                          labelText: 'Floor / level (optional)',
+                          hintText: 'Example: Floor 2',
                         ),
                       ),
                       const SizedBox(height: 14),
-                      DropdownButtonFormField<
-                          String>(
-                        initialValue:
-                        selectedTypeId,
-                        decoration:
-                        const InputDecoration(
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedTypeId,
+                        decoration: const InputDecoration(
                           labelText: 'Unit type',
                         ),
                         items: unitTypes.map((type) {
-                          return DropdownMenuItem<
-                              String>(
+                          return DropdownMenuItem<String>(
                             value: type.id,
                             child: Text(type.name),
                           );
@@ -343,14 +318,12 @@ class _ManagerDashboardScreenState
                         onChanged: submitting
                             ? null
                             : (value) {
-                          setSheetState(() {
-                            selectedTypeId =
-                                value;
-                          });
-                        },
+                                setSheetState(() {
+                                  selectedTypeId = value;
+                                });
+                              },
                         validator: (value) {
-                          if (value == null ||
-                              value.isEmpty) {
+                          if (value == null || value.isEmpty) {
                             return 'Unit type is required';
                           }
 
@@ -362,111 +335,87 @@ class _ManagerDashboardScreenState
                         onPressed: submitting
                             ? null
                             : () async {
-                          if (!formKey
-                              .currentState!
-                              .validate()) {
-                            return;
-                          }
+                                if (!formKey.currentState!.validate()) {
+                                  return;
+                                }
 
-                          setSheetState(() {
-                            submitting = true;
-                          });
+                                setSheetState(() {
+                                  submitting = true;
+                                });
 
-                          try {
-                            if (unit == null) {
-                              await _opsService
-                                  .createFacilityUnit(
-                                _facilityId!,
-                                unitCode:
-                                unitCodeController
-                                    .text
-                                    .trim(),
-                                floorLevel:
-                                floorController
-                                    .text
-                                    .trim(),
-                                unitTypeId:
-                                selectedTypeId!,
-                              );
-                            } else {
-                              await _opsService
-                                  .updateFacilityUnit(
-                                _facilityId!,
-                                unit.id,
-                                unitCode:
-                                unitCodeController
-                                    .text
-                                    .trim(),
-                                floorLevel:
-                                floorController
-                                    .text
-                                    .trim(),
-                                unitTypeId:
-                                selectedTypeId!,
-                              );
-                            }
+                                try {
+                                  if (unit == null) {
+                                    await _opsService.createFacilityUnit(
+                                      _facilityId!,
+                                      unitCode: unitCodeController.text.trim(),
+                                      floorLevel: floorController.text.trim(),
+                                      unitTypeId: selectedTypeId!,
+                                    );
+                                  } else {
+                                    await _opsService.updateFacilityUnit(
+                                      _facilityId!,
+                                      unit.id,
+                                      unitCode: unitCodeController.text.trim(),
+                                      floorLevel: floorController.text.trim(),
+                                      unitTypeId: selectedTypeId!,
+                                    );
+                                  }
 
-                            if (!sheetContext
-                                .mounted) {
-                              return;
-                            }
+                                  if (!sheetContext.mounted) {
+                                    return;
+                                  }
 
-                            Navigator.pop(
-                              sheetContext,
-                            );
+                                  Navigator.pop(
+                                    sheetContext,
+                                  );
 
-                            if (!mounted) {
-                              return;
-                            }
+                                  if (!mounted) {
+                                    return;
+                                  }
 
-                            _showSuccess(
-                              unit == null
-                                  ? 'Unit created successfully'
-                                  : 'Unit updated successfully',
-                            );
+                                  _showSuccess(
+                                    unit == null
+                                        ? 'Unit created successfully'
+                                        : 'Unit updated successfully',
+                                  );
 
-                            _loadUnits();
-                            _loadReport();
-                          } catch (error) {
-                            if (!sheetContext
-                                .mounted) {
-                              return;
-                            }
+                                  _loadUnits();
+                                  _loadReport();
+                                } catch (error) {
+                                  if (!sheetContext.mounted) {
+                                    return;
+                                  }
 
-                            setSheetState(() {
-                              submitting = false;
-                            });
+                                  setSheetState(() {
+                                    submitting = false;
+                                  });
 
-                            ScaffoldMessenger.of(
-                              sheetContext,
-                            ).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  _errorMessage(
-                                    error,
-                                  ),
-                                ),
-                                backgroundColor:
-                                AppColors.error,
-                              ),
-                            );
-                          }
-                        },
+                                  ScaffoldMessenger.of(
+                                    sheetContext,
+                                  ).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        _errorMessage(
+                                          error,
+                                        ),
+                                      ),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                }
+                              },
                         child: submitting
                             ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child:
-                          CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
                             : Text(
-                          unit == null
-                              ? 'Create Unit'
-                              : 'Save Changes',
-                        ),
+                                unit == null ? 'Create Unit' : 'Save Changes',
+                              ),
                       ),
                     ],
                   ),
@@ -477,7 +426,6 @@ class _ManagerDashboardScreenState
         );
       },
     );
-
   }
 
   Future<void> _openAssignStaffSheet() async {
@@ -485,11 +433,9 @@ class _ManagerDashboardScreenState
     List<FacilityStaffModel> currentStaff;
 
     try {
-      users =
-      await _opsService.getAssignableUsers();
+      users = await _opsService.getAssignableUsers();
 
-      currentStaff =
-      await _opsService.getFacilityStaff(
+      currentStaff = await _opsService.getFacilityStaff(
         _facilityId!,
       );
     } catch (error) {
@@ -499,23 +445,20 @@ class _ManagerDashboardScreenState
 
       _showError(
         'Could not load users: '
-            '${_errorMessage(error)}',
+        '${_errorMessage(error)}',
       );
       return;
     }
 
-    final assignedIds =
-    currentStaff.map((staff) => staff.id).toSet();
+    final assignedIds = currentStaff.map((staff) => staff.id).toSet();
 
     users = users
         .where(
-          (user) =>
-      !assignedIds.contains(user.id),
-    )
+          (user) => !assignedIds.contains(user.id),
+        )
         .toList();
 
-    final searchController =
-    TextEditingController();
+    final searchController = TextEditingController();
 
     if (!mounted) {
       return;
@@ -532,15 +475,12 @@ class _ManagerDashboardScreenState
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (
-              sheetContext,
-              setSheetState,
-              ) {
-            final query = searchController.text
-                .trim()
-                .toLowerCase();
+            sheetContext,
+            setSheetState,
+          ) {
+            final query = searchController.text.trim().toLowerCase();
 
-            final filteredUsers =
-            users.where((user) {
+            final filteredUsers = users.where((user) {
               if (query.isEmpty) {
                 return true;
               }
@@ -562,24 +502,21 @@ class _ManagerDashboardScreenState
               ),
               child: SizedBox(
                 height: MediaQuery.of(
-                  sheetContext,
-                ).size.height *
+                      sheetContext,
+                    ).size.height *
                     0.7,
                 child: Column(
                   children: [
                     Padding(
-                      padding:
-                      const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       child: Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
                             'Assign Staff',
                             style: TextStyle(
                               fontSize: 18,
-                              fontWeight:
-                              FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -587,23 +524,18 @@ class _ManagerDashboardScreenState
                             'Only users with the STAFF role can be assigned.',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors
-                                  .onSurfaceVariant,
+                              color: AppColors.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(height: 12),
                           TextField(
-                            controller:
-                            searchController,
+                            controller: searchController,
                             onChanged: (_) {
                               setSheetState(() {});
                             },
-                            decoration:
-                            const InputDecoration(
-                              hintText:
-                              'Search name or email',
-                              prefixIcon:
-                              Icon(Icons.search),
+                            decoration: const InputDecoration(
+                              hintText: 'Search name or email',
+                              prefixIcon: Icon(Icons.search),
                             ),
                           ),
                         ],
@@ -613,95 +545,79 @@ class _ManagerDashboardScreenState
                     Expanded(
                       child: filteredUsers.isEmpty
                           ? const AppEmptyState(
-                        icon: Icons
-                            .person_search,
-                        title:
-                        'No users found',
-                        message:
-                        'No active users match your search.',
-                      )
+                              icon: Icons.person_search,
+                              title: 'No users found',
+                              message: 'No active users match your search.',
+                            )
                           : ListView.builder(
-                        itemCount:
-                        filteredUsers
-                            .length,
-                        itemBuilder: (
-                            context,
-                            index,
-                            ) {
-                          final user =
-                          filteredUsers[
-                          index];
+                              itemCount: filteredUsers.length,
+                              itemBuilder: (
+                                context,
+                                index,
+                              ) {
+                                final user = filteredUsers[index];
 
-                          return ListTile(
-                            leading:
-                            const CircleAvatar(
-                              child: Icon(
-                                Icons.person,
-                              ),
-                            ),
-                            title: Text(
-                              user.displayName,
-                            ),
-                            subtitle: Text(
-                              user.email,
-                            ),
-                            trailing:
-                            const Icon(
-                              Icons
-                                  .chevron_right,
-                            ),
-                            onTap: () async {
-                              try {
-                                await _opsService
-                                    .assignStaffToFacility(
-                                  _facilityId!,
-                                  user.id,
-                                );
-
-                                if (!sheetContext
-                                    .mounted) {
-                                  return;
-                                }
-
-                                Navigator.pop(
-                                  sheetContext,
-                                );
-
-                                if (!mounted) {
-                                  return;
-                                }
-
-                                _showSuccess(
-                                  '${user.displayName} assigned successfully',
-                                );
-
-                                _loadStaff();
-                              } catch (error) {
-                                if (!sheetContext
-                                    .mounted) {
-                                  return;
-                                }
-
-                                ScaffoldMessenger
-                                    .of(
-                                  sheetContext,
-                                ).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      _errorMessage(
-                                        error,
-                                      ),
+                                return ListTile(
+                                  leading: const CircleAvatar(
+                                    child: Icon(
+                                      Icons.person,
                                     ),
-                                    backgroundColor:
-                                    AppColors
-                                        .error,
                                   ),
+                                  title: Text(
+                                    user.displayName,
+                                  ),
+                                  subtitle: Text(
+                                    user.email,
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right,
+                                  ),
+                                  onTap: () async {
+                                    try {
+                                      await _opsService.assignStaffToFacility(
+                                        _facilityId!,
+                                        user.id,
+                                      );
+
+                                      if (!sheetContext.mounted) {
+                                        return;
+                                      }
+
+                                      Navigator.pop(
+                                        sheetContext,
+                                      );
+
+                                      if (!mounted) {
+                                        return;
+                                      }
+
+                                      _showSuccess(
+                                        '${user.displayName} assigned successfully',
+                                      );
+
+                                      _loadStaff();
+                                    } catch (error) {
+                                      if (!sheetContext.mounted) {
+                                        return;
+                                      }
+
+                                      ScaffoldMessenger.of(
+                                        sheetContext,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            _errorMessage(
+                                              error,
+                                            ),
+                                          ),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  },
                                 );
-                              }
-                            },
-                          );
-                        },
-                      ),
+                              },
+                            ),
                     ),
                   ],
                 ),
@@ -716,8 +632,8 @@ class _ManagerDashboardScreenState
   }
 
   Future<void> _removeStaff(
-      FacilityStaffModel staff,
-      ) async {
+    FacilityStaffModel staff,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -727,7 +643,7 @@ class _ManagerDashboardScreenState
           ),
           content: Text(
             '${staff.fullName} will no longer be '
-                'assigned to this facility.',
+            'assigned to this facility.',
           ),
           actions: [
             TextButton(
@@ -800,9 +716,7 @@ class _ManagerDashboardScreenState
   }
 
   String _errorMessage(Object error) {
-    return error
-        .toString()
-        .replaceFirst('Exception: ', '');
+    return error.toString().replaceFirst('Exception: ', '');
   }
 
   void _showSuccess(String message) {
@@ -829,41 +743,37 @@ class _ManagerDashboardScreenState
       backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: Text(
-          _facilityName ??
-              'Facility Manager Console',
+          _facilityName ?? 'Facility Manager Console',
         ),
         actions: [
           if (_facilityId != null)
             IconButton(
-                tooltip: 'Confirmed bookings',
-                icon: const Icon(Icons.swap_horiz_outlined),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => BookingAssignmentScreen(
-                        facilityId: _facilityId!,
-                        facilityName: _facilityName ?? '',
-                      ),
+              tooltip: 'Confirmed bookings',
+              icon: const Icon(Icons.swap_horiz_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BookingAssignmentScreen(
+                      facilityId: _facilityId!,
+                      facilityName: _facilityName ?? '',
                     ),
-                  ).then((_) {
-                    if (!mounted) return;
-                    _loadUnits();
-                    _loadReport();
-                  });
-                },
+                  ),
+                ).then((_) {
+                  if (!mounted) return;
+                  _loadUnits();
+                  _loadReport();
+                });
+              },
             ),
           IconButton(
             tooltip: 'Profile',
             icon: CircleAvatar(
               radius: 15,
-              backgroundColor:
-              AppColors.primaryContainer,
+              backgroundColor: AppColors.primaryContainer,
               child: Text(
                 widget.user.fullName.isNotEmpty
-                    ? widget.user.fullName
-                    .substring(0, 1)
-                    .toUpperCase()
+                    ? widget.user.fullName.substring(0, 1).toUpperCase()
                     : '?',
                 style: const TextStyle(
                   color: Colors.white,
@@ -887,32 +797,27 @@ class _ManagerDashboardScreenState
         ],
         bottom: _facilityId != null
             ? TabBar(
-          controller: _tabController,
-          labelColor:
-          AppColors.secondaryContainer,
-          unselectedLabelColor:
-          AppColors.onSurfaceVariant,
-          indicatorColor:
-          AppColors.secondaryContainer,
-          tabs: const [
-            Tab(text: 'Units'),
-            Tab(text: 'Staff'),
-            Tab(text: 'Report'),
-          ],
-        )
+                controller: _tabController,
+                labelColor: AppColors.secondaryContainer,
+                unselectedLabelColor: AppColors.onSurfaceVariant,
+                indicatorColor: AppColors.secondaryContainer,
+                tabs: const [
+                  Tab(text: 'Units'),
+                  Tab(text: 'Staff'),
+                  Tab(text: 'Report'),
+                ],
+              )
             : null,
       ),
       body: _buildBody(),
-      floatingActionButton:
-      _facilityId != null &&
-          _tabController.index == 0
+      floatingActionButton: _facilityId != null && _tabController.index == 0
           ? FloatingActionButton.extended(
-        onPressed: () {
-          _openUnitSheet();
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('New Unit'),
-      )
+              onPressed: () {
+                _openUnitSheet();
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('New Unit'),
+            )
           : null,
     );
   }
@@ -931,13 +836,11 @@ class _ManagerDashboardScreenState
       );
     }
 
-    if (_facilityId == null ||
-        _facilityId!.isEmpty) {
+    if (_facilityId == null || _facilityId!.isEmpty) {
       return const AppEmptyState(
         icon: Icons.storefront_outlined,
         title: 'No facility assigned',
-        message:
-        'Ask an administrator to assign you to a facility.',
+        message: 'Ask an administrator to assign you to a facility.',
       );
     }
 
@@ -955,8 +858,7 @@ class _ManagerDashboardScreenState
     return FutureBuilder<List<FacilityUnitModel>>(
       future: _unitsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const AppLoadingState(
             message: 'Loading units...',
           );
@@ -971,21 +873,18 @@ class _ManagerDashboardScreenState
           );
         }
 
-        final units =
-            snapshot.data ?? <FacilityUnitModel>[];
+        final units = snapshot.data ?? <FacilityUnitModel>[];
 
         if (units.isEmpty) {
           return RefreshIndicator(
             onRefresh: _refreshUnits,
             child: ListView(
-              physics:
-              const AlwaysScrollableScrollPhysics(),
+              physics: const AlwaysScrollableScrollPhysics(),
               children: const [
                 AppEmptyState(
                   icon: Icons.inventory_2_outlined,
                   title: 'No storage units yet',
-                  message:
-                  'Tap "New Unit" to add the first unit.',
+                  message: 'Tap "New Unit" to add the first unit.',
                 ),
               ],
             ),
@@ -995,8 +894,7 @@ class _ManagerDashboardScreenState
         return RefreshIndicator(
           onRefresh: _refreshUnits,
           child: ListView.builder(
-            physics:
-            const AlwaysScrollableScrollPhysics(),
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(
               16,
               12,
@@ -1006,19 +904,16 @@ class _ManagerDashboardScreenState
             itemCount: units.length,
             itemBuilder: (context, index) {
               final unit = units[index];
-              final color =
-              _unitStatusColor(unit.status);
+              final color = _unitStatusColor(unit.status);
 
               return Card(
-                margin:
-                const EdgeInsets.only(bottom: 10),
+                margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
                   onTap: () {
                     _openUnitSheet(unit: unit);
                   },
                   leading: CircleAvatar(
-                    backgroundColor:
-                    color.withValues(alpha: 0.15),
+                    backgroundColor: color.withValues(alpha: 0.15),
                     child: Icon(
                       Icons.inventory_2,
                       color: color,
@@ -1035,18 +930,15 @@ class _ManagerDashboardScreenState
                   subtitle: Text(
                     [
                       unit.unitType,
-                      if (unit.floorLevel.isNotEmpty)
-                        unit.floorLevel,
+                      if (unit.floorLevel.isNotEmpty) unit.floorLevel,
                     ].join(' • '),
-                    style:
-                    const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: 12),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding:
-                        const EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 4,
                         ),
@@ -1054,15 +946,13 @@ class _ManagerDashboardScreenState
                           color: color.withValues(
                             alpha: 0.15,
                           ),
-                          borderRadius:
-                          BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           unit.statusLabel,
                           style: TextStyle(
                             fontSize: 10,
-                            fontWeight:
-                            FontWeight.bold,
+                            fontWeight: FontWeight.bold,
                             color: color,
                           ),
                         ),
@@ -1087,8 +977,7 @@ class _ManagerDashboardScreenState
     return FutureBuilder<List<FacilityStaffModel>>(
       future: _staffFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const AppLoadingState(
             message: 'Loading staff...',
           );
@@ -1103,14 +992,12 @@ class _ManagerDashboardScreenState
           );
         }
 
-        final staffList =
-            snapshot.data ?? <FacilityStaffModel>[];
+        final staffList = snapshot.data ?? <FacilityStaffModel>[];
 
         return RefreshIndicator(
           onRefresh: _refreshStaff,
           child: ListView(
-            physics:
-            const AlwaysScrollableScrollPhysics(),
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(
               16,
               12,
@@ -1130,8 +1017,7 @@ class _ManagerDashboardScreenState
                 const AppEmptyState(
                   icon: Icons.groups_outlined,
                   title: 'No staff assigned',
-                  message:
-                  'Assign staff so they can handle check-ins.',
+                  message: 'Assign staff so they can handle check-ins.',
                 )
               else
                 ...staffList.map((staff) {
@@ -1146,8 +1032,7 @@ class _ManagerDashboardScreenState
                       title: Text(
                         staff.fullName,
                         style: const TextStyle(
-                          fontWeight:
-                          FontWeight.bold,
+                          fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
                       ),
@@ -1158,26 +1043,22 @@ class _ManagerDashboardScreenState
                         ),
                       ),
                       trailing: Row(
-                        mainAxisSize:
-                        MainAxisSize.min,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             staff.role,
                             style: const TextStyle(
                               fontSize: 11,
-                              color: AppColors
-                                  .onSurfaceVariant,
+                              color: AppColors.onSurfaceVariant,
                             ),
                           ),
                           IconButton(
-                            tooltip:
-                            'Remove from facility',
+                            tooltip: 'Remove from facility',
                             onPressed: () {
                               _removeStaff(staff);
                             },
                             icon: const Icon(
-                              Icons
-                                  .person_remove_outlined,
+                              Icons.person_remove_outlined,
                               size: 18,
                               color: AppColors.error,
                             ),
@@ -1198,8 +1079,7 @@ class _ManagerDashboardScreenState
     return FutureBuilder<FacilityReportModel>(
       future: _reportFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const AppLoadingState(
             message: 'Loading report...',
           );
@@ -1226,17 +1106,14 @@ class _ManagerDashboardScreenState
         return RefreshIndicator(
           onRefresh: _refreshReport,
           child: ListView(
-            physics:
-            const AlwaysScrollableScrollPhysics(),
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color:
-                  AppColors.primaryContainer,
-                  borderRadius:
-                  BorderRadius.circular(20),
+                  color: AppColors.primaryContainer,
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
                   children: [
@@ -1258,21 +1135,13 @@ class _ManagerDashboardScreenState
                     ),
                     const SizedBox(height: 10),
                     ClipRRect(
-                      borderRadius:
-                      BorderRadius.circular(8),
-                      child:
-                      LinearProgressIndicator(
-                        value:
-                        (report.occupancyRate /
-                            100)
-                            .clamp(0.0, 1.0),
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: (report.occupancyRate / 100).clamp(0.0, 1.0),
                         minHeight: 8,
-                        backgroundColor:
-                        Colors.white24,
-                        valueColor:
-                        const AlwaysStoppedAnimation(
-                          AppColors
-                              .secondaryContainer,
+                        backgroundColor: Colors.white24,
+                        valueColor: const AlwaysStoppedAnimation(
+                          AppColors.secondaryContainer,
                         ),
                       ),
                     ),
@@ -1283,8 +1152,7 @@ class _ManagerDashboardScreenState
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
-                physics:
-                const NeverScrollableScrollPhysics(),
+                physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
                 childAspectRatio: 1.6,
@@ -1335,25 +1203,22 @@ class _ManagerDashboardScreenState
   }
 
   Widget _statTile(
-      String label,
-      String value,
-      IconData icon,
-      Color color,
-      ) {
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-        BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color:
-          AppColors.surfaceContainerHigh,
+          color: AppColors.surfaceContainerHigh,
         ),
       ),
       child: Column(
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             icon,
@@ -1372,8 +1237,7 @@ class _ManagerDashboardScreenState
             label,
             style: const TextStyle(
               fontSize: 10,
-              color:
-              AppColors.onSurfaceVariant,
+              color: AppColors.onSurfaceVariant,
             ),
           ),
         ],

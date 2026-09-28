@@ -89,7 +89,8 @@ class _LoginScreenState extends State<LoginScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Reset your password'),
           content: Form(
             key: formKey,
@@ -99,7 +100,8 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Text(
                   "Enter the email on your account. We'll send you a link to reset your password.",
-                  style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+                  style: TextStyle(
+                      fontSize: 13, color: AppColors.onSurfaceVariant),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -156,7 +158,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (!dialogContext.mounted) return;
                         ScaffoldMessenger.of(dialogContext).showSnackBar(
                           SnackBar(
-                            content: Text(e.toString().replaceAll('Exception: ', '')),
+                            content: Text(
+                                e.toString().replaceAll('Exception: ', '')),
                             backgroundColor: AppColors.error,
                           ),
                         );
@@ -166,7 +169,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? const SizedBox(
                       height: 16,
                       width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : const Text('Send link'),
             ),
@@ -196,7 +200,8 @@ class _LoginScreenState extends State<LoginScreen> {
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Set a new password'),
           content: SingleChildScrollView(
             child: Form(
@@ -207,7 +212,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const Text(
                     'Paste the reset link from your email (valid for 15 minutes), then choose a new password.',
-                    style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+                    style: TextStyle(
+                        fontSize: 13, color: AppColors.onSurfaceVariant),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
@@ -216,8 +222,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Reset link or code',
                     ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Reset link is required' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Reset link is required'
+                        : null,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
@@ -226,8 +233,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'New password',
                       suffixIcon: IconButton(
-                        icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () => setDialogState(() => obscure = !obscure),
+                        icon: Icon(
+                            obscure ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () =>
+                            setDialogState(() => obscure = !obscure),
                       ),
                     ),
                     validator: (v) => (v == null || v.length < 5)
@@ -238,9 +247,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: confirmController,
                     obscureText: obscure,
-                    decoration: const InputDecoration(labelText: 'Confirm new password'),
-                    validator: (v) =>
-                        v != passwordController.text ? 'Passwords do not match' : null,
+                    decoration: const InputDecoration(
+                        labelText: 'Confirm new password'),
+                    validator: (v) => v != passwordController.text
+                        ? 'Passwords do not match'
+                        : null,
                   ),
                 ],
               ),
@@ -268,7 +279,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('$message. Please sign in with your new password.'),
+                            content: Text(
+                                '$message. Please sign in with your new password.'),
                             backgroundColor: AppColors.success,
                           ),
                         );
@@ -277,7 +289,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (!dialogContext.mounted) return;
                         ScaffoldMessenger.of(dialogContext).showSnackBar(
                           SnackBar(
-                            content: Text(e.toString().replaceAll('Exception: ', '')),
+                            content: Text(
+                                e.toString().replaceAll('Exception: ', '')),
                             backgroundColor: AppColors.error,
                           ),
                         );
@@ -287,7 +300,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? const SizedBox(
                       height: 16,
                       width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : const Text('Reset password'),
             ),
@@ -343,7 +357,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           SizedBox(height: 2),
                           Text(
                             'Self-Storage Management Platform',
-                            style: TextStyle(fontSize: 12, color: AppColors.onPrimaryContainer),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.onPrimaryContainer),
                           ),
                         ],
                       ),
@@ -368,15 +384,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       const Text(
                         'Sign in to your account',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       const Text(
                         'Enter your credentials below to continue',
-                        style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+                        style: TextStyle(
+                            fontSize: 13, color: AppColors.onSurfaceVariant),
                       ),
                       const SizedBox(height: 20),
-
                       if (_errorMessage != null)
                         Container(
                           width: double.infinity,
@@ -388,20 +405,22 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                              const Icon(Icons.error_outline,
+                                  color: AppColors.error, size: 20),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   _errorMessage!,
-                                  style: const TextStyle(color: AppColors.error, fontSize: 13),
+                                  style: const TextStyle(
+                                      color: AppColors.error, fontSize: 13),
                                 ),
                               ),
                             ],
                           ),
                         ),
-
                       const Text('Email address',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _emailController,
@@ -410,7 +429,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: const InputDecoration(
                           hintText: 'name@example.com',
                           prefixIcon: Icon(Icons.email_outlined),
-                          helperText: 'Use the email address you registered with',
+                          helperText:
+                              'Use the email address you registered with',
                         ),
                         validator: (value) {
                           final v = value?.trim() ?? '';
@@ -418,19 +438,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (v.isEmpty) {
                             return 'Email is required';
                           }
-                          if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v)) {
+                          if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                              .hasMatch(v)) {
                             return 'Enter a valid email address (e.g. name@example.com)';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Password',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w600)),
                           GestureDetector(
                             onTap: _showForgotPasswordDialog,
                             child: const Text(
@@ -455,7 +476,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                             ),
                             onPressed: () {
                               setState(() {
@@ -473,7 +496,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                       const SizedBox(height: 24),
-
                       ElevatedButton(
                         onPressed: _isLoading ? null : _handleLogin,
                         child: _isLoading
@@ -482,19 +504,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
                                 ),
                               )
                             : const Text('Sign In'),
                       ),
                       const SizedBox(height: 16),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text(
                             "Don't have an account?",
-                            style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 13),
+                            style: TextStyle(
+                                color: AppColors.onSurfaceVariant,
+                                fontSize: 13),
                           ),
                           TextButton(
                             onPressed: () {

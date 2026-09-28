@@ -43,7 +43,8 @@ class AppErrorState extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               message,
-              style: const TextStyle(fontSize: 12.5, color: AppColors.onSurfaceVariant),
+              style: const TextStyle(
+                  fontSize: 12.5, color: AppColors.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             if (onRetry != null) ...[
@@ -52,7 +53,8 @@ class AppErrorState extends StatelessWidget {
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 16),
                 label: const Text('Try again'),
-                style: OutlinedButton.styleFrom(minimumSize: const Size(140, 42)),
+                style:
+                    OutlinedButton.styleFrom(minimumSize: const Size(140, 42)),
               ),
             ],
           ],
@@ -101,7 +103,8 @@ class AppEmptyState extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               message,
-              style: const TextStyle(fontSize: 12.5, color: AppColors.onSurfaceVariant),
+              style: const TextStyle(
+                  fontSize: 12.5, color: AppColors.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             if (action != null) ...[
@@ -128,7 +131,9 @@ class AppLoadingState extends StatelessWidget {
           const CircularProgressIndicator(),
           if (message != null) ...[
             const SizedBox(height: 14),
-            Text(message!, style: const TextStyle(fontSize: 12.5, color: AppColors.onSurfaceVariant)),
+            Text(message!,
+                style: const TextStyle(
+                    fontSize: 12.5, color: AppColors.onSurfaceVariant)),
           ],
         ],
       ),

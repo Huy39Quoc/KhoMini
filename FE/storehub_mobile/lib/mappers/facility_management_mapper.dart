@@ -4,8 +4,8 @@ class FacilityManagementMapper {
   const FacilityManagementMapper._();
 
   static FacilityUnitModel unitFromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     return FacilityUnitModel(
       id: _text(json['id']),
       unitCode: _text(json['unitCode']),
@@ -17,8 +17,8 @@ class FacilityManagementMapper {
   }
 
   static FacilityStaffModel staffFromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     return FacilityStaffModel(
       id: _text(json['id']),
       fullName: _text(json['fullName']),
@@ -28,26 +28,23 @@ class FacilityManagementMapper {
   }
 
   static FacilityReportModel reportFromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     return FacilityReportModel(
       facilityId: _text(json['facilityId']),
       total: _integer(json['total']),
       available: _integer(json['available']),
       reserved: _integer(json['reserved']),
       occupied: _integer(json['occupied']),
-      underMaintenance:
-      _integer(json['underMaintenance']),
-      overdueBookings:
-      _integer(json['overdueBookings']),
-      occupancyRate:
-      _decimal(json['occupancyRate']),
+      underMaintenance: _integer(json['underMaintenance']),
+      overdueBookings: _integer(json['overdueBookings']),
+      occupancyRate: _decimal(json['occupancyRate']),
     );
   }
 
   static AssignableUserModel assignableUserFromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     return AssignableUserModel(
       id: _text(json['id']),
       username: _text(json['username']),
@@ -67,15 +64,14 @@ class FacilityManagementMapper {
     return {
       'unitCode': unitCode.trim(),
       'unitTypeId': unitTypeId,
-      if (normalizedFloor != null &&
-          normalizedFloor.isNotEmpty)
+      if (normalizedFloor != null && normalizedFloor.isNotEmpty)
         'floorLevel': normalizedFloor,
     };
   }
 
   static Map<String, dynamic> asJsonMap(
-      dynamic value,
-      ) {
+    dynamic value,
+  ) {
     if (value is Map<String, dynamic>) {
       return value;
     }
@@ -105,14 +101,14 @@ class FacilityManagementMapper {
     }
 
     return double.tryParse(
-      value?.toString() ?? '',
-    ) ??
+          value?.toString() ?? '',
+        ) ??
         0;
   }
 
   static FacilityBookingModel bookingFromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     return FacilityBookingModel(
       id: _text(json['bookingId']),
       bookingCode: _text(json['bookingCode']),
@@ -128,4 +124,3 @@ class FacilityManagementMapper {
     );
   }
 }
-

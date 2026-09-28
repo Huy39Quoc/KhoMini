@@ -83,7 +83,8 @@ class FacilityModel {
         maxArea = (maxArea == null) ? area : (area > maxArea ? area : maxArea);
       }
       if (price != null) {
-        minPrice = (minPrice == null) ? price : (price < minPrice ? price : minPrice);
+        minPrice =
+            (minPrice == null) ? price : (price < minPrice ? price : minPrice);
       }
       totalAvailable += available;
     }

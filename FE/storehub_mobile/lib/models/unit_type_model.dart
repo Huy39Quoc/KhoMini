@@ -30,10 +30,9 @@ class UnitTypeModel {
           (json['pricePerMonth'] as num?)?.toDouble() ??
           0.0,
       description: json['description']?.toString(),
-      availableUnits:
-          (json['availableUnitsCount'] as num?)?.toInt() ??
-              (json['availableUnits'] as num?)?.toInt() ??
-              0,
+      availableUnits: (json['availableUnitsCount'] as num?)?.toInt() ??
+          (json['availableUnits'] as num?)?.toInt() ??
+          0,
     );
   }
 }

@@ -54,7 +54,8 @@ class _PaymentScreenState extends State<PaymentScreen>
   // State for initiating the payment transaction (POST /payments/initiate)
   bool _isInitiating = true;
   String? _initError;
-  Map<String, dynamic>? _payment; // Real PaymentResponse: transactionId, amount, qrCodeUrl...
+  Map<String, dynamic>?
+      _payment; // Real PaymentResponse: transactionId, amount, qrCodeUrl...
 
   // Real countdown driven by widget.expiresAt (BE-enforced booking expiry)
   Timer? _expiryTimer;
@@ -111,7 +112,8 @@ class _PaymentScreenState extends State<PaymentScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(wasExpired ? 'This booking has expired.' : 'Booking cancelled.'),
+          content: Text(
+              wasExpired ? 'This booking has expired.' : 'Booking cancelled.'),
         ),
       );
       Navigator.pop(context);
@@ -217,19 +219,26 @@ class _PaymentScreenState extends State<PaymentScreen>
               padding: const EdgeInsets.only(right: 8),
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: _isExpired ? AppColors.error.withValues(alpha: 0.25) : Colors.white12,
+                    color: _isExpired
+                        ? AppColors.error.withValues(alpha: 0.25)
+                        : Colors.white12,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.timer_outlined, size: 14, color: Colors.white),
+                      const Icon(Icons.timer_outlined,
+                          size: 14, color: Colors.white),
                       const SizedBox(width: 4),
                       Text(
                         _isExpired ? 'Expired' : _formatCountdown(_remaining!),
-                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -240,7 +249,11 @@ class _PaymentScreenState extends State<PaymentScreen>
             IconButton(
               tooltip: 'Cancel booking',
               icon: _isCancelling
-                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.close),
               onPressed: _isCancelling
                   ? null
@@ -253,18 +266,23 @@ class _PaymentScreenState extends State<PaymentScreen>
                         context: context,
                         builder: (ctx) => AlertDialog(
                           title: const Text('Cancel this booking?'),
-                          content: const Text('The reserved unit will be released back to availability.'),
+                          content: const Text(
+                              'The reserved unit will be released back to availability.'),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep booking')),
+                            TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Keep booking')),
                             ElevatedButton(
-                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.error),
                               onPressed: () => Navigator.pop(ctx, true),
                               child: const Text('Cancel booking'),
                             ),
                           ],
                         ),
                       );
-                      if (confirm == true) await _handleExpiredOrCancel(wasExpired: false);
+                      if (confirm == true)
+                        await _handleExpiredOrCancel(wasExpired: false);
                     },
             ),
         ],
@@ -389,8 +407,8 @@ class _PaymentScreenState extends State<PaymentScreen>
                         backgroundColor: AppColors.success));
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
@@ -401,8 +419,8 @@ class _PaymentScreenState extends State<PaymentScreen>
                         Icon(Icons.copy, color: Colors.white70, size: 14),
                         SizedBox(width: 4),
                         Text('Copy code',
-                            style: TextStyle(
-                                color: Colors.white70, fontSize: 12)),
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -451,7 +469,8 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   Widget _buildPaymentBody() {
     final payment = _payment!;
-    final amount = (payment['amount'] as num?)?.toDouble() ?? widget.depositAmount;
+    final amount =
+        (payment['amount'] as num?)?.toDouble() ?? widget.depositAmount;
     final transactionId = payment['transactionId']?.toString() ?? '';
     final qrCodeUrl = payment['qrCodeUrl']?.toString() ?? '';
 
@@ -510,8 +529,8 @@ class _PaymentScreenState extends State<PaymentScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                           colors: [Color(0xFF003087), Color(0xFF0057B7)]),
@@ -573,7 +592,8 @@ class _PaymentScreenState extends State<PaymentScreen>
                             child: Text(
                               "Couldn't load the QR image.\nUse the transaction code below to transfer manually.",
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey, fontSize: 12),
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 12),
                             ),
                           ),
                         ),
@@ -607,8 +627,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                       children: [
                         const Text('Transaction code: ',
                             style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary)),
+                                fontSize: 12, color: AppColors.textSecondary)),
                         Text(transactionId,
                             style: const TextStyle(
                                 fontSize: 12,
@@ -619,8 +638,8 @@ class _PaymentScreenState extends State<PaymentScreen>
                           onTap: () {
                             Clipboard.setData(
                                 ClipboardData(text: transactionId));
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(const SnackBar(
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
                                     content: Text('Transaction code copied'),
                                     backgroundColor: AppColors.success));
                           },
@@ -650,17 +669,17 @@ class _PaymentScreenState extends State<PaymentScreen>
             children: [
               Row(
                 children: [
-                  Icon(Icons.info_outline,
-                      color: Colors.amber, size: 18),
+                  Icon(Icons.info_outline, color: Colors.amber, size: 18),
                   SizedBox(width: 6),
                   Text('Payment Instructions',
                       style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange)),
+                          fontWeight: FontWeight.bold, color: Colors.orange)),
                 ],
               ),
               SizedBox(height: 8),
-              _Step(step: '1', text: 'Open your banking app → Transfer → Scan QR'),
+              _Step(
+                  step: '1',
+                  text: 'Open your banking app → Transfer → Scan QR'),
               _Step(step: '2', text: 'Scan the QR code above'),
               _Step(
                   step: '3',
@@ -706,8 +725,7 @@ class _PaymentScreenState extends State<PaymentScreen>
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Pay later',
-              style:
-                  TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
         ),
         const SizedBox(height: 20),
       ],
@@ -785,8 +803,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           child: Text(label,
               style: TextStyle(
                   fontSize: isHighlight ? 14 : 13,
-                  fontWeight:
-                      isHighlight ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
                   color: isHighlight
                       ? AppColors.textPrimary
                       : AppColors.textSecondary)),

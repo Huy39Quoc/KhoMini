@@ -25,7 +25,8 @@ class CreateTicketScreen extends StatefulWidget {
 const Map<String, _CategoryInfo> _kCategories = {
   'PIN_CODE': _CategoryInfo('Access PIN issue', Icons.pin_outlined),
   'LOCK_ISSUE': _CategoryInfo('Lock / door issue', Icons.lock_outline),
-  'FACILITY_DAMAGE': _CategoryInfo('Facility damage', Icons.report_problem_outlined),
+  'FACILITY_DAMAGE':
+      _CategoryInfo('Facility damage', Icons.report_problem_outlined),
   'PAYMENT_ISSUE': _CategoryInfo('Payment issue', Icons.payments_outlined),
   'OTHER': _CategoryInfo('Other', Icons.more_horiz),
 };
@@ -162,30 +163,37 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Related unit picker
-                const Text('Related unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const Text('Related unit',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 4),
                 const Text(
                   'Optional - pick a unit if this issue is about a specific storage unit',
-                  style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.onSurfaceVariant),
                 ),
                 const SizedBox(height: 8),
                 _buildUnitPicker(),
-                if (_selectedBookingId != null && _selectedUnitLabel != null) ...[
+                if (_selectedBookingId != null &&
+                    _selectedUnitLabel != null) ...[
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceContainer,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.inventory_2_outlined, size: 16, color: AppColors.secondary),
+                        const Icon(Icons.inventory_2_outlined,
+                            size: 16, color: AppColors.secondary),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'This ticket will reference: $_selectedUnitLabel',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],
@@ -195,7 +203,9 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 const SizedBox(height: 20),
 
                 // Category
-                const Text('Issue category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const Text('Issue category',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -206,18 +216,23 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                       avatar: Icon(
                         entry.value.icon,
                         size: 16,
-                        color: isSelected ? Colors.white : AppColors.onSurfaceVariant,
+                        color: isSelected
+                            ? Colors.white
+                            : AppColors.onSurfaceVariant,
                       ),
                       label: Text(entry.value.label),
                       selected: isSelected,
-                      onSelected: (_) => setState(() => _selectedCategory = entry.key),
+                      onSelected: (_) =>
+                          setState(() => _selectedCategory = entry.key),
                     );
                   }).toList(),
                 ),
                 const SizedBox(height: 20),
 
                 // Title
-                const Text('Title', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const Text('Title',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _titleController,
@@ -235,14 +250,18 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 const SizedBox(height: 16),
 
                 // Description
-                const Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const Text('Description',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _descriptionController,
                   maxLines: 5,
                   decoration: const InputDecoration(
-                    hintText: 'Describe the issue in detail, including when it started...',
-                    helperText: 'Required - the more detail, the faster we can help',
+                    hintText:
+                        'Describe the issue in detail, including when it started...',
+                    helperText:
+                        'Required - the more detail, the faster we can help',
                     alignLabelWithHint: true,
                   ),
                   validator: (value) {
@@ -259,7 +278,8 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                       ? const SizedBox(
                           height: 16,
                           width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.send),
                   label: Text(_isLoading ? 'Submitting...' : 'Submit Ticket'),
@@ -336,8 +356,9 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           onChanged: (value) {
             setState(() {
               _selectedBookingId = value;
-              _selectedUnitLabel =
-                  _units.firstWhere((u) => u['bookingId'] == value, orElse: () => {})['label'];
+              _selectedUnitLabel = _units.firstWhere(
+                  (u) => u['bookingId'] == value,
+                  orElse: () => {})['label'];
             });
           },
         ),

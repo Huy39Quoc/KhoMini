@@ -15,7 +15,8 @@ class ReportsScreen extends StatefulWidget {
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProviderStateMixin {
+class _ReportsScreenState extends State<ReportsScreen>
+    with SingleTickerProviderStateMixin {
   final FacilityAdminApiService _service = FacilityAdminApiService();
   late final TabController _tabController;
   final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
@@ -43,7 +44,8 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
 
   void _loadRevenue() {
     setState(() {
-      _revenueFuture = _service.getRevenueReport(fromDate: _fromDate, toDate: _toDate);
+      _revenueFuture =
+          _service.getRevenueReport(fromDate: _fromDate, toDate: _toDate);
     });
   }
 
@@ -118,7 +120,8 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                 SizedBox(
                   height: 360,
                   child: AppErrorState(
-                    message: snapshot.error.toString().replaceAll('Exception: ', ''),
+                    message:
+                        snapshot.error.toString().replaceAll('Exception: ', ''),
                     onRetry: _loadRevenue,
                   ),
                 ),
@@ -131,7 +134,8 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
           final total = (summary['totalRevenue'] as num?)?.toDouble() ?? 0;
           final deposit = (summary['depositRevenue'] as num?)?.toDouble() ?? 0;
           final rental = (summary['rentalFeeRevenue'] as num?)?.toDouble() ?? 0;
-          final extra = (summary['extraChargeRevenue'] as num?)?.toDouble() ?? 0;
+          final extra =
+              (summary['extraChargeRevenue'] as num?)?.toDouble() ?? 0;
           final count = summary['paymentCount'] ?? 0;
 
           return ListView(
@@ -157,33 +161,46 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total Revenue', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    const Text('Total Revenue',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
                     const SizedBox(height: 4),
                     Text(_currency.format(total),
-                        style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     Text('$count payment${count == 1 ? '' : 's'}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 12)),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: _revenueChip('Deposits', deposit, AppColors.secondary)),
+                  Expanded(
+                      child: _revenueChip(
+                          'Deposits', deposit, AppColors.secondary)),
                   const SizedBox(width: 10),
-                  Expanded(child: _revenueChip('Rental Fees', rental, AppColors.secondaryContainer)),
+                  Expanded(
+                      child: _revenueChip(
+                          'Rental Fees', rental, AppColors.secondaryContainer)),
                   const SizedBox(width: 10),
-                  Expanded(child: _revenueChip('Extra Charges', extra, AppColors.warning)),
+                  Expanded(
+                      child: _revenueChip(
+                          'Extra Charges', extra, AppColors.warning)),
                 ],
               ),
               const SizedBox(height: 20),
-              const Text('By Facility', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const Text('By Facility',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 10),
               if (byFacility.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 20),
-                  child: Text('No facility revenue yet.', style: TextStyle(color: AppColors.onSurfaceVariant)),
+                  child: Text('No facility revenue yet.',
+                      style: TextStyle(color: AppColors.onSurfaceVariant)),
                 )
               else
                 ...byFacility.map((f) {
@@ -191,11 +208,17 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                   return Card(
                     margin: const EdgeInsets.only(bottom: 10),
                     child: ListTile(
-                      title: Text(m['facilityName']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: Text('${m['paymentCount'] ?? 0} payments', style: const TextStyle(fontSize: 12)),
+                      title: Text(m['facilityName']?.toString() ?? '',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: Text('${m['paymentCount'] ?? 0} payments',
+                          style: const TextStyle(fontSize: 12)),
                       trailing: Text(
-                        _currency.format((m['totalRevenue'] as num?)?.toDouble() ?? 0),
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryContainer),
+                        _currency.format(
+                            (m['totalRevenue'] as num?)?.toDouble() ?? 0),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryContainer),
                       ),
                     ),
                   );
@@ -218,9 +241,13 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: AppColors.onSurfaceVariant)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 10, color: AppColors.onSurfaceVariant)),
           const SizedBox(height: 4),
-          Text(_currency.format(value), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+          Text(_currency.format(value),
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
     );
@@ -233,7 +260,8 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
         future: _occupancyFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const AppLoadingState(message: 'Loading occupancy report...');
+            return const AppLoadingState(
+                message: 'Loading occupancy report...');
           }
           if (snapshot.hasError) {
             return AppErrorState(
@@ -257,10 +285,14 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                 ),
                 child: Column(
                   children: [
-                    const Text('System-wide Occupancy', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    const Text('System-wide Occupancy',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
                     const SizedBox(height: 6),
                     Text('${rate.toStringAsFixed(1)}%',
-                        style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
@@ -268,7 +300,8 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                         value: (rate / 100).clamp(0, 1),
                         minHeight: 8,
                         backgroundColor: Colors.white24,
-                        valueColor: const AlwaysStoppedAnimation(AppColors.secondaryContainer),
+                        valueColor: const AlwaysStoppedAnimation(
+                            AppColors.secondaryContainer),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -285,12 +318,14 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                 ),
               ),
               const SizedBox(height: 20),
-              const Text('By Facility', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const Text('By Facility',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 10),
               if (byFacility.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 20),
-                  child: Text('No facilities yet.', style: TextStyle(color: AppColors.onSurfaceVariant)),
+                  child: Text('No facilities yet.',
+                      style: TextStyle(color: AppColors.onSurfaceVariant)),
                 )
               else
                 ...byFacility.map((f) {
@@ -306,8 +341,14 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(m['facilityName']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                              Text('${r.toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryContainer)),
+                              Text(m['facilityName']?.toString() ?? '',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14)),
+                              Text('${r.toStringAsFixed(0)}%',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryContainer)),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -317,13 +358,16 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
                               value: (r / 100).clamp(0, 1),
                               minHeight: 6,
                               backgroundColor: AppColors.surfaceContainerLow,
-                              valueColor: const AlwaysStoppedAnimation(AppColors.secondaryContainer),
+                              valueColor: const AlwaysStoppedAnimation(
+                                  AppColors.secondaryContainer),
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             '${m['occupiedUnits'] ?? 0} occupied • ${m['availableUnits'] ?? 0} available • ${m['totalUnits'] ?? 0} total',
-                            style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -340,8 +384,13 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
   Widget _occupancyStat(String label, dynamic value) {
     return Column(
       children: [
-        Text('$value', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+        Text('$value',
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold)),
+        Text(label,
+            style: const TextStyle(color: Colors.white70, fontSize: 10)),
       ],
     );
   }

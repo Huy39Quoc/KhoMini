@@ -119,7 +119,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => ProfileScreen(user: widget.user)),
+                        MaterialPageRoute(
+                            builder: (_) => ProfileScreen(user: widget.user)),
                       );
                     },
                     child: const CircleAvatar(
@@ -170,14 +171,20 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildActionCard('My Units', Icons.vpn_key, AppColors.primaryContainer,
+              _buildActionCard(
+                  'My Units',
+                  Icons.vpn_key,
+                  AppColors.primaryContainer,
                   () => setState(() => _currentIndex = 1)),
               const SizedBox(width: 12),
               _buildActionCard('Reserve Unit', Icons.add_circle_outline,
                   AppColors.secondary, () => setState(() => _currentIndex = 2)),
               const SizedBox(width: 12),
-              _buildActionCard('Get Support', Icons.headset_mic_outlined,
-                  AppColors.secondaryContainer, () => setState(() => _currentIndex = 3)),
+              _buildActionCard(
+                  'Get Support',
+                  Icons.headset_mic_outlined,
+                  AppColors.secondaryContainer,
+                  () => setState(() => _currentIndex = 3)),
             ],
           )
         ],

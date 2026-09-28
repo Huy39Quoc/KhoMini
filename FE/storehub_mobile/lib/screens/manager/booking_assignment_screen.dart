@@ -20,10 +20,8 @@ class BookingAssignmentScreen extends StatefulWidget {
       _BookingAssignmentScreenState();
 }
 
-class _BookingAssignmentScreenState
-    extends State<BookingAssignmentScreen> {
-  final FacilityOpsApiService _opsService =
-  FacilityOpsApiService();
+class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
+  final FacilityOpsApiService _opsService = FacilityOpsApiService();
 
   Future<List<FacilityBookingModel>>? _bookingsFuture;
 
@@ -52,8 +50,8 @@ class _BookingAssignmentScreenState
   }
 
   Future<void> _openUnitSelector(
-      FacilityBookingModel booking,
-      ) async {
+    FacilityBookingModel booking,
+  ) async {
     List<FacilityUnitModel> units;
 
     try {
@@ -70,8 +68,7 @@ class _BookingAssignmentScreenState
     }
 
     final availableUnits = units.where((unit) {
-      return unit.isAvailable &&
-          unit.unitTypeId == booking.unitTypeId;
+      return unit.isAvailable && unit.unitTypeId == booking.unitTypeId;
     }).toList();
 
     if (availableUnits.isEmpty) {
@@ -110,9 +107,7 @@ class _BookingAssignmentScreenState
               children: [
                 Text(
                   'Choose replacement unit',
-                  style: Theme.of(sheetContext)
-                      .textTheme
-                      .titleMedium,
+                  style: Theme.of(sheetContext).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -127,8 +122,7 @@ class _BookingAssignmentScreenState
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: availableUnits.length,
-                    separatorBuilder: (_, __) =>
-                    const Divider(height: 1),
+                    separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (_, index) {
                       final unit = availableUnits[index];
 
@@ -172,8 +166,7 @@ class _BookingAssignmentScreenState
                               return;
                             }
 
-                            ScaffoldMessenger.of(sheetContext)
-                                .showSnackBar(
+                            ScaffoldMessenger.of(sheetContext).showSnackBar(
                               SnackBar(
                                 content: Text(
                                   _errorMessage(error),
@@ -227,8 +220,7 @@ class _BookingAssignmentScreenState
       body: FutureBuilder<List<FacilityBookingModel>>(
         future: _bookingsFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const AppLoadingState(
               message: 'Loading confirmed bookings...',
             );
@@ -241,21 +233,18 @@ class _BookingAssignmentScreenState
             );
           }
 
-          final bookings =
-              snapshot.data ?? <FacilityBookingModel>[];
+          final bookings = snapshot.data ?? <FacilityBookingModel>[];
 
           if (bookings.isEmpty) {
             return RefreshIndicator(
               onRefresh: _refreshBookings,
               child: ListView(
-                physics:
-                const AlwaysScrollableScrollPhysics(),
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
                   AppEmptyState(
                     icon: Icons.assignment_turned_in_outlined,
                     title: 'No confirmed bookings',
-                    message:
-                    'Confirmed bookings will appear here.',
+                    message: 'Confirmed bookings will appear here.',
                   ),
                 ],
               ),
@@ -265,12 +254,10 @@ class _BookingAssignmentScreenState
           return RefreshIndicator(
             onRefresh: _refreshBookings,
             child: ListView.separated(
-              physics:
-              const AlwaysScrollableScrollPhysics(),
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
               itemCount: bookings.length,
-              separatorBuilder: (_, __) =>
-              const SizedBox(height: 10),
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final booking = bookings[index];
 
@@ -278,8 +265,7 @@ class _BookingAssignmentScreenState
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
@@ -318,7 +304,7 @@ class _BookingAssignmentScreenState
                         const SizedBox(height: 10),
                         Text(
                           'Current unit: ${booking.unitCode} '
-                              '(${booking.unitType})',
+                          '(${booking.unitType})',
                         ),
                         const SizedBox(height: 4),
                         Text(

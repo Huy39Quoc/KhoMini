@@ -6,6 +6,7 @@ import '../mappers/facility_operations_mapper.dart';
 import '../models/facility_operations_models.dart';
 import '../mappers/facility_management_mapper.dart';
 import '../models/facility_management_models.dart';
+
 class FacilityOpsApiService {
   final Dio _dio = HttpClient.instance.dio;
 
@@ -57,8 +58,7 @@ class FacilityOpsApiService {
     if (data is Map) {
       final payload = data['data'];
 
-      if (payload is Map &&
-          payload['content'] is List) {
+      if (payload is Map && payload['content'] is List) {
         return List<dynamic>.from(
           payload['content'],
         );
@@ -84,8 +84,8 @@ class FacilityOpsApiService {
 // =========================================================
 
   Future<List<FacilityUnitModel>> getFacilityUnits(
-      String facilityId,
-      ) async {
+    String facilityId,
+  ) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.facilityUnits(facilityId),
@@ -101,11 +101,11 @@ class FacilityOpsApiService {
   }
 
   Future<FacilityUnitModel> createFacilityUnit(
-      String facilityId, {
-        required String unitCode,
-        String? floorLevel,
-        required String unitTypeId,
-      }) async {
+    String facilityId, {
+    required String unitCode,
+    String? floorLevel,
+    required String unitTypeId,
+  }) async {
     try {
       final response = await _dio.post(
         ApiEndpoints.facilityUnits(facilityId),
@@ -125,12 +125,12 @@ class FacilityOpsApiService {
   }
 
   Future<FacilityUnitModel> updateFacilityUnit(
-      String facilityId,
-      String unitId, {
-        required String unitCode,
-        String? floorLevel,
-        required String unitTypeId,
-      }) async {
+    String facilityId,
+    String unitId, {
+    required String unitCode,
+    String? floorLevel,
+    required String unitTypeId,
+  }) async {
     try {
       final response = await _dio.put(
         ApiEndpoints.facilityUnitDetail(
@@ -153,10 +153,10 @@ class FacilityOpsApiService {
   }
 
   Future<FacilityUnitModel> assignUnitToBooking(
-      String facilityId,
-      String bookingId,
-      String unitId,
-      ) async {
+    String facilityId,
+    String bookingId,
+    String unitId,
+  ) async {
     try {
       final response = await _dio.put(
         ApiEndpoints.facilityAssignUnit(
@@ -175,8 +175,8 @@ class FacilityOpsApiService {
   }
 
   Future<FacilityReportModel> getFacilityManagerReport(
-      String facilityId,
-      ) async {
+    String facilityId,
+  ) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.facilityManagerReport(
@@ -193,8 +193,8 @@ class FacilityOpsApiService {
   }
 
   Future<List<FacilityStaffModel>> getFacilityStaff(
-      String facilityId,
-      ) async {
+    String facilityId,
+  ) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.facilityStaffList(
@@ -211,8 +211,7 @@ class FacilityOpsApiService {
     }
   }
 
-  Future<List<AssignableUserModel>>
-  getAssignableUsers() async {
+  Future<List<AssignableUserModel>> getAssignableUsers() async {
     try {
       final response = await _dio.get(
         ApiEndpoints.users,
@@ -228,13 +227,11 @@ class FacilityOpsApiService {
       return _unwrapPageContent(response.data)
           .map(FacilityManagementMapper.asJsonMap)
           .map(
-        FacilityManagementMapper
-            .assignableUserFromJson,
-      )
+            FacilityManagementMapper.assignableUserFromJson,
+          )
           .where(
-            (user) =>
-        user.id.isNotEmpty && user.isActive,
-      )
+            (user) => user.id.isNotEmpty && user.isActive,
+          )
           .toList();
     } on DioException catch (error) {
       throw _err(error, 'load assignable users');
@@ -242,9 +239,9 @@ class FacilityOpsApiService {
   }
 
   Future<FacilityStaffModel> assignStaffToFacility(
-      String facilityId,
-      String userId,
-      ) async {
+    String facilityId,
+    String userId,
+  ) async {
     try {
       final response = await _dio.put(
         ApiEndpoints.facilityAssignStaff(
@@ -262,9 +259,9 @@ class FacilityOpsApiService {
   }
 
   Future<void> unassignStaff(
-      String facilityId,
-      String userId,
-      ) async {
+    String facilityId,
+    String userId,
+  ) async {
     try {
       await _dio.delete(
         ApiEndpoints.facilityAssignStaff(
@@ -277,10 +274,9 @@ class FacilityOpsApiService {
     }
   }
 
-
   Future<List<FacilityBookingModel>> getConfirmedBookings(
-      String facilityId,
-      ) async {
+    String facilityId,
+  ) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.facilityConfirmedBookings(facilityId),

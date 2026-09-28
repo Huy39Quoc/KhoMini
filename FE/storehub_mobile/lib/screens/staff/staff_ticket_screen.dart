@@ -14,13 +14,11 @@ class StaffTicketScreen extends StatefulWidget {
   });
 
   @override
-  State<StaffTicketScreen> createState() =>
-      _StaffTicketScreenState();
+  State<StaffTicketScreen> createState() => _StaffTicketScreenState();
 }
 
 class _StaffTicketScreenState extends State<StaffTicketScreen> {
-  final StaffTicketApiService _ticketService =
-  StaffTicketApiService();
+  final StaffTicketApiService _ticketService = StaffTicketApiService();
 
   Future<List<StaffTicketModel>>? _ticketsFuture;
 
@@ -49,8 +47,8 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
   }
 
   Future<void> _acceptTicket(
-      StaffTicketModel ticket,
-      ) async {
+    StaffTicketModel ticket,
+  ) async {
     try {
       await _ticketService.assignToMe(
         facilityId: widget.facilityId,
@@ -68,8 +66,8 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
   }
 
   Future<void> _resolveTicket(
-      StaffTicketModel ticket,
-      ) async {
+    StaffTicketModel ticket,
+  ) async {
     final noteController = TextEditingController(
       text: ticket.resolutionNote,
     );
@@ -135,8 +133,8 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
   }
 
   Future<void> _closeTicket(
-      StaffTicketModel ticket,
-      ) async {
+    StaffTicketModel ticket,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -265,8 +263,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
       body: FutureBuilder<List<StaffTicketModel>>(
         future: _ticketsFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const AppLoadingState(
               message: 'Loading tickets...',
             );
@@ -279,21 +276,19 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
             );
           }
 
-          final tickets =
-              snapshot.data ?? <StaffTicketModel>[];
+          final tickets = snapshot.data ?? <StaffTicketModel>[];
 
           if (tickets.isEmpty) {
             return RefreshIndicator(
               onRefresh: _refreshTickets,
               child: ListView(
-                physics:
-                const AlwaysScrollableScrollPhysics(),
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
                   AppEmptyState(
                     icon: Icons.support_agent_outlined,
                     title: 'No support tickets',
                     message:
-                    'Tickets from customers at this facility will appear here.',
+                        'Tickets from customers at this facility will appear here.',
                   ),
                 ],
               ),
@@ -303,23 +298,19 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
           return RefreshIndicator(
             onRefresh: _refreshTickets,
             child: ListView.separated(
-              physics:
-              const AlwaysScrollableScrollPhysics(),
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
               itemCount: tickets.length,
-              separatorBuilder: (_, __) =>
-              const SizedBox(height: 10),
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final ticket = tickets[index];
-                final statusColor =
-                _statusColor(ticket.status);
+                final statusColor = _statusColor(ticket.status);
 
                 return Card(
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
@@ -332,8 +323,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                               ),
                             ),
                             Container(
-                              padding:
-                              const EdgeInsets.symmetric(
+                              padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 4,
                               ),
@@ -341,8 +331,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                                 color: statusColor.withValues(
                                   alpha: 0.15,
                                 ),
-                                borderRadius:
-                                BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
                                 ticket.status.replaceAll('_', ' '),

@@ -22,7 +22,8 @@ class ContractOperationDialog extends StatefulWidget {
   });
 
   @override
-  State<ContractOperationDialog> createState() => _ContractOperationDialogState();
+  State<ContractOperationDialog> createState() =>
+      _ContractOperationDialogState();
 }
 
 class _ContractOperationDialogState extends State<ContractOperationDialog> {
@@ -40,7 +41,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   bool _isCancellingExtension = false;
   String? _resumeError;
   Map<String, dynamic>? _result;
-  Map<String, dynamic>? _paymentConfirmed; 
+  Map<String, dynamic>? _paymentConfirmed;
 
   @override
   void initState() {
@@ -58,7 +59,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       _resumeError = null;
     });
     try {
-      final payment = await _storageService.getPendingOverduePayment(widget.unit.bookingId);
+      final payment =
+          await _storageService.getPendingOverduePayment(widget.unit.bookingId);
       if (!mounted) return;
       if (payment == null) {
         setState(() {
@@ -139,12 +141,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       _resumeError = null;
     });
     try {
-      final payment = await _storageService.getPendingExtensionPayment(widget.unit.bookingId);
+      final payment = await _storageService
+          .getPendingExtensionPayment(widget.unit.bookingId);
       if (!mounted) return;
       if (payment == null) {
         setState(() {
           _isResuming = false;
-          _resumeError = 'No pending extension payment was found for this unit anymore.';
+          _resumeError =
+              'No pending extension payment was found for this unit anymore.';
         });
         return;
       }
@@ -155,7 +159,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           'transactionId': payment['transactionId'],
           'qrCodeUrl': payment['qrCodeUrl'],
           'additionalFee': payment['amount'],
-          'newEndDate': widget.unit.endDate != null && widget.unit.pendingExtraMonths != null
+          'newEndDate': widget.unit.endDate != null &&
+                  widget.unit.pendingExtraMonths != null
               ? DateTime(
                   widget.unit.endDate!.year,
                   widget.unit.endDate!.month + widget.unit.pendingExtraMonths!,
@@ -198,7 +203,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     if (time == null) return;
 
     setState(() {
-      _scheduledReturnTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _scheduledReturnTime =
+          DateTime(date.year, date.month, date.day, time.hour, time.minute);
     });
   }
 
@@ -220,7 +226,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     try {
       final Map<String, dynamic> result;
       if (widget.isExtension) {
-        result = await _storageService.extendRental(widget.unit.bookingId, _extraMonths);
+        result = await _storageService.extendRental(
+            widget.unit.bookingId, _extraMonths);
       } else {
         result = await _storageService.checkoutRental(
           widget.unit.bookingId,
@@ -262,7 +269,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
 
     setState(() => _isConfirmingPayment = true);
     try {
-      final confirmed = await _storageService.confirmExtensionPayment(transactionId);
+      final confirmed =
+          await _storageService.confirmExtensionPayment(transactionId);
       if (!mounted) return;
       setState(() {
         _paymentConfirmed = confirmed;
@@ -293,11 +301,13 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     }
     if (resuming && _resumeError != null) {
       return AlertDialog(
-        title: Text(widget.payOverdue ? 'Unable to load late fee' : 'Unable to resume payment'),
+        title: Text(widget.payOverdue
+            ? 'Unable to load late fee'
+            : 'Unable to resume payment'),
         content: Text(_resumeError!, style: const TextStyle(fontSize: 13)),
         actions: [
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true), 
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('OK'),
           ),
         ],
@@ -326,7 +336,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
                 )
               : Text(widget.isExtension ? 'Extend' : 'Confirm Checkout'),
         ),
@@ -350,10 +361,12 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Unit ${unit.unitCode}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('Unit ${unit.unitCode}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               if (unit.monthlyRate != null)
-                Text('Current rate: ${_currency.format(unit.monthlyRate)} / month',
+                Text(
+                    'Current rate: ${_currency.format(unit.monthlyRate)} / month',
                     style: const TextStyle(fontSize: 12)),
               if (unit.endDate != null)
                 Text('Current end date: ${_dateFmt.format(unit.endDate!)}',
@@ -362,7 +375,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           ),
         ),
         const SizedBox(height: 16),
-        const Text('Extend by how many months?', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        const Text('Extend by how many months?',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -382,13 +396,17 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
             const Text('Custom:', style: TextStyle(fontSize: 12)),
             IconButton(
               icon: const Icon(Icons.remove_circle_outline),
-              onPressed: _extraMonths > 1 ? () => setState(() => _extraMonths--) : null,
+              onPressed: _extraMonths > 1
+                  ? () => setState(() => _extraMonths--)
+                  : null,
             ),
             Text('$_extraMonths month${_extraMonths == 1 ? '' : 's'}',
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             IconButton(
               icon: const Icon(Icons.add_circle_outline),
-              onPressed: _extraMonths < 36 ? () => setState(() => _extraMonths++) : null,
+              onPressed: _extraMonths < 36
+                  ? () => setState(() => _extraMonths++)
+                  : null,
             ),
           ],
         ),
@@ -406,9 +424,11 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Unit ${widget.unit.unitCode}', style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text('Unit ${widget.unit.unitCode}',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        const Text('Choose a date & time to schedule your checkout.', style: TextStyle(fontSize: 13)),
+        const Text('Choose a date & time to schedule your checkout.',
+            style: TextStyle(fontSize: 13)),
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: _isLoading ? null : _pickScheduledReturnTime,
@@ -457,7 +477,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                   ? 'Paying the late fee does not extend the contract. To restore access, '
                       'extend the rental or schedule a checkout.'
                   : 'The rental is only extended once this payment is confirmed.',
-              style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
             Center(
@@ -478,14 +499,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                       qrCodeUrl,
                       width: 180,
                       height: 180,
-                      loadingBuilder: (context, child, progress) =>
-                          progress == null
-                              ? child
-                              : const SizedBox(
-                                  width: 180,
-                                  height: 180,
-                                  child: Center(child: CircularProgressIndicator()),
-                                ),
+                      loadingBuilder: (context, child, progress) => progress ==
+                              null
+                          ? child
+                          : const SizedBox(
+                              width: 180,
+                              height: 180,
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
                       errorBuilder: (context, error, stackTrace) => Container(
                         width: 180,
                         height: 180,
@@ -494,14 +515,16 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Center(
-                          child: Text("Couldn't load QR", style: TextStyle(color: Colors.grey)),
+                          child: Text("Couldn't load QR",
+                              style: TextStyle(color: Colors.grey)),
                         ),
                       ),
                     ),
             ),
             const SizedBox(height: 8),
             Text('Transaction code: $transactionId',
-                style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
+                style: const TextStyle(
+                    fontSize: 11, color: AppColors.onSurfaceVariant)),
           ],
         ),
       ),
@@ -517,7 +540,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Cancel request', style: TextStyle(color: AppColors.error)),
+                : const Text('Cancel request',
+                    style: TextStyle(color: AppColors.error)),
           ),
         TextButton(
           // true: server có thể đã tạo yêu cầu gia hạn treo -> màn danh sách cần tải lại
@@ -534,7 +558,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
                 )
               : const Text("I've paid"),
         ),
@@ -572,23 +597,28 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
             if (result['additionalFee'] != null)
               _resultRow(
                 'Additional fee charged',
-                _currency.format(num.tryParse(result['additionalFee'].toString()) ?? 0),
+                _currency.format(
+                    num.tryParse(result['additionalFee'].toString()) ?? 0),
               ),
             if (result['updatedTotalFee'] != null)
               _resultRow(
                 'New total rental fee',
-                _currency.format(num.tryParse(result['updatedTotalFee'].toString()) ?? 0),
+                _currency.format(
+                    num.tryParse(result['updatedTotalFee'].toString()) ?? 0),
               ),
           ] else if (widget.payOverdue) ...[
             if (result['additionalFee'] != null)
               _resultRow(
                 'Late fee paid',
-                _currency.format(num.tryParse(result['additionalFee'].toString()) ?? 0),
+                _currency.format(
+                    num.tryParse(result['additionalFee'].toString()) ?? 0),
               ),
           ] else ...[
             if (result['scheduledReturnTime'] != null)
-              _resultRow('Scheduled return', result['scheduledReturnTime'].toString()),
-            if (result['status'] != null) _resultRow('Status', result['status'].toString()),
+              _resultRow(
+                  'Scheduled return', result['scheduledReturnTime'].toString()),
+            if (result['status'] != null)
+              _resultRow('Status', result['status'].toString()),
           ],
         ],
       ),
@@ -607,8 +637,12 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.onSurfaceVariant)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
         ],
       ),
     );

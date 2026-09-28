@@ -47,8 +47,7 @@ class TicketApiService {
           'category': category,
           'title': title,
           'description': description,
-          if (bookingId != null && bookingId.isNotEmpty)
-            'bookingId': bookingId,
+          if (bookingId != null && bookingId.isNotEmpty) 'bookingId': bookingId,
         },
       );
     } on DioException catch (e) {
@@ -67,7 +66,9 @@ class TicketApiService {
       if (data is Map && data['data'] is Map) {
         return Map<String, dynamic>.from(data['data']);
       }
-      return data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
+      return data is Map<String, dynamic>
+          ? data
+          : Map<String, dynamic>.from(data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to load ticket detail: $message');

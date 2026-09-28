@@ -86,7 +86,8 @@ class _ExploreScreenState extends State<ExploreScreen>
       // the facility since there's nothing to compare against.
       final matchArea = f.minAreaSqm == null ||
           f.maxAreaSqm == null ||
-          (f.minAreaSqm! <= _areaRange.end && f.maxAreaSqm! >= _areaRange.start);
+          (f.minAreaSqm! <= _areaRange.end &&
+              f.maxAreaSqm! >= _areaRange.start);
       return matchQ && matchArea;
     }).toList();
   }
@@ -157,7 +158,8 @@ class _ExploreScreenState extends State<ExploreScreen>
                     Text(
                       '${tempMin.toInt()} – ${tempMax.toInt()} m²',
                       style: const TextStyle(
-                          color: AppColors.primary, fontWeight: FontWeight.w600),
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -275,7 +277,8 @@ class _ExploreScreenState extends State<ExploreScreen>
                                 border: Border.all(
                                     color: Colors.white.withValues(alpha: 0.4)),
                               ),
-                              child: const Icon(Icons.tune, color: Colors.white),
+                              child:
+                                  const Icon(Icons.tune, color: Colors.white),
                             ),
                             if (_activeFilterCount > 0)
                               Positioned(
@@ -552,20 +555,22 @@ class _FacilityCard extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    if (facility.minAreaSqm != null && facility.maxAreaSqm != null)
-                      _infoChip(Icons.straighten,
+                    if (facility.minAreaSqm != null &&
+                        facility.maxAreaSqm != null)
+                      _infoChip(
+                          Icons.straighten,
                           '${facility.minAreaSqm!.toInt()}–${facility.maxAreaSqm!.toInt()} m²',
                           Colors.indigo),
                     if (facility.minAreaSqm != null) const SizedBox(width: 8),
-                    _infoChip(Icons.inventory_2_outlined, availLabel, availColor),
+                    _infoChip(
+                        Icons.inventory_2_outlined, availLabel, availColor),
                     const Spacer(),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         const Text('From',
                             style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textSecondary)),
+                                fontSize: 11, color: AppColors.textSecondary)),
                         Text(
                           facility.minPricePerMonth != null
                               ? '${_formatPrice(facility.minPricePerMonth!)}/month'

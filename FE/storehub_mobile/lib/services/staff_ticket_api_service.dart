@@ -9,8 +9,8 @@ class StaffTicketApiService {
   final Dio _dio = HttpClient.instance.dio;
 
   Future<List<StaffTicketModel>> getFacilityTickets(
-      String facilityId,
-      ) async {
+    String facilityId,
+  ) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.staffTickets,
@@ -74,9 +74,7 @@ class StaffTicketApiService {
   }
 
   List<dynamic> _unwrapPageContent(dynamic data) {
-    if (data is Map &&
-        data['data'] is Map &&
-        data['data']['content'] is List) {
+    if (data is Map && data['data'] is Map && data['data']['content'] is List) {
       return List<dynamic>.from(data['data']['content']);
     }
 
@@ -101,9 +99,7 @@ class StaffTicketApiService {
 
   Exception _error(DioException error, String action) {
     final data = error.response?.data;
-    final message = data is Map
-        ? data['message']?.toString()
-        : error.message;
+    final message = data is Map ? data['message']?.toString() : error.message;
 
     return Exception(
       'Failed to $action: ${message ?? 'Unknown error'}',

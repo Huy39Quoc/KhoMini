@@ -61,8 +61,7 @@ class MyUnitModel {
 
   factory MyUnitModel.fromJson(Map<String, dynamic> json) {
     return MyUnitModel(
-      bookingId:
-          json['bookingId']?.toString() ?? json['id']?.toString() ?? '',
+      bookingId: json['bookingId']?.toString() ?? json['id']?.toString() ?? '',
       bookingCode: json['bookingCode']?.toString() ?? '',
       unitCode: json['unitCode']?.toString() ?? '',
       facilityName: json['facilityName']?.toString() ?? '',
