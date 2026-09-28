@@ -86,4 +86,32 @@ class AssignableUserModel {
 
     return email;
   }
+
+}
+class FacilityBookingModel {
+  final String id;
+  final String bookingCode;
+  final String customerName;
+  final String customerEmail;
+  final String startDate;
+  final String endDate;
+  final String storageUnitId;
+  final String unitCode;
+  final String unitTypeId;
+  final String unitType;
+  final String status;
+
+  const FacilityBookingModel({
+    required this.id,
+    required this.bookingCode,
+    required this.customerName,
+    required this.customerEmail,
+    required this.startDate,
+    required this.endDate,
+    required this.storageUnitId,
+    required this.unitCode,
+    required this.unitTypeId,
+    required this.unitType,
+    required this.status,
+  });
 }

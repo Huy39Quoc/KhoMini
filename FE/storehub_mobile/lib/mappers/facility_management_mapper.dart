@@ -109,4 +109,23 @@ class FacilityManagementMapper {
     ) ??
         0;
   }
+
+  static FacilityBookingModel bookingFromJson(
+      Map<String, dynamic> json,
+      ) {
+    return FacilityBookingModel(
+      id: _text(json['bookingId']),
+      bookingCode: _text(json['bookingCode']),
+      customerName: _text(json['customerName']),
+      customerEmail: _text(json['customerEmail']),
+      startDate: _text(json['startDate']),
+      endDate: _text(json['endDate']),
+      storageUnitId: _text(json['storageUnitId']),
+      unitCode: _text(json['unitCode']),
+      unitTypeId: _text(json['unitTypeId']),
+      unitType: _text(json['unitType']),
+      status: _text(json['status']),
+    );
+  }
 }
+

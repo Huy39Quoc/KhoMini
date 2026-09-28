@@ -277,6 +277,23 @@ class FacilityOpsApiService {
     }
   }
 
+
+  Future<List<FacilityBookingModel>> getConfirmedBookings(
+      String facilityId,
+      ) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.facilityConfirmedBookings(facilityId),
+      );
+
+      return _unwrapList(response.data)
+          .map(FacilityManagementMapper.asJsonMap)
+          .map(FacilityManagementMapper.bookingFromJson)
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load confirmed bookings');
+    }
+  }
   // =========================================================
   // Facility Staff - Flow 2
   // Các response được chuyển sang model bằng mapper

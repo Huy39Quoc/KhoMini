@@ -8,7 +8,7 @@ import '../../services/catalog_api_service.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
-
+import 'booking_assignment_screen.dart';
 class ManagerDashboardScreen extends StatefulWidget {
   final UserModel user;
 
@@ -833,6 +833,26 @@ class _ManagerDashboardScreenState
               'Facility Manager Console',
         ),
         actions: [
+          if (_facilityId != null)
+            IconButton(
+                tooltip: 'Confirmed bookings',
+                icon: const Icon(Icons.swap_horiz_outlined),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BookingAssignmentScreen(
+                        facilityId: _facilityId!,
+                        facilityName: _facilityName ?? '',
+                      ),
+                    ),
+                  ).then((_) {
+                    if (!mounted) return;
+                    _loadUnits();
+                    _loadReport();
+                  });
+                },
+            ),
           IconButton(
             tooltip: 'Profile',
             icon: CircleAvatar(
