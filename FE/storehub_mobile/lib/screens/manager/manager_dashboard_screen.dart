@@ -478,8 +478,6 @@ class _ManagerDashboardScreenState
       },
     );
 
-    unitCodeController.dispose();
-    floorController.dispose();
   }
 
   Future<void> _openAssignStaffSheet() async {
