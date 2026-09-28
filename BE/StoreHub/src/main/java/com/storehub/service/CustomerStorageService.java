@@ -18,6 +18,12 @@ public interface CustomerStorageService {
 
     SmartAccessResponse updateAccessPin(UUID bookingId, String customerEmail, UpdatePinRequest request);
 
+    // Bật/tắt khóa ngăn kho - vì không có phần cứng khóa thật đứng sau
+    // PIN/QR, đây là cách khách (và người test) thật sự "thấy" hành động
+    // mở/đóng khóa xảy ra, thay vì chỉ nhìn một mã QR không quét được vào
+    // đâu cả.
+    SmartAccessResponse setLockState(UUID bookingId, String customerEmail, boolean locked);
+
     ContractOperationResponse extendRental(UUID bookingId, String customerEmail, ExtendRentalRequest request);
 
     ContractOperationResponse requestCheckout(UUID bookingId, String customerEmail, CheckoutRequest request);

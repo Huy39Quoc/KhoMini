@@ -1,5 +1,5 @@
 // Matches BE SmartAccessResponse: { bookingId, unitCode, accessPin,
-// qrCodeToken, pinUpdatedAt, tokenExpiresAt }
+// qrCodeToken, pinUpdatedAt, tokenExpiresAt, locked }
 class SmartAccessModel {
   final String bookingId;
   final String unitCode;
@@ -7,6 +7,7 @@ class SmartAccessModel {
   final String qrCodeToken;
   final DateTime? pinUpdatedAt;
   final DateTime? tokenExpiresAt;
+  final bool locked;
 
   SmartAccessModel({
     required this.bookingId,
@@ -15,6 +16,7 @@ class SmartAccessModel {
     required this.qrCodeToken,
     this.pinUpdatedAt,
     this.tokenExpiresAt,
+    this.locked = true,
   });
 
   factory SmartAccessModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,7 @@ class SmartAccessModel {
       tokenExpiresAt: json['tokenExpiresAt'] != null
           ? DateTime.tryParse(json['tokenExpiresAt'].toString())
           : null,
+      locked: json['locked'] == null ? true : json['locked'] == true,
     );
   }
 }

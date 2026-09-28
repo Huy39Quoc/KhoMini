@@ -292,6 +292,7 @@ CREATE TABLE IF NOT EXISTS bookings
     expires_at               TIMESTAMP,
     pending_extra_months     INTEGER,
     pending_extension_fee    NUMERIC(12,2),
+    unit_locked              BOOLEAN NOT NULL DEFAULT TRUE,
 
     CONSTRAINT pk_bookings PRIMARY KEY (id),
 

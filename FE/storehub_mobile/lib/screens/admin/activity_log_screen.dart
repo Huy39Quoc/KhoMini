@@ -37,11 +37,20 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> with SingleTicker
   }
 
   void _loadAll() {
-    setState(() => _allLogsFuture = _service.getActivityLogs());
+    // FIX: setState(() => _allLogsFuture = ...) trước đây khiến callback
+    // "trả về" chính giá trị Future vừa gán (vì đây là 1 assignment
+    // expression), làm Flutter tưởng callback là async -> lỗi đỏ toàn màn
+    // hình "setState() callback argument returned a Future". Đổi sang
+    // block-body { } để statement gán không có giá trị trả về (void).
+    setState(() {
+      _allLogsFuture = _service.getActivityLogs();
+    });
   }
 
   void _loadLoginHistory() {
-    setState(() => _loginHistoryFuture = _service.getLoginHistory());
+    setState(() {
+      _loginHistoryFuture = _service.getLoginHistory();
+    });
   }
 
   Color _statusColor(String? status) => status == 'FAILED' ? AppColors.error : AppColors.success;
