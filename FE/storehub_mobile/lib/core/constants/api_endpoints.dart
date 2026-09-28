@@ -112,4 +112,6 @@ class ApiEndpoints {
   static String checkOut(String bookingId) => '/facility/operations/$bookingId/check-out';
   static String updateUnitStatus(String unitId) =>
       '/facility/operations/units/$unitId/status';
+  static String handoverRecords(String bookingId) =>
+      '/facility/operations/$bookingId/handover-records';
 }
