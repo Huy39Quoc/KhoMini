@@ -22,4 +22,3 @@ class StoreHubApp extends StatelessWidget {
     );
   }
 }
-

@@ -290,6 +290,9 @@ CREATE TABLE IF NOT EXISTS bookings
     qr_access_token          VARCHAR(255),
     pin_updated_at           TIMESTAMP,
     expires_at               TIMESTAMP,
+    pending_extra_months     INTEGER,
+    pending_extension_fee    NUMERIC(12,2),
+    unit_locked              BOOLEAN NOT NULL DEFAULT TRUE,
 
     CONSTRAINT pk_bookings PRIMARY KEY (id),
 

@@ -110,4 +110,39 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("status") BookingStatus status,
             @Param("now") LocalDateTime now
     );
-}
+
+    long countByStorageUnit_Facility_IdAndStatusAndOverdueDetectedAtIsNotNull(
+            UUID facilityId,
+            BookingStatus status
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT b FROM Booking b
+        JOIN FETCH b.storageUnit su
+        JOIN FETCH su.facility f
+        WHERE b.status = :status
+        AND b.endDate < :today
+        ORDER BY b.endDate ASC
+        """)
+    List<Booking> findActiveOverdueBookingsForUpdate(
+            @Param("status") BookingStatus status,
+            @Param("today") LocalDate today
+    );
+
+    @Query("""
+        SELECT b
+        FROM Booking b
+        JOIN FETCH b.customer
+        JOIN FETCH b.storageUnit su
+        JOIN FETCH su.facility f
+        JOIN FETCH su.unitType
+        WHERE f.id = :facilityId
+        AND b.status = :status
+        ORDER BY b.startDate ASC, b.createdAt ASC
+        """)
+    List<Booking> findByFacilityIdAndStatus(
+            @Param("facilityId") UUID facilityId,
+            @Param("status") BookingStatus status
+    );
+}

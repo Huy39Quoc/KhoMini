@@ -1,6 +1,3 @@
-/// All backend endpoints, relative to [baseUrl]. Kept 1:1 with the
-/// @RequestMapping / @GetMapping / @PostMapping paths declared in the
-/// Spring Boot controllers under BE/StoreHub/src/main/java/com/storehub/controller.
 class ApiEndpoints {
   static const String baseUrl = 'http://10.0.2.2:8080/api/v1';
 
@@ -19,10 +16,27 @@ class ApiEndpoints {
       '/customer/storage/$bookingId/access';
   static String updatePin(String bookingId) =>
       '/customer/storage/$bookingId/access/pin';
+  static String unlockUnit(String bookingId) =>
+      '/customer/storage/$bookingId/access/unlock';
+  static String lockUnit(String bookingId) =>
+      '/customer/storage/$bookingId/access/lock';
   static String extendRental(String bookingId) =>
       '/customer/storage/$bookingId/extend';
   static String checkoutRental(String bookingId) =>
       '/customer/storage/$bookingId/checkout';
+  static String pendingExtensionPayment(String bookingId) =>
+      '/customer/storage/$bookingId/extend/pending-payment';
+
+  // ---- Staff Tickets (StaffTicketController) ----
+  static const String staffTickets = '/staff/tickets';
+  static String staffTicketAssign(String ticketId) =>
+      '/staff/tickets/$ticketId/assign-to-me';
+  static String staffTicketStatus(String ticketId) =>
+      '/staff/tickets/$ticketId/status';
+
+  // Phí trễ hạn đang chờ thanh toán (PaymentController)
+  static String overduePayment(String bookingId) =>
+      '/payments/bookings/$bookingId/overdue';
 
   // ---- Customer Tickets (CustomerTicketController) ----
   static const String tickets = '/customer/tickets';
@@ -96,7 +110,8 @@ class ApiEndpoints {
       '/facility/management/$facilityId/units';
   static String facilityUnitDetail(String facilityId, String unitId) =>
       '/facility/management/$facilityId/units/$unitId';
-  static String facilityAssignUnit(String facilityId, String bookingId, String unitId) =>
+  static String facilityAssignUnit(
+          String facilityId, String bookingId, String unitId) =>
       '/facility/management/$facilityId/bookings/$bookingId/unit/$unitId';
   static String facilityManagerReport(String facilityId) =>
       '/facility/management/$facilityId/report';
@@ -106,11 +121,19 @@ class ApiEndpoints {
       '/facility/management/$facilityId/staff/$userId';
   static String facilityAssignManager(String facilityId, String userId) =>
       '/facility/management/$facilityId/managers/$userId';
-
+  static String facilityConfirmedBookings(String facilityId) =>
+      '/facility/management/$facilityId/bookings/confirmed';
   // ---- Facility Operations (FacilityOperationsController) - Facility Staff ----
   static const String dailySchedule = '/facility/operations/daily-schedule';
-  static String checkIn(String bookingId) => '/facility/operations/$bookingId/check-in';
-  static String checkOut(String bookingId) => '/facility/operations/$bookingId/check-out';
+  static String checkIn(String bookingId) =>
+      '/facility/operations/$bookingId/check-in';
+
+  static String handoverRecords(String bookingId) =>
+      '/facility/operations/$bookingId/handover-records';
+
+  static String checkOut(String bookingId) =>
+      '/facility/operations/$bookingId/check-out';
+
   static String updateUnitStatus(String unitId) =>
       '/facility/operations/units/$unitId/status';
 }

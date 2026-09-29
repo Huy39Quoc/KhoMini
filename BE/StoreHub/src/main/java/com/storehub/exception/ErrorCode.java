@@ -52,6 +52,13 @@ public enum ErrorCode {
     NO_AVAILABLE_UNIT(707, "No available storage unit found for the selected type and facility", HttpStatus.CONFLICT),
     BOOKING_EXPIRED(708, "Booking has expired. Please create a new booking.", HttpStatus.GONE),
     BOOKING_CANCEL_NOT_ALLOWED(711, "Only PENDING_PAYMENT bookings can be cancelled by the customer", HttpStatus.CONFLICT),
+    EXTENSION_ALREADY_PENDING(712, "This booking already has an extension request awaiting payment. Please pay or wait for it to be settled first.", HttpStatus.CONFLICT),
+    RENEWAL_WINDOW_NOT_REACHED(713, "It is too early to request an extension for this booking under the facility's renewal policy", HttpStatus.FORBIDDEN),
+    RETURN_NOTICE_NOT_SATISFIED(714, "Scheduled return time does not satisfy the facility's minimum return notice period", HttpStatus.BAD_REQUEST),
+    ACCESS_DISABLED_OVERDUE(715, "Access to this unit has been disabled because the rental is overdue. Please settle the late fee and extend or return the unit.", HttpStatus.FORBIDDEN),
+    OVERDUE_FEE_UNPAID(716, "Please pay the outstanding late fee before extending this rental", HttpStatus.CONFLICT),
+    NO_PENDING_EXTENSION(717, "This booking has no pending extension request", HttpStatus.NOT_FOUND),
+
 
     UNIT_UNAVAILABLE(
             709,

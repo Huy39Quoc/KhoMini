@@ -1,13 +1,12 @@
 import 'package:dio/dio.dart';
+
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
+import '../mappers/facility_operations_mapper.dart';
+import '../models/facility_operations_models.dart';
+import '../mappers/facility_management_mapper.dart';
+import '../models/facility_management_models.dart';
 
-/// Wires FacilityManagementController (Facility Manager: units, staff,
-/// facility report, assigning a unit to a booking) and
-/// FacilityOperationsController (Facility Staff: daily schedule, check-in,
-/// check-out, unit status). Both controllers were only just merged onto
-/// the BE - this is Member 4's entire Flow 2 / Flow 5 scope, previously
-/// 0% wired on the FE because there was nothing to wire to.
 class FacilityOpsApiService {
   final Dio _dio = HttpClient.instance.dio;
 
@@ -15,45 +14,93 @@ class FacilityOpsApiService {
     if (data is Map && data['data'] is Map) {
       return Map<String, dynamic>.from(data['data']);
     }
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    return {};
+
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+
+    return <String, dynamic>{};
   }
 
   List<dynamic> _unwrapList(dynamic data) {
-    if (data is Map && data['data'] is List) return data['data'];
-    if (data is List) return data;
-    return [];
+    if (data is Map && data['data'] is List) {
+      return List<dynamic>.from(data['data']);
+    }
+
+    if (data is List) {
+      return data;
+    }
+
+    return <dynamic>[];
   }
 
-  Exception _err(DioException e, String action) {
-    final message = e.response?.data?['message'] ?? e.message;
-    return Exception('Failed to $action: $message');
+  Exception _err(DioException error, String action) {
+    final responseData = error.response?.data;
+
+    String? message;
+
+    if (responseData is Map) {
+      message = responseData['message']?.toString();
+    }
+
+    message ??= error.message;
+
+    return Exception(
+      'Failed to $action: ${message ?? 'Unknown error'}',
+    );
   }
 
-  // ===== Facility Manager (FacilityManagementController) =====
+  List<dynamic> _unwrapPageContent(dynamic data) {
+    if (data is Map) {
+      final payload = data['data'];
 
-  /// GET /facility/management/my-facility - the facility this Manager or
-  /// Staff account is assigned to (User.facility on the BE).
-  Future<Map<String, dynamic>> getMyFacility() async {
+      if (payload is Map && payload['content'] is List) {
+        return List<dynamic>.from(
+          payload['content'],
+        );
+      }
+
+      if (data['content'] is List) {
+        return List<dynamic>.from(
+          data['content'],
+        );
+      }
+    }
+
+    return _unwrapList(data);
+  }
+
+  // =========================================================
+  // Facility Manager - Flow 5
+  // Tạm thời giữ Map/dynamic, sẽ đổi sang mapper khi làm Flow 5
+  // =========================================================
+
+  // =========================================================
+// Facility Manager - Flow 5
+// =========================================================
+
+  Future<List<FacilityUnitModel>> getFacilityUnits(
+    String facilityId,
+  ) async {
     try {
-      final response = await _dio.get(ApiEndpoints.myFacility);
-      return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'load your assigned facility');
+      final response = await _dio.get(
+        ApiEndpoints.facilityUnits(facilityId),
+      );
+
+      return _unwrapList(response.data)
+          .map(FacilityManagementMapper.asJsonMap)
+          .map(FacilityManagementMapper.unitFromJson)
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load units');
     }
   }
 
-  Future<List<dynamic>> getFacilityUnits(String facilityId) async {
-    try {
-      final response = await _dio.get(ApiEndpoints.facilityUnits(facilityId));
-      return _unwrapList(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'load units');
-    }
-  }
-
-  Future<Map<String, dynamic>> createFacilityUnit(
+  Future<FacilityUnitModel> createFacilityUnit(
     String facilityId, {
     required String unitCode,
     String? floorLevel,
@@ -62,19 +109,22 @@ class FacilityOpsApiService {
     try {
       final response = await _dio.post(
         ApiEndpoints.facilityUnits(facilityId),
-        data: {
-          'unitCode': unitCode,
-          if (floorLevel != null && floorLevel.isNotEmpty) 'floorLevel': floorLevel,
-          'unitTypeId': unitTypeId,
-        },
+        data: FacilityManagementMapper.unitRequestToJson(
+          unitCode: unitCode,
+          floorLevel: floorLevel,
+          unitTypeId: unitTypeId,
+        ),
       );
-      return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'create unit');
+
+      return FacilityManagementMapper.unitFromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'create unit');
     }
   }
 
-  Future<Map<String, dynamic>> updateFacilityUnit(
+  Future<FacilityUnitModel> updateFacilityUnit(
     String facilityId,
     String unitId, {
     required String unitCode,
@@ -83,72 +133,187 @@ class FacilityOpsApiService {
   }) async {
     try {
       final response = await _dio.put(
-        ApiEndpoints.facilityUnitDetail(facilityId, unitId),
-        data: {
-          'unitCode': unitCode,
-          if (floorLevel != null && floorLevel.isNotEmpty) 'floorLevel': floorLevel,
-          'unitTypeId': unitTypeId,
-        },
+        ApiEndpoints.facilityUnitDetail(
+          facilityId,
+          unitId,
+        ),
+        data: FacilityManagementMapper.unitRequestToJson(
+          unitCode: unitCode,
+          floorLevel: floorLevel,
+          unitTypeId: unitTypeId,
+        ),
       );
-      return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'update unit');
+
+      return FacilityManagementMapper.unitFromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'update unit');
     }
   }
 
-  Future<Map<String, dynamic>> assignUnitToBooking(
+  Future<FacilityUnitModel> assignUnitToBooking(
     String facilityId,
     String bookingId,
     String unitId,
   ) async {
     try {
       final response = await _dio.put(
-        ApiEndpoints.facilityAssignUnit(facilityId, bookingId, unitId),
+        ApiEndpoints.facilityAssignUnit(
+          facilityId,
+          bookingId,
+          unitId,
+        ),
       );
-      return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'assign unit to booking');
+
+      return FacilityManagementMapper.unitFromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'assign unit to booking');
     }
   }
 
-  Future<Map<String, dynamic>> getFacilityManagerReport(String facilityId) async {
+  Future<FacilityReportModel> getFacilityManagerReport(
+    String facilityId,
+  ) async {
     try {
-      final response = await _dio.get(ApiEndpoints.facilityManagerReport(facilityId));
-      return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'load facility report');
+      final response = await _dio.get(
+        ApiEndpoints.facilityManagerReport(
+          facilityId,
+        ),
+      );
+
+      return FacilityManagementMapper.reportFromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'load facility report');
     }
   }
 
-  Future<List<dynamic>> getFacilityStaff(String facilityId) async {
+  Future<List<FacilityStaffModel>> getFacilityStaff(
+    String facilityId,
+  ) async {
     try {
-      final response = await _dio.get(ApiEndpoints.facilityStaffList(facilityId));
-      return _unwrapList(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'load staff list');
+      final response = await _dio.get(
+        ApiEndpoints.facilityStaffList(
+          facilityId,
+        ),
+      );
+
+      return _unwrapList(response.data)
+          .map(FacilityManagementMapper.asJsonMap)
+          .map(FacilityManagementMapper.staffFromJson)
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load staff list');
     }
   }
 
-  Future<Map<String, dynamic>> assignStaffToFacility(String facilityId, String userId) async {
+  Future<List<AssignableUserModel>> getAssignableUsers() async {
     try {
-      final response = await _dio.put(ApiEndpoints.facilityAssignStaff(facilityId, userId));
-      return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'assign staff');
+      final response = await _dio.get(
+        ApiEndpoints.users,
+        queryParameters: {
+          'page': 0,
+          'size': 200,
+          'isActive': true,
+          'sortBy': 'fullName',
+          'sortDir': 'asc',
+        },
+      );
+
+      return _unwrapPageContent(response.data)
+          .map(FacilityManagementMapper.asJsonMap)
+          .map(
+            FacilityManagementMapper.assignableUserFromJson,
+          )
+          .where(
+            (user) => user.id.isNotEmpty && user.isActive,
+          )
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load assignable users');
     }
   }
 
-  Future<void> unassignStaff(String facilityId, String userId) async {
+  Future<FacilityStaffModel> assignStaffToFacility(
+    String facilityId,
+    String userId,
+  ) async {
     try {
-      await _dio.delete(ApiEndpoints.facilityAssignStaff(facilityId, userId));
-    } on DioException catch (e) {
-      throw _err(e, 'unassign staff');
+      final response = await _dio.put(
+        ApiEndpoints.facilityAssignStaff(
+          facilityId,
+          userId,
+        ),
+      );
+
+      return FacilityManagementMapper.staffFromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'assign staff');
     }
   }
 
-  // ===== Facility Staff (FacilityOperationsController) =====
+  Future<void> unassignStaff(
+    String facilityId,
+    String userId,
+  ) async {
+    try {
+      await _dio.delete(
+        ApiEndpoints.facilityAssignStaff(
+          facilityId,
+          userId,
+        ),
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'unassign staff');
+    }
+  }
 
-  Future<List<dynamic>> getDailySchedule({
+  Future<List<FacilityBookingModel>> getConfirmedBookings(
+    String facilityId,
+  ) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.facilityConfirmedBookings(facilityId),
+      );
+
+      return _unwrapList(response.data)
+          .map(FacilityManagementMapper.asJsonMap)
+          .map(FacilityManagementMapper.bookingFromJson)
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load confirmed bookings');
+    }
+  }
+  // =========================================================
+  // Facility Staff - Flow 2
+  // Các response được chuyển sang model bằng mapper
+  // =========================================================
+
+  Future<AssignedFacilityModel> getAssignedFacility() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.myFacility);
+
+      return FacilityOperationsMapper.assignedFacilityFromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      // BE trả 403 (ErrorCode.FORBIDDEN) khi tài khoản chưa được gán cơ sở
+      // (users.facility_id null). Đó không phải lỗi hệ thống: trả model rỗng để
+      // màn hình hiện "No facility assigned" thay vì "Something went wrong".
+      if (error.response?.statusCode == 403) {
+        return const AssignedFacilityModel(id: '', name: '', address: '');
+      }
+      throw _err(error, 'load your assigned facility');
+    }
+  }
+
+  Future<List<DailyScheduleModel>> getDailySchedule({
     required String facilityId,
     required DateTime date,
   }) async {
@@ -160,13 +325,17 @@ class FacilityOpsApiService {
           'date': _formatDate(date),
         },
       );
-      return _unwrapList(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'load the daily schedule');
+
+      return _unwrapList(response.data)
+          .map(FacilityOperationsMapper.asJsonMap)
+          .map(FacilityOperationsMapper.dailyScheduleFromJson)
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load the daily schedule');
     }
   }
 
-  Future<Map<String, dynamic>> checkIn({
+  Future<HandoverModel> checkIn({
     required String bookingId,
     required String facilityId,
     required String unitCondition,
@@ -176,20 +345,25 @@ class FacilityOpsApiService {
     try {
       final response = await _dio.post(
         ApiEndpoints.checkIn(bookingId),
-        queryParameters: {'facilityId': facilityId},
-        data: {
-          'unitCondition': unitCondition,
-          'lockCondition': lockCondition,
-          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        queryParameters: {
+          'facilityId': facilityId,
         },
+        data: FacilityOperationsMapper.handoverRequestToJson(
+          unitCondition: unitCondition,
+          lockCondition: lockCondition,
+          notes: notes,
+        ),
       );
-      return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'check in this customer');
+
+      return FacilityOperationsMapper.handoverFromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'check in this customer');
     }
   }
 
-  Future<Map<String, dynamic>> checkOut({
+  Future<HandoverModel> checkOut({
     required String bookingId,
     required String facilityId,
     required String unitCondition,
@@ -199,21 +373,45 @@ class FacilityOpsApiService {
     try {
       final response = await _dio.post(
         ApiEndpoints.checkOut(bookingId),
-        queryParameters: {'facilityId': facilityId},
-        data: {
-          'unitCondition': unitCondition,
-          'lockCondition': lockCondition,
-          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        queryParameters: {
+          'facilityId': facilityId,
         },
+        data: FacilityOperationsMapper.handoverRequestToJson(
+          unitCondition: unitCondition,
+          lockCondition: lockCondition,
+          notes: notes,
+        ),
       );
-      return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'complete check-out');
+
+      return FacilityOperationsMapper.handoverFromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'complete check-out');
     }
   }
 
-  /// status must match com.storehub.enums.UnitStatus: AVAILABLE, RESERVED,
-  /// OCCUPIED, UNDER_MAINTENANCE.
+  Future<List<HandoverRecordModel>> getHandoverHistory({
+    required String bookingId,
+    required String facilityId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.handoverRecords(bookingId),
+        queryParameters: {
+          'facilityId': facilityId,
+        },
+      );
+
+      return _unwrapList(response.data)
+          .map(FacilityOperationsMapper.asJsonMap)
+          .map(FacilityOperationsMapper.handoverRecordFromJson)
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load handover history');
+    }
+  }
+
   Future<void> updateUnitStatus({
     required String unitId,
     required String facilityId,
@@ -222,16 +420,25 @@ class FacilityOpsApiService {
     try {
       await _dio.patch(
         ApiEndpoints.updateUnitStatus(unitId),
-        queryParameters: {'facilityId': facilityId},
-        data: {'status': status},
+        queryParameters: {
+          'facilityId': facilityId,
+        },
+        data: {
+          'status': status,
+        },
       );
-    } on DioException catch (e) {
-      throw _err(e, 'update unit status');
+    } on DioException catch (error) {
+      throw _err(error, 'update unit status');
     }
   }
 
-  String _formatDate(DateTime dt) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${dt.year.toString().padLeft(4, '0')}-${two(dt.month)}-${two(dt.day)}';
+  String _formatDate(DateTime date) {
+    String twoDigits(int value) {
+      return value.toString().padLeft(2, '0');
+    }
+
+    return '${date.year.toString().padLeft(4, '0')}'
+        '-${twoDigits(date.month)}'
+        '-${twoDigits(date.day)}';
   }
 }

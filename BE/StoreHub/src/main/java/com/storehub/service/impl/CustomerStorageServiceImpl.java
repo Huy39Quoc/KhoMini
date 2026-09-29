@@ -7,18 +7,28 @@ import com.storehub.dto.response.ContractOperationResponse;
 import com.storehub.dto.response.MyUnitResponse;
 import com.storehub.dto.response.SmartAccessResponse;
 import com.storehub.entity.Booking;
-import com.storehub.entity.Facility;
-import com.storehub.entity.StorageUnit;
-import com.storehub.entity.UnitType;
 import com.storehub.entity.User;
 import com.storehub.enums.BookingStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
+import com.storehub.dto.request.PaymentInitiationRequest;
+import com.storehub.dto.response.PaymentResponse;
+import com.storehub.entity.Payment;
+import com.storehub.enums.PaymentStatus;
+import com.storehub.enums.PaymentType;
+import com.storehub.repository.PaymentRepository;
+import java.time.temporal.ChronoUnit;
+import static com.storehub.common.PaymentNotes.OVERDUE_LATE_FEE;
+import static com.storehub.common.PaymentNotes.RENTAL_EXTENSION;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.enums.ActivityAction;
+import com.storehub.mapper.CustomerStorageMapper;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.CustomerStorageService;
+import com.storehub.service.FacilityPolicyService;
+import com.storehub.service.PaymentService;
+import com.storehub.service.PricingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,10 +48,16 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final PaymentRepository paymentRepository;
     private final ActivityLogService activityLogService;
 
+    private final PricingService pricingService;
+    private final FacilityPolicyService facilityPolicyService;
+    private final PaymentService paymentService;
+    private final CustomerStorageMapper customerStorageMapper;
+
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<MyUnitResponse> getMyRentedUnits(String customerEmail) {
         UUID customerId = resolveCustomerId(customerEmail);
 
@@ -51,6 +67,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         );
 
         List<Booking> bookings = bookingRepository.findActiveBookingsByCustomerId(customerId, activeStatuses);
+        bookings.forEach(this::reconcileOverdueState);
         return bookings.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
@@ -58,6 +75,8 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     @Transactional
     public SmartAccessResponse getSmartAccessInfo(UUID bookingId, String customerEmail) {
         Booking booking = validateActiveBooking(bookingId, resolveCustomerId(customerEmail));
+        reconcileOverdueState(booking);
+        requireAccessEnabled(booking);
 
         boolean isNewPin = false;
         if (booking.getAccessPin() == null || booking.getAccessPin().isBlank()) {
@@ -76,20 +95,14 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                     "Issued initial access PIN for booking " + booking.getBookingCode(), null, null);
         }
 
-        return SmartAccessResponse.builder()
-                .bookingId(booking.getId())
-                .unitCode(booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "Unassigned")
-                .accessPin(booking.getAccessPin())
-                .qrCodeToken(qrToken)
-                .pinUpdatedAt(booking.getPinUpdatedAt())
-                .tokenExpiresAt(LocalDateTime.now().plusMinutes(5))
-                .build();
+        return customerStorageMapper.toSmartAccessResponse(booking);
     }
 
     @Override
     @Transactional
     public SmartAccessResponse updateAccessPin(UUID bookingId, String customerEmail, UpdatePinRequest request) {
         Booking booking = validateActiveBooking(bookingId, resolveCustomerId(customerEmail));
+        requireAccessEnabled(booking);
 
         booking.setAccessPin(request.getNewPin());
         booking.setPinUpdatedAt(LocalDateTime.now());
@@ -99,14 +112,25 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         activityLogService.record(customerId, ActivityAction.ACCESS_CREDENTIAL_UPDATE, "BOOKING", booking.getId(),
                 "Updated access PIN for booking " + booking.getBookingCode(), null, null);
 
-        return SmartAccessResponse.builder()
-                .bookingId(booking.getId())
-                .unitCode(booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "Unassigned")
-                .accessPin(booking.getAccessPin())
-                .qrCodeToken(booking.getQrAccessToken())
-                .pinUpdatedAt(booking.getPinUpdatedAt())
-                .tokenExpiresAt(LocalDateTime.now().plusMinutes(5))
-                .build();
+        return customerStorageMapper.toSmartAccessResponse(booking);
+    }
+
+    @Override
+    @Transactional
+    public SmartAccessResponse setLockState(UUID bookingId, String customerEmail, boolean locked) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        Booking booking = validateActiveBooking(bookingId, customerId);
+        requireAccessEnabled(booking);
+
+        booking.setUnitLocked(locked);
+        bookingRepository.save(booking);
+
+        activityLogService.record(customerId, locked ? ActivityAction.UNIT_LOCKED : ActivityAction.UNIT_UNLOCKED,
+                "BOOKING", booking.getId(),
+                (locked ? "Locked" : "Unlocked") + " storage unit for booking " + booking.getBookingCode(),
+                null, null);
+
+        return customerStorageMapper.toSmartAccessResponse(booking);
     }
 
     @Override
@@ -115,37 +139,58 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         UUID customerId = resolveCustomerId(customerEmail);
         Booking booking = validateActiveBooking(bookingId, customerId);
 
+        if (booking.getPendingExtraMonths() != null) {
+            throw new AppException(ErrorCode.EXTENSION_ALREADY_PENDING);
+        }
+
+        if (findPendingLateFee(booking.getId()) != null) {
+            throw new AppException(ErrorCode.OVERDUE_FEE_UNPAID);
+        }
+
+        if (booking.getStorageUnit() == null || booking.getStorageUnit().getFacility() == null) {
+            throw new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND);
+        }
+        UUID facilityId = booking.getStorageUnit().getFacility().getId();
+
+        if (!facilityPolicyService.isWithinRenewalWindow(facilityId, booking.getEndDate())) {
+            throw new AppException(ErrorCode.RENEWAL_WINDOW_NOT_REACHED);
+        }
+
         LocalDate oldEndDate = booking.getEndDate();
         int extraMonths = request.getExtraMonths();
+        LocalDate projectedNewEndDate = oldEndDate.plusMonths(extraMonths);
 
-        LocalDate newEndDate = oldEndDate.plusMonths(extraMonths);
+        BigDecimal additionalFee = pricingService.calculateExtensionFee(booking.getStorageUnit(), extraMonths);
 
-        BigDecimal monthlyPrice = BigDecimal.ZERO;
-        if (booking.getStorageUnit() != null && booking.getStorageUnit().getUnitType() != null) {
-            monthlyPrice = booking.getStorageUnit().getUnitType().getBasePricePerMonth();
-        }
-        BigDecimal additionalFee = monthlyPrice.multiply(BigDecimal.valueOf(extraMonths));
-
-        booking.setEndDate(newEndDate);
-        booking.setRentalMonths(booking.getRentalMonths() + extraMonths);
-        booking.setTotalRentalFee(booking.getTotalRentalFee().add(additionalFee));
-
+        booking.setPendingExtraMonths(extraMonths);
+        booking.setPendingExtensionFee(additionalFee);
         bookingRepository.save(booking);
 
-        activityLogService.record(customerId, ActivityAction.CONTRACT_EXTENDED, "BOOKING", booking.getId(),
-                "Extended rental for booking " + booking.getBookingCode() + " by " + extraMonths + " month(s) until " + newEndDate,
-                oldEndDate, newEndDate);
+        activityLogService.record(customerId, ActivityAction.RENEWAL_REQUEST, "BOOKING", booking.getId(),
+                "Requested extension for booking " + booking.getBookingCode() + " by " + extraMonths
+                        + " month(s), fee " + additionalFee + " awaiting payment",
+                oldEndDate, projectedNewEndDate);
+
+        PaymentInitiationRequest paymentRequest = new PaymentInitiationRequest();
+        paymentRequest.setBookingId(booking.getId());
+        paymentRequest.setPaymentType(PaymentType.EXTRA_CHARGE);
+        paymentRequest.setPaymentMethod(request.getPaymentMethod());
+        PaymentResponse payment = paymentService.initiatePayment(customerEmail, paymentRequest);
 
         return ContractOperationResponse.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
                 .status(booking.getStatus())
                 .oldEndDate(oldEndDate)
-                .newEndDate(newEndDate)
-                .totalRentalMonths(booking.getRentalMonths())
+                .newEndDate(projectedNewEndDate)
+                .totalRentalMonths(booking.getRentalMonths() + extraMonths)
                 .additionalFee(additionalFee)
-                .updatedTotalFee(booking.getTotalRentalFee())
-                .message("Rental extension completed successfully for " + extraMonths + " month(s)")
+                .updatedTotalFee(booking.getTotalRentalFee().add(additionalFee))
+                .paymentRequired(true)
+                .transactionId(payment.getTransactionId())
+                .qrCodeUrl(payment.getQrCodeUrl())
+                .message("Extension fee calculated. Please complete payment (transactionId: "
+                        + payment.getTransactionId() + ") to activate the " + extraMonths + " month extension.")
                 .build();
     }
 
@@ -155,11 +200,22 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         UUID customerId = resolveCustomerId(customerEmail);
         Booking booking = validateActiveBooking(bookingId, customerId);
 
+        if (booking.getStorageUnit() == null || booking.getStorageUnit().getFacility() == null) {
+            throw new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND);
+        }
+        UUID facilityId = booking.getStorageUnit().getFacility().getId();
+
+        if (!facilityPolicyService.isReturnNoticeSatisfied(facilityId, request.getScheduledReturnTime())) {
+            throw new AppException(ErrorCode.RETURN_NOTICE_NOT_SATISFIED);
+        }
+
         booking.setReturnTime(request.getScheduledReturnTime());
         bookingRepository.save(booking);
 
         activityLogService.record(customerId, ActivityAction.CHECKOUT_REQUEST, "BOOKING", booking.getId(),
-                "Requested checkout for booking " + booking.getBookingCode() + " at " + request.getScheduledReturnTime(),
+                "Requested checkout for booking " + booking.getBookingCode() + " at " + request.getScheduledReturnTime()
+                        + (request.getNotes() != null && !request.getNotes().isBlank()
+                        ? " (notes: " + request.getNotes().trim() + ")" : ""),
                 null, request.getScheduledReturnTime());
 
         return ContractOperationResponse.builder()
@@ -171,9 +227,96 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 .build();
     }
 
-    // Tra email đăng nhập -> UUID thật của user.
-    // Đặt ở đây (Service layer) vì Service là nơi được phép gọi Repository,
-    // Controller không nên biết tới UserRepository.
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentResponse getPendingExtensionPayment(UUID bookingId, String customerEmail) {
+        return paymentService.getPendingExtensionPayment(customerEmail, bookingId);
+    }
+
+    @Override
+    @Transactional
+    public ContractOperationResponse cancelPendingExtension(UUID bookingId, String customerEmail) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        Booking booking = validateActiveBooking(bookingId, customerId);
+
+        if (booking.getPendingExtraMonths() == null) {
+            throw new AppException(ErrorCode.NO_PENDING_EXTENSION);
+        }
+
+        int cancelledMonths = booking.getPendingExtraMonths();
+
+        // Đóng giao dịch gia hạn đang treo để không còn thanh toán được QR cũ
+        paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
+                        booking.getId(), PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, RENTAL_EXTENSION)
+                .ifPresent(payment -> {
+                    payment.setStatus(PaymentStatus.FAILED);
+                    paymentRepository.save(payment);
+                });
+
+        booking.setPendingExtraMonths(null);
+        booking.setPendingExtensionFee(null);
+        bookingRepository.save(booking);
+
+        activityLogService.record(customerId, ActivityAction.RENEWAL_REQUEST, "BOOKING", booking.getId(),
+                "Cancelled pending " + cancelledMonths + "-month extension request for booking "
+                        + booking.getBookingCode(),
+                null, null);
+
+        return ContractOperationResponse.builder()
+                .bookingId(booking.getId())
+                .bookingCode(booking.getBookingCode())
+                .status(booking.getStatus())
+                .oldEndDate(booking.getEndDate())
+                .totalRentalMonths(booking.getRentalMonths())
+                .updatedTotalFee(booking.getTotalRentalFee())
+                .paymentRequired(false)
+                .message("Extension request cancelled. You can submit a new one at any time.")
+                .build();
+    }
+
+    // Sau khi gia hạn (do PaymentService xác nhận) mà ngày hết hạn mới đã ở tương lai thì
+    // hợp đồng hết quá hạn: gỡ cờ quá hạn và mở lại truy cập (PIN/QR được cấp lại ở lần
+    // xem Smart Key kế tiếp). Đặt ở đây để không phải sửa luồng thanh toán của Flow 1.
+    private void reconcileOverdueState(Booking booking) {
+        if (booking.getOverdueDetectedAt() == null
+                || booking.getEndDate() == null
+                || booking.getEndDate().isBefore(LocalDate.now())) {
+            return;
+        }
+
+        boolean accessWasDisabled = booking.getAccessDisabledAt() != null;
+        booking.setOverdueDetectedAt(null);
+        booking.setOverdueFeeAccrued(BigDecimal.ZERO);
+        booking.setSealingPendingAt(null);
+        booking.setAccessDisabledAt(null);
+        bookingRepository.save(booking);
+
+        if (accessWasDisabled) {
+            activityLogService.record(booking.getCustomer().getId(),
+                    ActivityAction.ACCESS_CREDENTIAL_ISSUE, "BOOKING", booking.getId(),
+                    "Access restored for booking " + booking.getBookingCode()
+                            + " after the overdue rental was extended",
+                    null, null);
+        }
+    }
+
+    // Kho đã bị thu hồi mã truy cập do quá hạn thì không được xem/đổi PIN, QR hay khóa/mở.
+    private void requireAccessEnabled(Booking booking) {
+        if (booking.getAccessDisabledAt() != null) {
+            throw new AppException(ErrorCode.ACCESS_DISABLED_OVERDUE);
+        }
+    }
+
+    // Khoản phí trễ hạn đang chờ thanh toán (scheduler tạo), null nếu không có.
+    private Payment findPendingLateFee(UUID bookingId) {
+        return paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
+                        bookingId, PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, OVERDUE_LATE_FEE)
+                .filter(p -> p.getAmount() != null && p.getAmount().signum() > 0)
+                .orElse(null);
+    }
+
     private UUID resolveCustomerId(String customerEmail) {
         User user = userRepository.findByEmail(customerEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -197,26 +340,15 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     }
 
     private MyUnitResponse mapToResponse(Booking b) {
-        StorageUnit unit = b.getStorageUnit();
-        Facility facility = (unit != null) ? unit.getFacility() : null;
-        UnitType unitType = (unit != null) ? unit.getUnitType() : null;
+        MyUnitResponse response = customerStorageMapper.toMyUnitResponse(b);
 
-        return MyUnitResponse.builder()
-                .bookingId(b.getId())
-                .bookingCode(b.getBookingCode())
-                .facilityName(facility != null ? facility.getName() : "Unassigned Facility")
-                .facilityAddress(facility != null ? facility.getAddress() : "")
-                .unitCode(unit != null ? unit.getUnitCode() : "Unassigned")
-                .unitTypeName(unitType != null ? unitType.getTypeName() : "")
-                .dimensions(unitType != null ? unitType.getDimensions() : "")
-                .areaSqm(unitType != null ? unitType.getAreaSqm() : null)
-                .startDate(b.getStartDate())
-                .endDate(b.getEndDate())
-                .rentalMonths(b.getRentalMonths())
-                .status(b.getStatus())
-                .totalRentalFee(b.getTotalRentalFee())
-                .depositPaid(b.getDepositPaid())
-                .activeAccess(b.getStatus() == BookingStatus.ACTIVE)
-                .build();
+        if (b.getStatus() == BookingStatus.ACTIVE && b.getEndDate() != null
+                && b.getEndDate().isBefore(LocalDate.now())) {
+            response.setOverdueDays(ChronoUnit.DAYS.between(b.getEndDate(), LocalDate.now()));
+        }
+
+        Payment lateFee = b.getOverdueDetectedAt() != null ? findPendingLateFee(b.getId()) : null;
+        response.setOverdueFeeOutstanding(lateFee != null ? lateFee.getAmount() : BigDecimal.ZERO);
+        return response;
     }
 }

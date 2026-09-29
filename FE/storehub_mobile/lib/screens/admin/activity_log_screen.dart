@@ -14,7 +14,8 @@ class ActivityLogScreen extends StatefulWidget {
   State<ActivityLogScreen> createState() => _ActivityLogScreenState();
 }
 
-class _ActivityLogScreenState extends State<ActivityLogScreen> with SingleTickerProviderStateMixin {
+class _ActivityLogScreenState extends State<ActivityLogScreen>
+    with SingleTickerProviderStateMixin {
   final FacilityAdminApiService _service = FacilityAdminApiService();
   late final TabController _tabController;
   final _dateFmt = DateFormat('MMM d, h:mm a');
@@ -37,20 +38,32 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> with SingleTicker
   }
 
   void _loadAll() {
-    setState(() => _allLogsFuture = _service.getActivityLogs());
+    // FIX: setState(() => _allLogsFuture = ...) trước đây khiến callback
+    // "trả về" chính giá trị Future vừa gán (vì đây là 1 assignment
+    // expression), làm Flutter tưởng callback là async -> lỗi đỏ toàn màn
+    // hình "setState() callback argument returned a Future". Đổi sang
+    // block-body { } để statement gán không có giá trị trả về (void).
+    setState(() {
+      _allLogsFuture = _service.getActivityLogs();
+    });
   }
 
   void _loadLoginHistory() {
-    setState(() => _loginHistoryFuture = _service.getLoginHistory());
+    setState(() {
+      _loginHistoryFuture = _service.getLoginHistory();
+    });
   }
 
-  Color _statusColor(String? status) => status == 'FAILED' ? AppColors.error : AppColors.success;
+  Color _statusColor(String? status) =>
+      status == 'FAILED' ? AppColors.error : AppColors.success;
 
   Widget _buildLogTile(Map log) {
     final action = log['action']?.toString() ?? '';
     final status = log['status']?.toString();
     final isCritical = log['critical'] == true;
-    final createdAt = log['createdAt'] != null ? DateTime.tryParse(log['createdAt'].toString()) : null;
+    final createdAt = log['createdAt'] != null
+        ? DateTime.tryParse(log['createdAt'].toString())
+        : null;
     final userName = log['userName']?.toString();
     final description = log['description']?.toString();
 
@@ -61,7 +74,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> with SingleTicker
         leading: CircleAvatar(
           backgroundColor: _statusColor(status).withValues(alpha: 0.15),
           child: Icon(
-            status == 'FAILED' ? Icons.error_outline : Icons.check_circle_outline,
+            status == 'FAILED'
+                ? Icons.error_outline
+                : Icons.check_circle_outline,
             color: _statusColor(status),
             size: 18,
           ),
@@ -69,13 +84,21 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> with SingleTicker
         title: Row(
           children: [
             Expanded(
-              child: Text(action.replaceAll('_', ' '), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              child: Text(action.replaceAll('_', ' '),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13)),
             ),
             if (isCritical)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: AppColors.errorContainer, borderRadius: BorderRadius.circular(8)),
-                child: const Text('CRITICAL', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.error)),
+                decoration: BoxDecoration(
+                    color: AppColors.errorContainer,
+                    borderRadius: BorderRadius.circular(8)),
+                child: const Text('CRITICAL',
+                    style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.error)),
               ),
           ],
         ),
@@ -119,16 +142,24 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> with SingleTicker
                   return const AppLoadingState(message: 'Loading activity...');
                 }
                 if (snapshot.hasError) {
-                  return AppErrorState(message: snapshot.error.toString().replaceAll('Exception: ', ''), onRetry: _loadAll);
+                  return AppErrorState(
+                      message: snapshot.error
+                          .toString()
+                          .replaceAll('Exception: ', ''),
+                      onRetry: _loadAll);
                 }
                 final logs = snapshot.data ?? [];
                 if (logs.isEmpty) {
-                  return const AppEmptyState(icon: Icons.history, title: 'No activity yet', message: 'Actions across the system will show up here.');
+                  return const AppEmptyState(
+                      icon: Icons.history,
+                      title: 'No activity yet',
+                      message: 'Actions across the system will show up here.');
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: logs.length,
-                  itemBuilder: (context, index) => _buildLogTile(logs[index] as Map),
+                  itemBuilder: (context, index) =>
+                      _buildLogTile(logs[index] as Map),
                 );
               },
             ),
@@ -139,19 +170,28 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> with SingleTicker
               future: _loginHistoryFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const AppLoadingState(message: 'Loading login history...');
+                  return const AppLoadingState(
+                      message: 'Loading login history...');
                 }
                 if (snapshot.hasError) {
-                  return AppErrorState(message: snapshot.error.toString().replaceAll('Exception: ', ''), onRetry: _loadLoginHistory);
+                  return AppErrorState(
+                      message: snapshot.error
+                          .toString()
+                          .replaceAll('Exception: ', ''),
+                      onRetry: _loadLoginHistory);
                 }
                 final logs = snapshot.data ?? [];
                 if (logs.isEmpty) {
-                  return const AppEmptyState(icon: Icons.login, title: 'No login history yet', message: 'Sign-in attempts will show up here.');
+                  return const AppEmptyState(
+                      icon: Icons.login,
+                      title: 'No login history yet',
+                      message: 'Sign-in attempts will show up here.');
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: logs.length,
-                  itemBuilder: (context, index) => _buildLogTile(logs[index] as Map),
+                  itemBuilder: (context, index) =>
+                      _buildLogTile(logs[index] as Map),
                 );
               },
             ),

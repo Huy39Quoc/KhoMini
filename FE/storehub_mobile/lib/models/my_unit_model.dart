@@ -1,6 +1,3 @@
-// Khớp với BE MyUnitResponse: { bookingId, bookingCode, facilityName,
-// facilityAddress, unitCode, unitTypeName, dimensions, areaSqm, startDate,
-// endDate, rentalMonths, status, totalRentalFee, depositPaid, hasActiveAccess }
 class MyUnitModel {
   final String bookingId;
   final String bookingCode;
@@ -17,6 +14,14 @@ class MyUnitModel {
   final double? areaSqm;
   final int? rentalMonths;
   final double? depositPaid;
+  final bool hasPendingExtension;
+  final int? pendingExtraMonths;
+  final double? pendingExtensionFee;
+  final bool overdue;
+  final int overdueDays;
+  final double overdueFeeOutstanding;
+  final bool accessDisabled;
+  final DateTime? scheduledReturnTime;
 
   MyUnitModel({
     required this.bookingId,
@@ -34,31 +39,35 @@ class MyUnitModel {
     this.areaSqm,
     this.rentalMonths,
     this.depositPaid,
+    this.hasPendingExtension = false,
+    this.pendingExtraMonths,
+    this.pendingExtensionFee,
+    this.overdue = false,
+    this.overdueDays = 0,
+    this.overdueFeeOutstanding = 0,
+    this.accessDisabled = false,
+    this.scheduledReturnTime,
   });
 
-  /// Current monthly rate derived from the real totalRentalFee /
-  /// rentalMonths already returned by the BE - not a client-side estimate.
+  bool get isActive => status == 'ACTIVE';
+  bool get hasLateFeeDue => overdueFeeOutstanding > 0;
+
   double? get monthlyRate {
     if (rentalMonths == null || rentalMonths == 0) return null;
     return totalRentalFee / rentalMonths!;
   }
 
-  // Giữ lại để không phá vỡ các chỗ đã dùng u.id trước đây.
   String get id => bookingId;
 
   factory MyUnitModel.fromJson(Map<String, dynamic> json) {
     return MyUnitModel(
-      // Trước đây đọc "contractId"/"id" -> luôn rỗng vì BE trả về "bookingId",
-      // khiến mọi API sau đó (smart access / extend / checkout) gọi với id rỗng.
-      bookingId:
-          json['bookingId']?.toString() ?? json['id']?.toString() ?? '',
+      bookingId: json['bookingId']?.toString() ?? json['id']?.toString() ?? '',
       bookingCode: json['bookingCode']?.toString() ?? '',
       unitCode: json['unitCode']?.toString() ?? '',
       facilityName: json['facilityName']?.toString() ?? '',
       facilityAddress: json['facilityAddress']?.toString() ??
           json['address']?.toString() ??
           '',
-      // Trước đây đọc "typeName" -> luôn rỗng vì BE trả về "unitTypeName".
       typeName: json['unitTypeName']?.toString() ??
           json['typeName']?.toString() ??
           '',
@@ -72,12 +81,23 @@ class MyUnitModel {
       endDate: json['endDate'] != null
           ? DateTime.tryParse(json['endDate'].toString())
           : null,
-      // Dùng trực tiếp cờ hasActiveAccess do BE trả về thay vì tự đoán qua status.
-      hasActiveAccess: json['hasActiveAccess'] == true,
+      hasActiveAccess:
+          json['activeAccess'] == true || json['hasActiveAccess'] == true,
       dimensions: json['dimensions']?.toString() ?? '',
       areaSqm: (json['areaSqm'] as num?)?.toDouble(),
       rentalMonths: (json['rentalMonths'] as num?)?.toInt(),
       depositPaid: (json['depositPaid'] as num?)?.toDouble(),
+      hasPendingExtension: json['hasPendingExtension'] == true,
+      pendingExtraMonths: (json['pendingExtraMonths'] as num?)?.toInt(),
+      pendingExtensionFee: (json['pendingExtensionFee'] as num?)?.toDouble(),
+      overdue: json['overdue'] == true,
+      overdueDays: (json['overdueDays'] as num?)?.toInt() ?? 0,
+      overdueFeeOutstanding:
+          (json['overdueFeeOutstanding'] as num?)?.toDouble() ?? 0.0,
+      accessDisabled: json['accessDisabled'] == true,
+      scheduledReturnTime: json['scheduledReturnTime'] != null
+          ? DateTime.tryParse(json['scheduledReturnTime'].toString())
+          : null,
     );
   }
 }

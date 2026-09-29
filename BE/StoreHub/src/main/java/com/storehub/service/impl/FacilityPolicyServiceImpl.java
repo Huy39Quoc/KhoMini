@@ -1,6 +1,6 @@
 package com.storehub.service.impl;
 
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.FacilityPolicyCreateRequest;
 import com.storehub.dto.request.FacilityPolicyUpdateRequest;
 import com.storehub.dto.response.FacilityPolicyResponse;
@@ -22,7 +22,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.storehub.dto.response.OverdueConfigResponse;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Service
@@ -125,6 +128,33 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
+    public boolean isWithinRenewalWindow(UUID facilityId, LocalDate currentEndDate) {
+        return facilityPolicyRepository.findByFacility_Id(facilityId)
+                .map(policy -> {
+                    if (policy.getRenewalWindowDays() == null) {
+                        return true;
+                    }
+                    LocalDate windowOpensAt = currentEndDate.minusDays(policy.getRenewalWindowDays());
+                    LocalDate today = LocalDate.now();
+                    return !today.isBefore(windowOpensAt);
+                })
+                .orElse(true);
+    }
+
+    @Override
+    public boolean isReturnNoticeSatisfied(UUID facilityId, LocalDateTime scheduledReturnTime) {
+        return facilityPolicyRepository.findByFacility_Id(facilityId)
+                .map(policy -> {
+                    if (policy.getReturnNoticeDays() == null) {
+                        return true;
+                    }
+                    long daysNotice = ChronoUnit.DAYS.between(LocalDateTime.now(), scheduledReturnTime);
+                    return daysNotice >= policy.getReturnNoticeDays();
+                })
+                .orElse(true);
+    }
+
+    @Override
     public PageResponse<FacilityPolicyResponse> getAll(String search, int page, int size, String sortBy, String sortDir) {
         String resolvedSortBy = "facilityName".equalsIgnoreCase(sortBy) ? "facility.name" : sortBy;
         Sort sort = sortDir.equalsIgnoreCase("desc")
@@ -134,5 +164,22 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
         Page<FacilityPolicyResponse> result = facilityPolicyRepository.findAllWithFilters(search, pageable)
                 .map(facilityPolicyMapper::toResponse);
         return PageResponse.from(result);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OverdueConfigResponse getOverdueConfig(UUID facilityId) {
+        FacilityPolicy policy = facilityPolicyRepository
+                .findByFacility_Id(facilityId)
+                .orElseThrow(() ->
+                        new AppException(ErrorCode.FACILITY_POLICY_NOT_FOUND)
+                );
+
+        return new OverdueConfigResponse(
+                policy.getOverdueGraceDays(),
+                policy.getDailyLateFee(),
+                policy.getOverdueAccessDisableDays(),
+                policy.getOverdueSealingDays()
+        );
     }
 }

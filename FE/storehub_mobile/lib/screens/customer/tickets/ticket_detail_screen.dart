@@ -60,7 +60,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Ticket Details'),
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load)
+        ],
       ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _ticketFuture,
@@ -103,7 +105,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                             letterSpacing: 0.5)),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: _statusColor(status).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
@@ -111,19 +114,24 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                       child: Text(
                         (status ?? 'OPEN').replaceAll('_', ' '),
                         style: TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.bold, color: _statusColor(status)),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _statusColor(status)),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _tag(Icons.category_outlined, _kCategoryLabels[category] ?? category ?? ''),
+                    _tag(Icons.category_outlined,
+                        _kCategoryLabels[category] ?? category ?? ''),
                     if (priority != null && priority.isNotEmpty)
                       _tag(Icons.flag_outlined, priority),
                     if (bookingCode != null && bookingCode.isNotEmpty)
@@ -133,21 +141,23 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-
                 const Text('Description',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(14),
-                    child: Text(description, style: const TextStyle(fontSize: 14, height: 1.5)),
+                    child: Text(description,
+                        style: const TextStyle(fontSize: 14, height: 1.5)),
                   ),
                 ),
-
-                if (resolutionNote != null && resolutionNote.trim().isNotEmpty) ...[
+                if (resolutionNote != null &&
+                    resolutionNote.trim().isNotEmpty) ...[
                   const SizedBox(height: 20),
                   const Text('Resolution',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
@@ -155,15 +165,19 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.success.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.success.withValues(alpha: 0.25)),
+                      border: Border.all(
+                          color: AppColors.success.withValues(alpha: 0.25)),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.check_circle_outline, size: 18, color: AppColors.success),
+                        const Icon(Icons.check_circle_outline,
+                            size: 18, color: AppColors.success),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(resolutionNote, style: const TextStyle(fontSize: 13, height: 1.5)),
+                          child: Text(resolutionNote,
+                              style:
+                                  const TextStyle(fontSize: 13, height: 1.5)),
                         ),
                       ],
                     ),
@@ -179,12 +193,15 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.hourglass_empty, size: 18, color: AppColors.onSurfaceVariant),
+                        Icon(Icons.hourglass_empty,
+                            size: 18, color: AppColors.onSurfaceVariant),
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             'Our team is still reviewing this request. You will see an update here once it is resolved.',
-                            style: TextStyle(fontSize: 12.5, color: AppColors.onSurfaceVariant),
+                            style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.onSurfaceVariant),
                           ),
                         ),
                       ],
@@ -211,7 +228,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         children: [
           Icon(icon, size: 13, color: AppColors.onSurfaceVariant),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
         ],
       ),
     );

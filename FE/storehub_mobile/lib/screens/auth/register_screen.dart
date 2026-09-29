@@ -103,10 +103,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 4),
                   const Text(
                     'Fill in your details to create a customer account',
-                    style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+                    style: TextStyle(
+                        fontSize: 13, color: AppColors.onSurfaceVariant),
                   ),
                   const SizedBox(height: 20),
-
                   if (_errorMessage != null)
                     Container(
                       width: double.infinity,
@@ -118,18 +118,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                          const Icon(Icons.error_outline,
+                              color: AppColors.error, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               _errorMessage!,
-                              style: const TextStyle(color: AppColors.error, fontSize: 13),
+                              style: const TextStyle(
+                                  color: AppColors.error, fontSize: 13),
                             ),
                           ),
                         ],
                       ),
                     ),
-
                   const _FieldLabel('Full name'),
                   TextFormField(
                     controller: _fullNameController,
@@ -144,12 +145,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     validator: (value) {
                       final v = value?.trim() ?? '';
                       if (v.isEmpty) return 'Full name is required';
-                      if (v.length > 30) return 'Full name must be less than 30 characters';
+                      if (v.length > 30)
+                        return 'Full name must be less than 30 characters';
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-
                   const _FieldLabel('Username'),
                   TextFormField(
                     controller: _usernameController,
@@ -157,7 +158,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     decoration: const InputDecoration(
                       hintText: 'e.g. nguyenvana',
                       prefixIcon: Icon(Icons.account_circle_outlined),
-                      helperText: 'Between 3 and 30 characters, used to sign in later',
+                      helperText:
+                          'Between 3 and 30 characters, used to sign in later',
                       counterText: '',
                     ),
                     validator: (value) {
@@ -170,7 +172,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-
                   const _FieldLabel('Email address'),
                   TextFormField(
                     controller: _emailController,
@@ -184,15 +185,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       final v = value?.trim() ?? '';
                       if (v.isEmpty) return 'Email is required';
                       // Mirrors the BE pattern: ^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$
-                      if (!RegExp(r'^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$').hasMatch(v)) {
+                      if (!RegExp(r'^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$')
+                          .hasMatch(v)) {
                         return 'Enter a valid email address';
                       }
-                      if (v.length > 255) return 'Email must not exceed 255 characters';
+                      if (v.length > 255)
+                        return 'Email must not exceed 255 characters';
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-
                   const _FieldLabel('Phone number'),
                   TextFormField(
                     controller: _phoneController,
@@ -200,20 +202,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     decoration: const InputDecoration(
                       hintText: 'e.g. 0912345678',
                       prefixIcon: Icon(Icons.phone_outlined),
-                      helperText: 'Vietnamese mobile number, starting with 0 or +84',
+                      helperText:
+                          'Vietnamese mobile number, starting with 0 or +84',
                     ),
                     validator: (value) {
                       final v = value?.trim() ?? '';
                       if (v.isEmpty) return 'Phone number is required';
                       // Mirrors the BE pattern: ^(0|\+84)(3|5|7|8|9)[0-9]{8}$
-                      if (!RegExp(r'^(0|\+84)(3|5|7|8|9)[0-9]{8}$').hasMatch(v)) {
+                      if (!RegExp(r'^(0|\+84)(3|5|7|8|9)[0-9]{8}$')
+                          .hasMatch(v)) {
                         return 'Enter a valid Vietnamese phone number (e.g. 0912345678)';
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-
                   const _FieldLabel('Password'),
                   TextFormField(
                     controller: _passwordController,
@@ -222,7 +225,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'Create a password',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                        icon: Icon(_obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility),
                         onPressed: () {
                           setState(() {
                             _obscurePassword = !_obscurePassword;
@@ -242,7 +247,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleRegister,
                     child: _isLoading
@@ -251,7 +255,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : const Text('Create Account'),
@@ -259,7 +264,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 8),
                   Center(
                     child: TextButton(
-                      onPressed: _isLoading ? null : () => Navigator.pop(context),
+                      onPressed:
+                          _isLoading ? null : () => Navigator.pop(context),
                       child: const Text('Already have an account? Sign in'),
                     ),
                   ),
@@ -281,7 +287,8 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      child: Text(text,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
     );
   }
 }

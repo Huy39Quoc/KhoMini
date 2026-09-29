@@ -35,7 +35,9 @@ class FacilityAdminApiService {
         },
       );
       final data = response.data;
-      if (data is Map && data['data'] is Map && data['data']['content'] is List) {
+      if (data is Map &&
+          data['data'] is Map &&
+          data['data']['content'] is List) {
         return data['data']['content'];
       }
       if (data is Map && data['content'] is List) return data['content'];
@@ -47,16 +49,19 @@ class FacilityAdminApiService {
 
   Future<Map<String, dynamic>> createFacility(Map<String, dynamic> body) async {
     try {
-      final response = await _dio.post(ApiEndpoints.facilitiesAdmin, data: body);
+      final response =
+          await _dio.post(ApiEndpoints.facilitiesAdmin, data: body);
       return _unwrap(response.data);
     } on DioException catch (e) {
       throw _err(e, 'create facility');
     }
   }
 
-  Future<Map<String, dynamic>> updateFacility(String id, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> updateFacility(
+      String id, Map<String, dynamic> body) async {
     try {
-      final response = await _dio.put(ApiEndpoints.facilityDetail(id), data: body);
+      final response =
+          await _dio.put(ApiEndpoints.facilityDetail(id), data: body);
       return _unwrap(response.data);
     } on DioException catch (e) {
       throw _err(e, 'update facility');
@@ -83,7 +88,9 @@ class FacilityAdminApiService {
         },
       );
       final data = response.data;
-      if (data is Map && data['data'] is Map && data['data']['content'] is List) {
+      if (data is Map &&
+          data['data'] is Map &&
+          data['data']['content'] is List) {
         return data['data']['content'];
       }
       if (data is Map && data['content'] is List) return data['content'];
@@ -93,9 +100,11 @@ class FacilityAdminApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> getFacilityPolicyByFacility(String facilityId) async {
+  Future<Map<String, dynamic>?> getFacilityPolicyByFacility(
+      String facilityId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.facilityPolicyByFacility(facilityId));
+      final response =
+          await _dio.get(ApiEndpoints.facilityPolicyByFacility(facilityId));
       return _unwrap(response.data);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
@@ -103,18 +112,22 @@ class FacilityAdminApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createFacilityPolicy(Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> createFacilityPolicy(
+      Map<String, dynamic> body) async {
     try {
-      final response = await _dio.post(ApiEndpoints.facilityPolicies, data: body);
+      final response =
+          await _dio.post(ApiEndpoints.facilityPolicies, data: body);
       return _unwrap(response.data);
     } on DioException catch (e) {
       throw _err(e, 'create facility policy');
     }
   }
 
-  Future<Map<String, dynamic>> updateFacilityPolicy(String id, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> updateFacilityPolicy(
+      String id, Map<String, dynamic> body) async {
     try {
-      final response = await _dio.put(ApiEndpoints.facilityPolicyDetail(id), data: body);
+      final response =
+          await _dio.put(ApiEndpoints.facilityPolicyDetail(id), data: body);
       return _unwrap(response.data);
     } on DioException catch (e) {
       throw _err(e, 'update facility policy');
@@ -123,7 +136,8 @@ class FacilityAdminApiService {
 
   // ===== Reports (ReportController) =====
 
-  Future<Map<String, dynamic>> getRevenueReport({DateTime? fromDate, DateTime? toDate}) async {
+  Future<Map<String, dynamic>> getRevenueReport(
+      {DateTime? fromDate, DateTime? toDate}) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.reportRevenue,
@@ -166,7 +180,9 @@ class FacilityAdminApiService {
         },
       );
       final data = response.data;
-      if (data is Map && data['data'] is Map && data['data']['content'] is List) {
+      if (data is Map &&
+          data['data'] is Map &&
+          data['data']['content'] is List) {
         return data['data']['content'];
       }
       return [];
@@ -182,7 +198,9 @@ class FacilityAdminApiService {
         queryParameters: {'page': page, 'size': size},
       );
       final data = response.data;
-      if (data is Map && data['data'] is Map && data['data']['content'] is List) {
+      if (data is Map &&
+          data['data'] is Map &&
+          data['data']['content'] is List) {
         return data['data']['content'];
       }
       return [];

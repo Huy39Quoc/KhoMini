@@ -47,10 +47,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final users = results[1] as List<dynamic>;
       final roles = results[2] as List<dynamic>;
       final permissions = results[3] as List<dynamic>;
-      final active = users
-          .whereType<Map>()
-          .where((u) => u['isActive'] == true)
-          .length;
+      final active =
+          users.whereType<Map>().where((u) => u['isActive'] == true).length;
 
       if (!mounted) return;
       setState(() {
@@ -85,13 +83,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 widget.user.fullName.isNotEmpty
                     ? widget.user.fullName.substring(0, 1).toUpperCase()
                     : '?',
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold),
               ),
             ),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => ProfileScreen(user: widget.user)),
+                MaterialPageRoute(
+                    builder: (_) => ProfileScreen(user: widget.user)),
               );
             },
           ),
@@ -105,11 +107,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
-                  Text('Welcome back, ${widget.user.fullName.isNotEmpty ? widget.user.fullName : widget.user.username}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                      'Welcome back, ${widget.user.fullName.isNotEmpty ? widget.user.fullName : widget.user.username}',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
-                  const Text('Here is what is happening across the platform today.',
-                      style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                  const Text(
+                      'Here is what is happening across the platform today.',
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.onSurfaceVariant)),
                   const SizedBox(height: 16),
 
                   if (_errorMessage != null)
@@ -120,7 +126,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         color: AppColors.errorContainer,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(_errorMessage!, style: const TextStyle(color: AppColors.error)),
+                      child: Text(_errorMessage!,
+                          style: const TextStyle(color: AppColors.error)),
                     ),
 
                   // Real stats bento grid
@@ -132,15 +139,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     crossAxisSpacing: 12,
                     childAspectRatio: 1.5,
                     children: [
-                      _statCard('Total Users', '$_totalUsers', Icons.people, AppColors.primaryContainer),
-                      _statCard('Active Users', '$_activeUsers', Icons.verified_user, AppColors.success),
-                      _statCard('Roles', '$_totalRoles', Icons.badge, AppColors.secondaryContainer),
-                      _statCard('Permissions', '$_totalPermissions', Icons.lock_outline, AppColors.secondary),
+                      _statCard('Total Users', '$_totalUsers', Icons.people,
+                          AppColors.primaryContainer),
+                      _statCard('Active Users', '$_activeUsers',
+                          Icons.verified_user, AppColors.success),
+                      _statCard('Roles', '$_totalRoles', Icons.badge,
+                          AppColors.secondaryContainer),
+                      _statCard('Permissions', '$_totalPermissions',
+                          Icons.lock_outline, AppColors.secondary),
                     ],
                   ),
                   const SizedBox(height: 20),
 
-                  const Text('Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text('Management',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 10),
                   _actionTile(
                     icon: Icons.manage_accounts,
@@ -149,7 +162,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const UserManagementScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const UserManagementScreen()),
                       );
                     },
                   ),
@@ -161,7 +175,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const RolePermissionScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const RolePermissionScreen()),
                       );
                     },
                   ),
@@ -173,7 +188,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const ActivityLogScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const ActivityLogScreen()),
                       );
                     },
                   ),
@@ -196,8 +212,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: [
           Icon(icon, color: color, size: 22),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11, color: AppColors.onSurfaceVariant)),
         ],
       ),
     );
@@ -220,7 +240,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           child: Icon(icon, color: AppColors.primaryContainer),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        title: Text(title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 14),
         onTap: onTap,

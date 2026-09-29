@@ -5,7 +5,7 @@ import com.storehub.dto.response.AssignedFacilityResponse;
 import com.storehub.dto.response.FacilityReportResponse;
 import com.storehub.dto.response.FacilityStaffResponse;
 import com.storehub.dto.response.FacilityUnitResponse;
-
+import com.storehub.dto.response.FacilityBookingResponse;
 import java.util.List;
 import java.util.UUID;
 
@@ -58,6 +58,11 @@ public interface FacilityManagementService {
     void unassignStaff(
             UUID facilityId,
             UUID userId,
+            String managerEmail
+    );
+
+    List<FacilityBookingResponse> confirmedBookings(
+            UUID facilityId,
             String managerEmail
     );
 }

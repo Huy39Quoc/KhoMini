@@ -74,7 +74,8 @@ class _TicketListScreenState extends State<TicketListScreen> {
               return ListView(
                 children: [
                   AppErrorState(
-                    message: snapshot.error.toString().replaceAll('Exception: ', ''),
+                    message:
+                        snapshot.error.toString().replaceAll('Exception: ', ''),
                     onRetry: _loadTickets,
                   ),
                 ],
@@ -119,104 +120,119 @@ class _TicketListScreenState extends State<TicketListScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => TicketDetailScreen(ticketId: ticketId),
+                                  builder: (_) =>
+                                      TicketDetailScreen(ticketId: ticketId),
                                 ),
                               );
                             },
                       child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              if (ticketCode != null && ticketCode.isNotEmpty)
-                                Text(
-                                  ticketCode,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.secondary,
-                                    letterSpacing: 0.5,
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                if (ticketCode != null && ticketCode.isNotEmpty)
+                                  Text(
+                                    ticketCode,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.secondary,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
-                                ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: _statusColor(status).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  (status ?? 'OPEN').replaceAll('_', ' '),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: _statusColor(status),
-                                  ),
-                                ),
-                              ),
-                              if (priority != null && priority.isNotEmpty) ...[
-                                const SizedBox(width: 6),
+                                const Spacer(),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppColors.surfaceContainer,
+                                    color: _statusColor(status)
+                                        .withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
-                                    priority,
-                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                    (status ?? 'OPEN').replaceAll('_', ' '),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: _statusColor(status),
+                                    ),
                                   ),
                                 ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            title?.isNotEmpty == true
-                                ? title!
-                                : (_categoryLabels[category] ?? category ?? 'Support request'),
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _categoryLabels[category] ?? category ?? '',
-                            style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            description,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          if (resolutionNote != null && resolutionNote.trim().isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppColors.success.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(Icons.check_circle_outline, size: 16, color: AppColors.success),
-                                  const SizedBox(width: 8),
-                                  Expanded(
+                                if (priority != null &&
+                                    priority.isNotEmpty) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceContainer,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                     child: Text(
-                                      resolutionNote,
-                                      style: const TextStyle(fontSize: 12),
+                                      priority,
+                                      style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                   ),
                                 ],
-                              ),
+                              ],
                             ),
+                            const SizedBox(height: 6),
+                            Text(
+                              title?.isNotEmpty == true
+                                  ? title!
+                                  : (_categoryLabels[category] ??
+                                      category ??
+                                      'Support request'),
+                              style: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _categoryLabels[category] ?? category ?? '',
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.onSurfaceVariant),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              description,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            if (resolutionNote != null &&
+                                resolutionNote.trim().isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppColors.success.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(Icons.check_circle_outline,
+                                        size: 16, color: AppColors.success),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        resolutionNote,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
+                        ),
                       ),
                     ),
                   ),

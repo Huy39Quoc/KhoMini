@@ -1,6 +1,6 @@
 package com.storehub.service.impl;
 
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.CreateTicketRequest;
 import com.storehub.dto.response.TicketResponse;
 import com.storehub.entity.Booking;
@@ -45,7 +45,8 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
                     .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
         }
 
-        String ticketCode = "TK-" + System.currentTimeMillis();
+        String ticketCode = "TK-" + System.currentTimeMillis() + "-"
+                + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
 
         SupportTicket ticket = SupportTicket.builder()
                 .ticketCode(ticketCode)
@@ -90,8 +91,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
     public TicketResponse getTicketDetail(UUID ticketId, String customerEmail) {
         User customer = resolveCustomer(customerEmail);
         SupportTicket ticket = ticketRepository.findByIdAndCustomerId(ticketId, customer.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
-
+                .orElseThrow(() -> new AppException(ErrorCode.TICKET_NOT_FOUND));
         return mapToResponse(ticket);
     }
 
@@ -111,6 +111,8 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
                 .description(t.getDescription())
                 .status(t.getStatus())
                 .priority(t.getPriority())
+                .assignedStaffId(t.getAssignedStaff() != null ? t.getAssignedStaff().getId() : null)
+                .assignedStaffName(t.getAssignedStaff() != null ? t.getAssignedStaff().getFullName() : null)
                 .resolutionNote(t.getResolutionNote())
                 .createdAt(t.getCreatedAt())
                 .build();

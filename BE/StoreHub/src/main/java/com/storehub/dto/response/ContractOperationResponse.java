@@ -22,8 +22,11 @@ public class ContractOperationResponse {
     private LocalDate oldEndDate;
     private LocalDate newEndDate;
     private Integer totalRentalMonths;
-    private BigDecimal additionalFee;      // Phí phát sinh khi gia hạn
-    private BigDecimal updatedTotalFee;     // Tổng tiền thuê mới sau gia hạn
-    private LocalDateTime scheduledReturnTime; // Thời gian hẹn trả kho
+    private BigDecimal additionalFee;
+    private BigDecimal updatedTotalFee;
+    private LocalDateTime scheduledReturnTime;
     private String message;
+    private boolean paymentRequired;
+    private String transactionId;
+    private String qrCodeUrl;
 }

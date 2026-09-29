@@ -95,7 +95,8 @@ class AdminApiService {
 
   Future<List<dynamic>> getRolePermissionsByRole(String roleId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.rolePermissionsByRole(roleId));
+      final response =
+          await _dio.get(ApiEndpoints.rolePermissionsByRole(roleId));
       // This endpoint returns a plain List (not a paginated PageResponse).
       final data = response.data;
       if (data is Map && data['data'] is List) return data['data'];
@@ -107,7 +108,8 @@ class AdminApiService {
     }
   }
 
-  Future<void> bulkAssignPermissions(String roleId, List<String> permissionIds) async {
+  Future<void> bulkAssignPermissions(
+      String roleId, List<String> permissionIds) async {
     try {
       await _dio.post(
         ApiEndpoints.rolePermissionsBulkAssign,

@@ -46,10 +46,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts =
+        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
   }
 
   Future<void> _handleChangePassword() async {
@@ -92,7 +94,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text('Sign out?'),
         content: const Text('You will need to sign in again to continue.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
@@ -116,7 +120,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
-    final roleLabel = _kRoleLabels[user.roleName.toUpperCase()] ?? user.roleName;
+    final roleLabel =
+        _kRoleLabels[user.roleName.toUpperCase()] ?? user.roleName;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -139,26 +144,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     radius: 34,
                     backgroundColor: AppColors.secondaryContainer,
                     child: Text(
-                      _initials(user.fullName.isNotEmpty ? user.fullName : user.username),
+                      _initials(user.fullName.isNotEmpty
+                          ? user.fullName
+                          : user.username),
                       style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     user.fullName.isNotEmpty ? user.fullName : user.username,
                     style: const TextStyle(
-                        color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(roleLabel,
-                        style: const TextStyle(color: Colors.white, fontSize: 12)),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 12)),
                   ),
                 ],
               ),
@@ -173,7 +186,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     _infoTile(Icons.email_outlined, 'Email', user.email),
                     const Divider(height: 1, indent: 16, endIndent: 16),
-                    _infoTile(Icons.account_circle_outlined, 'Username', user.username),
+                    _infoTile(Icons.account_circle_outlined, 'Username',
+                        user.username),
                     if (user.phone.isNotEmpty) ...[
                       const Divider(height: 1, indent: 16, endIndent: 16),
                       _infoTile(Icons.phone_outlined, 'Phone', user.phone),
@@ -202,12 +216,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           labelText: 'Current password',
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
-                            icon: Icon(_obscureOld ? Icons.visibility_off : Icons.visibility),
-                            onPressed: () => setState(() => _obscureOld = !_obscureOld),
+                            icon: Icon(_obscureOld
+                                ? Icons.visibility_off
+                                : Icons.visibility),
+                            onPressed: () =>
+                                setState(() => _obscureOld = !_obscureOld),
                           ),
                         ),
-                        validator: (v) =>
-                            (v == null || v.isEmpty) ? 'Current password is required' : null,
+                        validator: (v) => (v == null || v.isEmpty)
+                            ? 'Current password is required'
+                            : null,
                       ),
                       const SizedBox(height: 14),
                       TextFormField(
@@ -217,14 +235,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           labelText: 'New password',
                           prefixIcon: const Icon(Icons.lock_reset_outlined),
                           suffixIcon: IconButton(
-                            icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility),
-                            onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                            icon: Icon(_obscureNew
+                                ? Icons.visibility_off
+                                : Icons.visibility),
+                            onPressed: () =>
+                                setState(() => _obscureNew = !_obscureNew),
                           ),
                           helperText: 'At least 5 characters',
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'New password is required';
-                          if (v.length < 5) return 'Password must be at least 5 characters long';
+                          if (v == null || v.isEmpty)
+                            return 'New password is required';
+                          if (v.length < 5)
+                            return 'Password must be at least 5 characters long';
                           return null;
                         },
                       ),
@@ -236,14 +259,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           labelText: 'Confirm new password',
                           prefixIcon: const Icon(Icons.check_circle_outline),
                           suffixIcon: IconButton(
-                            icon:
-                                Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
-                            onPressed: () =>
-                                setState(() => _obscureConfirm = !_obscureConfirm),
+                            icon: Icon(_obscureConfirm
+                                ? Icons.visibility_off
+                                : Icons.visibility),
+                            onPressed: () => setState(
+                                () => _obscureConfirm = !_obscureConfirm),
                           ),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'Please confirm your new password';
+                          if (v == null || v.isEmpty)
+                            return 'Please confirm your new password';
                           if (v != _newPasswordController.text) {
                             return 'Passwords do not match';
                           }
@@ -278,7 +303,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.logout, color: AppColors.error),
-              label: const Text('Sign Out', style: TextStyle(color: AppColors.error)),
+              label: const Text('Sign Out',
+                  style: TextStyle(color: AppColors.error)),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
                 side: const BorderSide(color: AppColors.error),
@@ -294,7 +320,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _infoTile(IconData icon, String label, String value) {
     return ListTile(
       leading: Icon(icon, color: AppColors.onSurfaceVariant),
-      title: Text(label, style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
+      title: Text(label,
+          style:
+              const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
       subtitle: Text(value.isNotEmpty ? value : '-',
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
     );

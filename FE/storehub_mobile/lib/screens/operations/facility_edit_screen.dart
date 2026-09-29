@@ -46,11 +46,15 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     final f = widget.facility;
     _nameController = TextEditingController(text: f?['name']?.toString() ?? '');
     _codeController = TextEditingController(text: f?['code']?.toString() ?? '');
-    _addressController = TextEditingController(text: f?['address']?.toString() ?? '');
+    _addressController =
+        TextEditingController(text: f?['address']?.toString() ?? '');
     _cityController = TextEditingController(text: f?['city']?.toString() ?? '');
-    _phoneController = TextEditingController(text: f?['contactPhone']?.toString() ?? '');
-    _emailController = TextEditingController(text: f?['email']?.toString() ?? '');
-    _descriptionController = TextEditingController(text: f?['description']?.toString() ?? '');
+    _phoneController =
+        TextEditingController(text: f?['contactPhone']?.toString() ?? '');
+    _emailController =
+        TextEditingController(text: f?['email']?.toString() ?? '');
+    _descriptionController =
+        TextEditingController(text: f?['description']?.toString() ?? '');
     _status = f?['status']?.toString() ?? 'ACTIVE';
 
     if (_isEditing) _loadPolicy();
@@ -80,9 +84,11 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       setState(() {
         _policy = policy;
         if (policy != null) {
-          _depositController.text = (policy['depositPercentage'] ?? '').toString();
+          _depositController.text =
+              (policy['depositPercentage'] ?? '').toString();
           _lateFeeController.text = (policy['dailyLateFee'] ?? '').toString();
-          _minMonthsController.text = (policy['minimumRentalMonths'] ?? '').toString();
+          _minMonthsController.text =
+              (policy['minimumRentalMonths'] ?? '').toString();
         }
         _isLoadingPolicy = false;
       });
@@ -98,10 +104,14 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       'name': _nameController.text.trim(),
       'code': _codeController.text.trim(),
       'address': _addressController.text.trim(),
-      if (_cityController.text.trim().isNotEmpty) 'city': _cityController.text.trim(),
-      if (_phoneController.text.trim().isNotEmpty) 'contactPhone': _phoneController.text.trim(),
-      if (_emailController.text.trim().isNotEmpty) 'email': _emailController.text.trim(),
-      if (_descriptionController.text.trim().isNotEmpty) 'description': _descriptionController.text.trim(),
+      if (_cityController.text.trim().isNotEmpty)
+        'city': _cityController.text.trim(),
+      if (_phoneController.text.trim().isNotEmpty)
+        'contactPhone': _phoneController.text.trim(),
+      if (_emailController.text.trim().isNotEmpty)
+        'email': _emailController.text.trim(),
+      if (_descriptionController.text.trim().isNotEmpty)
+        'description': _descriptionController.text.trim(),
       if (_isEditing) 'status': _status,
     };
 
@@ -138,7 +148,9 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     final minMonths = int.tryParse(_minMonthsController.text);
     if (deposit == null || lateFee == null || minMonths == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in valid numbers for the policy fields.')),
+        const SnackBar(
+            content:
+                Text('Please fill in valid numbers for the policy fields.')),
       );
       return;
     }
@@ -150,9 +162,12 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       'facilityId': facilityId,
       'depositPercentage': deposit,
       'renewalWindowDays': _policy?['renewalWindowDays'] ?? 7,
-      'cancellationFullRefundHours': _policy?['cancellationFullRefundHours'] ?? 48,
-      'cancellationPartialRefundHours': _policy?['cancellationPartialRefundHours'] ?? 24,
-      'cancellationPartialRefundPercent': _policy?['cancellationPartialRefundPercent'] ?? 50.0,
+      'cancellationFullRefundHours':
+          _policy?['cancellationFullRefundHours'] ?? 48,
+      'cancellationPartialRefundHours':
+          _policy?['cancellationPartialRefundHours'] ?? 24,
+      'cancellationPartialRefundPercent':
+          _policy?['cancellationPartialRefundPercent'] ?? 50.0,
       'returnNoticeDays': _policy?['returnNoticeDays'] ?? 3,
       'depositRefundSlaDays': _policy?['depositRefundSlaDays'] ?? 7,
       'dailyLateFee': lateFee,
@@ -170,7 +185,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Policy saved'), backgroundColor: AppColors.success),
+        const SnackBar(
+            content: Text('Policy saved'), backgroundColor: AppColors.success),
       );
       _loadPolicy();
     } catch (e) {
@@ -191,7 +207,9 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Couldn't load users: ${e.toString().replaceAll('Exception: ', '')}")),
+        SnackBar(
+            content: Text(
+                "Couldn't load users: ${e.toString().replaceAll('Exception: ', '')}")),
       );
       return;
     }
@@ -200,13 +218,17 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) {
           final query = searchController.text.trim().toLowerCase();
           final filtered = users.whereType<Map>().where((u) {
             if (query.isEmpty) return true;
-            final haystack = [u['fullName'], u['email'], u['username']].whereType<String>().join(' ').toLowerCase();
+            final haystack = [u['fullName'], u['email'], u['username']]
+                .whereType<String>()
+                .join(' ')
+                .toLowerCase();
             return haystack.contains(query);
           }).toList();
           return SizedBox(
@@ -218,12 +240,16 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Assign Facility Manager', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Text('Assign Facility Manager',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
                       TextField(
                         controller: searchController,
                         onChanged: (_) => setSheet(() {}),
-                        decoration: const InputDecoration(hintText: 'Search by name or email', prefixIcon: Icon(Icons.search)),
+                        decoration: const InputDecoration(
+                            hintText: 'Search by name or email',
+                            prefixIcon: Icon(Icons.search)),
                       ),
                     ],
                   ),
@@ -234,13 +260,16 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                     itemBuilder: (context, index) {
                       final u = filtered[index];
                       final userId = u['id']?.toString() ?? '';
-                      final name = u['fullName']?.toString() ?? u['username']?.toString() ?? '';
+                      final name = u['fullName']?.toString() ??
+                          u['username']?.toString() ??
+                          '';
                       return ListTile(
                         title: Text(name),
                         subtitle: Text(u['email']?.toString() ?? ''),
                         onTap: () async {
                           try {
-                            await _opsService.assignStaffToFacility(widget.facility!['id'].toString(), userId);
+                            await _opsService.assignStaffToFacility(
+                                widget.facility!['id'].toString(), userId);
                             // Note: assignStaff endpoint assigns as STAFF; managers use
                             // the dedicated /managers/{userId} endpoint below instead.
                             if (!ctx.mounted) return;
@@ -248,7 +277,10 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                           } catch (e) {
                             if (!ctx.mounted) return;
                             ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+                              SnackBar(
+                                  content: Text(e
+                                      .toString()
+                                      .replaceAll('Exception: ', ''))),
                             );
                           }
                         },
@@ -268,7 +300,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(title: Text(_isEditing ? 'Edit Facility' : 'New Facility')),
+      appBar:
+          AppBar(title: Text(_isEditing ? 'Edit Facility' : 'New Facility')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -276,24 +309,32 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Facility Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const Text('Facility Details',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Facility name'),
-                validator: (v) => (v == null || v.trim().length < 2) ? 'Enter a name (min 2 characters)' : null,
+                validator: (v) => (v == null || v.trim().length < 2)
+                    ? 'Enter a name (min 2 characters)'
+                    : null,
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _codeController,
-                decoration: const InputDecoration(labelText: 'Facility code', hintText: 'e.g. HCM-01'),
-                validator: (v) => (v == null || v.trim().length < 2) ? 'Enter a code (min 2 characters)' : null,
+                decoration: const InputDecoration(
+                    labelText: 'Facility code', hintText: 'e.g. HCM-01'),
+                validator: (v) => (v == null || v.trim().length < 2)
+                    ? 'Enter a code (min 2 characters)'
+                    : null,
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _addressController,
                 decoration: const InputDecoration(labelText: 'Address'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Address is required' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Address is required'
+                    : null,
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -303,15 +344,18 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
               const SizedBox(height: 14),
               TextFormField(
                 controller: _phoneController,
-                decoration: const InputDecoration(labelText: 'Contact phone (optional)'),
+                decoration: const InputDecoration(
+                    labelText: 'Contact phone (optional)'),
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email (optional)'),
+                decoration:
+                    const InputDecoration(labelText: 'Email (optional)'),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return null;
-                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim())) return 'Enter a valid email';
+                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()))
+                    return 'Enter a valid email';
                   return null;
                 },
               ),
@@ -319,7 +363,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Description (optional)'),
+                decoration:
+                    const InputDecoration(labelText: 'Description (optional)'),
               ),
               if (_isEditing) ...[
                 const SizedBox(height: 14),
@@ -328,8 +373,10 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                   decoration: const InputDecoration(labelText: 'Status'),
                   items: const [
                     DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
-                    DropdownMenuItem(value: 'INACTIVE', child: Text('Inactive')),
-                    DropdownMenuItem(value: 'MAINTENANCE', child: Text('Maintenance')),
+                    DropdownMenuItem(
+                        value: 'INACTIVE', child: Text('Inactive')),
+                    DropdownMenuItem(
+                        value: 'MAINTENANCE', child: Text('Maintenance')),
                   ],
                   onChanged: (v) => setState(() => _status = v ?? _status),
                 ),
@@ -338,10 +385,13 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
               ElevatedButton(
                 onPressed: _isSaving ? null : _saveFacility,
                 child: _isSaving
-                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
                     : Text(_isEditing ? 'Save Changes' : 'Create Facility'),
               ),
-
               if (_isEditing) ...[
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
@@ -352,39 +402,52 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                 const SizedBox(height: 28),
                 const Divider(),
                 const SizedBox(height: 12),
-                const Text('Rental Policy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const Text('Rental Policy',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 const SizedBox(height: 4),
                 Text(
                   _policy == null
                       ? 'No policy configured yet for this facility.'
                       : 'Editing the existing policy for this facility.',
-                  style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.onSurfaceVariant),
                 ),
                 const SizedBox(height: 12),
                 if (_isLoadingPolicy)
-                  const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+                  const Center(
+                      child: Padding(
+                          padding: EdgeInsets.all(12),
+                          child: CircularProgressIndicator()))
                 else ...[
                   TextFormField(
                     controller: _depositController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Deposit percentage (%)', hintText: 'e.g. 100'),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Deposit percentage (%)',
+                        hintText: 'e.g. 100'),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: _lateFeeController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Daily late fee (\$)', hintText: 'e.g. 5'),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Daily late fee (\$)', hintText: 'e.g. 5'),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: _minMonthsController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Minimum rental months', hintText: 'e.g. 1'),
+                    decoration: const InputDecoration(
+                        labelText: 'Minimum rental months', hintText: 'e.g. 1'),
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton(
                     onPressed: _savePolicy,
-                    child: Text(_policy == null ? 'Create Policy' : 'Save Policy'),
+                    child:
+                        Text(_policy == null ? 'Create Policy' : 'Save Policy'),
                   ),
                 ],
               ],

@@ -1,6 +1,6 @@
 package com.storehub.service;
 
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.UserCreateRequest;
 import com.storehub.dto.request.UserUpdateRequest;
 import com.storehub.dto.response.UserResponse;

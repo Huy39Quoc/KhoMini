@@ -1,6 +1,6 @@
 package com.storehub.service.impl;
 
-import com.storehub.common.response.PageResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.FacilityCreateRequest;
 import com.storehub.dto.request.FacilityUpdateRequest;
 import com.storehub.dto.response.FacilityResponse;

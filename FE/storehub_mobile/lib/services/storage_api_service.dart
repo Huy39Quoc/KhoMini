@@ -25,9 +25,6 @@ class StorageApiService {
   }
 
   // Lấy thông tin smart access (mã PIN / mã QR) theo bookingId.
-  // BE trả về dạng bọc { success, message, data: { accessPin, ... } };
-  // trước đây hàm này trả nguyên cả bọc đó ra ngoài (không bóc "data"),
-  // khiến accessPin/qrCodeToken/tokenExpiresAt luôn bị đọc là null.
   Future<Map<String, dynamic>> getSmartAccess(String bookingId) async {
     try {
       final response = await _dio.get(ApiEndpoints.smartAccess(bookingId));
@@ -38,8 +35,7 @@ class StorageApiService {
     }
   }
 
-  // Cập nhật mã PIN mới cho ngăn kho
-  // BE (UpdatePinRequest) nhận field tên "newPin", không phải "pin".
+  // Cập nhật mã PIN mới cho ngăn khoá
   Future<void> updatePin(String bookingId, String newPin) async {
     try {
       await _dio.put(
@@ -52,12 +48,31 @@ class StorageApiService {
     }
   }
 
+  // Mở khóa / khóa lại ngăn kho (mô phỏng - không có phần cứng khóa thật
+  // đứng sau QR/PIN, nên đây là cách duy nhất để "thấy" hành động xảy ra).
+  Future<Map<String, dynamic>> unlockUnit(String bookingId) async {
+    try {
+      final response = await _dio.post(ApiEndpoints.unlockUnit(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to unlock unit: $message');
+    }
+  }
+
+  Future<Map<String, dynamic>> lockUnit(String bookingId) async {
+    try {
+      final response = await _dio.post(ApiEndpoints.lockUnit(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to lock unit: $message');
+    }
+  }
+
   // Gia hạn thời gian thuê kho
-  // BE (ExtendRentalRequest) nhận field tên "extraMonths", không phải "months".
-  // Trả về nguyên ContractOperationResponse thật từ BE (newEndDate,
-  // additionalFee, updatedTotalFee...) để FE hiển thị đúng số tiền thật,
-  // thay vì tự tính (không có công thức thuế/giảm giá nào ở FE cả).
-  Future<Map<String, dynamic>> extendRental(String bookingId, int months) async {
+  Future<Map<String, dynamic>> extendRental(
+      String bookingId, int months) async {
     try {
       final response = await _dio.post(
         ApiEndpoints.extendRental(bookingId),
@@ -71,9 +86,6 @@ class StorageApiService {
   }
 
   // Gửi yêu cầu trả kho (checkout)
-  // BE (CheckoutRequest) bắt buộc "scheduledReturnTime" (phải ở tương lai);
-  // trước đây không gửi gì nên luôn bị lỗi validate ở BE.
-  // Cũng trả về ContractOperationResponse thật (message, scheduledReturnTime...).
   Future<Map<String, dynamic>> checkoutRental(
     String bookingId,
     DateTime scheduledReturnTime, {
@@ -94,6 +106,57 @@ class StorageApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> getPendingExtensionPayment(
+      String bookingId) async {
+    try {
+      final response =
+          await _dio.get(ApiEndpoints.pendingExtensionPayment(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load pending extension payment: $message');
+    }
+  }
+
+  // Hủy yêu cầu gia hạn đang chờ thanh toán (DELETE /{bookingId}/extend)
+  Future<Map<String, dynamic>> cancelPendingExtension(String bookingId) async {
+    try {
+      final response = await _dio.delete(ApiEndpoints.extendRental(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to cancel extension: $message');
+    }
+  }
+
+  // Khoản phí trễ hạn đang chờ thanh toán + QR VietQR (null nếu không có)
+  Future<Map<String, dynamic>?> getPendingOverduePayment(
+      String bookingId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.overduePayment(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load overdue payment: $message');
+    }
+  }
+
+  Future<Map<String, dynamic>> confirmExtensionPayment(
+      String transactionId) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.paymentConfirm,
+        data: {'transactionId': transactionId},
+      );
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to confirm extension payment: $message');
+    }
+  }
+
   Map<String, dynamic> _unwrapMap(dynamic data) {
     if (data is Map && data['data'] is Map) {
       return Map<String, dynamic>.from(data['data']);
@@ -103,8 +166,6 @@ class StorageApiService {
     return {};
   }
 
-  // Format "yyyy-MM-ddTHH:mm:ss" (không có mili-giây/timezone) để khớp
-  // với kiểu LocalDateTime ở BE.
   String _formatLocalDateTime(DateTime dt) {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${dt.year.toString().padLeft(4, '0')}-${two(dt.month)}-${two(dt.day)}'

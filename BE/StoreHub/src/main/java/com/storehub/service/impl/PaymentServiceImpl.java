@@ -10,18 +10,21 @@ import com.storehub.enums.BookingStatus;
 import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
 import com.storehub.enums.UnitStatus;
+import com.storehub.enums.ActivityAction;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.service.ActivityLogService;
 import com.storehub.service.EmailService;
 import com.storehub.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import static com.storehub.common.PaymentNotes.OVERDUE_LATE_FEE;
+import static com.storehub.common.PaymentNotes.RENTAL_EXTENSION;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -35,6 +38,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final ActivityLogService activityLogService;
 
     @Override
     @Transactional
@@ -63,13 +67,19 @@ public class PaymentServiceImpl implements PaymentService {
 
         BigDecimal payableAmount;
 
-        if (request.getPaymentType() == PaymentType.DEPOSIT) {
-            payableAmount = booking
+        switch (request.getPaymentType()) {
+            case DEPOSIT -> payableAmount = booking
                     .getStorageUnit()
                     .getUnitType()
                     .getDepositAmount();
-        } else {
-            payableAmount = booking.getTotalRentalFee();
+            case RENTAL_FEE -> payableAmount = booking.getTotalRentalFee();
+            case EXTRA_CHARGE -> {
+                if (booking.getPendingExtensionFee() == null) {
+                    throw new AppException(ErrorCode.INVALID_REQUEST);
+                }
+                payableAmount = booking.getPendingExtensionFee();
+            }
+            default -> throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
         if (payableAmount == null
@@ -91,19 +101,13 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentType(request.getPaymentType())
                 .status(PaymentStatus.PENDING)
                 .paymentMethod(request.getPaymentMethod())
+                .note(request.getPaymentType() == PaymentType.EXTRA_CHARGE
+                        ? RENTAL_EXTENSION
+                        : null)
                 .paymentTime(LocalDateTime.now())
                 .build();
 
         Payment savedPayment = paymentRepository.save(payment);
-
-        String qrCodeUrl = String.format(
-                "https://img.vietqr.io/image/"
-                        + "970422-STOREHUB-%s.png"
-                        + "?amount=%s&addInfo=%s",
-                "compact2",
-                payableAmount.toPlainString(),
-                transactionId
-        );
 
         return PaymentResponse.builder()
                 .id(savedPayment.getId())
@@ -113,9 +117,21 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentType(savedPayment.getPaymentType())
                 .status(savedPayment.getStatus())
                 .paymentMethod(savedPayment.getPaymentMethod())
-                .qrCodeUrl(qrCodeUrl)
+                .qrCodeUrl(buildQrCodeUrl(transactionId, payableAmount))
                 .paymentTime(savedPayment.getPaymentTime())
+                .note(payment.getNote())
                 .build();
+    }
+
+    private String buildQrCodeUrl(String transactionId, BigDecimal amount) {
+        return String.format(
+                "https://img.vietqr.io/image/"
+                        + "970422-STOREHUB-%s.png"
+                        + "?amount=%s&addInfo=%s",
+                "compact2",
+                amount.toPlainString(),
+                transactionId
+        );
     }
 
     @Override
@@ -160,6 +176,31 @@ public class PaymentServiceImpl implements PaymentService {
             booking.setStatus(BookingStatus.CONFIRMED);
         }
 
+        if (payment.getPaymentType() == PaymentType.EXTRA_CHARGE
+                && RENTAL_EXTENSION.equals(payment.getNote())
+                && booking.getPendingExtraMonths() != null) {
+            var oldEndDate = booking.getEndDate();
+
+            booking.setEndDate(oldEndDate.plusMonths(booking.getPendingExtraMonths()));
+            booking.setRentalMonths(booking.getRentalMonths() + booking.getPendingExtraMonths());
+            booking.setTotalRentalFee(booking.getTotalRentalFee().add(booking.getPendingExtensionFee()));
+
+            int extendedMonths = booking.getPendingExtraMonths();
+            booking.setPendingExtraMonths(null);
+            booking.setPendingExtensionFee(null);
+
+            activityLogService.record(
+                    ActivityAction.CONTRACT_EXTENDED,
+                    "BOOKING",
+                    booking.getId(),
+                    "Extended booking " + booking.getBookingCode() + " by " + extendedMonths
+                            + " month(s) after extension fee payment " + payment.getTransactionId()
+                            + " (old end date: " + oldEndDate + ", new end date: " + booking.getEndDate() + ")",
+                    oldEndDate,
+                    booking.getEndDate()
+            );
+        }
+
         bookingRepository.save(booking);
 
         if (payment.getPaymentType() == PaymentType.DEPOSIT
@@ -193,6 +234,94 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentType(payment.getPaymentType())
                 .status(payment.getStatus())
                 .paymentMethod(payment.getPaymentMethod())
+                .paymentTime(payment.getPaymentTime())
+                .note(payment.getNote())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentResponse getPendingExtensionPayment(String customerEmail, UUID bookingId) {
+        User customer = userRepository.findByEmail(customerEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        Booking booking = bookingRepository.findByIdAndCustomerId(bookingId, customer.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (booking.getPendingExtraMonths() == null) {
+            throw new AppException(ErrorCode.PAYMENT_NOT_FOUND);
+        }
+
+        Payment payment = paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
+                        bookingId,
+                        PaymentType.EXTRA_CHARGE,
+                        PaymentStatus.PENDING,
+                        RENTAL_EXTENSION
+                )
+                .orElseThrow(() ->
+                        new AppException(ErrorCode.PAYMENT_NOT_FOUND)
+                );
+
+        return PaymentResponse.builder()
+                .id(payment.getId())
+                .transactionId(payment.getTransactionId())
+                .bookingId(booking.getId())
+                .amount(payment.getAmount())
+                .paymentType(payment.getPaymentType())
+                .status(payment.getStatus())
+                .paymentMethod(payment.getPaymentMethod())
+                .qrCodeUrl(buildQrCodeUrl(payment.getTransactionId(), payment.getAmount()))
+                .paymentTime(payment.getPaymentTime())
+                .note(payment.getNote())
+                .build();
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentResponse getPendingOverduePayment(
+            String customerEmail,
+            UUID bookingId
+    ) {
+        User customer = userRepository.findByEmail(customerEmail)
+                .orElseThrow(() ->
+                        new AppException(ErrorCode.USER_NOT_FOUND)
+                );
+
+        Booking booking = bookingRepository
+                .findByIdAndCustomerId(
+                        bookingId,
+                        customer.getId()
+                )
+                .orElseThrow(() ->
+                        new AppException(ErrorCode.BOOKING_NOT_FOUND)
+                );
+
+        Payment payment = paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
+                        bookingId,
+                        PaymentType.EXTRA_CHARGE,
+                        PaymentStatus.PENDING,
+                        OVERDUE_LATE_FEE
+                )
+                .orElseThrow(() ->
+                        new AppException(ErrorCode.PAYMENT_NOT_FOUND)
+                );
+
+        return PaymentResponse.builder()
+                .id(payment.getId())
+                .transactionId(payment.getTransactionId())
+                .bookingId(booking.getId())
+                .amount(payment.getAmount())
+                .paymentType(payment.getPaymentType())
+                .status(payment.getStatus())
+                .paymentMethod(payment.getPaymentMethod())
+                .note(payment.getNote())
+                .qrCodeUrl(buildQrCodeUrl(
+                        payment.getTransactionId(),
+                        payment.getAmount()
+                ))
                 .paymentTime(payment.getPaymentTime())
                 .build();
     }

@@ -25,6 +25,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
   final StorageApiService _storageService = StorageApiService();
   late Future<SmartAccessModel> _accessFuture;
   bool _isPinVisible = true;
+  bool _isTogglingLock = false;
   Timer? _ticker;
   Duration? _remaining;
 
@@ -43,7 +44,8 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
   void _load() {
     _ticker?.cancel();
     setState(() {
-      _accessFuture = _storageService.getSmartAccess(widget.bookingId).then((json) {
+      _accessFuture =
+          _storageService.getSmartAccess(widget.bookingId).then((json) {
         final model = SmartAccessModel.fromJson(json);
         _startCountdown(model.tokenExpiresAt);
         return model;
@@ -67,6 +69,39 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => tick());
   }
 
+  // Không có phần cứng khóa thật đứng sau QR/PIN, nên đây là cách duy nhất
+  // để test được hành động mở/đóng khóa - đổi trạng thái xong load lại
+  // toàn bộ access info (giống pattern _showUpdatePinDialog đang dùng).
+  Future<void> _toggleLock(bool currentlyLocked) async {
+    setState(() => _isTogglingLock = true);
+    try {
+      if (currentlyLocked) {
+        await _storageService.unlockUnit(widget.bookingId);
+      } else {
+        await _storageService.lockUnit(widget.bookingId);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(currentlyLocked ? 'Unit unlocked' : 'Unit locked'),
+          backgroundColor:
+              currentlyLocked ? AppColors.success : AppColors.secondary,
+        ),
+      );
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isTogglingLock = false);
+    }
+  }
+
   String _formatDuration(Duration d) {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -85,7 +120,8 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Set a new access PIN'),
           content: Form(
             key: formKey,
@@ -120,7 +156,8 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                       if (!formKey.currentState!.validate()) return;
                       setDialogState(() => saving = true);
                       try {
-                        await _storageService.updatePin(widget.bookingId, controller.text);
+                        await _storageService.updatePin(
+                            widget.bookingId, controller.text);
                         if (!dialogContext.mounted) return;
                         Navigator.pop(dialogContext);
                         if (!mounted) return;
@@ -136,7 +173,8 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                         if (!dialogContext.mounted) return;
                         ScaffoldMessenger.of(dialogContext).showSnackBar(
                           SnackBar(
-                            content: Text(e.toString().replaceAll('Exception: ', '')),
+                            content: Text(
+                                e.toString().replaceAll('Exception: ', '')),
                             backgroundColor: AppColors.error,
                           ),
                         );
@@ -146,7 +184,8 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                   ? const SizedBox(
                       height: 16,
                       width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : const Text('Save'),
             ),
@@ -208,13 +247,15 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text('Bearer Token · JWT Secured',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+                          style: TextStyle(
+                              fontSize: 10, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -234,10 +275,13 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                         children: [
                           Text('UNIT ${widget.unitNumber} ACCESS',
                               style: const TextStyle(
-                                  color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold)),
                           if (_remaining != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: isExpired
                                     ? AppColors.error.withValues(alpha: 0.3)
@@ -245,8 +289,11 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                isExpired ? 'EXPIRED' : _formatDuration(_remaining!),
-                                style: const TextStyle(color: Colors.white, fontSize: 10),
+                                isExpired
+                                    ? 'EXPIRED'
+                                    : _formatDuration(_remaining!),
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 10),
                               ),
                             ),
                         ],
@@ -275,12 +322,79 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                         isExpired
                             ? 'This QR code has expired. Pull to refresh for a new one.'
                             : 'Scan at the facility gate or unit scanner',
-                        style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 11),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                const SizedBox(height: 16),
+
+                // Nút Mở khóa / Khóa lại - mô phỏng hành động thật vì
+                // không có phần cứng khóa đứng sau QR/PIN để test.
+                Card(
+                  color: access.locked
+                      ? AppColors.surfaceContainerLow
+                      : AppColors.success.withValues(alpha: 0.12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(
+                          access.locked ? Icons.lock : Icons.lock_open,
+                          color: access.locked
+                              ? AppColors.onSurfaceVariant
+                              : AppColors.success,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                access.locked
+                                    ? 'Unit is locked'
+                                    : 'Unit is unlocked',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                access.locked
+                                    ? 'Tap to unlock (simulated - no real hardware attached)'
+                                    : 'Tap to lock it back',
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: _isTogglingLock
+                              ? null
+                              : () => _toggleLock(access.locked),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: access.locked
+                                ? AppColors.primary
+                                : AppColors.secondary,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: _isTogglingLock
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text(access.locked ? 'Unlock' : 'Lock'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
                 // PIN card
                 Card(
@@ -291,21 +405,27 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Keypad Access PIN', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text('Keypad Access PIN',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                             Row(
                               children: [
                                 IconButton(
                                   icon: Icon(
-                                      _isPinVisible ? Icons.visibility_off : Icons.visibility,
+                                      _isPinVisible
+                                          ? Icons.visibility_off
+                                          : Icons.visibility,
                                       size: 20),
-                                  onPressed: () => setState(() => _isPinVisible = !_isPinVisible),
+                                  onPressed: () => setState(
+                                      () => _isPinVisible = !_isPinVisible),
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.copy, size: 20),
                                   onPressed: () {
                                     Clipboard.setData(ClipboardData(text: pin));
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('PIN copied to clipboard')),
+                                      const SnackBar(
+                                          content:
+                                              Text('PIN copied to clipboard')),
                                     );
                                   },
                                 ),
@@ -327,7 +447,8 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                               alignment: Alignment.center,
                               child: Text(
                                 _isPinVisible ? digit : '•',
-                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    fontSize: 22, fontWeight: FontWeight.bold),
                               ),
                             );
                           }).toList(),
@@ -336,7 +457,8 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                         OutlinedButton.icon(
                           onPressed: () => _showUpdatePinDialog(pin),
                           icon: const Icon(Icons.password, size: 16),
-                          label: const Text('Set a new PIN', style: TextStyle(fontSize: 13)),
+                          label: const Text('Set a new PIN',
+                              style: TextStyle(fontSize: 13)),
                         ),
                       ],
                     ),
@@ -346,7 +468,8 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                 const Text(
                   'Enter this PIN on the gate or unit keypad followed by #, or scan the QR code above.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 12),
+                  style: TextStyle(
+                      color: AppColors.onSurfaceVariant, fontSize: 12),
                 ),
               ],
             ),

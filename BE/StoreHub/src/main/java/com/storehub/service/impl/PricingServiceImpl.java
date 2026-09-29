@@ -17,6 +17,8 @@ import com.storehub.service.PricingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.storehub.service.FacilityPolicyService;
+import java.util.UUID;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -33,7 +35,7 @@ public class PricingServiceImpl implements PricingService {
     private static final BigDecimal STANDARD_MANAGEMENT_FEE = BigDecimal.valueOf(50000).setScale(0, RoundingMode.UNNECESSARY);
     private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
     private static final DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,###");
-
+    private final FacilityPolicyService facilityPolicyService;
     private final UnitTypeRepository unitTypeRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final FacilityPolicyRepository facilityPolicyRepository;
@@ -70,24 +72,19 @@ public class PricingServiceImpl implements PricingService {
         LocalDate startDate = request.getStartDate();
         LocalDate endDate = startDate.plusMonths(months);
 
-        // 1. Tiền thuê cơ bản (VNĐ scale = 0)
         BigDecimal monthlyRate = unitType.getBasePricePerMonth().setScale(0, RoundingMode.HALF_UP);
         BigDecimal totalRentalFee = monthlyRate.multiply(BigDecimal.valueOf(months)).setScale(0, RoundingMode.HALF_UP);
 
-        // 2. Tiền cọc (hỗ trợ chính sách 0% không bị fallback nhầm)
         BigDecimal defaultDeposit = (unitType.getDepositAmount() != null)
                 ? unitType.getDepositAmount().setScale(0, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
         BigDecimal depositAmount = resolveDepositAmount(facility, totalRentalFee, defaultDeposit);
 
-        // 3. Phụ phí dịch vụ
         BigDecimal totalManagementFee = STANDARD_MANAGEMENT_FEE.multiply(BigDecimal.valueOf(months)).setScale(0, RoundingMode.HALF_UP);
         BigDecimal totalExtraFees = totalManagementFee;
 
-        // 4. Tổng thanh toán đợt đầu
         BigDecimal initialPayment = totalRentalFee.add(depositAmount).add(totalExtraFees);
 
-        // 5. Tạo danh sách chi tiết các khoản chi phí
         List<FeeItemResponse> breakdown = new ArrayList<>();
         breakdown.add(FeeItemResponse.builder()
                 .feeType(RentalFeeType.RENTAL_FEE)
@@ -140,6 +137,20 @@ public class PricingServiceImpl implements PricingService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal calculateExtensionFee(StorageUnit storageUnit, int extraMonths) {
+        if (storageUnit == null || storageUnit.getUnitType() == null) {
+            throw new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND);
+        }
+        UnitType unitType = storageUnit.getUnitType();
+        if (unitType.getBasePricePerMonth() == null) {
+            throw new AppException(ErrorCode.UNIT_TYPE_PRICE_NOT_CONFIGURED);
+        }
+        BigDecimal monthlyRate = unitType.getBasePricePerMonth().setScale(0, RoundingMode.HALF_UP);
+        return monthlyRate.multiply(BigDecimal.valueOf(extraMonths)).setScale(0, RoundingMode.HALF_UP);
+    }
+
     private BigDecimal resolveDepositAmount(Facility facility, BigDecimal totalRentalFee, BigDecimal defaultDeposit) {
         if (facility == null) {
             return defaultDeposit;
@@ -158,5 +169,31 @@ public class PricingServiceImpl implements PricingService {
         }
 
         return defaultDeposit;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal calculateLateFee(
+            UUID facilityId,
+            long chargeableDays
+    ) {
+        if (chargeableDays <= 0) {
+            return BigDecimal.ZERO.setScale(
+                    2,
+                    RoundingMode.UNNECESSARY
+            );
+        }
+
+        BigDecimal dailyLateFee = facilityPolicyService
+                .getOverdueConfig(facilityId)
+                .dailyLateFee();
+
+        if (dailyLateFee == null || dailyLateFee.signum() < 0) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
+        return dailyLateFee
+                .multiply(BigDecimal.valueOf(chargeableDays))
+                .setScale(2, RoundingMode.HALF_UP);
     }
 }
