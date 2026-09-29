@@ -5,6 +5,9 @@ import '../core/network/http_client.dart';
 class TicketApiService {
   final Dio _dio = HttpClient.instance.dio;
 
+  // BE trả về danh sách có phân trang: { data: { content: [...], page, ... } },
+  // trước đây chỉ kiểm tra data['data'] is List (luôn false vì đó là Map)
+  // nên màn hình danh sách ticket luôn hiện trống dù đã có ticket.
   Future<List<dynamic>> getMyTickets() async {
     try {
       final response = await _dio.get(ApiEndpoints.tickets);
@@ -29,6 +32,8 @@ class TicketApiService {
     }
   }
 
+  // BE (CreateTicketRequest) bắt buộc "title" (trước đây không gửi) và
+  // dùng field "bookingId" chứ không phải "unitId".
   Future<void> createTicket(
     String category,
     String title,
@@ -52,12 +57,17 @@ class TicketApiService {
     }
   }
 
+  // Trước đây hàm này trả nguyên cả bọc {success, message, data: {...}}
+  // thay vì bóc "data" ra - y hệt lỗi từng gặp ở getSmartAccess. Đây cũng
+  // là lý do màn hình chi tiết ticket chưa từng được nối dù API đã có sẵn.
   Future<Map<String, dynamic>> getTicketDetail(String ticketId) async {
     try {
       final response = await _dio.get(ApiEndpoints.ticketDetail(ticketId));
-      return response.data is Map<String, dynamic>
-          ? response.data
-          : Map<String, dynamic>.from(response.data);
+      final data = response.data;
+      if (data is Map && data['data'] is Map) {
+        return Map<String, dynamic>.from(data['data']);
+      }
+      return data is Map<String, dynamic> ? data : Map<String, dynamic>.from(data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to load ticket detail: $message');

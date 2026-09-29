@@ -3,6 +3,7 @@ package com.storehub.service;
 import com.storehub.dto.request.HandoverRequest;
 import com.storehub.dto.request.UpdateUnitStatusRequest;
 import com.storehub.dto.response.DailyScheduleResponse;
+import com.storehub.dto.response.HandoverRecordResponse;
 import com.storehub.dto.response.HandoverResponse;
 
 import java.time.LocalDate;
@@ -13,7 +14,14 @@ public interface FacilityOperationsService {
 
     List<DailyScheduleResponse> getDailySchedule(
             UUID facilityId,
-            LocalDate date
+            LocalDate date,
+            String staffEmail
+    );
+
+    List<HandoverRecordResponse> getHandoverHistory(
+            UUID bookingId,
+            UUID facilityId,
+            String staffEmail
     );
 
     HandoverResponse checkIn(
@@ -33,6 +41,7 @@ public interface FacilityOperationsService {
     String updateUnitStatus(
             UUID unitId,
             UUID facilityId,
+            String staffEmail,
             UpdateUnitStatusRequest request
     );
 }

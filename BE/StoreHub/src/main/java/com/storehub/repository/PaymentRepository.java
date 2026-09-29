@@ -3,27 +3,72 @@ package com.storehub.repository;
 import com.storehub.dto.response.FacilityRevenueResponse;
 import com.storehub.dto.response.SystemRevenueSummaryResponse;
 import com.storehub.entity.Payment;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface PaymentRepository extends JpaRepository<Payment, UUID> {
+public interface PaymentRepository
+        extends JpaRepository<Payment, UUID> {
 
     Optional<Payment> findByTransactionId(String transactionId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+           select p
+           from Payment p
+           where p.transactionId = :transactionId
+           """)
+    Optional<Payment> lockByTransactionId(
+            @Param("transactionId") String transactionId
+    );
 
     @Query("""
             SELECT new com.storehub.dto.response.FacilityRevenueResponse(
                 f.id,
                 f.name,
                 COALESCE(SUM(p.amount), 0),
-                COALESCE(SUM(CASE WHEN p.paymentType = com.storehub.enums.PaymentType.DEPOSIT THEN p.amount ELSE null END), 0),
-                COALESCE(SUM(CASE WHEN p.paymentType = com.storehub.enums.PaymentType.RENTAL_FEE THEN p.amount ELSE null END), 0),
-                COALESCE(SUM(CASE WHEN p.paymentType = com.storehub.enums.PaymentType.EXTRA_CHARGE THEN p.amount ELSE null END), 0),
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN p.paymentType =
+                                com.storehub.enums.PaymentType.DEPOSIT
+                            THEN p.amount
+                            ELSE null
+                        END
+                    ),
+                    0
+                ),
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN p.paymentType =
+                                com.storehub.enums.PaymentType.RENTAL_FEE
+                            THEN p.amount
+                            ELSE null
+                        END
+                    ),
+                    0
+                ),
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN p.paymentType =
+                                com.storehub.enums.PaymentType.EXTRA_CHARGE
+                            THEN p.amount
+                            ELSE null
+                        END
+                    ),
+                    0
+                ),
                 COUNT(p)
             )
             FROM Payment p
@@ -44,9 +89,39 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     @Query("""
             SELECT new com.storehub.dto.response.SystemRevenueSummaryResponse(
                 COALESCE(SUM(p.amount), 0),
-                COALESCE(SUM(CASE WHEN p.paymentType = com.storehub.enums.PaymentType.DEPOSIT THEN p.amount ELSE null END), 0),
-                COALESCE(SUM(CASE WHEN p.paymentType = com.storehub.enums.PaymentType.RENTAL_FEE THEN p.amount ELSE null END), 0),
-                COALESCE(SUM(CASE WHEN p.paymentType = com.storehub.enums.PaymentType.EXTRA_CHARGE THEN p.amount ELSE null END), 0),
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN p.paymentType =
+                                com.storehub.enums.PaymentType.DEPOSIT
+                            THEN p.amount
+                            ELSE null
+                        END
+                    ),
+                    0
+                ),
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN p.paymentType =
+                                com.storehub.enums.PaymentType.RENTAL_FEE
+                            THEN p.amount
+                            ELSE null
+                        END
+                    ),
+                    0
+                ),
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN p.paymentType =
+                                com.storehub.enums.PaymentType.EXTRA_CHARGE
+                            THEN p.amount
+                            ELSE null
+                        END
+                    ),
+                    0
+                ),
                 COUNT(p)
             )
             FROM Payment p

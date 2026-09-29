@@ -6,7 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -86,4 +87,27 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("bookingId") UUID bookingId,
             @Param("facilityId") UUID facilityId
     );
-}
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from Booking b where b.id = :id")
+    Optional<Booking> lockById(@Param("id") UUID id);
+
+    boolean existsByStorageUnit_IdAndStatusIn(
+            UUID unitId,
+            List<BookingStatus> statuses
+    );
+
+    @Query("""
+            SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            LEFT JOIN FETCH su.facility
+            LEFT JOIN FETCH su.unitType
+            WHERE b.status = :status
+            AND b.expiresAt IS NOT NULL
+            AND b.expiresAt < :now
+            """)
+    List<Booking> findExpiredPendingBookings(
+            @Param("status") BookingStatus status,
+            @Param("now") LocalDateTime now
+    );
+}

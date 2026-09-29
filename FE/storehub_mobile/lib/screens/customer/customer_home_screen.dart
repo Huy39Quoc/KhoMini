@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
 import '../auth/login_screen.dart';
+import '../common/profile_screen.dart';
 import 'my_units/my_rented_units_screen.dart';
 import 'reservation/explore_screen.dart';
 import 'tickets/ticket_list_screen.dart';
@@ -113,9 +114,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
               Row(
                 children: [
-                  const CircleAvatar(
-                    backgroundColor: AppColors.primary,
-                    child: Icon(Icons.person, color: Colors.white),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(24),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => ProfileScreen(user: widget.user)),
+                      );
+                    },
+                    child: const CircleAvatar(
+                      backgroundColor: AppColors.primary,
+                      child: Icon(Icons.person, color: Colors.white),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(

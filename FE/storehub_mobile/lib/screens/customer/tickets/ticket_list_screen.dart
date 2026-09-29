@@ -3,6 +3,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../services/ticket_api_service.dart';
 import '../../../widgets/state_views.dart';
 import 'create_ticket_screen.dart';
+import 'ticket_detail_screen.dart';
 
 class TicketListScreen extends StatefulWidget {
   const TicketListScreen({super.key});
@@ -105,10 +106,24 @@ class _TicketListScreenState extends State<TicketListScreen> {
                 final description = ticket['description']?.toString() ?? '';
                 final resolutionNote = ticket['resolutionNote']?.toString();
 
+                final ticketId = ticket['id']?.toString() ?? '';
+
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: Card(
-                    child: Padding(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: ticketId.isEmpty
+                          ? null
+                          : () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TicketDetailScreen(ticketId: ticketId),
+                                ),
+                              );
+                            },
+                      child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,6 +216,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
                             ),
                           ],
                         ],
+                      ),
                       ),
                     ),
                   ),

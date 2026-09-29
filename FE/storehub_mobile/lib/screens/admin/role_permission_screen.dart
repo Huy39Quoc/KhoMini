@@ -4,6 +4,12 @@ import '../../core/constants/app_colors.dart';
 import '../../services/admin_api_service.dart';
 import '../../widgets/state_views.dart';
 
+/// RBAC Matrix: pick a role, see every permission grouped by category, and
+/// (for Admins) toggle which ones that role has. All data - roles,
+/// permissions, and the current assignment - is real, fetched from
+/// RoleController / PermissionController / RolePermissionController.
+/// [readOnly] is used for roles that can view (Business Manager, Facility
+/// Manager) but aren't allowed to edit (BE only allows ADMIN to write).
 class RolePermissionScreen extends StatefulWidget {
   final bool readOnly;
   const RolePermissionScreen({super.key, this.readOnly = false});
@@ -24,7 +30,9 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
   List<Map<String, dynamic>> _permissions = [];
   String? _selectedRoleId;
 
+  // permissionId -> rolePermission record id (existing assignment), for permissions currently active on the role
   Map<String, String> _assignedIds = {};
+  // Local editable selection (checked permission ids)
   Set<String> _selectedPermissionIds = {};
   Set<String> _initialPermissionIds = {};
 
