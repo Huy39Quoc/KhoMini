@@ -18,11 +18,13 @@ import com.storehub.repository.HandoverRecordRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.entity.FacilityAccess;
 import com.storehub.service.FacilityOperationsService;
+import com.storehub.service.PaymentService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ public class FacilityOperationsServiceImpl
     private final HandoverRecordRepository handoverRecordRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final FacilityAccess facilityAccess;
+    private final PaymentService paymentService;
 
     @Override
     @Transactional(readOnly = true)
@@ -269,6 +272,9 @@ public class FacilityOperationsServiceImpl
             );
         }
 
+        // Nghiệm thu trả kho -> hoàn cọc. Bị chặn nếu khách còn nợ phí trễ hạn.
+        BigDecimal refundedDeposit = paymentService.refundDepositOnReturn(booking);
+
         LocalDateTime now = LocalDateTime.now();
 
         HandoverRecord record = HandoverRecord.builder()
@@ -296,7 +302,10 @@ public class FacilityOperationsServiceImpl
                 record,
                 request.getLockCondition(),
                 staff,
-                "Check-out completed successfully"
+                refundedDeposit.signum() > 0
+                        ? "Check-out completed successfully. Deposit refunded: "
+                        + refundedDeposit.toPlainString()
+                        : "Check-out completed successfully"
         );
     }
 

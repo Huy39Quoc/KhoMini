@@ -51,6 +51,7 @@ class FacilityManagementMapper {
       fullName: _text(json['fullName']),
       email: _text(json['email']),
       isActive: json['isActive'] == true,
+      roleName: _text(json['roleName']),
     );
   }
 
