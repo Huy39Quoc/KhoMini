@@ -155,6 +155,14 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
+    public boolean isMinRentalMonthsSatisfied(UUID facilityId, int rentalMonths) {
+        return facilityPolicyRepository.findByFacility_Id(facilityId)
+                .map(policy -> policy.getMinimumRentalMonths() == null
+                        || rentalMonths >= policy.getMinimumRentalMonths())
+                .orElse(true);
+    }
+
+    @Override
     public PageResponse<FacilityPolicyResponse> getAll(String search, int page, int size, String sortBy, String sortDir) {
         String resolvedSortBy = "facilityName".equalsIgnoreCase(sortBy) ? "facility.name" : sortBy;
         Sort sort = sortDir.equalsIgnoreCase("desc")

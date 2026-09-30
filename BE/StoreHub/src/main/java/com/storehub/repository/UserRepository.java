@@ -37,6 +37,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             Pageable pageable
     );
 
+    @Query("SELECT COUNT(u) FROM User u WHERE u.isActive = true")
+    long countActiveUsers();
+
     List<User> findByFacility_IdAndRole_Name(
             UUID facilityId,
             String roleName

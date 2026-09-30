@@ -743,10 +743,12 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: Text(
-          _facilityName ?? 'Facility Manager Console',
+          (_facilityName == null || _facilityName!.isEmpty)
+              ? 'Facility Manager Console'
+              : _facilityName!,
         ),
         actions: [
-          if (_facilityId != null)
+          if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
               tooltip: 'Confirmed bookings',
               icon: const Icon(Icons.swap_horiz_outlined),
@@ -795,7 +797,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
           ),
           const SizedBox(width: 6),
         ],
-        bottom: _facilityId != null
+        bottom: _facilityId != null && _facilityId!.isNotEmpty
             ? TabBar(
                 controller: _tabController,
                 labelColor: AppColors.secondaryContainer,
@@ -810,7 +812,9 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
             : null,
       ),
       body: _buildBody(),
-      floatingActionButton: _facilityId != null && _tabController.index == 0
+      floatingActionButton: _facilityId != null &&
+              _facilityId!.isNotEmpty &&
+              _tabController.index == 0
           ? FloatingActionButton.extended(
               onPressed: () {
                 _openUnitSheet();

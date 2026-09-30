@@ -145,8 +145,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     validator: (value) {
                       final v = value?.trim() ?? '';
                       if (v.isEmpty) return 'Full name is required';
-                      if (v.length > 30)
+                      if (v.length > 30) {
                         return 'Full name must be less than 30 characters';
+                      }
                       return null;
                     },
                   ),
@@ -189,8 +190,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           .hasMatch(v)) {
                         return 'Enter a valid email address';
                       }
-                      if (v.length > 255)
+                      if (v.length > 255) {
                         return 'Email must not exceed 255 characters';
+                      }
                       return null;
                     },
                   ),

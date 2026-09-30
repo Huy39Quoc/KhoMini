@@ -244,10 +244,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           helperText: 'At least 5 characters',
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty)
+                          if (v == null || v.isEmpty) {
                             return 'New password is required';
-                          if (v.length < 5)
+                          }
+                          if (v.length < 5) {
                             return 'Password must be at least 5 characters long';
+                          }
                           return null;
                         },
                       ),
@@ -267,8 +269,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty)
+                          if (v == null || v.isEmpty) {
                             return 'Please confirm your new password';
+                          }
                           if (v != _newPasswordController.text) {
                             return 'Passwords do not match';
                           }

@@ -1,5 +1,6 @@
 package com.storehub.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -19,6 +20,7 @@ public class RolePermissionResponse {
     private String permissionName;
     private String permissionGroup;
 
+    @JsonProperty("isActive")
     private boolean isActive;
     private String description;
 

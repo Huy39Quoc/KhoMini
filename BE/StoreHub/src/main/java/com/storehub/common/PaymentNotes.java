@@ -8,6 +8,9 @@ public final class PaymentNotes {
     public static final String OVERDUE_LATE_FEE =
             "OVERDUE_LATE_FEE";
 
+    public static final String DEPOSIT_REFUND =
+            "DEPOSIT_REFUND";
+
     private PaymentNotes() {
     }
 }

@@ -4,6 +4,7 @@ import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
 import '../common/profile_screen.dart';
 import 'activity_log_screen.dart';
+import '../operations/facility_management_screen.dart';
 import 'role_permission_screen.dart';
 import 'user_management_screen.dart';
 
@@ -38,17 +39,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     try {
       final results = await Future.wait([
-        _adminApiService.getTotalUsersCount(),
-        _adminApiService.getUsers(),
+        _adminApiService.getUserSummary(),
         _adminApiService.getRoles(),
         _adminApiService.getPermissions(),
       ]);
-      final total = results[0] as int;
-      final users = results[1] as List<dynamic>;
-      final roles = results[2] as List<dynamic>;
-      final permissions = results[3] as List<dynamic>;
-      final active =
-          users.whereType<Map>().where((u) => u['isActive'] == true).length;
+      final summary = results[0] as ({int total, int active});
+      final roles = results[1] as List<dynamic>;
+      final permissions = results[2] as List<dynamic>;
+      final total = summary.total;
+      final active = summary.active;
 
       if (!mounted) return;
       setState(() {
@@ -177,6 +176,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         context,
                         MaterialPageRoute(
                             builder: (_) => const RolePermissionScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _actionTile(
+                    icon: Icons.store_outlined,
+                    title: 'Facility Management',
+                    subtitle:
+                        'Create facilities and assign a Facility Manager',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const FacilityManagementScreen()),
                       );
                     },
                   ),
