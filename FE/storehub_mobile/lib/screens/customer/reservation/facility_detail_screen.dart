@@ -61,6 +61,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     try {
       final quote = await _catalogService.getRentalQuote(
         unitTypeId: _selectedType!.id,
+        facilityId: widget.facilityId,
         startDate: _startDate,
         rentalMonths: _rentalMonths,
       );
@@ -171,8 +172,59 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         },
       ),
       // ── Bottom CTA ───────────────────────────────────────────────────
-      bottomNavigationBar:
-          _selectedType != null && _quote != null ? _buildBottomCTA() : null,
+      bottomNavigationBar: _selectedType != null && _quote != null
+          ? _buildBottomCTA()
+          : _buildBottomHint(),
+    );
+  }
+
+  // Trước đây khi chưa chọn loại kho (hoặc quote đang tải/lỗi), thanh dưới cùng
+  // biến mất hoàn toàn khiến người dùng không biết cần làm gì để đặt kho.
+  // Luôn hiện một thanh nhắc để họ biết bước tiếp theo.
+  Widget _buildBottomHint() {
+    String message;
+    if (_selectedType == null) {
+      message = 'Select a unit type above to continue';
+    } else if (_isQuoting) {
+      message = 'Calculating cost...';
+    } else if (_quoteError != null) {
+      message = 'Could not calculate cost. Please try again.';
+    } else {
+      message = 'Select a unit type above to continue';
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, -4))
+        ],
+      ),
+      child: Row(
+        children: [
+          if (_isQuoting)
+            const SizedBox(
+              height: 16,
+              width: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            const Icon(Icons.info_outline,
+                size: 18, color: AppColors.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

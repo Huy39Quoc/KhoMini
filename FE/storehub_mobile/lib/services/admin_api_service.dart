@@ -29,6 +29,29 @@ class AdminApiService {
     }
   }
 
+  // GET /users/summary: tổng số user + số user đang active (đếm toàn hệ thống ở BE).
+  // Trước đây dashboard đếm "active" từ trang 10 user đầu tiên nên sai số liệu,
+  // và Business Manager không được phép gọi GET /users nên dashboard báo lỗi.
+  Future<({int total, int active})> getUserSummary() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.usersSummary);
+      final data = response.data;
+      if (data is Map && data['data'] is Map) {
+        final d = data['data'] as Map;
+        final total = d['totalUsers'];
+        final active = d['activeUsers'];
+        return (
+          total: total is num ? total.toInt() : 0,
+          active: active is num ? active.toInt() : 0,
+        );
+      }
+      return (total: 0, active: 0);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load user count: $message');
+    }
+  }
+
   Future<List<dynamic>> getUsers() async {
     try {
       final response = await _dio.get(ApiEndpoints.users);

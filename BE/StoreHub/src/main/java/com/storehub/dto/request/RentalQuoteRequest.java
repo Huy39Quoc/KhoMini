@@ -21,6 +21,10 @@ public class RentalQuoteRequest {
     private UUID unitTypeId;
     private UUID storageUnitId;
 
+    // Tuỳ chọn: khi báo giá theo unitTypeId, truyền thêm facilityId để tiền cọc được
+    // tính theo % chính sách của cơ sở (khớp với số tiền thu thực tế ở PaymentService).
+    private UUID facilityId;
+
     @NotNull(message = "Start date is required")
     @FutureOrPresent(message = "Start date must be today or in the future")
     private LocalDate startDate;

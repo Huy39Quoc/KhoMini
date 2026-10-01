@@ -224,6 +224,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
         builder: (ctx, setSheet) {
           final query = searchController.text.trim().toLowerCase();
           final filtered = users.whereType<Map>().where((u) {
+            if (u['roleName']?.toString() != 'FACILITY_MANAGER') return false;
             if (query.isEmpty) return true;
             final haystack = [u['fullName'], u['email'], u['username']]
                 .whereType<String>()
@@ -255,7 +256,21 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                   ),
                 ),
                 Expanded(
-                  child: ListView.builder(
+                  child: filtered.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                              'No user with the FACILITY_MANAGER role found. '
+                              'Ask an admin to create one first.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: AppColors.onSurfaceVariant,
+                                  fontSize: 13),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final u = filtered[index];
@@ -268,12 +283,20 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                         subtitle: Text(u['email']?.toString() ?? ''),
                         onTap: () async {
                           try {
-                            await _opsService.assignStaffToFacility(
+                            // Đây là màn "Assign Facility Manager" nên phải gọi endpoint
+                            // gán Manager (PUT /managers/{userId}), không phải endpoint
+                            // gán Staff như trước đây.
+                            await _opsService.assignManagerToFacility(
                                 widget.facility!['id'].toString(), userId);
-                            // Note: assignStaff endpoint assigns as STAFF; managers use
-                            // the dedicated /managers/{userId} endpoint below instead.
                             if (!ctx.mounted) return;
                             Navigator.pop(ctx);
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('$name assigned as Facility Manager'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
                           } catch (e) {
                             if (!ctx.mounted) return;
                             ScaffoldMessenger.of(ctx).showSnackBar(
@@ -295,6 +318,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -354,7 +378,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                     const InputDecoration(labelText: 'Email (optional)'),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return null;
-                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim())) {
+                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                      .hasMatch(v.trim())) {
                     return 'Enter a valid email';
                   }
                   return null;
@@ -398,7 +423,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                 OutlinedButton.icon(
                   onPressed: _openAssignManagerSheet,
                   icon: const Icon(Icons.person_add_alt, size: 16),
-                  label: const Text('Assign Manager / Staff'),
+                  label: const Text('Assign Facility Manager'),
                 ),
                 const SizedBox(height: 28),
                 const Divider(),

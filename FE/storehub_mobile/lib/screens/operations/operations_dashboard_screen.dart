@@ -39,17 +39,15 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
 
     try {
       final results = await Future.wait([
-        _adminApiService.getTotalUsersCount(),
-        _adminApiService.getUsers(),
+        _adminApiService.getUserSummary(),
         _adminApiService.getRoles(),
         _adminApiService.getPermissions(),
       ]);
-      final total = results[0] as int;
-      final users = results[1] as List<dynamic>;
-      final roles = results[2] as List<dynamic>;
-      final permissions = results[3] as List<dynamic>;
-      final active =
-          users.whereType<Map>().where((u) => u['isActive'] == true).length;
+      final summary = results[0] as ({int total, int active});
+      final roles = results[1] as List<dynamic>;
+      final permissions = results[2] as List<dynamic>;
+      final total = summary.total;
+      final active = summary.active;
 
       if (!mounted) return;
       setState(() {

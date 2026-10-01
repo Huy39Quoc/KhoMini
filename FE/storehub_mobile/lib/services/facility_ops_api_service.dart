@@ -230,7 +230,10 @@ class FacilityOpsApiService {
             FacilityManagementMapper.assignableUserFromJson,
           )
           .where(
-            (user) => user.id.isNotEmpty && user.isActive,
+            (user) =>
+                user.id.isNotEmpty &&
+                user.isActive &&
+                user.roleName == 'STAFF',
           )
           .toList();
     } on DioException catch (error) {
@@ -245,6 +248,27 @@ class FacilityOpsApiService {
     try {
       final response = await _dio.put(
         ApiEndpoints.facilityAssignStaff(
+          facilityId,
+          userId,
+        ),
+      );
+
+      return FacilityManagementMapper.staffFromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'assign staff to facility');
+    }
+  }
+
+  // PUT /facility/management/{facilityId}/managers/{userId} (ADMIN only).
+  Future<FacilityStaffModel> assignManagerToFacility(
+    String facilityId,
+    String userId,
+  ) async {
+    try {
+      final response = await _dio.put(
+        ApiEndpoints.facilityAssignManager(
           facilityId,
           userId,
         ),

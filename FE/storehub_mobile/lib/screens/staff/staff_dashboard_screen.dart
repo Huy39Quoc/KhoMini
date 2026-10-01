@@ -658,7 +658,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       appBar: AppBar(
         title: const Text('Staff Operations'),
         actions: [
-          if (_facilityId != null)
+          if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
               tooltip: 'Support tickets',
               icon: const Icon(Icons.support_agent_outlined),

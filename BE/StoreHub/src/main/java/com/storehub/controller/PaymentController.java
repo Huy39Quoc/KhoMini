@@ -4,6 +4,7 @@ import com.storehub.common.ApiResponse;
 import com.storehub.dto.request.PaymentConfirmationRequest;
 import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
+import com.storehub.enums.PaymentStatus;
 import com.storehub.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -18,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.UUID;
-import com.storehub.enums.PaymentStatus;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -32,6 +32,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping("/initiate")
+    @PreAuthorize("hasRole('CUSTOMER')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(
             summary = "Khởi tạo giao dịch thanh toán cọc/phí kho – trả về VNPay Sandbox Payment URL"
@@ -54,11 +55,17 @@ public class PaymentController {
     }
 
     @PostMapping("/confirm")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Xác nhận thanh toán thành công")
     public ResponseEntity<ApiResponse<PaymentResponse>> confirmPayment(
+            @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody PaymentConfirmationRequest request
     ) {
-        PaymentResponse response = paymentService.confirmPayment(request);
+        PaymentResponse response = paymentService.confirmPayment(
+                userDetails.getUsername(),
+                request
+        );
 
         return ResponseEntity.ok(
                 ApiResponse.success(
@@ -170,4 +177,4 @@ public class PaymentController {
             return ResponseEntity.ok(result);
         }
     }
-}
+}
