@@ -34,7 +34,9 @@ public class SecurityConfig {
             "/api-docs/**",
             "/v3/api-docs/**",
             "/api/v1/catalog/**",
-            "/api/v1/pricing/**"
+            "/api/v1/pricing/**",
+            "/api/v1/payments/vnpay-return",
+            "/api/v1/payments/vnpay-ipn"
     };
 
     @Bean

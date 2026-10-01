@@ -97,13 +97,20 @@ public class PaymentServiceImpl implements PaymentService {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
+        UUID facilityId = (booking.getStorageUnit() != null && booking.getStorageUnit().getFacility() != null)
+                ? booking.getStorageUnit().getFacility().getId()
+                : null;
+        BigDecimal defaultDeposit = (booking.getStorageUnit() != null && booking.getStorageUnit().getUnitType() != null)
+                ? booking.getStorageUnit().getUnitType().getDepositAmount()
+                : BigDecimal.ZERO;
+
         BigDecimal payableAmount;
 
         switch (request.getPaymentType()) {
             case DEPOSIT -> payableAmount = pricingService.calculateDepositAmount(
-                    booking.getStorageUnit().getFacility().getId(),
+                    facilityId,
                     booking.getTotalRentalFee(),
-                    booking.getStorageUnit().getUnitType().getDepositAmount()
+                    defaultDeposit
             );
             case RENTAL_FEE -> payableAmount = booking.getTotalRentalFee();
             case EXTRA_CHARGE -> {
@@ -191,6 +198,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .lockByTransactionId(request.getTransactionId())
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
+        if (payment.getStatus() == PaymentStatus.PAID) {
+            return toPaymentResponse(payment);
+        }
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
@@ -217,6 +227,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .lockByTransactionId(request.getTransactionId())
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
+        if (payment.getStatus() == PaymentStatus.PAID) {
+            return toPaymentResponse(payment);
+        }
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
@@ -228,6 +241,20 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         return processPaymentConfirmation(payment, booking);
+    }
+
+    private PaymentResponse toPaymentResponse(Payment payment) {
+        return PaymentResponse.builder()
+                .id(payment.getId())
+                .transactionId(payment.getTransactionId())
+                .bookingId(payment.getBooking() != null ? payment.getBooking().getId() : null)
+                .amount(payment.getAmount())
+                .paymentType(payment.getPaymentType())
+                .status(payment.getStatus())
+                .paymentMethod(payment.getPaymentMethod())
+                .paymentTime(payment.getPaymentTime())
+                .note(payment.getNote())
+                .build();
     }
 
     private PaymentResponse processPaymentConfirmation(Payment payment, Booking booking) {

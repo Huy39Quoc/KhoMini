@@ -33,6 +33,9 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     @Query("""
             SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            JOIN FETCH su.facility
+            JOIN FETCH su.unitType
             WHERE b.id = :id
             AND b.customer.id = :customerId
             """)

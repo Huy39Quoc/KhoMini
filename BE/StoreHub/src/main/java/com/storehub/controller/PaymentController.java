@@ -131,6 +131,7 @@ public class PaymentController {
                         <div class="badge">Trạng thái: %s</div>
                         <br>
                         <a href="storehub://payment-result" class="btn">Quay lại ứng dụng StoreHub</a>
+                        <p style="margin-top: 15px; font-size: 13px; color: #777;">(Nếu không tự chuyển, bạn vuốt màn hình quay lại app StoreHub)</p>
                     </div>
                 </body>
                 </html>

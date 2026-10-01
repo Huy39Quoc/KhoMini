@@ -41,6 +41,7 @@ public class BookingServiceImpl implements BookingService {
     private final PricingService pricingService;
     private final WaitlistService waitlistService;
     private final FacilityPolicyService facilityPolicyService;
+    @org.springframework.context.annotation.Lazy
     private final PaymentService paymentService;
 
     @Override

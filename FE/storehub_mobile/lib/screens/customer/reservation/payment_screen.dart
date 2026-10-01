@@ -38,7 +38,7 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final BookingApiService _bookingService = BookingApiService();
 
   bool _isSuccess = false;
@@ -50,6 +50,7 @@ class _PaymentScreenState extends State<PaymentScreen>
   Map<String, dynamic>? _payment;
 
   Timer? _expiryTimer;
+  Timer? _pollingTimer;
   Duration? _remaining;
 
   // Animation cho success
@@ -60,6 +61,7 @@ class _PaymentScreenState extends State<PaymentScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _successCtrl = AnimationController(
       vsync: this,
@@ -71,6 +73,50 @@ class _PaymentScreenState extends State<PaymentScreen>
 
     _initiatePayment();
     _startExpiryCountdown();
+    _startStatusPolling();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_isSuccess && !_isExpired) {
+      _autoCheckPayment();
+    }
+  }
+
+  void _startStatusPolling() {
+    _pollingTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
+      if (!_isSuccess && !_isExpired && !_isConfirming && _payment != null) {
+        _autoCheckPayment();
+      }
+    });
+  }
+
+  Future<void> _autoCheckPayment() async {
+    final transactionId = _payment?['transactionId']?.toString();
+    if (transactionId == null ||
+        transactionId.isEmpty ||
+        _isConfirming ||
+        _isSuccess) {
+      return;
+    }
+
+    try {
+      final confirmed =
+          await _bookingService.confirmPayment(transactionId: transactionId);
+      if (!mounted) return;
+      final status = confirmed['status']?.toString();
+      if (status == 'PAID' || status == 'CONFIRMED') {
+        _pollingTimer?.cancel();
+        setState(() {
+          _payment = confirmed;
+          _isSuccess = true;
+        });
+        _successCtrl.forward();
+        HapticFeedback.mediumImpact();
+      }
+    } catch (_) {
+      // Quietly poll in background until paid
+    }
   }
 
   void _startExpiryCountdown() {
@@ -122,6 +168,8 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pollingTimer?.cancel();
     _successCtrl.dispose();
     _expiryTimer?.cancel();
     super.dispose();
