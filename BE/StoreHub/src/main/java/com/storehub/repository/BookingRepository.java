@@ -145,4 +145,18 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("facilityId") UUID facilityId,
             @Param("status") BookingStatus status
     );
+
+    @Query("""
+        SELECT b.storageUnit.facility.id, COUNT(DISTINCT b.id)
+        FROM Booking b
+        WHERE b.status = :status
+        AND (b.overdueDetectedAt IS NOT NULL OR b.endDate < :today)
+        AND b.storageUnit IS NOT NULL
+        AND b.storageUnit.facility IS NOT NULL
+        GROUP BY b.storageUnit.facility.id
+        """)
+    List<Object[]> countOverdueBookingsGroupedByFacility(
+            @Param("status") BookingStatus status,
+            @Param("today") LocalDate today
+    );
 }

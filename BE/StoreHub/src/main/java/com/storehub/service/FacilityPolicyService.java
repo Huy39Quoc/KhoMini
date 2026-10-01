@@ -16,15 +16,36 @@ public interface FacilityPolicyService {
 
     boolean isWithinRenewalWindow(
             UUID facilityId,
-            LocalDate currentEndDate
+            LocalDate endDate
     );
+
+    boolean isMinRentalMonthsSatisfied(
+            UUID facilityId,
+            int months
+    );
+
+    default boolean isMinRentalMonthsSatisfied(
+            UUID facilityId,
+            Integer months
+    ) {
+        return months != null && isMinRentalMonthsSatisfied(facilityId, months.intValue());
+    }
 
     boolean isReturnNoticeSatisfied(
             UUID facilityId,
-            LocalDateTime scheduledReturnTime
+            LocalDateTime scheduledReturn
     );
 
+    default boolean isReturnNoticeSatisfied(
+            UUID facilityId,
+            LocalDate scheduledReturn
+    ) {
+        return scheduledReturn != null && isReturnNoticeSatisfied(facilityId, scheduledReturn.atStartOfDay());
+    }
+
     OverdueConfigResponse getOverdueConfig(UUID facilityId);
+
+    Double resolveDepositPercentage(UUID facilityId);
 
     FacilityPolicyResponse getByFacilityId(UUID facilityId);
 

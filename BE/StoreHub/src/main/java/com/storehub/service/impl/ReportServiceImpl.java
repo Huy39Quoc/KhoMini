@@ -1,9 +1,11 @@
 package com.storehub.service.impl;
 
 import com.storehub.dto.response.*;
+import com.storehub.enums.BookingStatus;
 import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
+import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.service.ReportService;
@@ -26,6 +28,7 @@ public class ReportServiceImpl implements ReportService {
 
     private final PaymentRepository paymentRepository;
     private final StorageUnitRepository storageUnitRepository;
+    private final BookingRepository bookingRepository;
 
     @Override
     public RevenueReportResponse getRevenueReport(LocalDate fromDate, LocalDate toDate) {
@@ -48,11 +51,14 @@ public class ReportServiceImpl implements ReportService {
                     .build();
         }
 
+        BigDecimal overdueRevenue = paymentRepository.sumOverdueRevenue(from, to);
+
         return RevenueReportResponse.builder()
                 .fromDate(fromDate)
                 .toDate(toDate)
                 .systemSummary(systemSummary)
                 .byFacility(byFacility)
+                .overdue(overdueRevenue != null ? overdueRevenue : BigDecimal.ZERO)
                 .build();
     }
 
@@ -89,21 +95,36 @@ public class ReportServiceImpl implements ReportService {
             }
         }
 
+        LocalDate today = LocalDate.now();
+        List<Object[]> overdueRows = bookingRepository.countOverdueBookingsGroupedByFacility(
+                BookingStatus.ACTIVE, today
+        );
+        Map<UUID, Long> overdueCounts = new HashMap<>();
+        for (Object[] row : overdueRows) {
+            UUID facilityId = (UUID) row[0];
+            Long count = row[1] instanceof Number num ? num.longValue() : 0L;
+            overdueCounts.put(facilityId, count);
+        }
+
         List<FacilityOccupancyResponse> byFacility = new ArrayList<>();
         long sysTotal = 0, sysOccupied = 0, sysAvailable = 0, sysReserved = 0, sysMaintenance = 0;
+        long sysOverdue = 0;
 
         for (Map.Entry<UUID, long[]> entry : counts.entrySet()) {
+            UUID facilityId = entry.getKey();
             long[] c = entry.getValue();
+            long overdue = overdueCounts.getOrDefault(facilityId, 0L);
             double rate = c[0] == 0 ? 0.0 : (c[1] * 100.0) / c[0];
 
             byFacility.add(FacilityOccupancyResponse.builder()
-                    .facilityId(entry.getKey())
-                    .facilityName(facilityNames.get(entry.getKey()))
+                    .facilityId(facilityId)
+                    .facilityName(facilityNames.get(facilityId))
                     .totalUnits(c[0])
                     .occupiedUnits(c[1])
                     .availableUnits(c[2])
                     .reservedUnits(c[3])
                     .maintenanceUnits(c[4])
+                    .overdue(overdue)
                     .occupancyRate(round2(rate))
                     .build());
 
@@ -112,6 +133,7 @@ public class ReportServiceImpl implements ReportService {
             sysAvailable += c[2];
             sysReserved += c[3];
             sysMaintenance += c[4];
+            sysOverdue += overdue;
         }
 
         double systemRate = sysTotal == 0 ? 0.0 : (sysOccupied * 100.0) / sysTotal;
@@ -122,12 +144,14 @@ public class ReportServiceImpl implements ReportService {
                 .availableUnits(sysAvailable)
                 .reservedUnits(sysReserved)
                 .maintenanceUnits(sysMaintenance)
+                .overdue(sysOverdue)
                 .occupancyRate(round2(systemRate))
                 .build();
 
         return OccupancyReportResponse.builder()
                 .systemSummary(systemSummary)
                 .byFacility(byFacility)
+                .overdue(sysOverdue)
                 .build();
     }
 

@@ -156,14 +156,9 @@ public class PricingServiceImpl implements PricingService {
             return defaultDeposit;
         }
 
-        var policyOpt = facilityPolicyRepository.findByFacility_Id(facility.getId());
-        if (policyOpt.isEmpty()) {
-            return defaultDeposit;
-        }
-
-        FacilityPolicy policy = policyOpt.get();
-        if (policy.getDepositPercentage() != null && policy.getDepositPercentage() >= 0) {
-            BigDecimal percentage = BigDecimal.valueOf(policy.getDepositPercentage());
+        Double percentageValue = facilityPolicyService.resolveDepositPercentage(facility.getId());
+        if (percentageValue != null && percentageValue >= 0) {
+            BigDecimal percentage = BigDecimal.valueOf(percentageValue);
             return totalRentalFee.multiply(percentage)
                     .divide(ONE_HUNDRED, 0, RoundingMode.HALF_UP);
         }

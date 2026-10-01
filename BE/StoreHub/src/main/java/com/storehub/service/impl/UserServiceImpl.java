@@ -20,6 +20,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +53,9 @@ public class UserServiceImpl implements UserService {
 
         Role role;
         if (request.getRoleId() != null) {
+            if (!isCurrentUserAdmin()) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
             role = roleRepository.findById(request.getRoleId())
                     .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
         } else {
@@ -90,6 +95,9 @@ public class UserServiceImpl implements UserService {
         // Update role if provided
         boolean roleChanged = false;
         if (request.getRoleId() != null) {
+            if (!isCurrentUserAdmin()) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
             Role role = roleRepository.findById(request.getRoleId())
                     .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
             user.setRole(role);
@@ -173,5 +181,14 @@ public class UserServiceImpl implements UserService {
                 oldStatus, updated.getIsActive());
 
         return userMapper.toResponse(updated);
+    }
+
+    private boolean isCurrentUserAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return false;
+        }
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ADMIN".equals(a.getAuthority()));
     }
 }

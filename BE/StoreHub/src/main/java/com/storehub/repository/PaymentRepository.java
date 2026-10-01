@@ -146,4 +146,17 @@ public interface PaymentRepository
             PaymentStatus status,
             String note
     );
+
+    @Query("""
+            SELECT COALESCE(SUM(p.amount), 0)
+            FROM Payment p
+            WHERE p.status = com.storehub.enums.PaymentStatus.PAID
+            AND (p.note = 'OVERDUE_LATE_FEE' OR p.note = 'Phí phạt quá hạn')
+            AND (:fromDate IS NULL OR p.paymentTime >= :fromDate)
+            AND (:toDate IS NULL OR p.paymentTime <= :toDate)
+            """)
+    java.math.BigDecimal sumOverdueRevenue(
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
+    );
 }
