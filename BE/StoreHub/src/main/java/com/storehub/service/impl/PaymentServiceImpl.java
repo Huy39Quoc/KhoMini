@@ -21,12 +21,19 @@ import com.storehub.service.EmailService;
 import com.storehub.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.storehub.util.VNPayUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import static com.storehub.common.PaymentNotes.OVERDUE_LATE_FEE;
 import static com.storehub.common.PaymentNotes.RENTAL_EXTENSION;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -39,6 +46,18 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final ActivityLogService activityLogService;
+
+    @Value("${vnpay.tmn-code}")
+    private String vnpTmnCode;
+
+    @Value("${vnpay.hash-secret}")
+    private String vnpHashSecret;
+
+    @Value("${vnpay.url}")
+    private String vnpUrl;
+
+    @Value("${vnpay.return-url}")
+    private String vnpReturnUrl;
 
     @Override
     @Transactional
@@ -108,6 +127,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
 
         Payment savedPayment = paymentRepository.save(payment);
+        String vnpayUrl = buildVnpayUrl(transactionId, payableAmount);
 
         return PaymentResponse.builder()
                 .id(savedPayment.getId())
@@ -117,21 +137,34 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentType(savedPayment.getPaymentType())
                 .status(savedPayment.getStatus())
                 .paymentMethod(savedPayment.getPaymentMethod())
-                .qrCodeUrl(buildQrCodeUrl(transactionId, payableAmount))
+                .paymentUrl(vnpayUrl)
+                .qrCodeUrl(vnpayUrl)
                 .paymentTime(savedPayment.getPaymentTime())
                 .note(payment.getNote())
                 .build();
     }
 
-    private String buildQrCodeUrl(String transactionId, BigDecimal amount) {
-        return String.format(
-                "https://img.vietqr.io/image/"
-                        + "970422-STOREHUB-%s.png"
-                        + "?amount=%s&addInfo=%s",
-                "compact2",
-                amount.toPlainString(),
-                transactionId
-        );
+    private String buildVnpayUrl(String transactionId, BigDecimal amount) {
+        long vnpAmount = amount.multiply(new BigDecimal(100)).longValue();
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+        Map<String, String> vnpParams = new HashMap<>();
+        vnpParams.put("vnp_Version", "2.1.0");
+        vnpParams.put("vnp_Command", "pay");
+        vnpParams.put("vnp_TmnCode", vnpTmnCode);
+        vnpParams.put("vnp_Amount", String.valueOf(vnpAmount));
+        vnpParams.put("vnp_CurrCode", "VND");
+        vnpParams.put("vnp_TxnRef", transactionId);
+        vnpParams.put("vnp_OrderInfo", "Thanh toan StoreHub order " + transactionId);
+        vnpParams.put("vnp_OrderType", "other");
+        vnpParams.put("vnp_Locale", "vn");
+        vnpParams.put("vnp_ReturnUrl", vnpReturnUrl);
+        vnpParams.put("vnp_IpAddr", "127.0.0.1");
+        vnpParams.put("vnp_CreateDate", now.format(formatter));
+        vnpParams.put("vnp_ExpireDate", now.plusMinutes(15).format(formatter));
+
+        return VNPayUtil.buildPaymentUrl(vnpParams, vnpHashSecret, vnpUrl);
     }
 
     @Override
@@ -263,6 +296,8 @@ public class PaymentServiceImpl implements PaymentService {
                         new AppException(ErrorCode.PAYMENT_NOT_FOUND)
                 );
 
+        String vnpayUrl = buildVnpayUrl(payment.getTransactionId(), payment.getAmount());
+
         return PaymentResponse.builder()
                 .id(payment.getId())
                 .transactionId(payment.getTransactionId())
@@ -271,7 +306,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentType(payment.getPaymentType())
                 .status(payment.getStatus())
                 .paymentMethod(payment.getPaymentMethod())
-                .qrCodeUrl(buildQrCodeUrl(payment.getTransactionId(), payment.getAmount()))
+                .paymentUrl(vnpayUrl)
+                .qrCodeUrl(vnpayUrl)
                 .paymentTime(payment.getPaymentTime())
                 .note(payment.getNote())
                 .build();
@@ -309,6 +345,8 @@ public class PaymentServiceImpl implements PaymentService {
                         new AppException(ErrorCode.PAYMENT_NOT_FOUND)
                 );
 
+        String vnpayUrl = buildVnpayUrl(payment.getTransactionId(), payment.getAmount());
+
         return PaymentResponse.builder()
                 .id(payment.getId())
                 .transactionId(payment.getTransactionId())
@@ -318,11 +356,49 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(payment.getStatus())
                 .paymentMethod(payment.getPaymentMethod())
                 .note(payment.getNote())
-                .qrCodeUrl(buildQrCodeUrl(
-                        payment.getTransactionId(),
-                        payment.getAmount()
-                ))
+                .paymentUrl(vnpayUrl)
+                .qrCodeUrl(vnpayUrl)
                 .paymentTime(payment.getPaymentTime())
                 .build();
     }
-}
+
+    @Override
+    @Transactional
+    public PaymentResponse processVnpayCallback(Map<String, String> queryParams) {
+        boolean isValid = VNPayUtil.verifyCallback(queryParams, vnpHashSecret);
+        if (!isValid) {
+            log.error("VNPay callback checksum verification failed!");
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
+        String responseCode = queryParams.get("vnp_ResponseCode");
+        String transactionId = queryParams.get("vnp_TxnRef");
+
+        if ("00".equals(responseCode)) {
+            PaymentConfirmationRequest confirmationRequest = new PaymentConfirmationRequest();
+            confirmationRequest.setTransactionId(transactionId);
+            return confirmPayment(confirmationRequest);
+        } else {
+            log.warn("VNPay payment failed or cancelled with response code: {} for transactionId: {}", responseCode, transactionId);
+            Payment payment = paymentRepository.findByTransactionId(transactionId)
+                    .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+
+            if (payment.getStatus() == PaymentStatus.PENDING) {
+                payment.setStatus(PaymentStatus.FAILED);
+                paymentRepository.save(payment);
+            }
+
+            return PaymentResponse.builder()
+                    .id(payment.getId())
+                    .transactionId(payment.getTransactionId())
+                    .bookingId(payment.getBooking() != null ? payment.getBooking().getId() : null)
+                    .amount(payment.getAmount())
+                    .paymentType(payment.getPaymentType())
+                    .status(payment.getStatus())
+                    .paymentMethod(payment.getPaymentMethod())
+                    .paymentTime(payment.getPaymentTime())
+                    .note(payment.getNote())
+                    .build();
+        }
+    }
+}

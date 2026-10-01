@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/my_unit_model.dart';
 import '../../../services/storage_api_service.dart';
@@ -453,7 +454,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
 
   Widget _buildExtensionPaymentDialog() {
     final result = _result!;
-    final qrCodeUrl = result['qrCodeUrl']?.toString() ?? '';
+    final paymentUrl = (result['paymentUrl'] ?? result['qrCodeUrl'])?.toString() ?? '';
     final transactionId = result['transactionId']?.toString() ?? '';
     final fee = num.tryParse(result['additionalFee']?.toString() ?? '') ?? 0;
 
@@ -481,45 +482,53 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                   fontSize: 12, color: AppColors.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
-            Center(
-              child: qrCodeUrl.isEmpty
-                  ? Container(
-                      width: 180,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                        child: Text('No QR code available',
-                            style: TextStyle(color: Colors.grey)),
-                      ),
-                    )
-                  : Image.network(
-                      qrCodeUrl,
-                      width: 180,
-                      height: 180,
-                      loadingBuilder: (context, child, progress) => progress ==
-                              null
-                          ? child
-                          : const SizedBox(
-                              width: 180,
-                              height: 180,
-                              child: Center(child: CircularProgressIndicator()),
-                            ),
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: 180,
-                        height: 180,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Text("Couldn't load QR",
-                              style: TextStyle(color: Colors.grey)),
-                        ),
-                      ),
-                    ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: const Column(
+                children: [
+                  Text('VNPAY SANDBOX TEST CARD',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF003087))),
+                  SizedBox(height: 6),
+                  Text('Bank: NCB | Card: 9704198526191432198',
+                      style: TextStyle(fontSize: 11)),
+                  Text('Name: NGUYEN VAN A | Date: 07/15 | OTP: 123456',
+                      style: TextStyle(fontSize: 11)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton.icon(
+                onPressed: paymentUrl.isEmpty
+                    ? null
+                    : () async {
+                        final uri = Uri.parse(paymentUrl);
+                        if (!await launchUrl(uri,
+                            mode: LaunchMode.externalApplication)) {
+                          await launchUrl(uri,
+                              mode: LaunchMode.inAppBrowserView);
+                        }
+                      },
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Open VNPay Gateway',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0057B7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             Text('Transaction code: $transactionId',

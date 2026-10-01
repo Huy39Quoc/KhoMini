@@ -21,6 +21,7 @@ public class PaymentResponse {
     private PaymentStatus status;
     private String paymentMethod;
     private String note;
+    private String paymentUrl;
     private String qrCodeUrl;
     private LocalDateTime paymentTime;
 }

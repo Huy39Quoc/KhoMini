@@ -354,8 +354,9 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                     const InputDecoration(labelText: 'Email (optional)'),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return null;
-                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()))
+                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim())) {
                     return 'Enter a valid email';
+                  }
                   return null;
                 },
               ),

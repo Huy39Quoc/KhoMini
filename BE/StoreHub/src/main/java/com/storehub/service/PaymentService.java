@@ -4,6 +4,7 @@ import com.storehub.dto.request.PaymentConfirmationRequest;
 import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
 
+import java.util.Map;
 import java.util.UUID;
 
 public interface PaymentService {
@@ -26,4 +27,6 @@ public interface PaymentService {
             String customerEmail,
             UUID bookingId
     );
+
+    PaymentResponse processVnpayCallback(Map<String, String> queryParams);
 }
