@@ -49,6 +49,25 @@ class StaffTicketApiService {
     }
   }
 
+  Future<StaffTicketModel> assignToStaff({
+    required String facilityId,
+    required String ticketId,
+    required String staffId,
+  }) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.staffTicketAssignTo(ticketId, staffId),
+        queryParameters: {'facilityId': facilityId},
+      );
+
+      return StaffTicketMapper.fromJson(
+        _unwrap(response.data),
+      );
+    } on DioException catch (error) {
+      throw _error(error, 'assign this ticket');
+    }
+  }
+
   Future<StaffTicketModel> updateStatus({
     required String facilityId,
     required String ticketId,

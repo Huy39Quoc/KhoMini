@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/facility_admin_api_service.dart';
@@ -55,6 +56,35 @@ class _ReportsScreenState extends State<ReportsScreen>
     });
   }
 
+  /// Xuất báo cáo của tab đang xem (CSV) và chép vào clipboard.
+  Future<void> _exportCurrent() async {
+    final type = _tabController.index == 0 ? 'revenue' : 'occupancy';
+    try {
+      final csv = await _service.exportReport(
+        type: type,
+        fromDate: _fromDate,
+        toDate: _toDate,
+      );
+      await Clipboard.setData(ClipboardData(text: csv));
+      if (!mounted) return;
+      final lines = csv.trim().isEmpty ? 0 : csv.trim().split('\n').length;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$type report copied to clipboard as CSV ($lines lines)'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _pickDateRange() async {
     final now = DateTime.now();
     final picked = await showDateRangePicker(
@@ -80,6 +110,13 @@ class _ReportsScreenState extends State<ReportsScreen>
       backgroundColor: AppColors.surface,
       appBar: AppBar(
         title: const Text('Reports'),
+        actions: [
+          IconButton(
+            tooltip: 'Export CSV (copy)',
+            icon: const Icon(Icons.file_download_outlined),
+            onPressed: _exportCurrent,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.secondaryContainer,
@@ -272,6 +309,8 @@ class _ReportsScreenState extends State<ReportsScreen>
           final data = snapshot.data ?? {};
           final summary = (data['systemSummary'] as Map?) ?? {};
           final byFacility = (data['byFacility'] as List?) ?? [];
+          final byUnitType = (data['byUnitType'] as List?) ?? [];
+          final byStatus = (data['bookingsByStatus'] as Map?) ?? {};
           final rate = (summary['occupancyRate'] as num?)?.toDouble() ?? 0;
 
           return ListView(
@@ -312,6 +351,8 @@ class _ReportsScreenState extends State<ReportsScreen>
                         _occupancyStat('Occupied', summary['occupiedUnits']),
                         _occupancyStat('Available', summary['availableUnits']),
                         _occupancyStat('Reserved', summary['reservedUnits']),
+                        _occupancyStat(
+                            'Overdue', summary['overdueBookings'] ?? 0),
                       ],
                     ),
                   ],
@@ -364,7 +405,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '${m['occupiedUnits'] ?? 0} occupied • ${m['availableUnits'] ?? 0} available • ${m['totalUnits'] ?? 0} total',
+                            '${m['occupiedUnits'] ?? 0} occupied • ${m['availableUnits'] ?? 0} available • ${m['totalUnits'] ?? 0} total • ${m['overdueBookings'] ?? 0} overdue',
                             style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.onSurfaceVariant),
@@ -374,6 +415,60 @@ class _ReportsScreenState extends State<ReportsScreen>
                     ),
                   );
                 }),
+              const SizedBox(height: 20),
+              const Text('By Unit Type',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 10),
+              if (byUnitType.isEmpty)
+                const Text('No unit types yet.',
+                    style: TextStyle(color: AppColors.onSurfaceVariant))
+              else
+                ...byUnitType.map((t) {
+                  final m = t as Map;
+                  final r = (m['occupancyRate'] as num?)?.toDouble() ?? 0;
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: ListTile(
+                      title: Text(m['typeName']?.toString() ?? '',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: Text(
+                        '${m['occupiedUnits'] ?? 0} occupied • ${m['availableUnits'] ?? 0} available • ${m['totalUnits'] ?? 0} total',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      trailing: Text('${r.toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryContainer)),
+                    ),
+                  );
+                }),
+              const SizedBox(height: 10),
+              const Text('Rental Status',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 10),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: byStatus.entries.map((e) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(e.key.toString().replaceAll('_', ' '),
+                                style: const TextStyle(fontSize: 12)),
+                            Text('${e.value}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
             ],
           );
         },

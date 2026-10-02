@@ -11,6 +11,7 @@ import com.storehub.enums.TicketStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.SupportTicketRepository;
+import com.storehub.repository.UserRepository;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.StaffTicketService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class StaffTicketServiceImpl implements StaffTicketService {
 
     private final SupportTicketRepository ticketRepository;
     private final FacilityAccess facilityAccess;
+    private final UserRepository userRepository;
     private final ActivityLogService activityLogService;
 
     @Override
@@ -75,6 +77,50 @@ public class StaffTicketServiceImpl implements StaffTicketService {
                 "SUPPORT_TICKET",
                 updated.getId(),
                 "Staff accepted ticket " + updated.getTicketCode(),
+                null,
+                staff.getId()
+        );
+
+        return toResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public TicketResponse assignToStaff(
+            UUID facilityId,
+            UUID ticketId,
+            UUID staffId,
+            String managerEmail
+    ) {
+        User manager = facilityAccess.require(managerEmail, facilityId);
+        SupportTicket ticket = requireTicket(ticketId, facilityId);
+
+        User staff = userRepository.findById(staffId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (staff.getRole() == null
+                || !"STAFF".equals(staff.getRole().getName())
+                || staff.getFacility() == null
+                || !facilityId.equals(staff.getFacility().getId())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
+        if (ticket.getStatus() == TicketStatus.RESOLVED
+                || ticket.getStatus() == TicketStatus.CLOSED) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
+        ticket.setAssignedStaff(staff);
+        ticket.setStatus(TicketStatus.IN_PROGRESS);
+
+        SupportTicket updated = ticketRepository.save(ticket);
+
+        activityLogService.record(
+                ActivityAction.SUPPORT_TICKET_ASSIGN,
+                "SUPPORT_TICKET",
+                updated.getId(),
+                "Manager assigned ticket " + updated.getTicketCode()
+                        + " to " + staff.getFullName(),
                 null,
                 staff.getId()
         );

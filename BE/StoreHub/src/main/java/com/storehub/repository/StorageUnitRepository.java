@@ -72,4 +72,16 @@ public interface StorageUnitRepository
                      su.status
             """)
     List<Object[]> countUnitsGroupedByFacilityAndStatus();
+
+    @Query("""
+            SELECT su.unitType.id,
+                   su.unitType.typeName,
+                   su.status,
+                   COUNT(su)
+            FROM StorageUnit su
+            GROUP BY su.unitType.id,
+                     su.unitType.typeName,
+                     su.status
+            """)
+    List<Object[]> countUnitsGroupedByUnitTypeAndStatus();
 }

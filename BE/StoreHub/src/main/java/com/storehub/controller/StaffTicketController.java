@@ -32,7 +32,7 @@ public class StaffTicketController {
     private final StaffTicketService staffTicketService;
 
     @GetMapping
-    @PreAuthorize("hasRole('STAFF')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
     @Operation(summary = "Lấy danh sách ticket thuộc cơ sở của staff")
     public ResponseEntity<ApiResponse<PageResponse<TicketResponse>>> getFacilityTickets(
             @RequestParam UUID facilityId,
@@ -61,6 +61,27 @@ public class StaffTicketController {
         TicketResponse response = staffTicketService.assignToMe(
                 facilityId,
                 ticketId,
+                userDetails.getUsername()
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Ticket assigned successfully", response)
+        );
+    }
+
+    @PostMapping("/{ticketId}/assign/{staffId}")
+    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @Operation(summary = "Facility Manager giao ticket cho nhân viên của cơ sở")
+    public ResponseEntity<ApiResponse<TicketResponse>> assignToStaff(
+            @RequestParam UUID facilityId,
+            @PathVariable UUID ticketId,
+            @PathVariable UUID staffId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        TicketResponse response = staffTicketService.assignToStaff(
+                facilityId,
+                ticketId,
+                staffId,
                 userDetails.getUsername()
         );
 

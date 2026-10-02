@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../services/booking_api_service.dart';
 import '../../../services/storage_api_service.dart';
 import '../../../models/my_unit_model.dart';
 import '../../../widgets/state_views.dart';
@@ -18,6 +19,7 @@ class MyRentedUnitsScreen extends StatefulWidget {
 
 class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   final StorageApiService _storageService = StorageApiService();
+  final BookingApiService _bookingService = BookingApiService();
   late Future<List<MyUnitModel>> _unitsFuture;
   final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
   final _dateFmt = DateFormat('MMM d, yyyy');
@@ -176,6 +178,25 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       }
                     : null,
               ),
+              if (unit.status == 'CONFIRMED')
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.errorContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.cancel_outlined,
+                        color: AppColors.error),
+                  ),
+                  title: const Text('Cancel Booking'),
+                  subtitle: const Text(
+                      'Deposit is refunded per the facility cancellation policy'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _confirmCancelBooking(unit);
+                  },
+                ),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
@@ -207,6 +228,52 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmCancelBooking(MyUnitModel unit) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancel booking?'),
+        content: Text(
+          'Booking ${unit.bookingCode} (unit ${unit.unitCode}) will be '
+          'cancelled and the unit released. Your deposit is refunded '
+          'according to the facility cancellation policy.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep booking'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Cancel booking'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _bookingService.cancelBooking(unit.bookingId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Booking cancelled'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      _loadUnits();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   Future<void> _openContractOperation(

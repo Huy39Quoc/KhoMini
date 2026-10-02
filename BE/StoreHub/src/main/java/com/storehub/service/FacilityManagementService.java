@@ -6,6 +6,7 @@ import com.storehub.dto.response.FacilityReportResponse;
 import com.storehub.dto.response.FacilityStaffResponse;
 import com.storehub.dto.response.FacilityUnitResponse;
 import com.storehub.dto.response.FacilityBookingResponse;
+import com.storehub.dto.response.FacilityContractResponse;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,6 +63,11 @@ public interface FacilityManagementService {
     );
 
     List<FacilityBookingResponse> confirmedBookings(
+            UUID facilityId,
+            String managerEmail
+    );
+
+    List<FacilityContractResponse> contracts(
             UUID facilityId,
             String managerEmail
     );

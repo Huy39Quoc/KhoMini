@@ -6,6 +6,7 @@ import '../admin/role_permission_screen.dart';
 import '../common/profile_screen.dart';
 import 'facility_management_screen.dart';
 import 'reports_screen.dart';
+import 'unit_price_screen.dart';
 
 class OperationsDashboardScreen extends StatefulWidget {
   final UserModel user;
@@ -208,6 +209,36 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                           context,
                           MaterialPageRoute(
                               builder: (_) => const FacilityManagementScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.price_change_outlined,
+                            color: AppColors.primaryContainer),
+                      ),
+                      title: const Text('Unit Prices',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text(
+                          'Set monthly rent and deposit per unit type',
+                          style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const UnitPriceScreen()),
                         );
                       },
                     ),

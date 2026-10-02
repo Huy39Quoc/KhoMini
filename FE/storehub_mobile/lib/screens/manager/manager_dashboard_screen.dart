@@ -9,6 +9,8 @@ import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
 import 'booking_assignment_screen.dart';
+import 'facility_contracts_tab.dart';
+import 'facility_tickets_tab.dart';
 
 class ManagerDashboardScreen extends StatefulWidget {
   final UserModel user;
@@ -45,7 +47,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     super.initState();
 
     _tabController = TabController(
-      length: 3,
+      length: 5,
       vsync: this,
     );
 
@@ -174,6 +176,49 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       await _reportFuture;
     } catch (_) {
       // FutureBuilder hiển thị lỗi.
+    }
+  }
+
+  Future<void> _changeUnitStatus(FacilityUnitModel unit) async {
+    final facilityId = _facilityId;
+
+    if (facilityId == null || facilityId.isEmpty) {
+      return;
+    }
+
+    final target =
+        unit.status == 'AVAILABLE' ? 'UNDER_MAINTENANCE' : 'AVAILABLE';
+
+    try {
+      await _opsService.updateUnitStatus(
+        unitId: unit.id,
+        facilityId: facilityId,
+        status: target,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            target == 'UNDER_MAINTENANCE'
+                ? 'Unit ${unit.unitCode} marked for inspection'
+                : 'Unit ${unit.unitCode} is available again',
+          ),
+          backgroundColor: AppColors.success,
+        ),
+      );
+
+      _loadUnits();
+      _loadReport();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showError(_errorMessage(error));
     }
   }
 
@@ -800,12 +845,16 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
         bottom: _facilityId != null && _facilityId!.isNotEmpty
             ? TabBar(
                 controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
                 labelColor: AppColors.secondaryContainer,
                 unselectedLabelColor: AppColors.onSurfaceVariant,
                 indicatorColor: AppColors.secondaryContainer,
                 tabs: const [
                   Tab(text: 'Units'),
                   Tab(text: 'Staff'),
+                  Tab(text: 'Contracts'),
+                  Tab(text: 'Tickets'),
                   Tab(text: 'Report'),
                 ],
               )
@@ -853,6 +902,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       children: [
         _buildUnitsTab(),
         _buildStaffTab(),
+        FacilityContractsTab(facilityId: _facilityId!),
+        FacilityTicketsTab(facilityId: _facilityId!),
         _buildReportTab(),
       ],
     );
@@ -961,6 +1012,21 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                           ),
                         ),
                       ),
+                      if (unit.status == 'AVAILABLE' ||
+                          unit.status == 'UNDER_MAINTENANCE')
+                        IconButton(
+                          tooltip: unit.status == 'AVAILABLE'
+                              ? 'Mark for inspection'
+                              : 'Mark available',
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            unit.status == 'AVAILABLE'
+                                ? Icons.build_outlined
+                                : Icons.check_circle_outline,
+                            size: 18,
+                          ),
+                          onPressed: () => _changeUnitStatus(unit),
+                        ),
                       const SizedBox(width: 4),
                       const Icon(
                         Icons.edit_outlined,
@@ -1196,6 +1262,12 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                     '${report.overdueBookings}',
                     Icons.warning_amber_rounded,
                     AppColors.error,
+                  ),
+                  _statTile(
+                    'Revenue (paid)',
+                    '\$${report.revenue.toStringAsFixed(0)}',
+                    Icons.attach_money,
+                    AppColors.success,
                   ),
                 ],
               ),

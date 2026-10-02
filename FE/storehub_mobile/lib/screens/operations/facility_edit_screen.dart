@@ -39,6 +39,15 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   final _depositController = TextEditingController();
   final _lateFeeController = TextEditingController();
   final _minMonthsController = TextEditingController();
+  final _renewalWindowController = TextEditingController();
+  final _fullRefundHoursController = TextEditingController();
+  final _partialRefundHoursController = TextEditingController();
+  final _partialRefundPercentController = TextEditingController();
+  final _returnNoticeController = TextEditingController();
+  final _refundSlaController = TextEditingController();
+  final _graceController = TextEditingController();
+  final _accessDisableController = TextEditingController();
+  final _sealingController = TextEditingController();
 
   @override
   void initState() {
@@ -72,6 +81,15 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     _depositController.dispose();
     _lateFeeController.dispose();
     _minMonthsController.dispose();
+    _renewalWindowController.dispose();
+    _fullRefundHoursController.dispose();
+    _partialRefundHoursController.dispose();
+    _partialRefundPercentController.dispose();
+    _returnNoticeController.dispose();
+    _refundSlaController.dispose();
+    _graceController.dispose();
+    _accessDisableController.dispose();
+    _sealingController.dispose();
     super.dispose();
   }
 
@@ -89,6 +107,24 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
           _lateFeeController.text = (policy['dailyLateFee'] ?? '').toString();
           _minMonthsController.text =
               (policy['minimumRentalMonths'] ?? '').toString();
+          _renewalWindowController.text =
+              (policy['renewalWindowDays'] ?? '').toString();
+          _fullRefundHoursController.text =
+              (policy['cancellationFullRefundHours'] ?? '').toString();
+          _partialRefundHoursController.text =
+              (policy['cancellationPartialRefundHours'] ?? '').toString();
+          _partialRefundPercentController.text =
+              (policy['cancellationPartialRefundPercent'] ?? '').toString();
+          _returnNoticeController.text =
+              (policy['returnNoticeDays'] ?? '').toString();
+          _refundSlaController.text =
+              (policy['depositRefundSlaDays'] ?? '').toString();
+          _graceController.text =
+              (policy['overdueGraceDays'] ?? '').toString();
+          _accessDisableController.text =
+              (policy['overdueAccessDisableDays'] ?? '').toString();
+          _sealingController.text =
+              (policy['overdueSealingDays'] ?? '').toString();
         }
         _isLoadingPolicy = false;
       });
@@ -142,11 +178,47 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     }
   }
 
+  Widget _policyField(
+    TextEditingController controller,
+    String label, {
+    bool int_ = false,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: int_
+          ? TextInputType.number
+          : const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(labelText: label),
+    );
+  }
+
   Future<void> _savePolicy() async {
     final deposit = double.tryParse(_depositController.text);
     final lateFee = double.tryParse(_lateFeeController.text);
     final minMonths = int.tryParse(_minMonthsController.text);
-    if (deposit == null || lateFee == null || minMonths == null) {
+    final renewalWindow = int.tryParse(_renewalWindowController.text);
+    final fullRefundHours = int.tryParse(_fullRefundHoursController.text);
+    final partialRefundHours = int.tryParse(_partialRefundHoursController.text);
+    final partialRefundPercent =
+        double.tryParse(_partialRefundPercentController.text);
+    final returnNotice = int.tryParse(_returnNoticeController.text);
+    final refundSla = int.tryParse(_refundSlaController.text);
+    final grace = int.tryParse(_graceController.text);
+    final accessDisable = int.tryParse(_accessDisableController.text);
+    final sealing = int.tryParse(_sealingController.text);
+
+    if (deposit == null ||
+        lateFee == null ||
+        minMonths == null ||
+        renewalWindow == null ||
+        fullRefundHours == null ||
+        partialRefundHours == null ||
+        partialRefundPercent == null ||
+        returnNotice == null ||
+        refundSla == null ||
+        grace == null ||
+        accessDisable == null ||
+        sealing == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content:
@@ -155,25 +227,31 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       return;
     }
 
+    if (fullRefundHours < partialRefundHours) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Full-refund hours must be greater than or equal to partial-refund hours.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     final facilityId = widget.facility!['id'].toString();
-    // Sensible, editable defaults for the fields not shown inline - kept
-    // simple here; a full policy editor can expose all fields later.
     final body = {
       'facilityId': facilityId,
       'depositPercentage': deposit,
-      'renewalWindowDays': _policy?['renewalWindowDays'] ?? 7,
-      'cancellationFullRefundHours':
-          _policy?['cancellationFullRefundHours'] ?? 48,
-      'cancellationPartialRefundHours':
-          _policy?['cancellationPartialRefundHours'] ?? 24,
-      'cancellationPartialRefundPercent':
-          _policy?['cancellationPartialRefundPercent'] ?? 50.0,
-      'returnNoticeDays': _policy?['returnNoticeDays'] ?? 3,
-      'depositRefundSlaDays': _policy?['depositRefundSlaDays'] ?? 7,
+      'renewalWindowDays': renewalWindow,
+      'cancellationFullRefundHours': fullRefundHours,
+      'cancellationPartialRefundHours': partialRefundHours,
+      'cancellationPartialRefundPercent': partialRefundPercent,
+      'returnNoticeDays': returnNotice,
+      'depositRefundSlaDays': refundSla,
       'dailyLateFee': lateFee,
-      'overdueGraceDays': _policy?['overdueGraceDays'] ?? 3,
-      'overdueAccessDisableDays': _policy?['overdueAccessDisableDays'] ?? 7,
-      'overdueSealingDays': _policy?['overdueSealingDays'] ?? 30,
+      'overdueGraceDays': grace,
+      'overdueAccessDisableDays': accessDisable,
+      'overdueSealingDays': sealing,
       'minimumRentalMonths': minMonths,
     };
 
@@ -469,6 +547,39 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                     decoration: const InputDecoration(
                         labelText: 'Minimum rental months', hintText: 'e.g. 1'),
                   ),
+                  const SizedBox(height: 14),
+                  _policyField(_renewalWindowController,
+                      'Renewal window (days before expiry)', int_: true),
+                  const SizedBox(height: 14),
+                  _policyField(_fullRefundHoursController,
+                      'Full refund if cancelled before start (hours)',
+                      int_: true),
+                  const SizedBox(height: 14),
+                  _policyField(_partialRefundHoursController,
+                      'Partial refund if cancelled before start (hours)',
+                      int_: true),
+                  const SizedBox(height: 14),
+                  _policyField(_partialRefundPercentController,
+                      'Partial refund percentage (%)'),
+                  const SizedBox(height: 14),
+                  _policyField(_returnNoticeController,
+                      'Return notice (days in advance)',
+                      int_: true),
+                  const SizedBox(height: 14),
+                  _policyField(_refundSlaController,
+                      'Deposit refund SLA (days)',
+                      int_: true),
+                  const SizedBox(height: 14),
+                  _policyField(_graceController, 'Overdue grace period (days)',
+                      int_: true),
+                  const SizedBox(height: 14),
+                  _policyField(_accessDisableController,
+                      'Disable access after overdue (days)',
+                      int_: true),
+                  const SizedBox(height: 14),
+                  _policyField(_sealingController,
+                      'Sealing after overdue (days)',
+                      int_: true),
                   const SizedBox(height: 16),
                   OutlinedButton(
                     onPressed: _savePolicy,

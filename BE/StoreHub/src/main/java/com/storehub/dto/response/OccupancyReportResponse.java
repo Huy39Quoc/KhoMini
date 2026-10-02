@@ -10,4 +10,6 @@ import java.util.List;
 public class OccupancyReportResponse {
     private SystemOccupancyResponse systemSummary;
     private List<FacilityOccupancyResponse> byFacility;
+    private List<UnitTypeOccupancyResponse> byUnitType;
+    private java.util.Map<String, Long> bookingsByStatus;
 }
