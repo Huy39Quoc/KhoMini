@@ -10,5 +10,6 @@ public record FacilityReportResponse(
         long occupied,
         long underMaintenance,
         long overdueBookings,
-        double occupancyRate
+        double occupancyRate,
+        java.math.BigDecimal revenue
 ) {}

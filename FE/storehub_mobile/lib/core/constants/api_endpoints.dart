@@ -31,6 +31,8 @@ class ApiEndpoints {
   static const String staffTickets = '/staff/tickets';
   static String staffTicketAssign(String ticketId) =>
       '/staff/tickets/$ticketId/assign-to-me';
+  static String staffTicketAssignTo(String ticketId, String staffId) =>
+      '/staff/tickets/$ticketId/assign/$staffId';
   static String staffTicketStatus(String ticketId) =>
       '/staff/tickets/$ticketId/status';
 
@@ -99,6 +101,11 @@ class ApiEndpoints {
   // ---- Reports (ReportController) ----
   static const String reportRevenue = '/reports/revenue';
   static const String reportOccupancy = '/reports/occupancy';
+  static const String reportExport = '/reports/export';
+
+  // ---- Unit type pricing (UnitTypeController) ----
+  static String unitTypePrice(String unitTypeId) =>
+      '/unit-types/$unitTypeId/price';
 
   // ---- Activity Log (ActivityLogController) ----
   static const String activityLogs = '/activity-logs';
@@ -124,6 +131,8 @@ class ApiEndpoints {
       '/facility/management/$facilityId/managers/$userId';
   static String facilityConfirmedBookings(String facilityId) =>
       '/facility/management/$facilityId/bookings/confirmed';
+  static String facilityContracts(String facilityId) =>
+      '/facility/management/$facilityId/bookings';
   // ---- Facility Operations (FacilityOperationsController) - Facility Staff ----
   static const String dailySchedule = '/facility/operations/daily-schedule';
   static String checkIn(String bookingId) =>

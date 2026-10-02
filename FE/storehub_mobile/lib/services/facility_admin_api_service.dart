@@ -161,6 +161,52 @@ class FacilityAdminApiService {
     }
   }
 
+  /// type = 'revenue' | 'occupancy' -> nội dung CSV.
+  Future<String> exportReport({
+    required String type,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.reportExport,
+        queryParameters: {
+          'type': type,
+          if (fromDate != null) 'fromDate': _formatDate(fromDate),
+          if (toDate != null) 'toDate': _formatDate(toDate),
+        },
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {'Accept': '*/*'},
+        ),
+      );
+      return response.data?.toString() ?? '';
+    } on DioException catch (e) {
+      throw _err(e, 'export the report');
+    }
+  }
+
+  // ===== Unit type pricing (UnitTypeController) =====
+
+  Future<Map<String, dynamic>> updateUnitTypePrice({
+    required String unitTypeId,
+    required double basePricePerMonth,
+    required double depositAmount,
+  }) async {
+    try {
+      final response = await _dio.put(
+        ApiEndpoints.unitTypePrice(unitTypeId),
+        data: {
+          'basePricePerMonth': basePricePerMonth,
+          'depositAmount': depositAmount,
+        },
+      );
+      return _unwrap(response.data);
+    } on DioException catch (e) {
+      throw _err(e, 'update the unit type price');
+    }
+  }
+
   // ===== Activity Log (ActivityLogController) =====
 
   Future<List<dynamic>> getActivityLogs({

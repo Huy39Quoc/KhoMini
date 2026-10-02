@@ -314,6 +314,23 @@ class FacilityOpsApiService {
       throw _err(error, 'load confirmed bookings');
     }
   }
+  /// Hợp đồng đang CONFIRMED / ACTIVE của cơ sở (Facility Manager theo dõi).
+  Future<List<Map<String, dynamic>>> getFacilityContracts(
+    String facilityId,
+  ) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.facilityContracts(facilityId),
+      );
+
+      return _unwrapList(response.data)
+          .map(FacilityManagementMapper.asJsonMap)
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load facility contracts');
+    }
+  }
+
   // =========================================================
   // Facility Staff - Flow 2
   // Các response được chuyển sang model bằng mapper
