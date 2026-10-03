@@ -4,6 +4,7 @@ import com.storehub.common.PageResponse;
 import com.storehub.dto.request.UserCreateRequest;
 import com.storehub.dto.request.UserUpdateRequest;
 import com.storehub.dto.response.UserResponse;
+import com.storehub.dto.response.UserSummaryResponse;
 import com.storehub.entity.Role;
 import com.storehub.entity.User;
 import com.storehub.exception.AppException;
@@ -173,5 +174,14 @@ public class UserServiceImpl implements UserService {
                 oldStatus, updated.getIsActive());
 
         return userMapper.toResponse(updated);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserSummaryResponse getSummary() {
+        return new UserSummaryResponse(
+                userRepository.count(),
+                userRepository.countActiveUsers()
+        );
     }
 }

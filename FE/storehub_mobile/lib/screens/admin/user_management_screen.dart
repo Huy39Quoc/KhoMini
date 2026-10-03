@@ -39,14 +39,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   // với dữ liệu role thật trong DB) và gọi một endpoint không tồn tại
   // (PUT /users/{id}/role). Giờ lấy danh sách role thật từ GET /roles, và
   // cập nhật qua đúng endpoint PUT /users/{id} với {roleId, phone}.
-  Future<void> _showAssignRoleSheet(String userId, String username, String currentPhone) async {
+  Future<void> _showAssignRoleSheet(
+      String userId, String username, String currentPhone) async {
     List<dynamic> roles;
     try {
       roles = await _adminService.getRoles();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load roles: ${e.toString().replaceAll('Exception: ', '')}')),
+        SnackBar(
+            content: Text(
+                'Failed to load roles: ${e.toString().replaceAll('Exception: ', '')}')),
       );
       return;
     }
@@ -75,7 +78,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Assign role to $username',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -84,13 +88,18 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               final name = r['name']?.toString() ?? id;
               final description = r['description']?.toString();
               return ListTile(
-                leading: const Icon(Icons.badge_outlined, color: AppColors.primaryContainer),
-                title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: description != null && description.isNotEmpty ? Text(description) : null,
+                leading: const Icon(Icons.badge_outlined,
+                    color: AppColors.primaryContainer),
+                title: Text(name,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: description != null && description.isNotEmpty
+                    ? Text(description)
+                    : null,
                 onTap: () async {
                   Navigator.pop(ctx);
                   try {
-                    await _adminService.updateUserRole(userId, id, currentPhone);
+                    await _adminService.updateUserRole(
+                        userId, id, currentPhone);
                     _loadUsers();
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -103,7 +112,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(e.toString().replaceAll('Exception: ', '')),
+                        content:
+                            Text(e.toString().replaceAll('Exception: ', '')),
                         backgroundColor: AppColors.error,
                       ),
                     );
@@ -125,7 +135,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       _loadUsers();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(wasActive ? 'User deactivated' : 'User activated')),
+        SnackBar(
+            content: Text(wasActive ? 'User deactivated' : 'User activated')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -139,10 +150,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts =
+        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
   }
 
   @override
@@ -189,7 +202,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     return ListView(
                       children: [
                         AppErrorState(
-                          message: snapshot.error.toString().replaceAll('Exception: ', ''),
+                          message: snapshot.error
+                              .toString()
+                              .replaceAll('Exception: ', ''),
                           onRetry: _loadUsers,
                         ),
                       ],
@@ -231,7 +246,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     itemBuilder: (context, index) {
                       final user = users[index];
                       final userId = user['id']?.toString() ?? '';
-                      final username = user['username']?.toString() ?? 'Unknown';
+                      final username =
+                          user['username']?.toString() ?? 'Unknown';
                       final fullName = user['fullName']?.toString() ?? username;
                       final email = user['email']?.toString() ?? '';
                       final phone = user['phone']?.toString() ?? '';
@@ -240,21 +256,29 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       return Card(
                         margin: const EdgeInsets.only(bottom: 10),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           leading: CircleAvatar(
-                            backgroundColor:
-                                isActive ? AppColors.primaryContainer : AppColors.outline,
+                            backgroundColor: isActive
+                                ? AppColors.primaryContainer
+                                : AppColors.outline,
                             child: Text(
                               _initials(fullName),
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
-                          title: Text(fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          title: Text(fullName,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14)),
                           subtitle: Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
                               '@$username • $email${phone.isNotEmpty ? '\n$phone' : ''}',
-                              style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.onSurfaceVariant),
                             ),
                           ),
                           isThreeLine: phone.isNotEmpty,
@@ -267,9 +291,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                 activeThumbColor: AppColors.success,
                               ),
                               IconButton(
-                                icon: const Icon(Icons.badge_outlined, size: 20),
+                                icon:
+                                    const Icon(Icons.badge_outlined, size: 20),
                                 tooltip: 'Assign role',
-                                onPressed: () => _showAssignRoleSheet(userId, fullName, phone),
+                                onPressed: () => _showAssignRoleSheet(
+                                    userId, fullName, phone),
                               ),
                             ],
                           ),

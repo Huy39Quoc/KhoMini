@@ -28,5 +28,9 @@ public class TicketResponse {
     private UUID assignedStaffId;
     private String assignedStaffName;
     private String resolutionNote;
+    private String customerName;
+    private String customerEmail;
+    private String customerPhone;
+    private String unitCode;
     private LocalDateTime createdAt;
 }

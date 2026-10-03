@@ -4,6 +4,7 @@ import com.storehub.common.PageResponse;
 import com.storehub.dto.request.UserCreateRequest;
 import com.storehub.dto.request.UserUpdateRequest;
 import com.storehub.dto.response.UserResponse;
+import com.storehub.dto.response.UserSummaryResponse;
 
 import java.util.UUID;
 
@@ -14,4 +15,5 @@ public interface UserService {
     UserResponse getById(UUID id);
     PageResponse<UserResponse> findAllWithFilters(String search, Boolean isActive, int page, int size, String sortBy, String sortDir);
     UserResponse toggleActive(UUID id);
+    UserSummaryResponse getSummary();
 }

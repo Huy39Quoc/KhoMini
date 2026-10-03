@@ -52,8 +52,14 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
         _adminApiService.getRoles(),
         _adminApiService.getPermissions(),
       ]);
-      final roles = results[0].whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
-      final permissions = results[1].whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      final roles = results[0]
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      final permissions = results[1]
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
       if (!mounted) return;
       setState(() {
         _roles = roles;
@@ -110,7 +116,8 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
     }
   }
 
-  bool get _isDirty => !setEquals(_selectedPermissionIds, _initialPermissionIds);
+  bool get _isDirty =>
+      !setEquals(_selectedPermissionIds, _initialPermissionIds);
 
   Future<void> _save() async {
     if (_selectedRoleId == null) return;
@@ -120,7 +127,8 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
     setState(() => _isSaving = true);
     try {
       if (toAdd.isNotEmpty) {
-        await _adminApiService.bulkAssignPermissions(_selectedRoleId!, toAdd.toList());
+        await _adminApiService.bulkAssignPermissions(
+            _selectedRoleId!, toAdd.toList());
       }
       for (final permissionId in toRemove) {
         final rolePermissionId = _assignedIds[permissionId];
@@ -208,11 +216,15 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
                       child: _isLoadingMatrix
                           ? const Center(child: CircularProgressIndicator())
                           : _permissions.isEmpty
-                              ? const Center(child: Text('No permissions defined yet.'))
+                              ? const Center(
+                                  child: Text('No permissions defined yet.'))
                               : ListView(
-                                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-                                  children: _groupedPermissions.entries.map((entry) {
-                                    return _buildGroupSection(entry.key, entry.value);
+                                  padding: const EdgeInsets.fromLTRB(
+                                      16, 12, 16, 100),
+                                  children:
+                                      _groupedPermissions.entries.map((entry) {
+                                    return _buildGroupSection(
+                                        entry.key, entry.value);
                                   }).toList(),
                                 ),
                     ),
@@ -228,7 +240,8 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
                       ? const SizedBox(
                           height: 18,
                           width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
                         )
                       : const Text('Save changes'),
                 ),
@@ -243,10 +256,15 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Discard unsaved changes?'),
-        content: const Text('Switching roles will discard your unsaved permission changes.'),
+        content: const Text(
+            'Switching roles will discard your unsaved permission changes.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep editing')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Discard')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep editing')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Discard')),
         ],
       ),
     );
@@ -255,7 +273,8 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
     }
   }
 
-  Widget _buildGroupSection(String group, List<Map<String, dynamic>> permissions) {
+  Widget _buildGroupSection(
+      String group, List<Map<String, dynamic>> permissions) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -281,9 +300,11 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
               return CheckboxListTile(
                 dense: true,
                 controlAffinity: ListTileControlAffinity.leading,
-                title: Text(p['name']?.toString() ?? '', style: const TextStyle(fontSize: 13)),
+                title: Text(p['name']?.toString() ?? '',
+                    style: const TextStyle(fontSize: 13)),
                 subtitle: (p['description']?.toString().isNotEmpty ?? false)
-                    ? Text(p['description'].toString(), style: const TextStyle(fontSize: 11))
+                    ? Text(p['description'].toString(),
+                        style: const TextStyle(fontSize: 11))
                     : null,
                 value: checked,
                 onChanged: widget.readOnly

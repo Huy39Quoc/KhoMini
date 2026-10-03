@@ -33,6 +33,36 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     @Query("""
             SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            JOIN FETCH su.facility f
+            JOIN FETCH su.unitType
+            JOIN FETCH b.customer
+            WHERE f.id = :facilityId
+            AND b.status IN (:statuses)
+            ORDER BY b.endDate ASC
+            """)
+    List<Booking> findFacilityContracts(
+            @Param("facilityId") UUID facilityId,
+            @Param("statuses") List<BookingStatus> statuses
+    );
+
+    @Query("""
+            SELECT b.storageUnit.facility.id, COUNT(b)
+            FROM Booking b
+            WHERE b.status = com.storehub.enums.BookingStatus.ACTIVE
+            AND b.overdueDetectedAt IS NOT NULL
+            GROUP BY b.storageUnit.facility.id
+            """)
+    List<Object[]> countOverdueGroupedByFacility();
+
+    @Query("SELECT b.status, COUNT(b) FROM Booking b GROUP BY b.status")
+    List<Object[]> countGroupedByStatus();
+
+    @Query("""
+            SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            JOIN FETCH su.facility
+            JOIN FETCH su.unitType
             WHERE b.id = :id
             AND b.customer.id = :customerId
             """)
@@ -48,7 +78,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             LEFT JOIN FETCH su.unitType
             WHERE f.id = :facilityId
             AND b.status = :status
-            AND b.startDate = :date
+            AND b.startDate <= :date
             ORDER BY b.startDate ASC
             """)
     List<Booking> findCheckInSchedule(
@@ -64,15 +94,17 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             LEFT JOIN FETCH su.unitType
             WHERE f.id = :facilityId
             AND b.status = :status
-            AND b.returnTime >= :startOfDay
-            AND b.returnTime < :endOfDay
-            ORDER BY b.returnTime ASC
+            AND (
+                (b.returnTime IS NOT NULL AND b.returnTime < :endOfDay)
+                OR (b.returnTime IS NULL AND b.endDate <= :date)
+            )
+            ORDER BY b.endDate ASC
             """)
     List<Booking> findCheckOutSchedule(
             @Param("facilityId") UUID facilityId,
             @Param("status") BookingStatus status,
-            @Param("startOfDay") LocalDateTime startOfDay,
-            @Param("endOfDay") LocalDateTime endOfDay
+            @Param("endOfDay") LocalDateTime endOfDay,
+            @Param("date") LocalDate date
     );
 
     @Query("""
@@ -128,5 +160,21 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     List<Booking> findActiveOverdueBookingsForUpdate(
             @Param("status") BookingStatus status,
             @Param("today") LocalDate today
+    );
+
+    @Query("""
+        SELECT b
+        FROM Booking b
+        JOIN FETCH b.customer
+        JOIN FETCH b.storageUnit su
+        JOIN FETCH su.facility f
+        JOIN FETCH su.unitType
+        WHERE f.id = :facilityId
+        AND b.status = :status
+        ORDER BY b.startDate ASC, b.createdAt ASC
+        """)
+    List<Booking> findByFacilityIdAndStatus(
+            @Param("facilityId") UUID facilityId,
+            @Param("status") BookingStatus status
     );
 }

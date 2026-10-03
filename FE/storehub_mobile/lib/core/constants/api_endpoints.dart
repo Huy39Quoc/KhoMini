@@ -27,12 +27,26 @@ class ApiEndpoints {
   static String pendingExtensionPayment(String bookingId) =>
       '/customer/storage/$bookingId/extend/pending-payment';
 
+  // ---- Staff Tickets (StaffTicketController) ----
+  static const String staffTickets = '/staff/tickets';
+  static String staffTicketAssign(String ticketId) =>
+      '/staff/tickets/$ticketId/assign-to-me';
+  static String staffTicketAssignTo(String ticketId, String staffId) =>
+      '/staff/tickets/$ticketId/assign/$staffId';
+  static String staffTicketStatus(String ticketId) =>
+      '/staff/tickets/$ticketId/status';
+
+  // Phí trễ hạn đang chờ thanh toán (PaymentController)
+  static String overduePayment(String bookingId) =>
+      '/payments/bookings/$bookingId/overdue';
+
   // ---- Customer Tickets (CustomerTicketController) ----
   static const String tickets = '/customer/tickets';
   static String ticketDetail(String ticketId) => '/customer/tickets/$ticketId';
 
   // ---- Users (UserController) ----
   static const String users = '/users';
+  static const String usersSummary = '/users/summary';
   static String userDetail(String userId) => '/users/$userId';
   static String toggleUserActive(String userId) =>
       '/users/$userId/toggle-active';
@@ -87,6 +101,11 @@ class ApiEndpoints {
   // ---- Reports (ReportController) ----
   static const String reportRevenue = '/reports/revenue';
   static const String reportOccupancy = '/reports/occupancy';
+  static const String reportExport = '/reports/export';
+
+  // ---- Unit type pricing (UnitTypeController) ----
+  static String unitTypePrice(String unitTypeId) =>
+      '/unit-types/$unitTypeId/price';
 
   // ---- Activity Log (ActivityLogController) ----
   static const String activityLogs = '/activity-logs';
@@ -99,7 +118,8 @@ class ApiEndpoints {
       '/facility/management/$facilityId/units';
   static String facilityUnitDetail(String facilityId, String unitId) =>
       '/facility/management/$facilityId/units/$unitId';
-  static String facilityAssignUnit(String facilityId, String bookingId, String unitId) =>
+  static String facilityAssignUnit(
+          String facilityId, String bookingId, String unitId) =>
       '/facility/management/$facilityId/bookings/$bookingId/unit/$unitId';
   static String facilityManagerReport(String facilityId) =>
       '/facility/management/$facilityId/report';
@@ -109,11 +129,21 @@ class ApiEndpoints {
       '/facility/management/$facilityId/staff/$userId';
   static String facilityAssignManager(String facilityId, String userId) =>
       '/facility/management/$facilityId/managers/$userId';
-
+  static String facilityConfirmedBookings(String facilityId) =>
+      '/facility/management/$facilityId/bookings/confirmed';
+  static String facilityContracts(String facilityId) =>
+      '/facility/management/$facilityId/bookings';
   // ---- Facility Operations (FacilityOperationsController) - Facility Staff ----
   static const String dailySchedule = '/facility/operations/daily-schedule';
-  static String checkIn(String bookingId) => '/facility/operations/$bookingId/check-in';
-  static String checkOut(String bookingId) => '/facility/operations/$bookingId/check-out';
+  static String checkIn(String bookingId) =>
+      '/facility/operations/$bookingId/check-in';
+
+  static String handoverRecords(String bookingId) =>
+      '/facility/operations/$bookingId/handover-records';
+
+  static String checkOut(String bookingId) =>
+      '/facility/operations/$bookingId/check-out';
+
   static String updateUnitStatus(String unitId) =>
       '/facility/operations/units/$unitId/status';
 }

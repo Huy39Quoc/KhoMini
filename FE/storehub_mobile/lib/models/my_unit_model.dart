@@ -17,6 +17,11 @@ class MyUnitModel {
   final bool hasPendingExtension;
   final int? pendingExtraMonths;
   final double? pendingExtensionFee;
+  final bool overdue;
+  final int overdueDays;
+  final double overdueFeeOutstanding;
+  final bool accessDisabled;
+  final DateTime? scheduledReturnTime;
 
   MyUnitModel({
     required this.bookingId,
@@ -37,7 +42,15 @@ class MyUnitModel {
     this.hasPendingExtension = false,
     this.pendingExtraMonths,
     this.pendingExtensionFee,
+    this.overdue = false,
+    this.overdueDays = 0,
+    this.overdueFeeOutstanding = 0,
+    this.accessDisabled = false,
+    this.scheduledReturnTime,
   });
+
+  bool get isActive => status == 'ACTIVE';
+  bool get hasLateFeeDue => overdueFeeOutstanding > 0;
 
   double? get monthlyRate {
     if (rentalMonths == null || rentalMonths == 0) return null;
@@ -48,8 +61,7 @@ class MyUnitModel {
 
   factory MyUnitModel.fromJson(Map<String, dynamic> json) {
     return MyUnitModel(
-      bookingId:
-          json['bookingId']?.toString() ?? json['id']?.toString() ?? '',
+      bookingId: json['bookingId']?.toString() ?? json['id']?.toString() ?? '',
       bookingCode: json['bookingCode']?.toString() ?? '',
       unitCode: json['unitCode']?.toString() ?? '',
       facilityName: json['facilityName']?.toString() ?? '',
@@ -78,6 +90,14 @@ class MyUnitModel {
       hasPendingExtension: json['hasPendingExtension'] == true,
       pendingExtraMonths: (json['pendingExtraMonths'] as num?)?.toInt(),
       pendingExtensionFee: (json['pendingExtensionFee'] as num?)?.toDouble(),
+      overdue: json['overdue'] == true,
+      overdueDays: (json['overdueDays'] as num?)?.toInt() ?? 0,
+      overdueFeeOutstanding:
+          (json['overdueFeeOutstanding'] as num?)?.toDouble() ?? 0.0,
+      accessDisabled: json['accessDisabled'] == true,
+      scheduledReturnTime: json['scheduledReturnTime'] != null
+          ? DateTime.tryParse(json['scheduledReturnTime'].toString())
+          : null,
     );
   }
 }

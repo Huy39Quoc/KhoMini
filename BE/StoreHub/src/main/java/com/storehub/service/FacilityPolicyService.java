@@ -26,6 +26,10 @@ public interface FacilityPolicyService {
 
     OverdueConfigResponse getOverdueConfig(UUID facilityId);
 
+    // Kiem tra so thang thue >= minimumRentalMonths cua chinh sach co so
+    // (mac dinh true neu co so chua thiet lap chinh sach nay).
+    boolean isMinRentalMonthsSatisfied(UUID facilityId, int rentalMonths);
+
     FacilityPolicyResponse getByFacilityId(UUID facilityId);
 
     FacilityPolicyResponse create(FacilityPolicyCreateRequest request);

@@ -2,10 +2,7 @@ package com.storehub.controller;
 
 import com.storehub.common.ApiResponse;
 import com.storehub.dto.request.FacilityUnitRequest;
-import com.storehub.dto.response.AssignedFacilityResponse;
-import com.storehub.dto.response.FacilityReportResponse;
-import com.storehub.dto.response.FacilityStaffResponse;
-import com.storehub.dto.response.FacilityUnitResponse;
+import com.storehub.dto.response.*;
 import com.storehub.service.FacilityManagementService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -37,7 +34,7 @@ public class FacilityManagementController {
     }
 
     @GetMapping("/{facilityId}/units")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
     public ApiResponse<List<FacilityUnitResponse>> units(
             @PathVariable UUID facilityId,
             @AuthenticationPrincipal UserDetails principal
@@ -179,6 +176,34 @@ public class FacilityManagementController {
         return ApiResponse.success(
                 "Staff unassigned from facility successfully",
                 null
+        );
+    }
+
+    @GetMapping("/{facilityId}/bookings")
+    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    public ApiResponse<List<FacilityContractResponse>> contracts(
+            @PathVariable UUID facilityId,
+            @AuthenticationPrincipal UserDetails principal
+    ) {
+        return ApiResponse.success(
+                service.contracts(
+                        facilityId,
+                        principal.getUsername()
+                )
+        );
+    }
+
+    @GetMapping("/{facilityId}/bookings/confirmed")
+    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    public ApiResponse<List<FacilityBookingResponse>> confirmedBookings(
+            @PathVariable UUID facilityId,
+            @AuthenticationPrincipal UserDetails principal
+    ) {
+        return ApiResponse.success(
+                service.confirmedBookings(
+                        facilityId,
+                        principal.getUsername()
+                )
         );
     }
 }

@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -37,6 +38,7 @@ public class BookingController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('CUSTOMER')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Tạo đơn đặt chỗ kho mới (trạng thái PENDING_PAYMENT, hết hạn sau 30 phút)")
     public ResponseEntity<ApiResponse<BookingResponse>> createBooking(
@@ -49,6 +51,7 @@ public class BookingController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Hủy đơn đặt chỗ đang PENDING_PAYMENT – trả kho về AVAILABLE và notify waitlist")
     public ResponseEntity<ApiResponse<Void>> cancelBooking(

@@ -23,6 +23,14 @@ public interface PaymentRepository
 
     Optional<Payment> findByTransactionId(String transactionId);
 
+    @Query("""
+            SELECT SUM(p.amount)
+            FROM Payment p
+            WHERE p.booking.storageUnit.facility.id = :facilityId
+            AND p.status = com.storehub.enums.PaymentStatus.PAID
+            """)
+    java.math.BigDecimal sumPaidByFacility(@Param("facilityId") UUID facilityId);
+
     Optional<Payment> findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
             UUID bookingId, PaymentType paymentType, PaymentStatus status);
 

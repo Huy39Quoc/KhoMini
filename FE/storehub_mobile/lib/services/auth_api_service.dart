@@ -130,6 +130,34 @@ class AuthApiService {
     }
   }
 
+  // POST /auth/reset-password (công khai). Token lấy từ link trong email:
+  // <frontend>/reset-password?token=XXXX (hiệu lực 15 phút).
+  Future<String> resetPassword({
+    required String token,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.resetPassword,
+        data: {
+          'token': token,
+          'newPassword': newPassword,
+          'confirmPassword': confirmPassword,
+        },
+      );
+      final body = response.data;
+      if (body is Map && body['message'] is String) {
+        return body['message'] as String;
+      }
+      return 'Password reset successfully';
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final message = (data is Map ? data['message'] : null) ?? e.message;
+      throw Exception('$message');
+    }
+  }
+
   // BE (PUT /auth/change-password) yêu cầu oldPassword + newPassword +
   // confirmPassword, dùng UserDetails (đúng pattern an toàn) để xác định
   // user hiện tại. API này đã có sẵn nhưng trước đây chưa có màn hình nào

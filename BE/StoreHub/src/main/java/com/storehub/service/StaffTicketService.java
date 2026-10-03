@@ -21,6 +21,13 @@ public interface StaffTicketService {
             String staffEmail
     );
 
+    TicketResponse assignToStaff(
+            UUID facilityId,
+            UUID ticketId,
+            UUID staffId,
+            String managerEmail
+    );
+
     TicketResponse updateStatus(
             UUID facilityId,
             UUID ticketId,

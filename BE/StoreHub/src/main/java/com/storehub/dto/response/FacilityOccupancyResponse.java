@@ -15,5 +15,6 @@ public class FacilityOccupancyResponse {
     private long availableUnits;
     private long reservedUnits;
     private long maintenanceUnits;
+    private long overdueBookings;
     private double occupancyRate; // percentage, 0-100
 }

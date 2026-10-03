@@ -18,11 +18,15 @@ import com.storehub.repository.HandoverRecordRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.entity.FacilityAccess;
 import com.storehub.service.FacilityOperationsService;
+import com.storehub.service.PaymentService;
+import com.storehub.service.WaitlistService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -30,6 +34,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FacilityOperationsServiceImpl
@@ -39,6 +44,8 @@ public class FacilityOperationsServiceImpl
     private final HandoverRecordRepository handoverRecordRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final FacilityAccess facilityAccess;
+    private final PaymentService paymentService;
+    private final WaitlistService waitlistService;
 
     @Override
     @Transactional(readOnly = true)
@@ -77,15 +84,21 @@ public class FacilityOperationsServiceImpl
                 bookingRepository.findCheckOutSchedule(
                         facilityId,
                         BookingStatus.ACTIVE,
-                        startOfDay,
-                        endOfDay
+                        endOfDay,
+                        date
                 );
 
         for (Booking booking : checkOutBookings) {
+            // Khách đã hẹn trả kho: theo giờ hẹn. Khách chưa hẹn nhưng hợp đồng
+            // đã đến/quá hạn: theo ngày hết hạn.
+            LocalDateTime scheduled = booking.getReturnTime() != null
+                    ? booking.getReturnTime()
+                    : booking.getEndDate().atStartOfDay();
+
             result.add(toScheduleResponse(
                     booking,
                     "CHECK_OUT",
-                    booking.getReturnTime()
+                    scheduled
             ));
         }
 
@@ -269,6 +282,9 @@ public class FacilityOperationsServiceImpl
             );
         }
 
+        // Nghiệm thu trả kho -> hoàn cọc. Bị chặn nếu khách còn nợ phí trễ hạn.
+        BigDecimal refundedDeposit = paymentService.refundDepositOnReturn(booking);
+
         LocalDateTime now = LocalDateTime.now();
 
         HandoverRecord record = HandoverRecord.builder()
@@ -296,7 +312,10 @@ public class FacilityOperationsServiceImpl
                 record,
                 request.getLockCondition(),
                 staff,
-                "Check-out completed successfully"
+                refundedDeposit.signum() > 0
+                        ? "Check-out completed successfully. Deposit refunded: "
+                        + refundedDeposit.toPlainString()
+                        : "Check-out completed successfully"
         );
     }
 
@@ -334,15 +353,37 @@ public class FacilityOperationsServiceImpl
             );
         }
 
-        if (storageUnit.getStatus() != UnitStatus.UNDER_MAINTENANCE
-                || request.getStatus() != UnitStatus.AVAILABLE) {
+        UnitStatus current = storageUnit.getStatus();
+        UnitStatus target = request.getStatus();
+
+        // Cho phép: bảo trì -> trống (sau vệ sinh/kiểm tra) và
+        // trống -> bảo trì (cần kiểm tra). Kho đang giữ chỗ/đang thuê
+        // chỉ đổi trạng thái qua luồng booking (check-in / check-out).
+        boolean validTransition =
+                (current == UnitStatus.UNDER_MAINTENANCE && target == UnitStatus.AVAILABLE)
+                        || (current == UnitStatus.AVAILABLE && target == UnitStatus.UNDER_MAINTENANCE);
+
+        if (!validTransition) {
             throw new AppException(
                     ErrorCode.UNIT_UNAVAILABLE
             );
         }
 
-        storageUnit.setStatus(UnitStatus.AVAILABLE);
+        storageUnit.setStatus(target);
         storageUnitRepository.save(storageUnit);
+
+        if (target == UnitStatus.AVAILABLE
+                && storageUnit.getUnitType() != null) {
+            try {
+                waitlistService.notifyNextInWaitlist(
+                        facilityId,
+                        storageUnit.getUnitType().getId()
+                );
+            } catch (Exception e) {
+                log.warn("Failed to notify waitlist for unit {}: {}",
+                        unitId, e.getMessage());
+            }
+        }
 
         return "Storage unit status updated successfully";
     }

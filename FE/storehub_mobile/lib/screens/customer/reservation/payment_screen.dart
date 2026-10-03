@@ -2,15 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../services/booking_api_service.dart';
 
 class PaymentScreen extends StatefulWidget {
-  // bookingId/bookingCode are real, coming from BookingResponse after
-  // FacilityDetailScreen successfully called POST /bookings - this screen
-  // used to not receive any bookingId at all and made up a random
-  // booking code.
   final String bookingId;
   final String bookingCode;
   final String facilityName;
@@ -20,8 +17,6 @@ class PaymentScreen extends StatefulWidget {
   final int rentalMonths;
   final double totalRentalFee;
   final double depositAmount;
-  // Real expiry from BookingResponse.expiresAt - the BE now auto-expires a
-  // PENDING_PAYMENT booking (and its reserved unit) after 30 minutes.
   final DateTime? expiresAt;
 
   const PaymentScreen({
@@ -43,21 +38,19 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final BookingApiService _bookingService = BookingApiService();
 
-  // Screen state
   bool _isSuccess = false;
   bool _isConfirming = false;
   bool _isCancelling = false;
 
-  // State for initiating the payment transaction (POST /payments/initiate)
   bool _isInitiating = true;
   String? _initError;
-  Map<String, dynamic>? _payment; // Real PaymentResponse: transactionId, amount, qrCodeUrl...
+  Map<String, dynamic>? _payment;
 
-  // Real countdown driven by widget.expiresAt (BE-enforced booking expiry)
   Timer? _expiryTimer;
+  Timer? _pollingTimer;
   Duration? _remaining;
 
   // Animation cho success
@@ -68,6 +61,7 @@ class _PaymentScreenState extends State<PaymentScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _successCtrl = AnimationController(
       vsync: this,
@@ -79,6 +73,50 @@ class _PaymentScreenState extends State<PaymentScreen>
 
     _initiatePayment();
     _startExpiryCountdown();
+    _startStatusPolling();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_isSuccess && !_isExpired) {
+      _autoCheckPayment();
+    }
+  }
+
+  void _startStatusPolling() {
+    _pollingTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
+      if (!_isSuccess && !_isExpired && !_isConfirming && _payment != null) {
+        _autoCheckPayment();
+      }
+    });
+  }
+
+  Future<void> _autoCheckPayment() async {
+    final transactionId = _payment?['transactionId']?.toString();
+    if (transactionId == null ||
+        transactionId.isEmpty ||
+        _isConfirming ||
+        _isSuccess) {
+      return;
+    }
+
+    try {
+      final confirmed =
+          await _bookingService.confirmPayment(transactionId: transactionId);
+      if (!mounted) return;
+      final status = confirmed['status']?.toString();
+      if (status == 'PAID' || status == 'CONFIRMED') {
+        _pollingTimer?.cancel();
+        setState(() {
+          _payment = confirmed;
+          _isSuccess = true;
+        });
+        _successCtrl.forward();
+        HapticFeedback.mediumImpact();
+      }
+    } catch (_) {
+      // Quietly poll in background until paid
+    }
   }
 
   void _startExpiryCountdown() {
@@ -111,7 +149,8 @@ class _PaymentScreenState extends State<PaymentScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(wasExpired ? 'This booking has expired.' : 'Booking cancelled.'),
+          content: Text(
+              wasExpired ? 'This booking has expired.' : 'Booking cancelled.'),
         ),
       );
       Navigator.pop(context);
@@ -129,14 +168,13 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pollingTimer?.cancel();
     _successCtrl.dispose();
     _expiryTimer?.cancel();
     super.dispose();
   }
 
-  // Calls the real POST /payments/initiate to get a real transactionId
-  // + a real VietQR image from the BE, instead of building a fake QR
-  // from a made-up string like before.
   Future<void> _initiatePayment() async {
     setState(() {
       _isInitiating = true;
@@ -170,9 +208,6 @@ class _PaymentScreenState extends State<PaymentScreen>
     return '${s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} ₫';
   }
 
-  // Calls the real POST /payments/confirm with the real transactionId
-  // from the initiate step. This used to just Future.delayed(1.5s) and
-  // treat it as success, with no payment/booking ever recorded in the DB.
   Future<void> _confirmPayment() async {
     if (_isExpired) return;
     final transactionId = _payment?['transactionId']?.toString();
@@ -217,19 +252,26 @@ class _PaymentScreenState extends State<PaymentScreen>
               padding: const EdgeInsets.only(right: 8),
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: _isExpired ? AppColors.error.withValues(alpha: 0.25) : Colors.white12,
+                    color: _isExpired
+                        ? AppColors.error.withValues(alpha: 0.25)
+                        : Colors.white12,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.timer_outlined, size: 14, color: Colors.white),
+                      const Icon(Icons.timer_outlined,
+                          size: 14, color: Colors.white),
                       const SizedBox(width: 4),
                       Text(
                         _isExpired ? 'Expired' : _formatCountdown(_remaining!),
-                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -240,7 +282,11 @@ class _PaymentScreenState extends State<PaymentScreen>
             IconButton(
               tooltip: 'Cancel booking',
               icon: _isCancelling
-                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.close),
               onPressed: _isCancelling
                   ? null
@@ -253,18 +299,24 @@ class _PaymentScreenState extends State<PaymentScreen>
                         context: context,
                         builder: (ctx) => AlertDialog(
                           title: const Text('Cancel this booking?'),
-                          content: const Text('The reserved unit will be released back to availability.'),
+                          content: const Text(
+                              'The reserved unit will be released back to availability.'),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep booking')),
+                            TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Keep booking')),
                             ElevatedButton(
-                              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.error),
                               onPressed: () => Navigator.pop(ctx, true),
                               child: const Text('Cancel booking'),
                             ),
                           ],
                         ),
                       );
-                      if (confirm == true) await _handleExpiredOrCancel(wasExpired: false);
+                      if (confirm == true) {
+                        await _handleExpiredOrCancel(wasExpired: false);
+                      }
                     },
             ),
         ],
@@ -389,8 +441,8 @@ class _PaymentScreenState extends State<PaymentScreen>
                         backgroundColor: AppColors.success));
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
@@ -401,8 +453,8 @@ class _PaymentScreenState extends State<PaymentScreen>
                         Icon(Icons.copy, color: Colors.white70, size: 14),
                         SizedBox(width: 4),
                         Text('Copy code',
-                            style: TextStyle(
-                                color: Colors.white70, fontSize: 12)),
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -449,11 +501,32 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   // ── Payment screen ────────────────────────────────────────────────────────
 
+  Future<void> _openVnpayUrl(String vnpayUrl) async {
+    if (vnpayUrl.isEmpty) return;
+    final uri = Uri.parse(vnpayUrl);
+    try {
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open VNPay URL: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildPaymentBody() {
     final payment = _payment!;
-    final amount = (payment['amount'] as num?)?.toDouble() ?? widget.depositAmount;
+    final amount =
+        (payment['amount'] as num?)?.toDouble() ?? widget.depositAmount;
     final transactionId = payment['transactionId']?.toString() ?? '';
-    final qrCodeUrl = payment['qrCodeUrl']?.toString() ?? '';
+    final paymentUrl =
+        (payment['paymentUrl'] ?? payment['qrCodeUrl'])?.toString() ?? '';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -487,8 +560,8 @@ class _PaymentScreenState extends State<PaymentScreen>
         _summaryCard(),
         const SizedBox(height: 20),
 
-        // QR Payment
-        const Text('📱 Scan QR to Pay',
+        // VNPay Gateway
+        const Text('💳 VNPay Gateway',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         Container(
@@ -510,117 +583,71 @@ class _PaymentScreenState extends State<PaymentScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                           colors: [Color(0xFF003087), Color(0xFF0057B7)]),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.qr_code_scanner,
-                            color: Colors.white, size: 16),
-                        SizedBox(width: 6),
-                        Text('VietQR',
+                        Icon(Icons.account_balance_wallet,
+                            color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text('VNPAY SANDBOX',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13)),
+                                fontSize: 13,
+                                letterSpacing: 1.1)),
                       ],
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              // Real QR code generated by the BE (qrCodeUrl)
-              qrCodeUrl.isEmpty
-                  ? Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                        child: Text('No QR code available',
-                            style: TextStyle(color: Colors.grey)),
-                      ),
-                    )
-                  : Image.network(
-                      qrCodeUrl,
-                      width: 200,
-                      height: 200,
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return const SizedBox(
-                          width: 200,
-                          height: 200,
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: 200,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Text(
-                              "Couldn't load the QR image.\nUse the transaction code below to transfer manually.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey, fontSize: 12),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-              const SizedBox(height: 14),
-              // Amount to transfer - real value from the BE (PaymentResponse.amount)
+              // Amount card
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                       color: AppColors.primary.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   children: [
-                    const Text('Amount to transfer',
+                    const Text('Payable Amount',
                         style: TextStyle(
                             color: AppColors.textSecondary, fontSize: 12)),
                     const SizedBox(height: 4),
                     Text(_formatPrice(amount),
                         style: const TextStyle(
-                            fontSize: 22,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primary)),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Transaction code: ',
+                        const Text('Txn Ref: ',
                             style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary)),
+                                fontSize: 12, color: AppColors.textSecondary)),
                         Text(transactionId,
                             style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.textPrimary)),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 6),
                         GestureDetector(
                           onTap: () {
                             Clipboard.setData(
                                 ClipboardData(text: transactionId));
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(const SnackBar(
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
                                     content: Text('Transaction code copied'),
                                     backgroundColor: AppColors.success));
                           },
@@ -632,6 +659,64 @@ class _PaymentScreenState extends State<PaymentScreen>
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              // Open VNPay URL button
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: _isExpired || paymentUrl.isEmpty
+                      ? null
+                      : () => _openVnpayUrl(paymentUrl),
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: const Text('Open VNPay Payment Gateway',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0057B7),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Test card details box
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.credit_card, color: Color(0xFF0057B7), size: 20),
+                  SizedBox(width: 8),
+                  Text('VNPay Sandbox Test Card',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Color(0xFF003087))),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildTestCardRow('Bank (Ngân hàng):', 'NCB'),
+              const Divider(height: 12),
+              _buildTestCardRow('Card Number (Số thẻ):', '9704198526191432198'),
+              const Divider(height: 12),
+              _buildTestCardRow('Cardholder (Chủ thẻ):', 'NGUYEN VAN A'),
+              const Divider(height: 12),
+              _buildTestCardRow('Expiry (Ngày phát hành):', '07/15'),
+              const Divider(height: 12),
+              _buildTestCardRow('OTP Code:', '123456'),
             ],
           ),
         ),
@@ -650,22 +735,18 @@ class _PaymentScreenState extends State<PaymentScreen>
             children: [
               Row(
                 children: [
-                  Icon(Icons.info_outline,
-                      color: Colors.amber, size: 18),
+                  Icon(Icons.info_outline, color: Colors.amber, size: 18),
                   SizedBox(width: 6),
-                  Text('Payment Instructions',
+                  Text('Payment Steps',
                       style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange)),
+                          fontWeight: FontWeight.bold, color: Colors.orange)),
                 ],
               ),
               SizedBox(height: 8),
-              _Step(step: '1', text: 'Open your banking app → Transfer → Scan QR'),
-              _Step(step: '2', text: 'Scan the QR code above'),
-              _Step(
-                  step: '3',
-                  text: 'Enter the exact amount & note the transaction code'),
-              _Step(step: '4', text: 'Tap "Confirm Payment" below'),
+              _Step(step: '1', text: 'Tap "Open VNPay Payment Gateway" above'),
+              _Step(step: '2', text: 'Choose NCB bank on VNPay Sandbox page'),
+              _Step(step: '3', text: 'Enter test card info & OTP (123456)'),
+              _Step(step: '4', text: 'Tap "Confirm Payment" below after paying'),
             ],
           ),
         ),
@@ -706,10 +787,43 @@ class _PaymentScreenState extends State<PaymentScreen>
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Pay later',
-              style:
-                  TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
         ),
         const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildTestCardRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: Colors.black87)),
+        Row(
+          children: [
+            SelectableText(
+              value,
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF003087)),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: value));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$label copied'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              },
+              child: const Icon(Icons.copy, size: 13, color: Color(0xFF0057B7)),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -785,8 +899,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           child: Text(label,
               style: TextStyle(
                   fontSize: isHighlight ? 14 : 13,
-                  fontWeight:
-                      isHighlight ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
                   color: isHighlight
                       ? AppColors.textPrimary
                       : AppColors.textSecondary)),

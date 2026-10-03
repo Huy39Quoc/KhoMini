@@ -61,6 +61,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     try {
       final quote = await _catalogService.getRentalQuote(
         unitTypeId: _selectedType!.id,
+        facilityId: widget.facilityId,
         startDate: _startDate,
         rentalMonths: _rentalMonths,
       );
@@ -147,8 +148,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                             const SizedBox(height: 8),
                             Row(
                               children: [
-                                _badgeChip(Icons.access_time,
-                                    '🔑 24/7 Access', Colors.green.shade700),
+                                _badgeChip(Icons.access_time, '🔑 24/7 Access',
+                                    Colors.green.shade700),
                               ],
                             ),
                           ],
@@ -173,20 +174,68 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       // ── Bottom CTA ───────────────────────────────────────────────────
       bottomNavigationBar: _selectedType != null && _quote != null
           ? _buildBottomCTA()
-          : null,
+          : _buildBottomHint(),
+    );
+  }
+
+  // Trước đây khi chưa chọn loại kho (hoặc quote đang tải/lỗi), thanh dưới cùng
+  // biến mất hoàn toàn khiến người dùng không biết cần làm gì để đặt kho.
+  // Luôn hiện một thanh nhắc để họ biết bước tiếp theo.
+  Widget _buildBottomHint() {
+    String message;
+    if (_selectedType == null) {
+      message = 'Select a unit type above to continue';
+    } else if (_isQuoting) {
+      message = 'Calculating cost...';
+    } else if (_quoteError != null) {
+      message = 'Could not calculate cost. Please try again.';
+    } else {
+      message = 'Select a unit type above to continue';
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, -4))
+        ],
+      ),
+      child: Row(
+        children: [
+          if (_isQuoting)
+            const SizedBox(
+              height: 16,
+              width: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            const Icon(Icons.info_outline,
+                size: 18, color: AppColors.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _badgeChip(IconData icon, String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-          color: color, borderRadius: BorderRadius.circular(20)),
+      decoration:
+          BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
       child: Text(label,
           style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.bold)),
+              color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -205,7 +254,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Unit type selection ─────────────────────────────────────
-        _sectionHeader('📦 Choose a Unit Type', subtitle: 'Pick the size that fits'),
+        _sectionHeader('📦 Choose a Unit Type',
+            subtitle: 'Pick the size that fits'),
         const SizedBox(height: 10),
         if (snapshot.hasError)
           _errorBanner(
@@ -253,7 +303,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
         // ── Cost breakdown ────────────────────────────────────────────
         if (_selectedType != null) ...[
-          _sectionHeader('💰 Cost Breakdown', subtitle: 'Updates automatically'),
+          _sectionHeader('💰 Cost Breakdown',
+              subtitle: 'Updates automatically'),
           const SizedBox(height: 10),
           _buildQuoteSection(),
         ],
@@ -269,7 +320,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       children: [
         Text(title,
             style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
                 color: AppColors.textPrimary)),
         if (subtitle != null)
           Text(subtitle,
@@ -310,8 +362,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           builder: (ctx, child) => Theme(
             data: Theme.of(ctx).copyWith(
               colorScheme: const ColorScheme.light(
-                  primary: AppColors.primary,
-                  onPrimary: Colors.white),
+                  primary: AppColors.primary, onPrimary: Colors.white),
             ),
             child: child!,
           ),
@@ -388,9 +439,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.primary
-                          : Colors.white,
+                      color: isSelected ? AppColors.primary : Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                           color: isSelected
@@ -399,8 +448,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                  color: AppColors.primary
-                                      .withValues(alpha: 0.3),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.3),
                                   blurRadius: 8,
                                   offset: const Offset(0, 3))
                             ]
@@ -444,12 +493,14 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                   style: TextStyle(color: AppColors.textSecondary)),
               Row(
                 children: [
-                  _stepperBtn(Icons.remove, _rentalMonths > 1
-                      ? () {
-                          setState(() => _rentalMonths--);
-                          _refreshQuote();
-                        }
-                      : null),
+                  _stepperBtn(
+                      Icons.remove,
+                      _rentalMonths > 1
+                          ? () {
+                              setState(() => _rentalMonths--);
+                              _refreshQuote();
+                            }
+                          : null),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text('$_rentalMonths',
@@ -537,7 +588,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.receipt_long, color: AppColors.primary, size: 20),
+              const Icon(Icons.receipt_long,
+                  color: AppColors.primary, size: 20),
               const SizedBox(width: 6),
               const Text('Cost Breakdown',
                   style: TextStyle(
@@ -546,8 +598,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                       color: AppColors.primary)),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(10),
@@ -561,16 +612,15 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             ],
           ),
           const Divider(height: 20),
-          _quoteLine(
-              'Rental fee ($_rentalMonths mo)', total, isHighlight: false),
+          _quoteLine('Rental fee ($_rentalMonths mo)', total,
+              isHighlight: false),
           const SizedBox(height: 8),
           _quoteLine('Deposit (refunded at checkout)', deposit,
               isHighlight: false),
           const Divider(height: 20),
           _quoteLine('💳 Due Now', initial, isHighlight: true),
           const SizedBox(height: 6),
-          const Text(
-              '* The deposit will be refunded when your rental ends.',
+          const Text('* The deposit will be refunded when your rental ends.',
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         ],
       ),
@@ -584,15 +634,16 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         Text(label,
             style: TextStyle(
                 fontSize: isHighlight ? 14 : 13,
-                fontWeight:
-                    isHighlight ? FontWeight.bold : FontWeight.normal,
-                color:
-                    isHighlight ? AppColors.textPrimary : AppColors.textSecondary)),
+                fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+                color: isHighlight
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary)),
         Text(_formatPrice(value is num ? value : null),
             style: TextStyle(
                 fontSize: isHighlight ? 16 : 14,
                 fontWeight: FontWeight.bold,
-                color: isHighlight ? AppColors.primary : AppColors.textPrimary)),
+                color:
+                    isHighlight ? AppColors.primary : AppColors.textPrimary)),
       ],
     );
   }
@@ -617,8 +668,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Due now',
-                  style: TextStyle(
-                      fontSize: 11, color: AppColors.textSecondary)),
+                  style:
+                      TextStyle(fontSize: 11, color: AppColors.textSecondary)),
               Text(_formatPrice(initial is num ? initial : null),
                   style: const TextStyle(
                       fontSize: 18,
@@ -637,7 +688,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
-                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
+                disabledBackgroundColor:
+                    AppColors.primary.withValues(alpha: 0.5),
               ),
               child: _isBooking
                   ? const SizedBox(
@@ -720,14 +772,12 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             unitTypeDimensions: _selectedType!.dimensions,
             startDate: _startDate,
             rentalMonths: _rentalMonths,
-            totalRentalFee:
-                (booking['totalRentalFee'] as num?)?.toDouble() ??
-                    (_quote!['totalRentalFee'] as num?)?.toDouble() ??
-                    0,
-            depositAmount:
-                (booking['depositAmount'] as num?)?.toDouble() ??
-                    (_quote!['depositAmount'] as num?)?.toDouble() ??
-                    0,
+            totalRentalFee: (booking['totalRentalFee'] as num?)?.toDouble() ??
+                (_quote!['totalRentalFee'] as num?)?.toDouble() ??
+                0,
+            depositAmount: (booking['depositAmount'] as num?)?.toDouble() ??
+                (_quote!['depositAmount'] as num?)?.toDouble() ??
+                0,
             expiresAt: booking['expiresAt'] != null
                 ? DateTime.tryParse(booking['expiresAt'].toString())
                 : null,
@@ -826,7 +876,8 @@ class _UnitTypeCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        _chip(Icons.inventory_2_outlined,
+                        _chip(
+                            Icons.inventory_2_outlined,
                             '${type.availableUnits} available',
                             type.availableUnits > 0
                                 ? AppColors.success
@@ -844,7 +895,8 @@ class _UnitTypeCard extends StatelessWidget {
                     minimumSize: const Size(0, 34),
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
-                  child: const Text('Join Waitlist', style: TextStyle(fontSize: 11)),
+                  child: const Text('Join Waitlist',
+                      style: TextStyle(fontSize: 11)),
                 )
               else
                 Column(

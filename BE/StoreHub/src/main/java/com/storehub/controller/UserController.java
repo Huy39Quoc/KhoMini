@@ -6,11 +6,13 @@ import com.storehub.common.PageResponse;
 import com.storehub.dto.request.UserCreateRequest;
 import com.storehub.dto.request.UserUpdateRequest;
 import com.storehub.dto.response.UserResponse;
+import com.storehub.dto.response.UserSummaryResponse;
 import com.storehub.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,7 +27,7 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-//    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserResponse>> create(
             @Valid @RequestBody UserCreateRequest request
     ) {
@@ -35,8 +37,14 @@ public class UserController {
                 .body(ApiResponse.success("User created successfully", response));
     }
 
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    public ResponseEntity<ApiResponse<UserSummaryResponse>> getSummary() {
+        return ResponseEntity.ok(ApiResponse.success(userService.getSummary()));
+    }
+
     @GetMapping("/{id}")
-//    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER')")
     public ResponseEntity<ApiResponse<UserResponse>> getById(
             @PathVariable UUID id
     ) {
@@ -45,7 +53,7 @@ public class UserController {
     }
 
     @GetMapping
-//    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER')")
     public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getAll(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean isActive,
@@ -61,7 +69,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-//    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody UserUpdateRequest request
@@ -71,7 +79,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-//    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable UUID id
     ) {
@@ -80,7 +88,7 @@ public class UserController {
     }
 
     @PatchMapping("/{id}/toggle-active")
-//    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserResponse>> toggleActive(
             @PathVariable UUID id
     ) {
