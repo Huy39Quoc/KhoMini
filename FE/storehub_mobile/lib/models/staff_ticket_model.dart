@@ -11,6 +11,10 @@ class StaffTicketModel {
   final String assignedStaffName;
   final String resolutionNote;
   final String createdAt;
+  final String customerName;
+  final String customerEmail;
+  final String customerPhone;
+  final String unitCode;
 
   const StaffTicketModel({
     required this.id,
@@ -25,6 +29,10 @@ class StaffTicketModel {
     required this.assignedStaffName,
     required this.resolutionNote,
     required this.createdAt,
+    this.customerName = '',
+    this.customerEmail = '',
+    this.customerPhone = '',
+    this.unitCode = '',
   });
 
   bool get isOpen => status == 'OPEN';

@@ -238,6 +238,14 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
                                 color: AppColors.onSurfaceVariant,
                               ),
                             ),
+                            if (ticket.customerName.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Customer: ${ticket.customerName}'
+                                '${ticket.unitCode.isNotEmpty ? ' • Unit ${ticket.unitCode}' : ''}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
                             const SizedBox(height: 6),
                             Text(
                               ticket.assignedStaffName.isEmpty

@@ -377,6 +377,12 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                               ? null
                               : () => _toggleLock(access.locked),
                           style: ElevatedButton.styleFrom(
+                            // Theme mặc định ép minimumSize rộng vô hạn
+                            // (Size.fromHeight). Trong Row điều đó gây lỗi
+                            // layout và làm trắng cả màn hình.
+                            minimumSize: const Size(96, 44),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16),
                             backgroundColor: access.locked
                                 ? AppColors.primary
                                 : AppColors.secondary,
