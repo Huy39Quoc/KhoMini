@@ -24,6 +24,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Service
@@ -52,6 +53,15 @@ public class FacilityServiceImpl implements FacilityService {
         }
 
         Facility facility = facilityMapper.toEntity(request);
+
+        // MapStruct dựng entity qua builder và gán null khi request không có
+        // openTime/closeTime, làm mất giá trị mặc định (cột DB là NOT NULL).
+        if (facility.getOpenTime() == null) {
+            facility.setOpenTime(LocalTime.of(8, 0));
+        }
+        if (facility.getCloseTime() == null) {
+            facility.setCloseTime(LocalTime.of(20, 0));
+        }
 
         if (request.getManagerId() != null) {
             User manager = userRepository.findById(request.getManagerId())

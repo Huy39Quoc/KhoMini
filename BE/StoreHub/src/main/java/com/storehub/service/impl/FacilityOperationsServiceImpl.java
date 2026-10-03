@@ -84,15 +84,21 @@ public class FacilityOperationsServiceImpl
                 bookingRepository.findCheckOutSchedule(
                         facilityId,
                         BookingStatus.ACTIVE,
-                        startOfDay,
-                        endOfDay
+                        endOfDay,
+                        date
                 );
 
         for (Booking booking : checkOutBookings) {
+            // Khách đã hẹn trả kho: theo giờ hẹn. Khách chưa hẹn nhưng hợp đồng
+            // đã đến/quá hạn: theo ngày hết hạn.
+            LocalDateTime scheduled = booking.getReturnTime() != null
+                    ? booking.getReturnTime()
+                    : booking.getEndDate().atStartOfDay();
+
             result.add(toScheduleResponse(
                     booking,
                     "CHECK_OUT",
-                    booking.getReturnTime()
+                    scheduled
             ));
         }
 

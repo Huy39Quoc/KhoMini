@@ -19,6 +19,10 @@ class StaffTicketMapper {
       assignedStaffName: _text(json['assignedStaffName']),
       resolutionNote: _text(json['resolutionNote']),
       createdAt: _text(json['createdAt']),
+      customerName: _text(json['customerName']),
+      customerEmail: _text(json['customerEmail']),
+      customerPhone: _text(json['customerPhone']),
+      unitCode: _text(json['unitCode']),
     );
   }
 

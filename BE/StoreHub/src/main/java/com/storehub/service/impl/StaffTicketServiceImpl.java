@@ -228,6 +228,19 @@ public class StaffTicketServiceImpl implements StaffTicketService {
                         ? ticket.getAssignedStaff().getFullName()
                         : null)
                 .resolutionNote(ticket.getResolutionNote())
+                .customerName(ticket.getCustomer() != null
+                        ? ticket.getCustomer().getFullName()
+                        : null)
+                .customerEmail(ticket.getCustomer() != null
+                        ? ticket.getCustomer().getEmail()
+                        : null)
+                .customerPhone(ticket.getCustomer() != null
+                        ? ticket.getCustomer().getPhone()
+                        : null)
+                .unitCode(ticket.getBooking() != null
+                        && ticket.getBooking().getStorageUnit() != null
+                        ? ticket.getBooking().getStorageUnit().getUnitCode()
+                        : null)
                 .createdAt(ticket.getCreatedAt())
                 .build();
     }

@@ -378,7 +378,17 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                         if (ticket.bookingCode.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            'Booking: ${ticket.bookingCode}',
+                            'Booking: ${ticket.bookingCode}'
+                            '${ticket.unitCode.isNotEmpty ? ' • Unit ${ticket.unitCode}' : ''}',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ],
+                        if (ticket.customerName.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Customer: ${ticket.customerName}'
+                            '${ticket.customerPhone.isNotEmpty ? ' • ${ticket.customerPhone}' : ''}'
+                            '${ticket.customerEmail.isNotEmpty ? ' • ${ticket.customerEmail}' : ''}',
                             style: const TextStyle(fontSize: 11),
                           ),
                         ],
