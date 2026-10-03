@@ -94,15 +94,17 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             LEFT JOIN FETCH su.unitType
             WHERE f.id = :facilityId
             AND b.status = :status
-            AND b.returnTime >= :startOfDay
-            AND b.returnTime < :endOfDay
-            ORDER BY b.returnTime ASC
+            AND (
+                (b.returnTime IS NOT NULL AND b.returnTime < :endOfDay)
+                OR (b.returnTime IS NULL AND b.endDate <= :date)
+            )
+            ORDER BY b.endDate ASC
             """)
     List<Booking> findCheckOutSchedule(
             @Param("facilityId") UUID facilityId,
             @Param("status") BookingStatus status,
-            @Param("startOfDay") LocalDateTime startOfDay,
-            @Param("endOfDay") LocalDateTime endOfDay
+            @Param("endOfDay") LocalDateTime endOfDay,
+            @Param("date") LocalDate date
     );
 
     @Query("""
