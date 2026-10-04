@@ -155,7 +155,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 const Text(
-                    'Access your storage unit and facility gates with digital PIN and QR Key.',
+                    'Access your storage unit and facility gates with a digital PIN code.',
                     style: TextStyle(color: Colors.white70, fontSize: 13)),
                 const SizedBox(height: 14),
                 ElevatedButton(

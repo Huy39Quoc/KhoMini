@@ -82,6 +82,12 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
                 .overdueAccessDisableDays(request.getOverdueAccessDisableDays())
                 .overdueSealingDays(request.getOverdueSealingDays())
                 .minimumRentalMonths(request.getMinimumRentalMonths())
+                .managementFeePerMonth(request.getManagementFeePerMonth() != null
+                        ? request.getManagementFeePerMonth() : java.math.BigDecimal.valueOf(50000))
+                .longTermDiscountMinMonths(request.getLongTermDiscountMinMonths() != null
+                        ? request.getLongTermDiscountMinMonths() : 0)
+                .longTermDiscountPercent(request.getLongTermDiscountPercent() != null
+                        ? request.getLongTermDiscountPercent() : 0.0)
                 .build();
 
         FacilityPolicy saved = facilityPolicyRepository.save(policy);

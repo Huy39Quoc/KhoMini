@@ -144,7 +144,7 @@ public class OverdueScheduler {
 
             booking.setAccessCode(null);
             booking.setAccessPin(null);
-            booking.setQrAccessToken(null);
+            booking.setUnitLocked(true);
             booking.setAccessDisabledAt(now);
 
             activityLogService.recordSystem(

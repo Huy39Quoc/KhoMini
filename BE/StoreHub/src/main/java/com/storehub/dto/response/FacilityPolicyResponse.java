@@ -29,4 +29,7 @@ public class FacilityPolicyResponse {
     private Integer overdueSealingDays;
 
     private Integer minimumRentalMonths;
+    private BigDecimal managementFeePerMonth;
+    private Integer longTermDiscountMinMonths;
+    private Double longTermDiscountPercent;
 }

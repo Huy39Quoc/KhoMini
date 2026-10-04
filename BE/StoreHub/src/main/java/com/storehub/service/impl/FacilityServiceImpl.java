@@ -11,6 +11,8 @@ import com.storehub.enums.FacilityStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.mapper.FacilityMapper;
+import com.storehub.entity.FacilityPolicy;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.service.ActivityLogService;
@@ -34,6 +36,7 @@ import java.util.UUID;
 public class FacilityServiceImpl implements FacilityService {
 
     private final FacilityRepository facilityRepository;
+    private final FacilityPolicyRepository facilityPolicyRepository;
     private final UserRepository userRepository;
     private final FacilityMapper facilityMapper;
     private final ActivityLogService activityLogService;
@@ -82,6 +85,14 @@ public class FacilityServiceImpl implements FacilityService {
         if (saved.getManager() != null) {
             saved.getManager().setFacility(saved);
         }
+
+        // Cơ sở mới luôn có chính sách mặc định để hoàn cọc / quá hạn / phí chạy đúng ngay.
+        // Business Operations Manager có thể chỉnh lại trong màn hình chính sách.
+        facilityPolicyRepository.save(FacilityPolicy.builder()
+                .facility(saved)
+                .depositPercentage(20.0)
+                .dailyLateFee(java.math.BigDecimal.valueOf(50000))
+                .build());
 
         activityLogService.record(
                 ActivityAction.FACILITY_CREATE,
@@ -181,7 +192,14 @@ public class FacilityServiceImpl implements FacilityService {
         Facility facility = facilityRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
 
-        facilityRepository.deleteById(facility.getId());
+        try {
+            facilityPolicyRepository.findByFacility_Id(facility.getId())
+                    .ifPresent(facilityPolicyRepository::delete);
+            facilityRepository.deleteById(facility.getId());
+            facilityRepository.flush();
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new AppException(ErrorCode.RESOURCE_IN_USE);
+        }
 
         activityLogService.record(
                 ActivityAction.FACILITY_DEACTIVATE,

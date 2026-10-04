@@ -22,7 +22,7 @@ class FacilityContractsTab extends StatefulWidget {
 class _FacilityContractsTabState extends State<FacilityContractsTab> {
   final FacilityOpsApiService _service = FacilityOpsApiService();
   final NumberFormat _currency =
-      NumberFormat.currency(locale: 'en_US', symbol: '\$');
+      NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
   late Future<List<Map<String, dynamic>>> _future;
   String _filter = 'ALL';
@@ -45,6 +45,45 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
       await _future;
     } catch (_) {
       // FutureBuilder hiển thị lỗi.
+    }
+  }
+
+  Future<void> _approveSealing(Map<String, dynamic> item) async {
+    final code = _text(item['bookingCode']);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Approve sealing?'),
+        content: Text(
+            'Approve sealing of unit ${_text(item['unitCode'])} for booking $code. '
+            'The customer is overdue and access has been disabled.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Approve')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _service.approveSealing(widget.facilityId, _text(item['bookingId']));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Sealing approved'),
+            backgroundColor: AppColors.success),
+      );
+      _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: AppColors.error),
+      );
     }
   }
 
@@ -165,6 +204,7 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
     final overdue = item['overdue'] == true;
     final accessDisabled = item['accessDisabled'] == true;
     final sealingPending = item['sealingPending'] == true;
+    final sealingApproved = item['sealingApproved'] == true;
     final pendingExtension = item['pendingExtensionFee'];
     final months = _text(item['rentalMonths']);
 
@@ -253,9 +293,22 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
                   children: [
                     if (accessDisabled)
                       _chip('ACCESS DISABLED', AppColors.error),
-                    if (sealingPending)
+                    if (sealingPending && !sealingApproved)
                       _chip('SEALING PENDING', AppColors.error),
+                    if (sealingApproved)
+                      _chip('SEALING APPROVED', AppColors.success),
                   ],
+                ),
+              ],
+              if (sealingPending && !sealingApproved) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _approveSealing(item),
+                    icon: const Icon(Icons.verified_outlined),
+                    label: const Text('Approve sealing'),
+                  ),
                 ),
               ],
             ],

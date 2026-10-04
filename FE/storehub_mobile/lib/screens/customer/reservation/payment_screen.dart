@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../services/booking_api_service.dart';
+import '../payment/vnpay_checkout_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   final String bookingId;
@@ -42,7 +42,6 @@ class _PaymentScreenState extends State<PaymentScreen>
   final BookingApiService _bookingService = BookingApiService();
 
   bool _isSuccess = false;
-  bool _isConfirming = false;
   bool _isCancelling = false;
 
   bool _isInitiating = true;
@@ -50,7 +49,6 @@ class _PaymentScreenState extends State<PaymentScreen>
   Map<String, dynamic>? _payment;
 
   Timer? _expiryTimer;
-  Timer? _pollingTimer;
   Duration? _remaining;
 
   // Animation cho success
@@ -73,50 +71,6 @@ class _PaymentScreenState extends State<PaymentScreen>
 
     _initiatePayment();
     _startExpiryCountdown();
-    _startStatusPolling();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !_isSuccess && !_isExpired) {
-      _autoCheckPayment();
-    }
-  }
-
-  void _startStatusPolling() {
-    _pollingTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
-      if (!_isSuccess && !_isExpired && !_isConfirming && _payment != null) {
-        _autoCheckPayment();
-      }
-    });
-  }
-
-  Future<void> _autoCheckPayment() async {
-    final transactionId = _payment?['transactionId']?.toString();
-    if (transactionId == null ||
-        transactionId.isEmpty ||
-        _isConfirming ||
-        _isSuccess) {
-      return;
-    }
-
-    try {
-      final confirmed =
-          await _bookingService.confirmPayment(transactionId: transactionId);
-      if (!mounted) return;
-      final status = confirmed['status']?.toString();
-      if (status == 'PAID' || status == 'CONFIRMED') {
-        _pollingTimer?.cancel();
-        setState(() {
-          _payment = confirmed;
-          _isSuccess = true;
-        });
-        _successCtrl.forward();
-        HapticFeedback.mediumImpact();
-      }
-    } catch (_) {
-      // Quietly poll in background until paid
-    }
   }
 
   void _startExpiryCountdown() {
@@ -169,7 +123,6 @@ class _PaymentScreenState extends State<PaymentScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _pollingTimer?.cancel();
     _successCtrl.dispose();
     _expiryTimer?.cancel();
     super.dispose();
@@ -208,32 +161,37 @@ class _PaymentScreenState extends State<PaymentScreen>
     return '${s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} ₫';
   }
 
-  Future<void> _confirmPayment() async {
-    if (_isExpired) return;
-    final transactionId = _payment?['transactionId']?.toString();
-    if (transactionId == null || transactionId.isEmpty) return;
+  /// Mở trang VNPay Sandbox ngay trong app (kèm bảng thẻ test). Giao dịch chỉ thành PAID khi
+  /// VNPay gọi về server; app chỉ đọc lại trạng thái, không tự xác nhận.
+  Future<void> _payWithVnpay() async {
+    if (_isExpired || _payment == null) return;
+    final transactionId = _payment!['transactionId']?.toString() ?? '';
+    final paymentUrl =
+        (_payment!['paymentUrl'] ?? _payment!['qrCodeUrl'])?.toString() ?? '';
+    if (transactionId.isEmpty || paymentUrl.isEmpty) return;
+    final amount =
+        (_payment!['amount'] as num?)?.toDouble() ?? widget.depositAmount;
 
-    setState(() => _isConfirming = true);
-    try {
-      final confirmed =
-          await _bookingService.confirmPayment(transactionId: transactionId);
-      if (!mounted) return;
+    final paid = await Navigator.push<Map<String, dynamic>?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VnpayCheckoutScreen(
+          paymentUrl: paymentUrl,
+          transactionId: transactionId,
+          amount: amount,
+          title: 'Deposit • VNPay Sandbox',
+          fetchStatus: (id) => _bookingService.getPaymentStatus(transactionId: id),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (paid != null) {
       setState(() {
-        _payment = confirmed;
-        _isConfirming = false;
+        _payment = paid;
         _isSuccess = true;
       });
       _successCtrl.forward();
       HapticFeedback.mediumImpact();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isConfirming = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: AppColors.error,
-        ),
-      );
     }
   }
 
@@ -501,32 +459,11 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   // ── Payment screen ────────────────────────────────────────────────────────
 
-  Future<void> _openVnpayUrl(String vnpayUrl) async {
-    if (vnpayUrl.isEmpty) return;
-    final uri = Uri.parse(vnpayUrl);
-    try {
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open VNPay URL: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
   Widget _buildPaymentBody() {
     final payment = _payment!;
     final amount =
         (payment['amount'] as num?)?.toDouble() ?? widget.depositAmount;
     final transactionId = payment['transactionId']?.toString() ?? '';
-    final paymentUrl =
-        (payment['paymentUrl'] ?? payment['qrCodeUrl'])?.toString() ?? '';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -659,27 +596,6 @@ class _PaymentScreenState extends State<PaymentScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              // Open VNPay URL button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: _isExpired || paymentUrl.isEmpty
-                      ? null
-                      : () => _openVnpayUrl(paymentUrl),
-                  icon: const Icon(Icons.open_in_new, size: 18),
-                  label: const Text('Open VNPay Payment Gateway',
-                      style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0057B7),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -743,10 +659,10 @@ class _PaymentScreenState extends State<PaymentScreen>
                 ],
               ),
               SizedBox(height: 8),
-              _Step(step: '1', text: 'Tap "Open VNPay Payment Gateway" above'),
-              _Step(step: '2', text: 'Choose NCB bank on VNPay Sandbox page'),
-              _Step(step: '3', text: 'Enter test card info & OTP (123456)'),
-              _Step(step: '4', text: 'Tap "Confirm Payment" below after paying'),
+              _Step(step: '1', text: 'Tap "Pay with VNPay Sandbox" below'),
+              _Step(step: '2', text: 'Choose NCB bank on the VNPay page'),
+              _Step(step: '3', text: 'Copy the test card info above into the form, OTP 123456'),
+              _Step(step: '4', text: 'The app confirms automatically once VNPay reports success'),
             ],
           ),
         ),
@@ -757,7 +673,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           width: double.infinity,
           height: 52,
           child: ElevatedButton(
-            onPressed: (_isConfirming || _isExpired) ? null : _confirmPayment,
+            onPressed: _isExpired ? null : _payWithVnpay,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
               foregroundColor: Colors.white,
@@ -765,22 +681,16 @@ class _PaymentScreenState extends State<PaymentScreen>
                   borderRadius: BorderRadius.circular(14)),
               disabledBackgroundColor: Colors.grey.shade300,
             ),
-            child: _isConfirming
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2.5))
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.check_circle_outline, size: 20),
-                      SizedBox(width: 8),
-                      Text('Confirm Payment',
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline, size: 20),
+                SizedBox(width: 8),
+                Text('Pay with VNPay Sandbox',
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -872,11 +782,31 @@ class _PaymentScreenState extends State<PaymentScreen>
               icon: Icons.account_balance_wallet_outlined,
               label: 'Rental fee',
               value: _formatPrice(widget.totalRentalFee)),
-          const Divider(height: 16, thickness: 1.5),
+          const Divider(height: 16),
           _summaryRow(
               icon: Icons.shield_outlined,
-              label: '💳 Deposit',
-              value: _formatPrice(widget.depositAmount),
+              label: 'Deposit (refundable)',
+              value: _formatPrice(widget.depositAmount)),
+          if (_payment?['amount'] is num &&
+              (_payment!['amount'] as num) -
+                      widget.totalRentalFee -
+                      widget.depositAmount >
+                  0) ...[
+            const Divider(height: 16),
+            _summaryRow(
+                icon: Icons.build_circle_outlined,
+                label: 'Management fee',
+                value: _formatPrice((_payment!['amount'] as num).toDouble() -
+                    widget.totalRentalFee -
+                    widget.depositAmount)),
+          ],
+          const Divider(height: 16, thickness: 1.5),
+          _summaryRow(
+              icon: Icons.payments_outlined,
+              label: '💳 Total to pay',
+              value: _formatPrice(
+                  (_payment?['amount'] as num?)?.toDouble() ??
+                      (widget.totalRentalFee + widget.depositAmount)),
               isHighlight: true),
         ],
       ),

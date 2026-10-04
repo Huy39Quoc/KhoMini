@@ -5,10 +5,6 @@ import '../../core/constants/app_colors.dart';
 import '../../services/facility_admin_api_service.dart';
 import '../../widgets/state_views.dart';
 
-/// Wires GET /reports/revenue and GET /reports/occupancy
-/// (ReportController) - real system-wide + per-facility numbers, replacing
-/// the "not available" placeholder that used to live on the Operations
-/// dashboard.
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
@@ -23,7 +19,6 @@ class _ReportsScreenState extends State<ReportsScreen>
   final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
   final _dateFmt = DateFormat('MMM d, yyyy');
 
-  // Mặc định xem 12 tháng gần nhất; luôn gửi khoảng ngày rõ ràng cho BE.
   DateTime? _fromDate = DateTime.now().subtract(const Duration(days: 365));
   DateTime? _toDate = DateTime.now();
   Future<Map<String, dynamic>>? _revenueFuture;
@@ -56,7 +51,6 @@ class _ReportsScreenState extends State<ReportsScreen>
     });
   }
 
-  /// Xuất báo cáo của tab đang xem (CSV) và chép vào clipboard.
   Future<void> _exportCurrent() async {
     final type = _tabController.index == 0 ? 'revenue' : 'occupancy';
     try {

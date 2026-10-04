@@ -45,7 +45,6 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
     try {
       await _bookingsFuture;
     } catch (_) {
-      // FutureBuilder sẽ hiển thị lỗi.
     }
   }
 

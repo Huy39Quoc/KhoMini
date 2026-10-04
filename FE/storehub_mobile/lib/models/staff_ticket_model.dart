@@ -1,5 +1,6 @@
 class StaffTicketModel {
   final String id;
+  final String bookingId;
   final String ticketCode;
   final String bookingCode;
   final String category;
@@ -18,6 +19,7 @@ class StaffTicketModel {
 
   const StaffTicketModel({
     required this.id,
+    this.bookingId = '',
     required this.ticketCode,
     required this.bookingCode,
     required this.category,

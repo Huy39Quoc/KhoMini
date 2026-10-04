@@ -81,4 +81,19 @@ public class FacilityPolicy extends BaseEntity {
     // sau bao nhiêu ngày overdue thì unit có thể bị niêm phong(sealing)
     private Integer overdueSealingDays = 7;
 
+    // --- Phí phụ & giảm giá (do Business Operations Manager cấu hình) ---
+    // Phí quản lý theo tháng (0 = miễn phí quản lý)
+    @Column(name = "management_fee_per_month", nullable = false, precision = 12, scale = 0)
+    @Builder.Default
+    private BigDecimal managementFeePerMonth = BigDecimal.valueOf(50000);
+
+    // Thuê từ N tháng trở lên được giảm tiền thuê (0 = không áp dụng giảm giá)
+    @Column(name = "long_term_discount_min_months", nullable = false)
+    @Builder.Default
+    private Integer longTermDiscountMinMonths = 0;
+
+    @Column(name = "long_term_discount_percent", nullable = false)
+    @Builder.Default
+    private Double longTermDiscountPercent = 0.0;
+
 }

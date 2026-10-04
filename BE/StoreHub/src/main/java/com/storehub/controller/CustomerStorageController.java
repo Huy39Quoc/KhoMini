@@ -3,6 +3,9 @@ package com.storehub.controller;
 import com.storehub.common.ApiResponse;
 import com.storehub.dto.request.CheckoutRequest;
 import com.storehub.dto.request.ExtendRentalRequest;
+import com.storehub.dto.request.ResetPinRequest;
+import com.storehub.dto.request.SetupPinRequest;
+import com.storehub.dto.request.UnlockRequest;
 import com.storehub.dto.request.UpdatePinRequest;
 import com.storehub.dto.response.ContractOperationResponse;
 import com.storehub.dto.response.MyUnitResponse;
@@ -47,7 +50,7 @@ public class CustomerStorageController {
     }
 
     @GetMapping("/{bookingId}/access")
-    @Operation(summary = "Lấy mã PIN và QR Code mở khóa cho đơn thuê đang hoạt động")
+    @Operation(summary = "Xem trạng thái khóa thông minh (đã có PIN chưa, đang khóa/mở). Không trả PIN đã lưu")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> getSmartAccess(
             @PathVariable UUID bookingId,
             @AuthenticationPrincipal UserDetails userDetails
@@ -60,8 +63,38 @@ public class CustomerStorageController {
                 .build());
     }
 
+    @PostMapping("/{bookingId}/access/pin/setup")
+    @Operation(summary = "Tạo PIN lần đầu: để trống newPin = hệ thống cấp (trả về 1 lần), có newPin = khách tự đặt")
+    public ResponseEntity<ApiResponse<SmartAccessResponse>> setupAccessPin(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody @Valid SetupPinRequest request
+    ) {
+        SmartAccessResponse response = customerStorageService.setupPin(bookingId, userDetails.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
+                .success(true)
+                .message("PIN created successfully")
+                .data(response)
+                .build());
+    }
+
+    @PostMapping("/{bookingId}/access/pin/reset")
+    @Operation(summary = "Quên PIN: nhập mật khẩu tài khoản để đặt lại PIN (tự đặt hoặc hệ thống cấp)")
+    public ResponseEntity<ApiResponse<SmartAccessResponse>> resetAccessPin(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody @Valid ResetPinRequest request
+    ) {
+        SmartAccessResponse response = customerStorageService.resetPin(bookingId, userDetails.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
+                .success(true)
+                .message("PIN reset successfully")
+                .data(response)
+                .build());
+    }
+
     @PutMapping("/{bookingId}/access/pin")
-    @Operation(summary = "Đổi mã PIN mở khóa cửa kho (6 số)")
+    @Operation(summary = "Đổi mã PIN (6 số) - phải nhập đúng PIN hiện tại")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> updateAccessPin(
             @PathVariable UUID bookingId,
             @AuthenticationPrincipal UserDetails userDetails,
@@ -76,12 +109,13 @@ public class CustomerStorageController {
     }
 
     @PostMapping("/{bookingId}/access/unlock")
-    @Operation(summary = "Mở khóa ngăn kho (mô phỏng - không có phần cứng khóa thật đứng sau)")
+    @Operation(summary = "Mở khóa ngăn kho bằng PIN (mô phỏng - không có phần cứng khóa thật đứng sau)")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> unlockUnit(
             @PathVariable UUID bookingId,
-            @AuthenticationPrincipal UserDetails userDetails
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody @Valid UnlockRequest request
     ) {
-        SmartAccessResponse response = customerStorageService.setLockState(bookingId, userDetails.getUsername(), false);
+        SmartAccessResponse response = customerStorageService.unlockWithPin(bookingId, userDetails.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.<SmartAccessResponse>builder()
                 .success(true)
                 .message("Unit unlocked successfully")
@@ -90,7 +124,7 @@ public class CustomerStorageController {
     }
 
     @PostMapping("/{bookingId}/access/lock")
-    @Operation(summary = "Khóa lại ngăn kho")
+    @Operation(summary = "Đóng khóa ngăn kho (không cần PIN)")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> lockUnit(
             @PathVariable UUID bookingId,
             @AuthenticationPrincipal UserDetails userDetails

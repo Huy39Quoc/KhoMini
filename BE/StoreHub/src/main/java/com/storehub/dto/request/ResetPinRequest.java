@@ -6,17 +6,15 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// Đổi PIN: phải nhập đúng PIN hiện tại.
+// Quên PIN: xác minh bằng mật khẩu tài khoản, rồi tự đặt PIN mới hoặc để hệ thống tạo.
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UpdatePinRequest {
+public class ResetPinRequest {
 
-    @NotBlank(message = "Current PIN cannot be blank")
-    @Pattern(regexp = "^[0-9]{6}$", message = "PIN must consist of exactly 6 digits")
-    private String currentPin;
+    @NotBlank(message = "Account password is required")
+    private String password;
 
-    @NotBlank(message = "PIN cannot be blank")
     @Pattern(regexp = "^[0-9]{6}$", message = "PIN must consist of exactly 6 digits")
     private String newPin;
 }

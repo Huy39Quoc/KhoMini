@@ -58,6 +58,26 @@ public class FacilityOperationsController {
         );
     }
 
+    @PostMapping("/{bookingId}/reset-pin")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @Operation(summary = "Cấp lại PIN cho khách quên mã (xác minh khách tại quầy). PIN mới chỉ trả về một lần")
+    public ResponseEntity<ApiResponse<com.storehub.dto.response.SmartAccessResponse>> resetCustomerPin(
+            @PathVariable UUID bookingId,
+            @RequestParam UUID facilityId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "PIN reset successfully",
+                        facilityOperationsService.resetCustomerPin(
+                                bookingId,
+                                facilityId,
+                                userDetails.getUsername()
+                        )
+                )
+        );
+    }
+
     @GetMapping("/{bookingId}/handover-records")
     @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
     @Operation(summary = "Get handover history of a booking")

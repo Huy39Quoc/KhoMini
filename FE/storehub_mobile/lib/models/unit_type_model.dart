@@ -17,9 +17,6 @@ class UnitTypeModel {
     required this.availableUnits,
   });
 
-  // Khớp với BE UnitTypeCatalogResponse: { id, typeName, dimensions, areaSqm,
-  // basePricePerMonth, depositAmount, availableUnitsCount } - trước đây đọc
-  // sai tên field (name/pricePerMonth/availableUnits) nên luôn ra giá trị 0.
   factory UnitTypeModel.fromJson(Map<String, dynamic> json) {
     return UnitTypeModel(
       id: json['id']?.toString() ?? '',

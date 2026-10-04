@@ -4,7 +4,6 @@ import '../../services/facility_admin_api_service.dart';
 import '../../widgets/state_views.dart';
 import 'facility_edit_screen.dart';
 
-/// Wires FacilityController (GET/POST /facilities) - list + create.
 class FacilityManagementScreen extends StatefulWidget {
   const FacilityManagementScreen({super.key});
 
@@ -194,7 +193,6 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                                     color: _statusColor(status))),
                           ),
                           onTap: () async {
-                            // Luôn tải lại: manager có thể vừa được gán trong màn sửa
                             await Navigator.push<bool>(
                               context,
                               MaterialPageRoute(

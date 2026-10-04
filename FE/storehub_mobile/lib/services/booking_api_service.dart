@@ -61,20 +61,18 @@ class BookingApiService {
     }
   }
 
-  /// POST /payments/confirm - marks the payment PAID, the booking
-  /// CONFIRMED, and the storage unit OCCUPIED on the BE.
-  Future<Map<String, dynamic>> confirmPayment({
+  /// GET /payments/{transactionId}/status - read-only. The payment becomes PAID
+  /// only when VNPay calls the server back; the client cannot confirm it.
+  Future<Map<String, dynamic>> getPaymentStatus({
     required String transactionId,
   }) async {
     try {
-      final response = await _dio.post(
-        ApiEndpoints.paymentConfirm,
-        data: {'transactionId': transactionId},
-      );
+      final response =
+          await _dio.get(ApiEndpoints.paymentStatus(transactionId));
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to confirm payment: $message');
+      throw Exception('Failed to get payment status: $message');
     }
   }
 

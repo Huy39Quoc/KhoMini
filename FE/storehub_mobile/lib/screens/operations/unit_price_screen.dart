@@ -6,8 +6,6 @@ import '../../services/catalog_api_service.dart';
 import '../../services/facility_admin_api_service.dart';
 import '../../widgets/state_views.dart';
 
-/// Business Operations Manager: chỉnh giá thuê tháng và tiền cọc theo loại kho
-/// (PUT /unit-types/{id}/price).
 class UnitPriceScreen extends StatefulWidget {
   const UnitPriceScreen({super.key});
 
@@ -182,7 +180,6 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
               try {
                 await _future;
               } catch (_) {
-                // FutureBuilder hiển thị lỗi.
               }
             },
             child: ListView.builder(

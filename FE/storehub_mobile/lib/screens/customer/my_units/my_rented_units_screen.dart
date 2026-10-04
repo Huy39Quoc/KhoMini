@@ -80,7 +80,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   child:
                       const Icon(Icons.key, color: AppColors.primaryContainer),
                 ),
-                title: const Text('Smart Access (PIN / QR)'),
+                title: const Text('Smart Access (PIN)'),
                 enabled: unit.hasActiveAccess,
                 subtitle: unit.hasActiveAccess
                     ? null

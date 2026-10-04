@@ -17,6 +17,9 @@ public interface PricingService {
             int extraMonths
     );
 
+    // Phí quản lý theo tháng của cơ sở (cấu hình trong FacilityPolicy; không có chính sách thì dùng mặc định).
+    BigDecimal calculateManagementFee(UUID facilityId, int months);
+
     BigDecimal calculateLateFee(
             UUID facilityId,
             long chargeableDays

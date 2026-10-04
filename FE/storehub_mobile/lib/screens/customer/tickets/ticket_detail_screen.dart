@@ -12,9 +12,6 @@ const Map<String, String> _kCategoryLabels = {
   'OTHER': 'Other',
 };
 
-/// GET /customer/tickets/{ticketId} already existed on the BE and in
-/// ticket_api_service.dart, but no screen ever called it - tapping a ticket
-/// in the list did nothing. This screen wires that up.
 class TicketDetailScreen extends StatefulWidget {
   final String ticketId;
   const TicketDetailScreen({super.key, required this.ticketId});

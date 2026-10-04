@@ -54,10 +54,25 @@ public class PaymentController {
         );
     }
 
+    @GetMapping("/{transactionId}/status")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Xem trạng thái giao dịch (PENDING/PAID/FAILED) - app dùng để chờ kết quả từ VNPay")
+    public ResponseEntity<ApiResponse<PaymentResponse>> getPaymentStatus(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable String transactionId
+    ) {
+        PaymentResponse response = paymentService.getPaymentStatus(
+                userDetails.getUsername(),
+                transactionId
+        );
+        return ResponseEntity.ok(ApiResponse.success("Payment status retrieved", response));
+    }
+
     @PostMapping("/confirm")
     @PreAuthorize("hasRole('CUSTOMER')")
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Xác nhận thanh toán thành công")
+    @Operation(summary = "[Deprecated] Chỉ trả về trạng thái giao dịch, không còn tự xác nhận thanh toán")
     public ResponseEntity<ApiResponse<PaymentResponse>> confirmPayment(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody PaymentConfirmationRequest request

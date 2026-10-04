@@ -53,6 +53,9 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   final _graceController = TextEditingController();
   final _accessDisableController = TextEditingController();
   final _sealingController = TextEditingController();
+  final _managementFeeController = TextEditingController();
+  final _discountMonthsController = TextEditingController();
+  final _discountPercentController = TextEditingController();
 
   @override
   void initState() {
@@ -97,6 +100,9 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     _graceController.dispose();
     _accessDisableController.dispose();
     _sealingController.dispose();
+    _managementFeeController.dispose();
+    _discountMonthsController.dispose();
+    _discountPercentController.dispose();
     super.dispose();
   }
 
@@ -132,6 +138,12 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
               (policy['overdueAccessDisableDays'] ?? '').toString();
           _sealingController.text =
               (policy['overdueSealingDays'] ?? '').toString();
+          _managementFeeController.text =
+              (policy['managementFeePerMonth'] ?? '').toString();
+          _discountMonthsController.text =
+              (policy['longTermDiscountMinMonths'] ?? '').toString();
+          _discountPercentController.text =
+              (policy['longTermDiscountPercent'] ?? '').toString();
         }
         _isLoadingPolicy = false;
       });
@@ -224,8 +236,14 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     final grace = int.tryParse(_graceController.text);
     final accessDisable = int.tryParse(_accessDisableController.text);
     final sealing = int.tryParse(_sealingController.text);
+    final managementFee = double.tryParse(_managementFeeController.text);
+    final discountMonths = int.tryParse(_discountMonthsController.text);
+    final discountPercent = double.tryParse(_discountPercentController.text);
 
     if (deposit == null ||
+        managementFee == null ||
+        discountMonths == null ||
+        discountPercent == null ||
         lateFee == null ||
         minMonths == null ||
         renewalWindow == null ||
@@ -271,6 +289,9 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       'overdueAccessDisableDays': accessDisable,
       'overdueSealingDays': sealing,
       'minimumRentalMonths': minMonths,
+      'managementFeePerMonth': managementFee,
+      'longTermDiscountMinMonths': discountMonths,
+      'longTermDiscountPercent': discountPercent,
     };
 
     try {
@@ -690,7 +711,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
             children: [
               _pair(
                 _policyField(_depositController, 'Deposit', suffix: '%'),
-                _policyField(_lateFeeController, 'Daily late fee', suffix: '\$'),
+                _policyField(_lateFeeController, 'Daily late fee', suffix: 'VND'),
               ),
               _gap,
               _pair(
@@ -710,6 +731,23 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                     int_: true, suffix: 'days'),
                 _policyField(_returnNoticeController, 'Return notice',
                     int_: true, suffix: 'days'),
+              ),
+            ],
+          ),
+          _section(
+            icon: Icons.sell_outlined,
+            title: 'Extra fee & discount',
+            subtitle:
+                'Management fee 0 = fee waived. Discount 0 months = no discount.',
+            children: [
+              _policyField(_managementFeeController, 'Management fee',
+                  suffix: 'VND / month'),
+              _gap,
+              _pair(
+                _policyField(_discountMonthsController, 'Discount from',
+                    int_: true, suffix: 'months'),
+                _policyField(_discountPercentController, 'Rent discount',
+                    suffix: '%'),
               ),
             ],
           ),

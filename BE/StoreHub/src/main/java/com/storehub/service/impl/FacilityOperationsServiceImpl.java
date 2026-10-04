@@ -46,6 +46,8 @@ public class FacilityOperationsServiceImpl
     private final FacilityAccess facilityAccess;
     private final PaymentService paymentService;
     private final WaitlistService waitlistService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final com.storehub.service.ActivityLogService activityLogService;
 
     @Override
     @Transactional(readOnly = true)
@@ -144,6 +146,61 @@ public class FacilityOperationsServiceImpl
 
     @Override
     @Transactional
+    public com.storehub.dto.response.SmartAccessResponse resetCustomerPin(
+            UUID bookingId,
+            UUID facilityId,
+            String staffEmail
+    ) {
+        User staff = facilityAccess.require(staffEmail, facilityId);
+
+        Booking booking = bookingRepository
+                .lockById(bookingId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (booking.getStorageUnit() == null
+                || booking.getStorageUnit().getFacility() == null
+                || !facilityId.equals(booking.getStorageUnit().getFacility().getId())) {
+            throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
+        }
+        if (booking.getStatus() != BookingStatus.ACTIVE) {
+            throw new AppException(ErrorCode.BOOKING_NOT_CHECKED_IN);
+        }
+        // Hợp đồng quá hạn đã bị thu hồi truy cập thì phải thanh toán/gia hạn trước
+        if (booking.getAccessDisabledAt() != null) {
+            throw new AppException(ErrorCode.ACCESS_DISABLED_OVERDUE);
+        }
+
+        String newPin = String.valueOf(100000 + new java.security.SecureRandom().nextInt(900000));
+        booking.setAccessPin(passwordEncoder.encode(newPin));
+        booking.setPinUpdatedAt(LocalDateTime.now());
+        booking.setPinFailedAttempts(0);
+        booking.setPinLockedUntil(null);
+        booking.setUnitLocked(true);
+        bookingRepository.save(booking);
+
+        activityLogService.record(
+                staff.getId(),
+                com.storehub.enums.ActivityAction.ACCESS_CREDENTIAL_UPDATE,
+                "BOOKING",
+                booking.getId(),
+                "Staff reset access PIN for booking " + booking.getBookingCode(),
+                null,
+                null
+        );
+
+        return com.storehub.dto.response.SmartAccessResponse.builder()
+                .bookingId(booking.getId())
+                .unitCode(booking.getStorageUnit().getUnitCode())
+                .pinSet(true)
+                .pinUpdatedAt(booking.getPinUpdatedAt())
+                .locked(true)
+                .attemptsRemaining(5)
+                .generatedPin(newPin)
+                .build();
+    }
+
+    @Override
+    @Transactional
     public HandoverResponse checkIn(
             UUID bookingId,
             UUID facilityId,
@@ -182,6 +239,12 @@ public class FacilityOperationsServiceImpl
             throw new AppException(
                     ErrorCode.INVALID_REQUEST
             );
+        }
+
+        // Chỉ bàn giao kho từ ngày bắt đầu thuê trở đi
+        if (booking.getStartDate() != null
+                && booking.getStartDate().isAfter(java.time.LocalDate.now())) {
+            throw new AppException(ErrorCode.CHECKIN_TOO_EARLY);
         }
 
         StorageUnit storageUnit = storageUnitRepository

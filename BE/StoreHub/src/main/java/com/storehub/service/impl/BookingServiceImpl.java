@@ -150,13 +150,7 @@ public class BookingServiceImpl implements BookingService {
         if (previousStatus == BookingStatus.CONFIRMED
                 && booking.getStorageUnit() != null
                 && booking.getStorageUnit().getFacility() != null) {
-            BigDecimal refundable = pricingService.calculateCancellationRefund(
-                    booking.getStorageUnit().getFacility().getId(),
-                    booking.getDepositPaid(),
-                    booking.getStartDate().atStartOfDay(),
-                    LocalDateTime.now()
-            );
-            refunded = paymentService.refundDeposit(booking, refundable);
+            refunded = paymentService.refundOnCancellation(booking);
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
@@ -179,7 +173,7 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        log.info("Booking {} cancelled by customer {} (deposit refunded: {})",
+        log.info("Booking {} cancelled by customer {} (refunded: {})",
                 bookingId, customerEmail, refunded);
     }
 }

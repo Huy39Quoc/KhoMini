@@ -26,9 +26,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.storehub.dto.response.FacilityBookingResponse;
 import com.storehub.dto.response.FacilityContractResponse;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
 import com.storehub.repository.PaymentRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -45,6 +48,7 @@ public class FacilityManagementServiceImpl
     private final BookingRepository bookings;
     private final UserRepository users;
     private final PaymentRepository payments;
+    private final ActivityLogService activityLogService;
 
     @Transactional(readOnly = true)
     public AssignedFacilityResponse myFacility(String email) {
@@ -415,8 +419,49 @@ public class FacilityManagementServiceImpl
                         : booking.getOverdueFeeAccrued(),
                 booking.getAccessDisabledAt() != null,
                 booking.getSealingPendingAt() != null,
-                booking.getPendingExtensionFee()
+                booking.getPendingExtensionFee(),
+                booking.getSealingApprovedAt() != null
         );
+    }
+
+    @Override
+    @Transactional
+    public FacilityContractResponse approveSealing(
+            UUID facilityId,
+            UUID bookingId,
+            String managerEmail
+    ) {
+        access.require(managerEmail, facilityId);
+        requireFacility(facilityId);
+
+        Booking booking = bookings.findById(bookingId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (booking.getStorageUnit() == null
+                || booking.getStorageUnit().getFacility() == null
+                || !facilityId.equals(booking.getStorageUnit().getFacility().getId())) {
+            throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
+        }
+        if (booking.getStatus() != BookingStatus.ACTIVE
+                || booking.getSealingPendingAt() == null) {
+            throw new AppException(ErrorCode.UNIT_NOT_OVERDUE);
+        }
+
+        if (booking.getSealingApprovedAt() == null) {
+            booking.setSealingApprovedAt(LocalDateTime.now());
+            bookings.save(booking);
+
+            activityLogService.record(
+                    ActivityAction.OVERDUE_SEALING_APPROVED,
+                    "BOOKING",
+                    booking.getId(),
+                    "Sealing approved for overdue booking " + booking.getBookingCode()
+                            + " (unit " + booking.getStorageUnit().getUnitCode() + ")",
+                    null,
+                    null
+            );
+        }
+        return toContract(booking);
     }
 
     private FacilityUnitResponse toUnit(StorageUnit unit) {

@@ -115,7 +115,13 @@ public class UserServiceImpl implements UserService {
             throw new AppException(ErrorCode.USER_NOT_FOUND);
         }
 
-        userRepository.deleteById(id);
+        try {
+            userRepository.deleteById(id);
+            userRepository.flush();
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Tài khoản đã có đơn thuê / ticket / nhật ký: không xóa cứng được, nên khóa tài khoản thay thế.
+            throw new AppException(ErrorCode.RESOURCE_IN_USE);
+        }
         log.info("User deleted successfully with id: {}", id);
 
         activityLogService.record(ActivityAction.USER_DEACTIVATE, "USER", id,

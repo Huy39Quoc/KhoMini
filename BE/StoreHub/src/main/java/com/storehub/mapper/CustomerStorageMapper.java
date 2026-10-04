@@ -34,10 +34,10 @@ public interface CustomerStorageMapper {
 
     @Mapping(target = "bookingId", source = "id")
     @Mapping(target = "unitCode", source = "storageUnit.unitCode", defaultValue = "Unassigned")
-    @Mapping(target = "qrCodeToken", source = "qrAccessToken")
     @Mapping(target = "locked", expression = "java(Boolean.TRUE.equals(booking.getUnitLocked()))")
-    // tokenExpiresAt là quy tắc nghiệp vụ (5 phút kể từ lúc gọi API), không
-    // phải dữ liệu lấy từ entity, nên tính ngay tại đây bằng expression.
-    @Mapping(target = "tokenExpiresAt", expression = "java(java.time.LocalDateTime.now().plusMinutes(5))")
+    @Mapping(target = "pinSet", expression = "java(booking.getAccessPin() != null && !booking.getAccessPin().isBlank())")
+    @Mapping(target = "pinLockedUntil", expression = "java(booking.getPinLockedUntil() != null && booking.getPinLockedUntil().isAfter(java.time.LocalDateTime.now()) ? booking.getPinLockedUntil() : null)")
+    @Mapping(target = "attemptsRemaining", ignore = true)
+    @Mapping(target = "generatedPin", ignore = true)
     SmartAccessResponse toSmartAccessResponse(Booking booking);
 }
