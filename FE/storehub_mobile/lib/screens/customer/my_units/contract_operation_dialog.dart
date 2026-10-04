@@ -1,6 +1,6 @@
+import '../payment/vnpay_checkout_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/my_unit_model.dart';
 import '../../../services/storage_api_service.dart';
@@ -11,7 +11,7 @@ class ContractOperationDialog extends StatefulWidget {
   final bool resumePending;
 
   /// true = khách bấm "Pay late fee": dialog tải khoản phí trễ hạn đang chờ
-  /// (GET /payments/bookings/{id}/overdue) và cho thanh toán bằng QR.
+  /// (GET /payments/bookings/{id}/overdue) và cho thanh toán qua VNPay Sandbox.
   final bool payOverdue;
 
   const ContractOperationDialog({
@@ -37,7 +37,6 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   int _extraMonths = 3;
   DateTime? _scheduledReturnTime;
   bool _isLoading = false;
-  bool _isConfirmingPayment = false;
   bool _isResuming = false;
   bool _isCancellingExtension = false;
   String? _resumeError;
@@ -264,28 +263,32 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       _result!['paymentRequired'] == true &&
       _paymentConfirmed == null;
 
-  Future<void> _confirmExtensionPayment() async {
-    final transactionId = _result?['transactionId']?.toString();
-    if (transactionId == null || transactionId.isEmpty) return;
+  /// Mở VNPay Sandbox trong app. Giao dịch chỉ thành PAID khi VNPay gọi về server;
+  /// khách không thể tự bấm "đã trả".
+  Future<void> _payWithVnpay() async {
+    final result = _result;
+    if (result == null) return;
+    final transactionId = result['transactionId']?.toString() ?? '';
+    final paymentUrl =
+        (result['paymentUrl'] ?? result['qrCodeUrl'])?.toString() ?? '';
+    if (transactionId.isEmpty || paymentUrl.isEmpty) return;
+    final fee = num.tryParse(result['additionalFee']?.toString() ?? '') ?? 0;
 
-    setState(() => _isConfirmingPayment = true);
-    try {
-      final confirmed =
-          await _storageService.confirmExtensionPayment(transactionId);
-      if (!mounted) return;
-      setState(() {
-        _paymentConfirmed = confirmed;
-        _isConfirmingPayment = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isConfirmingPayment = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: AppColors.error,
+    final paid = await Navigator.push<Map<String, dynamic>?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VnpayCheckoutScreen(
+          paymentUrl: paymentUrl,
+          transactionId: transactionId,
+          amount: fee.toDouble(),
+          title: widget.payOverdue ? 'Late fee • VNPay Sandbox' : 'Extension • VNPay Sandbox',
+          fetchStatus: _storageService.getPaymentStatus,
         ),
-      );
+      ),
+    );
+    if (!mounted) return;
+    if (paid != null) {
+      setState(() => _paymentConfirmed = paid);
     }
   }
 
@@ -454,7 +457,6 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
 
   Widget _buildExtensionPaymentDialog() {
     final result = _result!;
-    final paymentUrl = (result['paymentUrl'] ?? result['qrCodeUrl'])?.toString() ?? '';
     final transactionId = result['transactionId']?.toString() ?? '';
     final fee = num.tryParse(result['additionalFee']?.toString() ?? '') ?? 0;
 
@@ -504,32 +506,6 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton.icon(
-                onPressed: paymentUrl.isEmpty
-                    ? null
-                    : () async {
-                        final uri = Uri.parse(paymentUrl);
-                        if (!await launchUrl(uri,
-                            mode: LaunchMode.externalApplication)) {
-                          await launchUrl(uri,
-                              mode: LaunchMode.inAppBrowserView);
-                        }
-                      },
-                icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('Open VNPay Gateway',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0057B7),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ),
             const SizedBox(height: 8),
             Text('Transaction code: $transactionId',
                 style: const TextStyle(
@@ -540,9 +516,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       actions: [
         if (!widget.payOverdue)
           TextButton(
-            onPressed: (_isConfirmingPayment || _isCancellingExtension)
-                ? null
-                : _cancelExtension,
+            onPressed: _isCancellingExtension ? null : _cancelExtension,
             child: _isCancellingExtension
                 ? const SizedBox(
                     width: 16,
@@ -554,23 +528,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           ),
         TextButton(
           // true: server có thể đã tạo yêu cầu gia hạn treo -> màn danh sách cần tải lại
-          onPressed: (_isConfirmingPayment || _isCancellingExtension)
+          onPressed: _isCancellingExtension
               ? null
               : () => Navigator.pop(context, true),
           child: const Text('Close'),
         ),
         ElevatedButton(
-          onPressed: (_isConfirmingPayment || _isCancellingExtension)
-              ? null
-              : _confirmExtensionPayment,
-          child: _isConfirmingPayment
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                )
-              : const Text("I've paid"),
+          onPressed: _isCancellingExtension ? null : _payWithVnpay,
+          child: const Text('Pay with VNPay'),
         ),
       ],
     );

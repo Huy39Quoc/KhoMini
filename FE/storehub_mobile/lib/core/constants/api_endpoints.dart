@@ -14,6 +14,10 @@ class ApiEndpoints {
   static const String myUnits = '/customer/storage/my-units';
   static String smartAccess(String bookingId) =>
       '/customer/storage/$bookingId/access';
+  static String setupPin(String bookingId) =>
+      '/customer/storage/$bookingId/access/pin/setup';
+  static String resetPin(String bookingId) =>
+      '/customer/storage/$bookingId/access/pin/reset';
   static String updatePin(String bookingId) =>
       '/customer/storage/$bookingId/access/pin';
   static String unlockUnit(String bookingId) =>
@@ -86,7 +90,9 @@ class ApiEndpoints {
 
   // ---- Payments (PaymentController) ----
   static const String paymentInitiate = '/payments/initiate';
-  static const String paymentConfirm = '/payments/confirm';
+  static const String paymentConfirm = '/payments/confirm'; // deprecated: chỉ trả trạng thái
+  static String paymentStatus(String transactionId) =>
+      '/payments/$transactionId/status';
 
   // ---- Facilities (FacilityController) ----
   static const String facilitiesAdmin = '/facilities';
@@ -133,6 +139,10 @@ class ApiEndpoints {
       '/facility/management/$facilityId/bookings/confirmed';
   static String facilityContracts(String facilityId) =>
       '/facility/management/$facilityId/bookings';
+  static String approveSealing(String facilityId, String bookingId) =>
+      '/facility/management/$facilityId/bookings/$bookingId/sealing/approve';
+  static String resetCustomerPin(String bookingId) =>
+      '/facility/operations/$bookingId/reset-pin';
   // ---- Facility Operations (FacilityOperationsController) - Facility Staff ----
   static const String dailySchedule = '/facility/operations/daily-schedule';
   static String checkIn(String bookingId) =>

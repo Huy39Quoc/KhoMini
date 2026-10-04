@@ -2,10 +2,6 @@ import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 
-/// Wires FacilityController, FacilityPolicyController, ReportController and
-/// ActivityLogController - these were merged onto the BE after the
-/// operations/admin dashboards were first built, so the FE never had real
-/// revenue/occupancy numbers or a facility/policy manager until now.
 class FacilityAdminApiService {
   final Dio _dio = HttpClient.instance.dio;
 
@@ -22,8 +18,6 @@ class FacilityAdminApiService {
     final message = e.response?.data?['message'] ?? e.message;
     return Exception('Failed to $action: $message');
   }
-
-  // ===== Facilities (FacilityController) =====
 
   Future<List<dynamic>> getFacilities({String? search}) async {
     try {
@@ -75,8 +69,6 @@ class FacilityAdminApiService {
       throw _err(e, 'delete facility');
     }
   }
-
-  // ===== Facility Policies (FacilityPolicyController) =====
 
   Future<List<dynamic>> getFacilityPolicies({String? search}) async {
     try {
@@ -134,8 +126,6 @@ class FacilityAdminApiService {
     }
   }
 
-  // ===== Reports (ReportController) =====
-
   Future<Map<String, dynamic>> getRevenueReport(
       {DateTime? fromDate, DateTime? toDate}) async {
     try {
@@ -161,7 +151,6 @@ class FacilityAdminApiService {
     }
   }
 
-  /// type = 'revenue' | 'occupancy' -> nội dung CSV.
   Future<String> exportReport({
     required String type,
     DateTime? fromDate,
@@ -186,8 +175,6 @@ class FacilityAdminApiService {
     }
   }
 
-  // ===== Unit type pricing (UnitTypeController) =====
-
   Future<Map<String, dynamic>> updateUnitTypePrice({
     required String unitTypeId,
     required double basePricePerMonth,
@@ -206,8 +193,6 @@ class FacilityAdminApiService {
       throw _err(e, 'update the unit type price');
     }
   }
-
-  // ===== Activity Log (ActivityLogController) =====
 
   Future<List<dynamic>> getActivityLogs({
     String? search,

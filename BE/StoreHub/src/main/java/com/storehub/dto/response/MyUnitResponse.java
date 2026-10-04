@@ -40,7 +40,7 @@ public class MyUnitResponse {
     private long overdueDays;
     // Tổng phí trễ hạn đang chờ thanh toán (0 nếu không có)
     private BigDecimal overdueFeeOutstanding;
-    // true = mã PIN/QR đã bị thu hồi do quá hạn
+    // true = mã PIN đã bị thu hồi do quá hạn
     private boolean accessDisabled;
 
     // Lịch hẹn trả kho khách đã gửi (null nếu chưa gửi yêu cầu)

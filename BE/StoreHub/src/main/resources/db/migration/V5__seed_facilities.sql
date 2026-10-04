@@ -15,7 +15,7 @@ INSERT INTO facility_policies (
     minimum_rental_months
 )
 SELECT
-    gen_random_uuid(), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, id, 100.0,
+    gen_random_uuid(), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, id, 20.0,
     3,
     48, 24, 50.0,
     0, 5,

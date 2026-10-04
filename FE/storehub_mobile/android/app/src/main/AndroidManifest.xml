@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Dev: BE chạy http://10.0.2.2:8080, và trang VNPay redirect về BE bằng http ngay trong WebView -->
     <application
+        android:usesCleartextTraffic="true"
         android:label="khomini_mobile"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

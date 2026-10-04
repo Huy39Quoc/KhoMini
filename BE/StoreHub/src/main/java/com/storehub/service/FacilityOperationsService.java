@@ -38,6 +38,14 @@ public interface FacilityOperationsService {
             HandoverRequest request
     );
 
+    // Khách quên PIN và không tự đặt lại được: nhân viên (sau khi xác minh khách tại quầy) cấp PIN mới.
+    // PIN mới chỉ trả về MỘT lần trong response; cửa được khóa lại.
+    com.storehub.dto.response.SmartAccessResponse resetCustomerPin(
+            UUID bookingId,
+            UUID facilityId,
+            String staffEmail
+    );
+
     String updateUnitStatus(
             UUID unitId,
             UUID facilityId,

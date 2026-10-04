@@ -99,7 +99,6 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     try {
       await _scheduleFuture;
     } catch (_) {
-      // FutureBuilder sẽ hiển thị lỗi.
     }
   }
 

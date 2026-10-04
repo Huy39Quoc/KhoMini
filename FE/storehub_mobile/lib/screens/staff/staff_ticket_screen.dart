@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/staff_ticket_model.dart';
+import '../../services/facility_ops_api_service.dart';
 import '../../services/staff_ticket_api_service.dart';
 import '../../widgets/state_views.dart';
 
@@ -21,6 +22,7 @@ class StaffTicketScreen extends StatefulWidget {
 
 class _StaffTicketScreenState extends State<StaffTicketScreen> {
   final StaffTicketApiService _ticketService = StaffTicketApiService();
+  final FacilityOpsApiService _opsService = FacilityOpsApiService();
 
   Future<List<StaffTicketModel>>? _ticketsFuture;
 
@@ -226,6 +228,66 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
     );
   }
 
+  /// Khách quên PIN và không tự đặt lại được: nhân viên xác minh khách tại quầy rồi cấp PIN mới.
+  Future<void> _resetCustomerPin(StaffTicketModel ticket) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset customer PIN?'),
+        content: const Text(
+            'Only continue after you have verified the customer\'s identity in person. '
+            'The old PIN stops working and the unit is locked.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Reset PIN')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final pin = await _opsService.resetCustomerPin(
+          ticket.bookingId, widget.facilityId);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('New PIN'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SelectableText(
+                pin,
+                style: const TextStyle(
+                    fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 8),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Tell the customer this PIN. It is shown only once and the customer can change it in Smart Key.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Done')),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceAll('Exception: ', '')),
+        backgroundColor: AppColors.error,
+      ));
+    }
+  }
+
   Widget _buildAction(StaffTicketModel ticket) {
     if (ticket.isOpen) {
       return OutlinedButton.icon(
@@ -240,13 +302,28 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
     final isOwner = _isAssignedToCurrentStaff(ticket);
 
     if (ticket.isInProgress && isOwner) {
-      return ElevatedButton.icon(
+      final resolveButton = ElevatedButton.icon(
         onPressed: () {
           _resolveTicket(ticket);
         },
         icon: const Icon(Icons.check_circle_outline),
         label: const Text('Resolve'),
       );
+      if (ticket.category == 'PIN_CODE' && ticket.bookingId.isNotEmpty) {
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => _resetCustomerPin(ticket),
+              icon: const Icon(Icons.pin_outlined),
+              label: const Text('Reset PIN'),
+            ),
+            resolveButton,
+          ],
+        );
+      }
+      return resolveButton;
     }
 
     if (ticket.isResolved && isOwner) {

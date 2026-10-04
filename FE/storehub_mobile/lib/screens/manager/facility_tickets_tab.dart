@@ -7,7 +7,6 @@ import '../../services/facility_ops_api_service.dart';
 import '../../services/staff_ticket_api_service.dart';
 import '../../widgets/state_views.dart';
 
-/// Facility Manager: xem ticket hỗ trợ của cơ sở và giao cho nhân viên xử lý.
 class FacilityTicketsTab extends StatefulWidget {
   final String facilityId;
 
@@ -43,7 +42,6 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
     try {
       await _future;
     } catch (_) {
-      // FutureBuilder hiển thị lỗi.
     }
   }
 

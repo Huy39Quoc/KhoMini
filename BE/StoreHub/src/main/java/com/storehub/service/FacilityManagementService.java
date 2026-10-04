@@ -71,4 +71,11 @@ public interface FacilityManagementService {
             UUID facilityId,
             String managerEmail
     );
+
+    // Duyệt niêm phong cho hợp đồng quá hạn đang ở trạng thái "chờ niêm phong".
+    FacilityContractResponse approveSealing(
+            UUID facilityId,
+            UUID bookingId,
+            String managerEmail
+    );
 }

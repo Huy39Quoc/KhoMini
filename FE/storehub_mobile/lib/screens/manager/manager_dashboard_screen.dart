@@ -155,7 +155,6 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     try {
       await _unitsFuture;
     } catch (_) {
-      // FutureBuilder hiển thị lỗi.
     }
   }
 
@@ -165,7 +164,6 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     try {
       await _staffFuture;
     } catch (_) {
-      // FutureBuilder hiển thị lỗi.
     }
   }
 
@@ -175,7 +173,6 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     try {
       await _reportFuture;
     } catch (_) {
-      // FutureBuilder hiển thị lỗi.
     }
   }
 

@@ -193,6 +193,22 @@ public class FacilityManagementController {
         );
     }
 
+    @PutMapping("/{facilityId}/bookings/{bookingId}/sealing/approve")
+    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    public ApiResponse<FacilityContractResponse> approveSealing(
+            @PathVariable UUID facilityId,
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails principal
+    ) {
+        return ApiResponse.success(
+                service.approveSealing(
+                        facilityId,
+                        bookingId,
+                        principal.getUsername()
+                )
+        );
+    }
+
     @GetMapping("/{facilityId}/bookings/confirmed")
     @PreAuthorize("hasRole('FACILITY_MANAGER')")
     public ApiResponse<List<FacilityBookingResponse>> confirmedBookings(

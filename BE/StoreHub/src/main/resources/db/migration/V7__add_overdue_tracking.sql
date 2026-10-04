@@ -2,7 +2,8 @@ ALTER TABLE bookings
     ADD COLUMN IF NOT EXISTS overdue_detected_at TIMESTAMP,
     ADD COLUMN IF NOT EXISTS overdue_fee_accrued NUMERIC(12,2) NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS access_disabled_at TIMESTAMP,
-    ADD COLUMN IF NOT EXISTS sealing_pending_at TIMESTAMP;
+    ADD COLUMN IF NOT EXISTS sealing_pending_at TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS sealing_approved_at TIMESTAMP;
 
 ALTER TABLE payments
     ADD COLUMN IF NOT EXISTS note VARCHAR(100);

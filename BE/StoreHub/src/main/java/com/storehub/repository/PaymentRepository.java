@@ -23,6 +23,9 @@ public interface PaymentRepository
 
     Optional<Payment> findByTransactionId(String transactionId);
 
+    List<Payment> findByBooking_IdAndStatusAndPaymentTypeIn(
+            UUID bookingId, PaymentStatus status, java.util.Collection<PaymentType> paymentTypes);
+
     @Query("""
             SELECT SUM(p.amount)
             FROM Payment p

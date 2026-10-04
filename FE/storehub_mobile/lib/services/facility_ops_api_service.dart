@@ -331,6 +331,30 @@ class FacilityOpsApiService {
     }
   }
 
+  /// Facility Manager duyệt niêm phong cho hợp đồng quá hạn đang "chờ niêm phong".
+  Future<void> approveSealing(String facilityId, String bookingId) async {
+    try {
+      await _dio.put(ApiEndpoints.approveSealing(facilityId, bookingId));
+    } on DioException catch (error) {
+      throw _err(error, 'approve sealing');
+    }
+  }
+
+  /// Staff cấp lại PIN cho khách quên mã (sau khi xác minh khách tại quầy).
+  /// Trả về PIN mới - server chỉ trả đúng một lần.
+  Future<String> resetCustomerPin(String bookingId, String facilityId) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.resetCustomerPin(bookingId),
+        queryParameters: {'facilityId': facilityId},
+      );
+      final data = _unwrap(response.data);
+      return data['generatedPin']?.toString() ?? '';
+    } on DioException catch (error) {
+      throw _err(error, 'reset customer PIN');
+    }
+  }
+
   // =========================================================
   // Facility Staff - Flow 2
   // Các response được chuyển sang model bằng mapper
