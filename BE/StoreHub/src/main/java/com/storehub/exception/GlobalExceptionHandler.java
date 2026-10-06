@@ -1,6 +1,8 @@
 package com.storehub.exception;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -68,6 +70,30 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 
+
+    // =========================
+    // Security Exceptions (403 / 401 thay vì rơi vào 500)
+    // =========================
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
+        return buildResponse(ErrorCode.FORBIDDEN);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Map<String, Object>> handleAuthentication(AuthenticationException ex) {
+        return buildResponse(ErrorCode.UNAUTHORIZED);
+    }
+
+    private ResponseEntity<Map<String, Object>> buildResponse(ErrorCode errorCode) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", errorCode.getHttpStatus().value());
+        response.put("code", errorCode.getCode());
+        response.put("error", errorCode.getHttpStatus().getReasonPhrase());
+        response.put("message", errorCode.getMessage());
+        return ResponseEntity.status(errorCode.getHttpStatus()).body(response);
+    }
 
     // =========================
     // Unexpected Exception

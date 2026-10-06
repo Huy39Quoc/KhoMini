@@ -15,6 +15,8 @@ import com.storehub.repository.BookingRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.service.BookingService;
+import com.storehub.service.FacilityPolicyService;
+import com.storehub.service.PaymentService;
 import com.storehub.service.PricingService;
 import com.storehub.service.WaitlistService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,8 @@ public class BookingServiceImpl implements BookingService {
     private final UserRepository userRepository;
     private final PricingService pricingService;
     private final WaitlistService waitlistService;
+    private final FacilityPolicyService facilityPolicyService;
+    private final PaymentService paymentService;
 
     @Override
     @Transactional
@@ -48,6 +52,11 @@ public class BookingServiceImpl implements BookingService {
         User customer = userRepository
                 .findByEmail(customerEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (!facilityPolicyService.isMinRentalMonthsSatisfied(
+                request.getFacilityId(), request.getRentalMonths())) {
+            throw new AppException(ErrorCode.RENTAL_BELOW_MINIMUM_MONTHS);
+        }
 
         StorageUnit selectedUnit = storageUnitRepository
                 .claimAvailableUnitId(
@@ -62,6 +71,7 @@ public class BookingServiceImpl implements BookingService {
         RentalQuoteRequest quoteRequest =
                 RentalQuoteRequest.builder()
                         .unitTypeId(request.getUnitTypeId())
+                        .facilityId(request.getFacilityId())
                         .startDate(request.getStartDate())
                         .rentalMonths(request.getRentalMonths())
                         .build();
@@ -128,8 +138,24 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingRepository.findByIdAndCustomerId(bookingId, customer.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
-        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
+        BookingStatus previousStatus = booking.getStatus();
+        if (previousStatus != BookingStatus.PENDING_PAYMENT
+                && previousStatus != BookingStatus.CONFIRMED) {
             throw new AppException(ErrorCode.BOOKING_CANCEL_NOT_ALLOWED);
+        }
+
+        // Đơn đã đặt cọc (CONFIRMED): hoàn cọc theo bậc chính sách huỷ của cơ sở
+        BigDecimal refunded = BigDecimal.ZERO;
+        if (previousStatus == BookingStatus.CONFIRMED
+                && booking.getStorageUnit() != null
+                && booking.getStorageUnit().getFacility() != null) {
+            BigDecimal refundable = pricingService.calculateCancellationRefund(
+                    booking.getStorageUnit().getFacility().getId(),
+                    booking.getDepositPaid(),
+                    booking.getStartDate().atStartOfDay(),
+                    LocalDateTime.now()
+            );
+            refunded = paymentService.refundDeposit(booking, refundable);
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
@@ -152,6 +178,7 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        log.info("Booking {} cancelled by customer {}", bookingId, customerEmail);
+        log.info("Booking {} cancelled by customer {} (deposit refunded: {})",
+                bookingId, customerEmail, refunded);
     }
 }

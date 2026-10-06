@@ -66,6 +66,7 @@ class AssignableUserModel {
   final String fullName;
   final String email;
   final bool isActive;
+  final String roleName;
 
   const AssignableUserModel({
     required this.id,
@@ -73,6 +74,7 @@ class AssignableUserModel {
     required this.fullName,
     required this.email,
     required this.isActive,
+    required this.roleName,
   });
 
   String get displayName {

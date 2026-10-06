@@ -78,6 +78,7 @@ class CatalogApiService {
 
   Future<Map<String, dynamic>> getRentalQuote({
     required String unitTypeId,
+    String? facilityId,
     required DateTime startDate,
     required int rentalMonths,
   }) async {
@@ -86,6 +87,7 @@ class CatalogApiService {
         ApiEndpoints.pricingQuote,
         data: {
           'unitTypeId': unitTypeId,
+          if (facilityId != null) 'facilityId': facilityId,
           'startDate': _formatLocalDate(startDate),
           'rentalMonths': rentalMonths,
         },

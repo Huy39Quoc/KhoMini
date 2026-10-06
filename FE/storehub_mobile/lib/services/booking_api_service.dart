@@ -101,8 +101,9 @@ class BookingApiService {
         queryParameters: {'facilityId': facilityId, 'unitTypeId': unitTypeId},
       );
       final body = response.data;
-      if (body is Map && body['message'] is String)
+      if (body is Map && body['message'] is String) {
         return body['message'] as String;
+      }
       return "You've been added to the waitlist.";
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;

@@ -128,17 +128,13 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public boolean isWithinRenewalWindow(UUID facilityId, LocalDate endDate) {
-        if (facilityId == null || endDate == null) {
-            return true;
-        }
+    public boolean isWithinRenewalWindow(UUID facilityId, LocalDate currentEndDate) {
         return facilityPolicyRepository.findByFacility_Id(facilityId)
                 .map(policy -> {
-                    if (policy.getRenewalWindowDays() == null || policy.getRenewalWindowDays() <= 0) {
+                    if (policy.getRenewalWindowDays() == null) {
                         return true;
                     }
-                    LocalDate windowOpensAt = endDate.minusDays(policy.getRenewalWindowDays());
+                    LocalDate windowOpensAt = currentEndDate.minusDays(policy.getRenewalWindowDays());
                     LocalDate today = LocalDate.now();
                     return !today.isBefore(windowOpensAt);
                 })
@@ -146,48 +142,24 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public boolean isMinRentalMonthsSatisfied(UUID facilityId, int months) {
-        if (facilityId == null) {
-            return months >= 1;
-        }
+    public boolean isReturnNoticeSatisfied(UUID facilityId, LocalDateTime scheduledReturnTime) {
         return facilityPolicyRepository.findByFacility_Id(facilityId)
                 .map(policy -> {
-                    if (policy.getMinimumRentalMonths() == null || policy.getMinimumRentalMonths() <= 0) {
-                        return months >= 1;
-                    }
-                    return months >= policy.getMinimumRentalMonths();
-                })
-                .orElse(months >= 1);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public boolean isReturnNoticeSatisfied(UUID facilityId, LocalDateTime scheduledReturn) {
-        if (scheduledReturn == null) {
-            return false;
-        }
-        return facilityPolicyRepository.findByFacility_Id(facilityId)
-                .map(policy -> {
-                    if (policy.getReturnNoticeDays() == null || policy.getReturnNoticeDays() <= 0) {
+                    if (policy.getReturnNoticeDays() == null) {
                         return true;
                     }
-                    long daysNotice = ChronoUnit.DAYS.between(LocalDateTime.now(), scheduledReturn);
+                    long daysNotice = ChronoUnit.DAYS.between(LocalDateTime.now(), scheduledReturnTime);
                     return daysNotice >= policy.getReturnNoticeDays();
                 })
                 .orElse(true);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public Double resolveDepositPercentage(UUID facilityId) {
-        if (facilityId == null) {
-            return 100.0;
-        }
+    public boolean isMinRentalMonthsSatisfied(UUID facilityId, int rentalMonths) {
         return facilityPolicyRepository.findByFacility_Id(facilityId)
-                .map(FacilityPolicy::getDepositPercentage)
-                .filter(p -> p != null && p >= 0)
-                .orElse(100.0);
+                .map(policy -> policy.getMinimumRentalMonths() == null
+                        || rentalMonths >= policy.getMinimumRentalMonths())
+                .orElse(true);
     }
 
     @Override
@@ -212,10 +184,10 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
                 );
 
         return new OverdueConfigResponse(
-                policy.getOverdueGraceDays() != null ? policy.getOverdueGraceDays() : 1,
-                policy.getDailyLateFee() != null ? policy.getDailyLateFee() : java.math.BigDecimal.ZERO,
-                policy.getOverdueAccessDisableDays() != null ? policy.getOverdueAccessDisableDays() : 3,
-                policy.getOverdueSealingDays() != null ? policy.getOverdueSealingDays() : 7
+                policy.getOverdueGraceDays(),
+                policy.getDailyLateFee(),
+                policy.getOverdueAccessDisableDays(),
+                policy.getOverdueSealingDays()
         );
     }
 }

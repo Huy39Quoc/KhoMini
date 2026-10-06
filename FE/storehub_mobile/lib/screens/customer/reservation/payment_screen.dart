@@ -281,8 +281,9 @@ class _PaymentScreenState extends State<PaymentScreen>
                           ],
                         ),
                       );
-                      if (confirm == true)
+                      if (confirm == true) {
                         await _handleExpiredOrCancel(wasExpired: false);
+                      }
                     },
             ),
         ],

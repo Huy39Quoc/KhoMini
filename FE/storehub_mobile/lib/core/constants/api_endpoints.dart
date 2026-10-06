@@ -44,6 +44,7 @@ class ApiEndpoints {
 
   // ---- Users (UserController) ----
   static const String users = '/users';
+  static const String usersSummary = '/users/summary';
   static String userDetail(String userId) => '/users/$userId';
   static String toggleUserActive(String userId) =>
       '/users/$userId/toggle-active';

@@ -30,6 +30,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping("/initiate")
+    @PreAuthorize("hasRole('CUSTOMER')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(
             summary = "Khởi tạo giao dịch thanh toán cọc/phí kho – trả về QR Code VietQR"
@@ -52,11 +53,17 @@ public class PaymentController {
     }
 
     @PostMapping("/confirm")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Xác nhận thanh toán thành công")
     public ResponseEntity<ApiResponse<PaymentResponse>> confirmPayment(
+            @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody PaymentConfirmationRequest request
     ) {
-        PaymentResponse response = paymentService.confirmPayment(request);
+        PaymentResponse response = paymentService.confirmPayment(
+                userDetails.getUsername(),
+                request
+        );
 
         return ResponseEntity.ok(
                 ApiResponse.success(

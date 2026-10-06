@@ -11,6 +11,7 @@ import com.storehub.enums.RentalFeeType;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.FacilityPolicyRepository;
+import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UnitTypeRepository;
 import com.storehub.service.PricingService;
@@ -23,6 +24,7 @@ import java.util.UUID;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ public class PricingServiceImpl implements PricingService {
     private final UnitTypeRepository unitTypeRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final FacilityPolicyRepository facilityPolicyRepository;
+    private final FacilityRepository facilityRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -62,6 +65,10 @@ public class PricingServiceImpl implements PricingService {
         } else {
             unitType = unitTypeRepository.findById(request.getUnitTypeId())
                     .orElseThrow(() -> new AppException(ErrorCode.UNIT_TYPE_NOT_FOUND));
+            if (request.getFacilityId() != null) {
+                facility = facilityRepository.findById(request.getFacilityId())
+                        .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
+            }
         }
 
         if (unitType.getBasePricePerMonth() == null) {
@@ -78,7 +85,8 @@ public class PricingServiceImpl implements PricingService {
         BigDecimal defaultDeposit = (unitType.getDepositAmount() != null)
                 ? unitType.getDepositAmount().setScale(0, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
-        BigDecimal depositAmount = resolveDepositAmount(facility, totalRentalFee, defaultDeposit);
+        UUID facilityIdForDeposit = facility != null ? facility.getId() : null;
+        BigDecimal depositAmount = calculateDepositAmount(facilityIdForDeposit, totalRentalFee, defaultDeposit);
 
         BigDecimal totalManagementFee = STANDARD_MANAGEMENT_FEE.multiply(BigDecimal.valueOf(months)).setScale(0, RoundingMode.HALF_UP);
         BigDecimal totalExtraFees = totalManagementFee;
@@ -151,14 +159,25 @@ public class PricingServiceImpl implements PricingService {
         return monthlyRate.multiply(BigDecimal.valueOf(extraMonths)).setScale(0, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal resolveDepositAmount(Facility facility, BigDecimal totalRentalFee, BigDecimal defaultDeposit) {
-        if (facility == null) {
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal calculateDepositAmount(
+            UUID facilityId,
+            BigDecimal totalRentalFee,
+            BigDecimal defaultDeposit
+    ) {
+        if (facilityId == null) {
             return defaultDeposit;
         }
 
-        Double percentageValue = facilityPolicyService.resolveDepositPercentage(facility.getId());
-        if (percentageValue != null && percentageValue >= 0) {
-            BigDecimal percentage = BigDecimal.valueOf(percentageValue);
+        var policyOpt = facilityPolicyRepository.findByFacility_Id(facilityId);
+        if (policyOpt.isEmpty()) {
+            return defaultDeposit;
+        }
+
+        FacilityPolicy policy = policyOpt.get();
+        if (policy.getDepositPercentage() != null && policy.getDepositPercentage() >= 0) {
+            BigDecimal percentage = BigDecimal.valueOf(policy.getDepositPercentage());
             return totalRentalFee.multiply(percentage)
                     .divide(ONE_HUNDRED, 0, RoundingMode.HALF_UP);
         }
@@ -190,5 +209,36 @@ public class PricingServiceImpl implements PricingService {
         return dailyLateFee
                 .multiply(BigDecimal.valueOf(chargeableDays))
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal calculateCancellationRefund(
+            UUID facilityId,
+            BigDecimal depositPaid,
+            LocalDateTime scheduledStart,
+            LocalDateTime cancelTime
+    ) {
+        if (depositPaid == null || depositPaid.signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        var policyOpt = facilityPolicyRepository.findByFacility_Id(facilityId);
+        if (policyOpt.isEmpty()) {
+            return depositPaid;
+        }
+
+        FacilityPolicy policy = policyOpt.get();
+        long hoursBeforeStart = Duration.between(cancelTime, scheduledStart).toHours();
+
+        if (hoursBeforeStart >= policy.getCancellationFullRefundHours()) {
+            return depositPaid;
+        }
+        if (hoursBeforeStart >= policy.getCancellationPartialRefundHours()) {
+            return depositPaid
+                    .multiply(BigDecimal.valueOf(policy.getCancellationPartialRefundPercent()))
+                    .divide(ONE_HUNDRED, 0, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO;
     }
 }
