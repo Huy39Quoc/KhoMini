@@ -24,7 +24,7 @@ class StorageApiService {
     }
   }
 
-  // Lấy thông tin smart access (mã PIN / mã QR) theo bookingId.
+  // Lấy trạng thái smart access (đã có PIN chưa, đang khóa/mở). Server không trả PIN đã lưu.
   Future<Map<String, dynamic>> getSmartAccess(String bookingId) async {
     try {
       final response = await _dio.get(ApiEndpoints.smartAccess(bookingId));
@@ -35,28 +35,62 @@ class StorageApiService {
     }
   }
 
-  // Cập nhật mã PIN mới cho ngăn khoá
-  Future<void> updatePin(String bookingId, String newPin) async {
+  // Tạo PIN lần đầu. newPin == null -> hệ thống cấp (trả về generatedPin đúng 1 lần).
+  Future<Map<String, dynamic>> setupPin(String bookingId,
+      {String? newPin}) async {
     try {
-      await _dio.put(
-        ApiEndpoints.updatePin(bookingId),
-        data: {'newPin': newPin},
+      final response = await _dio.post(
+        ApiEndpoints.setupPin(bookingId),
+        data: {if (newPin != null) 'newPin': newPin},
       );
-    } on DioException catch (e) {
-      final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to update PIN: $message');
-    }
-  }
-
-  // Mở khóa / khóa lại ngăn kho (mô phỏng - không có phần cứng khóa thật
-  // đứng sau QR/PIN, nên đây là cách duy nhất để "thấy" hành động xảy ra).
-  Future<Map<String, dynamic>> unlockUnit(String bookingId) async {
-    try {
-      final response = await _dio.post(ApiEndpoints.unlockUnit(bookingId));
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to unlock unit: $message');
+      throw Exception(message);
+    }
+  }
+
+  // Đổi PIN: phải nhập đúng PIN hiện tại.
+  Future<Map<String, dynamic>> updatePin(
+      String bookingId, String currentPin, String newPin) async {
+    try {
+      final response = await _dio.put(
+        ApiEndpoints.updatePin(bookingId),
+        data: {'currentPin': currentPin, 'newPin': newPin},
+      );
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception(message);
+    }
+  }
+
+  // Quên PIN: xác minh bằng mật khẩu tài khoản. newPin == null -> hệ thống cấp.
+  Future<Map<String, dynamic>> resetPin(String bookingId, String password,
+      {String? newPin}) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.resetPin(bookingId),
+        data: {'password': password, if (newPin != null) 'newPin': newPin},
+      );
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception(message);
+    }
+  }
+
+  // Mở khóa ngăn kho bằng PIN (mô phỏng - không có phần cứng khóa thật).
+  Future<Map<String, dynamic>> unlockUnit(String bookingId, String pin) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.unlockUnit(bookingId),
+        data: {'pin': pin},
+      );
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception(message);
     }
   }
 
@@ -130,7 +164,7 @@ class StorageApiService {
     }
   }
 
-  // Khoản phí trễ hạn đang chờ thanh toán + QR VietQR (null nếu không có)
+  // Khoản phí trễ hạn đang chờ thanh toán qua VNPay (null nếu không có)
   Future<Map<String, dynamic>?> getPendingOverduePayment(
       String bookingId) async {
     try {
@@ -143,17 +177,16 @@ class StorageApiService {
     }
   }
 
-  Future<Map<String, dynamic>> confirmExtensionPayment(
-      String transactionId) async {
+  // Chỉ ĐỌC trạng thái giao dịch (PENDING/PAID/FAILED). Giao dịch chỉ thành PAID
+  // khi VNPay gọi về server, khách không thể tự xác nhận.
+  Future<Map<String, dynamic>> getPaymentStatus(String transactionId) async {
     try {
-      final response = await _dio.post(
-        ApiEndpoints.paymentConfirm,
-        data: {'transactionId': transactionId},
-      );
+      final response =
+          await _dio.get(ApiEndpoints.paymentStatus(transactionId));
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to confirm extension payment: $message');
+      throw Exception('Failed to get payment status: $message');
     }
   }
 

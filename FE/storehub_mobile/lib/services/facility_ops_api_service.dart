@@ -314,6 +314,47 @@ class FacilityOpsApiService {
       throw _err(error, 'load confirmed bookings');
     }
   }
+  /// Hợp đồng đang CONFIRMED / ACTIVE của cơ sở (Facility Manager theo dõi).
+  Future<List<Map<String, dynamic>>> getFacilityContracts(
+    String facilityId,
+  ) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.facilityContracts(facilityId),
+      );
+
+      return _unwrapList(response.data)
+          .map(FacilityManagementMapper.asJsonMap)
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load facility contracts');
+    }
+  }
+
+  /// Facility Manager duyệt niêm phong cho hợp đồng quá hạn đang "chờ niêm phong".
+  Future<void> approveSealing(String facilityId, String bookingId) async {
+    try {
+      await _dio.put(ApiEndpoints.approveSealing(facilityId, bookingId));
+    } on DioException catch (error) {
+      throw _err(error, 'approve sealing');
+    }
+  }
+
+  /// Staff cấp lại PIN cho khách quên mã (sau khi xác minh khách tại quầy).
+  /// Trả về PIN mới - server chỉ trả đúng một lần.
+  Future<String> resetCustomerPin(String bookingId, String facilityId) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.resetCustomerPin(bookingId),
+        queryParameters: {'facilityId': facilityId},
+      );
+      final data = _unwrap(response.data);
+      return data['generatedPin']?.toString() ?? '';
+    } on DioException catch (error) {
+      throw _err(error, 'reset customer PIN');
+    }
+  }
+
   // =========================================================
   // Facility Staff - Flow 2
   // Các response được chuyển sang model bằng mapper

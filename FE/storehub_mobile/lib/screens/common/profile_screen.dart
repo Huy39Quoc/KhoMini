@@ -12,10 +12,6 @@ const Map<String, String> _kRoleLabels = {
   'CUSTOMER': 'Storage Customer',
 };
 
-/// Shared across every role. Shows the logged-in account's real info (from
-/// the JWT-derived UserModel, no separate "me" endpoint exists on the BE)
-/// and wires the real PUT /auth/change-password endpoint, which previously
-/// had no screen calling it at all.
 class ProfileScreen extends StatefulWidget {
   final UserModel user;
   const ProfileScreen({super.key, required this.user});
@@ -131,7 +127,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Account header card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -178,7 +173,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Account details
             Card(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),

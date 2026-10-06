@@ -9,6 +9,7 @@ import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
 import com.storehub.exception.AppException;
 import com.storehub.repository.BookingRepository;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.FacilityPolicyService;
@@ -39,6 +40,7 @@ public class OverdueScheduler {
 
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
+    private final FacilityPolicyRepository facilityPolicyRepository;
     private final FacilityPolicyService facilityPolicyService;
     private final PricingService pricingService;
     private final ActivityLogService activityLogService;
@@ -90,6 +92,15 @@ public class OverdueScheduler {
                 .getFacility()
                 .getId();
 
+        // Cơ sở chưa có chính sách: bỏ qua TRƯỚC khi gọi service. Nếu để service
+        // ném AppException trong transaction chung, cả batch bị đánh dấu
+        // rollback-only và mọi booking quá hạn khác cũng không được xử lý.
+        if (!facilityPolicyRepository.existsByFacility_Id(facilityId)) {
+            log.warn("OverdueScheduler skipped booking {}: facility {} has no policy",
+                    booking.getBookingCode(), facilityId);
+            return;
+        }
+
         OverdueConfigResponse config =
                 facilityPolicyService.getOverdueConfig(facilityId);
 
@@ -133,7 +144,7 @@ public class OverdueScheduler {
 
             booking.setAccessCode(null);
             booking.setAccessPin(null);
-            booking.setQrAccessToken(null);
+            booking.setUnitLocked(true);
             booking.setAccessDisabledAt(now);
 
             activityLogService.recordSystem(

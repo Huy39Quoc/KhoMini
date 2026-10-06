@@ -5,7 +5,6 @@ import lombok.*;
 import java.util.UUID;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class FacilityOccupancyResponse {
@@ -16,6 +15,6 @@ public class FacilityOccupancyResponse {
     private long availableUnits;
     private long reservedUnits;
     private long maintenanceUnits;
-    private long overdue;
+    private long overdueBookings;
     private double occupancyRate; // percentage, 0-100
 }

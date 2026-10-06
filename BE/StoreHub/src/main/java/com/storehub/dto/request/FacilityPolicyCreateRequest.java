@@ -50,4 +50,10 @@ public class FacilityPolicyCreateRequest {
 
     @NotNull @Min(1)
     private Integer minimumRentalMonths;
+    @DecimalMin(value = "0.0")
+    private BigDecimal managementFeePerMonth;
+    @Min(0)
+    private Integer longTermDiscountMinMonths;
+    @DecimalMin(value = "0.0") @DecimalMax(value = "100.0")
+    private Double longTermDiscountPercent;
 }

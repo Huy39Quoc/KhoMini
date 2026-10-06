@@ -80,7 +80,27 @@ public class PricingServiceImpl implements PricingService {
         LocalDate endDate = startDate.plusMonths(months);
 
         BigDecimal monthlyRate = unitType.getBasePricePerMonth().setScale(0, RoundingMode.HALF_UP);
-        BigDecimal totalRentalFee = monthlyRate.multiply(BigDecimal.valueOf(months)).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal grossRentalFee = monthlyRate.multiply(BigDecimal.valueOf(months)).setScale(0, RoundingMode.HALF_UP);
+
+        // Giảm giá thuê dài hạn (cấu hình trong FacilityPolicy)
+        UUID policyFacilityId = facility != null ? facility.getId() : null;
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        double discountPercent = 0;
+        if (policyFacilityId != null) {
+            var policyForDiscount = facilityPolicyRepository.findByFacility_Id(policyFacilityId);
+            if (policyForDiscount.isPresent()) {
+                FacilityPolicy p = policyForDiscount.get();
+                int minMonths = p.getLongTermDiscountMinMonths() == null ? 0 : p.getLongTermDiscountMinMonths();
+                discountPercent = p.getLongTermDiscountPercent() == null ? 0 : p.getLongTermDiscountPercent();
+                if (minMonths > 0 && months >= minMonths && discountPercent > 0) {
+                    discountAmount = grossRentalFee.multiply(BigDecimal.valueOf(discountPercent))
+                            .divide(ONE_HUNDRED, 0, RoundingMode.HALF_UP);
+                } else {
+                    discountPercent = 0;
+                }
+            }
+        }
+        BigDecimal totalRentalFee = grossRentalFee.subtract(discountAmount);
 
         BigDecimal defaultDeposit = (unitType.getDepositAmount() != null)
                 ? unitType.getDepositAmount().setScale(0, RoundingMode.HALF_UP)
@@ -88,7 +108,8 @@ public class PricingServiceImpl implements PricingService {
         UUID facilityIdForDeposit = facility != null ? facility.getId() : null;
         BigDecimal depositAmount = calculateDepositAmount(facilityIdForDeposit, totalRentalFee, defaultDeposit);
 
-        BigDecimal totalManagementFee = STANDARD_MANAGEMENT_FEE.multiply(BigDecimal.valueOf(months)).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal managementFeePerMonth = resolveManagementFeePerMonth(facility != null ? facility.getId() : null);
+        BigDecimal totalManagementFee = managementFeePerMonth.multiply(BigDecimal.valueOf(months)).setScale(0, RoundingMode.HALF_UP);
         BigDecimal totalExtraFees = totalManagementFee;
 
         BigDecimal initialPayment = totalRentalFee.add(depositAmount).add(totalExtraFees);
@@ -99,9 +120,21 @@ public class PricingServiceImpl implements PricingService {
                 .name("Tiền thuê kho")
                 .unitPrice(monthlyRate)
                 .quantity(months)
-                .totalAmount(totalRentalFee)
+                .totalAmount(grossRentalFee)
                 .note("Đơn giá: " + CURRENCY_FORMAT.format(monthlyRate) + " VNĐ / tháng")
                 .build());
+
+        if (discountAmount.signum() > 0) {
+            breakdown.add(FeeItemResponse.builder()
+                    .feeType(RentalFeeType.DISCOUNT)
+                    .name("Giảm giá thuê dài hạn")
+                    .unitPrice(discountAmount.negate())
+                    .quantity(1)
+                    .totalAmount(discountAmount.negate())
+                    .note("Giảm " + (discountPercent == Math.floor(discountPercent) ? String.valueOf((long) discountPercent) : String.valueOf(discountPercent))
+                            + "% khi thuê từ " + months + " tháng")
+                    .build());
+        }
 
         breakdown.add(FeeItemResponse.builder()
                 .feeType(RentalFeeType.DEPOSIT)
@@ -117,10 +150,12 @@ public class PricingServiceImpl implements PricingService {
         breakdown.add(FeeItemResponse.builder()
                 .feeType(RentalFeeType.MANAGEMENT_FEE)
                 .name("Phí vận hành và quản lý tiện ích")
-                .unitPrice(STANDARD_MANAGEMENT_FEE)
+                .unitPrice(managementFeePerMonth)
                 .quantity(months)
                 .totalAmount(totalManagementFee)
-                .note("Đơn giá: " + CURRENCY_FORMAT.format(STANDARD_MANAGEMENT_FEE) + " VNĐ / tháng")
+                .note(managementFeePerMonth.signum() == 0
+                        ? "Miễn phí quản lý"
+                        : "Đơn giá: " + CURRENCY_FORMAT.format(managementFeePerMonth) + " VNĐ / tháng")
                 .build());
 
         return RentalQuoteResponse.builder()
@@ -156,7 +191,28 @@ public class PricingServiceImpl implements PricingService {
             throw new AppException(ErrorCode.UNIT_TYPE_PRICE_NOT_CONFIGURED);
         }
         BigDecimal monthlyRate = unitType.getBasePricePerMonth().setScale(0, RoundingMode.HALF_UP);
-        return monthlyRate.multiply(BigDecimal.valueOf(extraMonths)).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal rent = monthlyRate.multiply(BigDecimal.valueOf(extraMonths)).setScale(0, RoundingMode.HALF_UP);
+        // Gia hạn cũng phải trả phí quản lý của các tháng gia hạn thêm
+        UUID facilityId = storageUnit.getFacility() != null ? storageUnit.getFacility().getId() : null;
+        return rent.add(calculateManagementFee(facilityId, extraMonths));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal calculateManagementFee(UUID facilityId, int months) {
+        return resolveManagementFeePerMonth(facilityId)
+                .multiply(BigDecimal.valueOf(months))
+                .setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolveManagementFeePerMonth(UUID facilityId) {
+        if (facilityId != null) {
+            var policy = facilityPolicyRepository.findByFacility_Id(facilityId);
+            if (policy.isPresent() && policy.get().getManagementFeePerMonth() != null) {
+                return policy.get().getManagementFeePerMonth().setScale(0, RoundingMode.HALF_UP);
+            }
+        }
+        return STANDARD_MANAGEMENT_FEE;
     }
 
     @Override

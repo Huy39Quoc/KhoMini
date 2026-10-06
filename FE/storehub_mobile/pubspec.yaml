@@ -11,11 +11,12 @@ dependencies:
     sdk: flutter
   dio: ^5.4.0
   flutter_secure_storage: ^9.0.0
-  qr_flutter: ^4.1.0
+  webview_flutter: ^4.10.0
   shared_preferences: ^2.2.2
   google_fonts: ^6.1.0
   intl: ^0.19.0
   cupertino_icons: ^1.0.6
+  url_launcher: ^6.2.5
 
 dev_dependencies:
   flutter_test:

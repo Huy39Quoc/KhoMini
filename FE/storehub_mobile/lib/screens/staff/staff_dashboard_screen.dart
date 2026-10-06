@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'staff_ticket_screen.dart';
+import 'staff_units_screen.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/facility_operations_models.dart';
 import '../../models/user_model.dart';
@@ -98,7 +99,6 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     try {
       await _scheduleFuture;
     } catch (_) {
-      // FutureBuilder sẽ hiển thị lỗi.
     }
   }
 
@@ -658,6 +658,22 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       appBar: AppBar(
         title: const Text('Staff Operations'),
         actions: [
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Storage units',
+              icon: const Icon(Icons.inventory_2_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StaffUnitsScreen(
+                      facilityId: _facilityId!,
+                      facilityName: _facilityName ?? 'Facility',
+                    ),
+                  ),
+                );
+              },
+            ),
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
               tooltip: 'Support tickets',

@@ -5,12 +5,9 @@ import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../services/booking_api_service.dart';
+import '../payment/vnpay_checkout_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
-  // bookingId/bookingCode are real, coming from BookingResponse after
-  // FacilityDetailScreen successfully called POST /bookings - this screen
-  // used to not receive any bookingId at all and made up a random
-  // booking code.
   final String bookingId;
   final String bookingCode;
   final String facilityName;
@@ -20,8 +17,6 @@ class PaymentScreen extends StatefulWidget {
   final int rentalMonths;
   final double totalRentalFee;
   final double depositAmount;
-  // Real expiry from BookingResponse.expiresAt - the BE now auto-expires a
-  // PENDING_PAYMENT booking (and its reserved unit) after 30 minutes.
   final DateTime? expiresAt;
 
   const PaymentScreen({
@@ -43,21 +38,16 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final BookingApiService _bookingService = BookingApiService();
 
-  // Screen state
   bool _isSuccess = false;
-  bool _isConfirming = false;
   bool _isCancelling = false;
 
-  // State for initiating the payment transaction (POST /payments/initiate)
   bool _isInitiating = true;
   String? _initError;
-  Map<String, dynamic>?
-      _payment; // Real PaymentResponse: transactionId, amount, qrCodeUrl...
+  Map<String, dynamic>? _payment;
 
-  // Real countdown driven by widget.expiresAt (BE-enforced booking expiry)
   Timer? _expiryTimer;
   Duration? _remaining;
 
@@ -69,6 +59,7 @@ class _PaymentScreenState extends State<PaymentScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _successCtrl = AnimationController(
       vsync: this,
@@ -131,14 +122,12 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _successCtrl.dispose();
     _expiryTimer?.cancel();
     super.dispose();
   }
 
-  // Calls the real POST /payments/initiate to get a real transactionId
-  // + a real VietQR image from the BE, instead of building a fake QR
-  // from a made-up string like before.
   Future<void> _initiatePayment() async {
     setState(() {
       _isInitiating = true;
@@ -172,35 +161,37 @@ class _PaymentScreenState extends State<PaymentScreen>
     return '${s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} ₫';
   }
 
-  // Calls the real POST /payments/confirm with the real transactionId
-  // from the initiate step. This used to just Future.delayed(1.5s) and
-  // treat it as success, with no payment/booking ever recorded in the DB.
-  Future<void> _confirmPayment() async {
-    if (_isExpired) return;
-    final transactionId = _payment?['transactionId']?.toString();
-    if (transactionId == null || transactionId.isEmpty) return;
+  /// Mở trang VNPay Sandbox ngay trong app (kèm bảng thẻ test). Giao dịch chỉ thành PAID khi
+  /// VNPay gọi về server; app chỉ đọc lại trạng thái, không tự xác nhận.
+  Future<void> _payWithVnpay() async {
+    if (_isExpired || _payment == null) return;
+    final transactionId = _payment!['transactionId']?.toString() ?? '';
+    final paymentUrl =
+        (_payment!['paymentUrl'] ?? _payment!['qrCodeUrl'])?.toString() ?? '';
+    if (transactionId.isEmpty || paymentUrl.isEmpty) return;
+    final amount =
+        (_payment!['amount'] as num?)?.toDouble() ?? widget.depositAmount;
 
-    setState(() => _isConfirming = true);
-    try {
-      final confirmed =
-          await _bookingService.confirmPayment(transactionId: transactionId);
-      if (!mounted) return;
+    final paid = await Navigator.push<Map<String, dynamic>?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VnpayCheckoutScreen(
+          paymentUrl: paymentUrl,
+          transactionId: transactionId,
+          amount: amount,
+          title: 'Deposit • VNPay Sandbox',
+          fetchStatus: (id) => _bookingService.getPaymentStatus(transactionId: id),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (paid != null) {
       setState(() {
-        _payment = confirmed;
-        _isConfirming = false;
+        _payment = paid;
         _isSuccess = true;
       });
       _successCtrl.forward();
       HapticFeedback.mediumImpact();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isConfirming = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: AppColors.error,
-        ),
-      );
     }
   }
 
@@ -473,7 +464,6 @@ class _PaymentScreenState extends State<PaymentScreen>
     final amount =
         (payment['amount'] as num?)?.toDouble() ?? widget.depositAmount;
     final transactionId = payment['transactionId']?.toString() ?? '';
-    final qrCodeUrl = payment['qrCodeUrl']?.toString() ?? '';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -507,8 +497,8 @@ class _PaymentScreenState extends State<PaymentScreen>
         _summaryCard(),
         const SizedBox(height: 20),
 
-        // QR Payment
-        const Text('📱 Scan QR to Pay',
+        // VNPay Gateway
+        const Text('💳 VNPay Gateway',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         Container(
@@ -531,102 +521,56 @@ class _PaymentScreenState extends State<PaymentScreen>
                 children: [
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                           colors: [Color(0xFF003087), Color(0xFF0057B7)]),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.qr_code_scanner,
-                            color: Colors.white, size: 16),
-                        SizedBox(width: 6),
-                        Text('VietQR',
+                        Icon(Icons.account_balance_wallet,
+                            color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text('VNPAY SANDBOX',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13)),
+                                fontSize: 13,
+                                letterSpacing: 1.1)),
                       ],
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              // Real QR code generated by the BE (qrCodeUrl)
-              qrCodeUrl.isEmpty
-                  ? Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                        child: Text('No QR code available',
-                            style: TextStyle(color: Colors.grey)),
-                      ),
-                    )
-                  : Image.network(
-                      qrCodeUrl,
-                      width: 200,
-                      height: 200,
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return const SizedBox(
-                          width: 200,
-                          height: 200,
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: 200,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Text(
-                              "Couldn't load the QR image.\nUse the transaction code below to transfer manually.",
-                              textAlign: TextAlign.center,
-                              style:
-                                  TextStyle(color: Colors.grey, fontSize: 12),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-              const SizedBox(height: 14),
-              // Amount to transfer - real value from the BE (PaymentResponse.amount)
+              // Amount card
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                       color: AppColors.primary.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   children: [
-                    const Text('Amount to transfer',
+                    const Text('Payable Amount',
                         style: TextStyle(
                             color: AppColors.textSecondary, fontSize: 12)),
                     const SizedBox(height: 4),
                     Text(_formatPrice(amount),
                         style: const TextStyle(
-                            fontSize: 22,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: AppColors.primary)),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Transaction code: ',
+                        const Text('Txn Ref: ',
                             style: TextStyle(
                                 fontSize: 12, color: AppColors.textSecondary)),
                         Text(transactionId,
@@ -634,7 +578,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.textPrimary)),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 6),
                         GestureDetector(
                           onTap: () {
                             Clipboard.setData(
@@ -657,6 +601,43 @@ class _PaymentScreenState extends State<PaymentScreen>
         ),
         const SizedBox(height: 20),
 
+        // Test card details box
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.credit_card, color: Color(0xFF0057B7), size: 20),
+                  SizedBox(width: 8),
+                  Text('VNPay Sandbox Test Card',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Color(0xFF003087))),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildTestCardRow('Bank (Ngân hàng):', 'NCB'),
+              const Divider(height: 12),
+              _buildTestCardRow('Card Number (Số thẻ):', '9704198526191432198'),
+              const Divider(height: 12),
+              _buildTestCardRow('Cardholder (Chủ thẻ):', 'NGUYEN VAN A'),
+              const Divider(height: 12),
+              _buildTestCardRow('Expiry (Ngày phát hành):', '07/15'),
+              const Divider(height: 12),
+              _buildTestCardRow('OTP Code:', '123456'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
         // Instructions
         Container(
           padding: const EdgeInsets.all(14),
@@ -672,20 +653,16 @@ class _PaymentScreenState extends State<PaymentScreen>
                 children: [
                   Icon(Icons.info_outline, color: Colors.amber, size: 18),
                   SizedBox(width: 6),
-                  Text('Payment Instructions',
+                  Text('Payment Steps',
                       style: TextStyle(
                           fontWeight: FontWeight.bold, color: Colors.orange)),
                 ],
               ),
               SizedBox(height: 8),
-              _Step(
-                  step: '1',
-                  text: 'Open your banking app → Transfer → Scan QR'),
-              _Step(step: '2', text: 'Scan the QR code above'),
-              _Step(
-                  step: '3',
-                  text: 'Enter the exact amount & note the transaction code'),
-              _Step(step: '4', text: 'Tap "Confirm Payment" below'),
+              _Step(step: '1', text: 'Tap "Pay with VNPay Sandbox" below'),
+              _Step(step: '2', text: 'Choose NCB bank on the VNPay page'),
+              _Step(step: '3', text: 'Copy the test card info above into the form, OTP 123456'),
+              _Step(step: '4', text: 'The app confirms automatically once VNPay reports success'),
             ],
           ),
         ),
@@ -696,7 +673,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           width: double.infinity,
           height: 52,
           child: ElevatedButton(
-            onPressed: (_isConfirming || _isExpired) ? null : _confirmPayment,
+            onPressed: _isExpired ? null : _payWithVnpay,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
               foregroundColor: Colors.white,
@@ -704,22 +681,16 @@ class _PaymentScreenState extends State<PaymentScreen>
                   borderRadius: BorderRadius.circular(14)),
               disabledBackgroundColor: Colors.grey.shade300,
             ),
-            child: _isConfirming
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2.5))
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.check_circle_outline, size: 20),
-                      SizedBox(width: 8),
-                      Text('Confirm Payment',
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline, size: 20),
+                SizedBox(width: 8),
+                Text('Pay with VNPay Sandbox',
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -729,6 +700,40 @@ class _PaymentScreenState extends State<PaymentScreen>
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
         ),
         const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildTestCardRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: Colors.black87)),
+        Row(
+          children: [
+            SelectableText(
+              value,
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF003087)),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: value));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$label copied'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              },
+              child: const Icon(Icons.copy, size: 13, color: Color(0xFF0057B7)),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -777,11 +782,31 @@ class _PaymentScreenState extends State<PaymentScreen>
               icon: Icons.account_balance_wallet_outlined,
               label: 'Rental fee',
               value: _formatPrice(widget.totalRentalFee)),
-          const Divider(height: 16, thickness: 1.5),
+          const Divider(height: 16),
           _summaryRow(
               icon: Icons.shield_outlined,
-              label: '💳 Deposit',
-              value: _formatPrice(widget.depositAmount),
+              label: 'Deposit (refundable)',
+              value: _formatPrice(widget.depositAmount)),
+          if (_payment?['amount'] is num &&
+              (_payment!['amount'] as num) -
+                      widget.totalRentalFee -
+                      widget.depositAmount >
+                  0) ...[
+            const Divider(height: 16),
+            _summaryRow(
+                icon: Icons.build_circle_outlined,
+                label: 'Management fee',
+                value: _formatPrice((_payment!['amount'] as num).toDouble() -
+                    widget.totalRentalFee -
+                    widget.depositAmount)),
+          ],
+          const Divider(height: 16, thickness: 1.5),
+          _summaryRow(
+              icon: Icons.payments_outlined,
+              label: '💳 Total to pay',
+              value: _formatPrice(
+                  (_payment?['amount'] as num?)?.toDouble() ??
+                      (widget.totalRentalFee + widget.depositAmount)),
               isHighlight: true),
         ],
       ),

@@ -129,7 +129,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           style: const TextStyle(color: AppColors.error)),
                     ),
 
-                  // Real stats bento grid
                   GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,

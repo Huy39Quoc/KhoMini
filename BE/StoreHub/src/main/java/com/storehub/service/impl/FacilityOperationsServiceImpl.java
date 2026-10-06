@@ -19,8 +19,10 @@ import com.storehub.repository.StorageUnitRepository;
 import com.storehub.entity.FacilityAccess;
 import com.storehub.service.FacilityOperationsService;
 import com.storehub.service.PaymentService;
+import com.storehub.service.WaitlistService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FacilityOperationsServiceImpl
@@ -42,6 +45,9 @@ public class FacilityOperationsServiceImpl
     private final StorageUnitRepository storageUnitRepository;
     private final FacilityAccess facilityAccess;
     private final PaymentService paymentService;
+    private final WaitlistService waitlistService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final com.storehub.service.ActivityLogService activityLogService;
 
     @Override
     @Transactional(readOnly = true)
@@ -80,15 +86,21 @@ public class FacilityOperationsServiceImpl
                 bookingRepository.findCheckOutSchedule(
                         facilityId,
                         BookingStatus.ACTIVE,
-                        startOfDay,
-                        endOfDay
+                        endOfDay,
+                        date
                 );
 
         for (Booking booking : checkOutBookings) {
+            // Khách đã hẹn trả kho: theo giờ hẹn. Khách chưa hẹn nhưng hợp đồng
+            // đã đến/quá hạn: theo ngày hết hạn.
+            LocalDateTime scheduled = booking.getReturnTime() != null
+                    ? booking.getReturnTime()
+                    : booking.getEndDate().atStartOfDay();
+
             result.add(toScheduleResponse(
                     booking,
                     "CHECK_OUT",
-                    booking.getReturnTime()
+                    scheduled
             ));
         }
 
@@ -134,6 +146,61 @@ public class FacilityOperationsServiceImpl
 
     @Override
     @Transactional
+    public com.storehub.dto.response.SmartAccessResponse resetCustomerPin(
+            UUID bookingId,
+            UUID facilityId,
+            String staffEmail
+    ) {
+        User staff = facilityAccess.require(staffEmail, facilityId);
+
+        Booking booking = bookingRepository
+                .lockById(bookingId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (booking.getStorageUnit() == null
+                || booking.getStorageUnit().getFacility() == null
+                || !facilityId.equals(booking.getStorageUnit().getFacility().getId())) {
+            throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
+        }
+        if (booking.getStatus() != BookingStatus.ACTIVE) {
+            throw new AppException(ErrorCode.BOOKING_NOT_CHECKED_IN);
+        }
+        // Hợp đồng quá hạn đã bị thu hồi truy cập thì phải thanh toán/gia hạn trước
+        if (booking.getAccessDisabledAt() != null) {
+            throw new AppException(ErrorCode.ACCESS_DISABLED_OVERDUE);
+        }
+
+        String newPin = String.valueOf(100000 + new java.security.SecureRandom().nextInt(900000));
+        booking.setAccessPin(passwordEncoder.encode(newPin));
+        booking.setPinUpdatedAt(LocalDateTime.now());
+        booking.setPinFailedAttempts(0);
+        booking.setPinLockedUntil(null);
+        booking.setUnitLocked(true);
+        bookingRepository.save(booking);
+
+        activityLogService.record(
+                staff.getId(),
+                com.storehub.enums.ActivityAction.ACCESS_CREDENTIAL_UPDATE,
+                "BOOKING",
+                booking.getId(),
+                "Staff reset access PIN for booking " + booking.getBookingCode(),
+                null,
+                null
+        );
+
+        return com.storehub.dto.response.SmartAccessResponse.builder()
+                .bookingId(booking.getId())
+                .unitCode(booking.getStorageUnit().getUnitCode())
+                .pinSet(true)
+                .pinUpdatedAt(booking.getPinUpdatedAt())
+                .locked(true)
+                .attemptsRemaining(5)
+                .generatedPin(newPin)
+                .build();
+    }
+
+    @Override
+    @Transactional
     public HandoverResponse checkIn(
             UUID bookingId,
             UUID facilityId,
@@ -172,6 +239,12 @@ public class FacilityOperationsServiceImpl
             throw new AppException(
                     ErrorCode.INVALID_REQUEST
             );
+        }
+
+        // Chỉ bàn giao kho từ ngày bắt đầu thuê trở đi
+        if (booking.getStartDate() != null
+                && booking.getStartDate().isAfter(java.time.LocalDate.now())) {
+            throw new AppException(ErrorCode.CHECKIN_TOO_EARLY);
         }
 
         StorageUnit storageUnit = storageUnitRepository
@@ -343,15 +416,37 @@ public class FacilityOperationsServiceImpl
             );
         }
 
-        if (storageUnit.getStatus() != UnitStatus.UNDER_MAINTENANCE
-                || request.getStatus() != UnitStatus.AVAILABLE) {
+        UnitStatus current = storageUnit.getStatus();
+        UnitStatus target = request.getStatus();
+
+        // Cho phép: bảo trì -> trống (sau vệ sinh/kiểm tra) và
+        // trống -> bảo trì (cần kiểm tra). Kho đang giữ chỗ/đang thuê
+        // chỉ đổi trạng thái qua luồng booking (check-in / check-out).
+        boolean validTransition =
+                (current == UnitStatus.UNDER_MAINTENANCE && target == UnitStatus.AVAILABLE)
+                        || (current == UnitStatus.AVAILABLE && target == UnitStatus.UNDER_MAINTENANCE);
+
+        if (!validTransition) {
             throw new AppException(
                     ErrorCode.UNIT_UNAVAILABLE
             );
         }
 
-        storageUnit.setStatus(UnitStatus.AVAILABLE);
+        storageUnit.setStatus(target);
         storageUnitRepository.save(storageUnit);
+
+        if (target == UnitStatus.AVAILABLE
+                && storageUnit.getUnitType() != null) {
+            try {
+                waitlistService.notifyNextInWaitlist(
+                        facilityId,
+                        storageUnit.getUnitType().getId()
+                );
+            } catch (Exception e) {
+                log.warn("Failed to notify waitlist for unit {}: {}",
+                        unitId, e.getMessage());
+            }
+        }
 
         return "Storage unit status updated successfully";
     }

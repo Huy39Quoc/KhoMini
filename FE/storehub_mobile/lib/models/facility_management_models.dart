@@ -47,6 +47,7 @@ class FacilityReportModel {
   final int underMaintenance;
   final int overdueBookings;
   final double occupancyRate;
+  final double revenue;
 
   const FacilityReportModel({
     required this.facilityId,
@@ -57,6 +58,7 @@ class FacilityReportModel {
     required this.underMaintenance,
     required this.overdueBookings,
     required this.occupancyRate,
+    this.revenue = 0,
   });
 }
 

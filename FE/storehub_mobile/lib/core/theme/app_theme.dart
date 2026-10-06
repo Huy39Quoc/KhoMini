@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 
-/// Central ThemeData for the whole app. Every screen that uses Card,
-/// ElevatedButton, OutlinedButton, TextFormField/InputDecoration, AppBar,
-/// Chip, etc. without an explicit style automatically follows this theme,
-/// so changing this file re-skins the app without editing every screen.
 class AppTheme {
   static ThemeData get lightTheme {
     final base = ThemeData(useMaterial3: true);

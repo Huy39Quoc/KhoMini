@@ -33,12 +33,29 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   bool get _isEditing => widget.facility != null;
   bool _isSaving = false;
 
+  // Manager hiện tại của cơ sở (cập nhật ngay sau khi gán)
+  String? _managerId;
+  String? _managerName;
+  String? _managerEmail;
+
   // Policy state
   bool _isLoadingPolicy = false;
   Map<String, dynamic>? _policy;
   final _depositController = TextEditingController();
   final _lateFeeController = TextEditingController();
   final _minMonthsController = TextEditingController();
+  final _renewalWindowController = TextEditingController();
+  final _fullRefundHoursController = TextEditingController();
+  final _partialRefundHoursController = TextEditingController();
+  final _partialRefundPercentController = TextEditingController();
+  final _returnNoticeController = TextEditingController();
+  final _refundSlaController = TextEditingController();
+  final _graceController = TextEditingController();
+  final _accessDisableController = TextEditingController();
+  final _sealingController = TextEditingController();
+  final _managementFeeController = TextEditingController();
+  final _discountMonthsController = TextEditingController();
+  final _discountPercentController = TextEditingController();
 
   @override
   void initState() {
@@ -56,6 +73,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     _descriptionController =
         TextEditingController(text: f?['description']?.toString() ?? '');
     _status = f?['status']?.toString() ?? 'ACTIVE';
+    _managerId = f?['managerId']?.toString();
+    _managerName = f?['managerName']?.toString();
 
     if (_isEditing) _loadPolicy();
   }
@@ -72,6 +91,18 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     _depositController.dispose();
     _lateFeeController.dispose();
     _minMonthsController.dispose();
+    _renewalWindowController.dispose();
+    _fullRefundHoursController.dispose();
+    _partialRefundHoursController.dispose();
+    _partialRefundPercentController.dispose();
+    _returnNoticeController.dispose();
+    _refundSlaController.dispose();
+    _graceController.dispose();
+    _accessDisableController.dispose();
+    _sealingController.dispose();
+    _managementFeeController.dispose();
+    _discountMonthsController.dispose();
+    _discountPercentController.dispose();
     super.dispose();
   }
 
@@ -89,6 +120,30 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
           _lateFeeController.text = (policy['dailyLateFee'] ?? '').toString();
           _minMonthsController.text =
               (policy['minimumRentalMonths'] ?? '').toString();
+          _renewalWindowController.text =
+              (policy['renewalWindowDays'] ?? '').toString();
+          _fullRefundHoursController.text =
+              (policy['cancellationFullRefundHours'] ?? '').toString();
+          _partialRefundHoursController.text =
+              (policy['cancellationPartialRefundHours'] ?? '').toString();
+          _partialRefundPercentController.text =
+              (policy['cancellationPartialRefundPercent'] ?? '').toString();
+          _returnNoticeController.text =
+              (policy['returnNoticeDays'] ?? '').toString();
+          _refundSlaController.text =
+              (policy['depositRefundSlaDays'] ?? '').toString();
+          _graceController.text =
+              (policy['overdueGraceDays'] ?? '').toString();
+          _accessDisableController.text =
+              (policy['overdueAccessDisableDays'] ?? '').toString();
+          _sealingController.text =
+              (policy['overdueSealingDays'] ?? '').toString();
+          _managementFeeController.text =
+              (policy['managementFeePerMonth'] ?? '').toString();
+          _discountMonthsController.text =
+              (policy['longTermDiscountMinMonths'] ?? '').toString();
+          _discountPercentController.text =
+              (policy['longTermDiscountPercent'] ?? '').toString();
         }
         _isLoadingPolicy = false;
       });
@@ -142,11 +197,64 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     }
   }
 
+  InputDecoration _dec(String label, {String? hint, String? suffix}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      suffixText: suffix,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+    );
+  }
+
+  Widget _policyField(
+    TextEditingController controller,
+    String label, {
+    bool int_ = false,
+    String? suffix,
+    String? hint,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: int_
+          ? TextInputType.number
+          : const TextInputType.numberWithOptions(decimal: true),
+      decoration: _dec(label, hint: hint, suffix: suffix),
+    );
+  }
+
   Future<void> _savePolicy() async {
     final deposit = double.tryParse(_depositController.text);
     final lateFee = double.tryParse(_lateFeeController.text);
     final minMonths = int.tryParse(_minMonthsController.text);
-    if (deposit == null || lateFee == null || minMonths == null) {
+    final renewalWindow = int.tryParse(_renewalWindowController.text);
+    final fullRefundHours = int.tryParse(_fullRefundHoursController.text);
+    final partialRefundHours = int.tryParse(_partialRefundHoursController.text);
+    final partialRefundPercent =
+        double.tryParse(_partialRefundPercentController.text);
+    final returnNotice = int.tryParse(_returnNoticeController.text);
+    final refundSla = int.tryParse(_refundSlaController.text);
+    final grace = int.tryParse(_graceController.text);
+    final accessDisable = int.tryParse(_accessDisableController.text);
+    final sealing = int.tryParse(_sealingController.text);
+    final managementFee = double.tryParse(_managementFeeController.text);
+    final discountMonths = int.tryParse(_discountMonthsController.text);
+    final discountPercent = double.tryParse(_discountPercentController.text);
+
+    if (deposit == null ||
+        managementFee == null ||
+        discountMonths == null ||
+        discountPercent == null ||
+        lateFee == null ||
+        minMonths == null ||
+        renewalWindow == null ||
+        fullRefundHours == null ||
+        partialRefundHours == null ||
+        partialRefundPercent == null ||
+        returnNotice == null ||
+        refundSla == null ||
+        grace == null ||
+        accessDisable == null ||
+        sealing == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content:
@@ -155,26 +263,35 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       return;
     }
 
+    if (fullRefundHours < partialRefundHours) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Full-refund hours must be greater than or equal to partial-refund hours.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     final facilityId = widget.facility!['id'].toString();
-    // Sensible, editable defaults for the fields not shown inline - kept
-    // simple here; a full policy editor can expose all fields later.
     final body = {
       'facilityId': facilityId,
       'depositPercentage': deposit,
-      'renewalWindowDays': _policy?['renewalWindowDays'] ?? 7,
-      'cancellationFullRefundHours':
-          _policy?['cancellationFullRefundHours'] ?? 48,
-      'cancellationPartialRefundHours':
-          _policy?['cancellationPartialRefundHours'] ?? 24,
-      'cancellationPartialRefundPercent':
-          _policy?['cancellationPartialRefundPercent'] ?? 50.0,
-      'returnNoticeDays': _policy?['returnNoticeDays'] ?? 3,
-      'depositRefundSlaDays': _policy?['depositRefundSlaDays'] ?? 7,
+      'renewalWindowDays': renewalWindow,
+      'cancellationFullRefundHours': fullRefundHours,
+      'cancellationPartialRefundHours': partialRefundHours,
+      'cancellationPartialRefundPercent': partialRefundPercent,
+      'returnNoticeDays': returnNotice,
+      'depositRefundSlaDays': refundSla,
       'dailyLateFee': lateFee,
-      'overdueGraceDays': _policy?['overdueGraceDays'] ?? 3,
-      'overdueAccessDisableDays': _policy?['overdueAccessDisableDays'] ?? 7,
-      'overdueSealingDays': _policy?['overdueSealingDays'] ?? 30,
+      'overdueGraceDays': grace,
+      'overdueAccessDisableDays': accessDisable,
+      'overdueSealingDays': sealing,
       'minimumRentalMonths': minMonths,
+      'managementFeePerMonth': managementFee,
+      'longTermDiscountMinMonths': discountMonths,
+      'longTermDiscountPercent': discountPercent,
     };
 
     try {
@@ -214,6 +331,22 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       return;
     }
     if (!mounted) return;
+
+    // managerId -> tên cơ sở đang quản lý (để Admin thấy ai đang quản lý cơ sở nào)
+    final managedFacility = <String, String>{};
+    try {
+      final facilities = await _service.getFacilities();
+      for (final item in facilities.whereType<Map>()) {
+        final managerId = item['managerId']?.toString();
+        if (managerId != null && managerId.isNotEmpty) {
+          managedFacility[managerId] = item['name']?.toString() ?? '';
+        }
+      }
+    } catch (_) {
+      // Không có thông tin này thì vẫn cho gán bình thường.
+    }
+    if (!mounted) return;
+
     final searchController = TextEditingController();
     await showModalBottomSheet(
       context: context,
@@ -278,9 +411,20 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                       final name = u['fullName']?.toString() ??
                           u['username']?.toString() ??
                           '';
+                      final managed = managedFacility[userId];
+                      final isCurrent = userId == _managerId;
                       return ListTile(
                         title: Text(name),
-                        subtitle: Text(u['email']?.toString() ?? ''),
+                        subtitle: Text(
+                          '${u['email'] ?? ''}\n'
+                          '${managed == null ? 'Not managing any facility' : 'Manages: $managed'}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        isThreeLine: true,
+                        trailing: isCurrent
+                            ? const Icon(Icons.check_circle,
+                                color: AppColors.success)
+                            : null,
                         onTap: () async {
                           try {
                             // Đây là màn "Assign Facility Manager" nên phải gọi endpoint
@@ -288,6 +432,13 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                             // gán Staff như trước đây.
                             await _opsService.assignManagerToFacility(
                                 widget.facility!['id'].toString(), userId);
+                            if (mounted) {
+                              setState(() {
+                                _managerId = userId;
+                                _managerName = name;
+                                _managerEmail = u['email']?.toString();
+                              });
+                            }
                             if (!ctx.mounted) return;
                             Navigator.pop(ctx);
                             if (!mounted) return;
@@ -320,166 +471,354 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   }
 
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar:
-          AppBar(title: Text(_isEditing ? 'Edit Facility' : 'New Facility')),
-      body: SingleChildScrollView(
+  static const SizedBox _gap = SizedBox(height: 14);
+
+  Widget _section({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required List<Widget> children,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Facility Details',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Facility name'),
-                validator: (v) => (v == null || v.trim().length < 2)
-                    ? 'Enter a name (min 2 characters)'
-                    : null,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _codeController,
-                decoration: const InputDecoration(
-                    labelText: 'Facility code', hintText: 'e.g. HCM-01'),
-                validator: (v) => (v == null || v.trim().length < 2)
-                    ? 'Enter a code (min 2 characters)'
-                    : null,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _addressController,
-                decoration: const InputDecoration(labelText: 'Address'),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Address is required'
-                    : null,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _cityController,
-                decoration: const InputDecoration(labelText: 'City (optional)'),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _phoneController,
-                decoration: const InputDecoration(
-                    labelText: 'Contact phone (optional)'),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _emailController,
-                decoration:
-                    const InputDecoration(labelText: 'Email (optional)'),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null;
-                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                      .hasMatch(v.trim())) {
-                    return 'Enter a valid email';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _descriptionController,
-                maxLines: 3,
-                decoration:
-                    const InputDecoration(labelText: 'Description (optional)'),
-              ),
-              if (_isEditing) ...[
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _status,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                  items: const [
-                    DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
-                    DropdownMenuItem(
-                        value: 'INACTIVE', child: Text('Inactive')),
-                    DropdownMenuItem(
-                        value: 'MAINTENANCE', child: Text('Maintenance')),
-                  ],
-                  onChanged: (v) => setState(() => _status = v ?? _status),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 18, color: AppColors.primaryContainer),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
                 ),
               ],
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _isSaving ? null : _saveFacility,
-                child: _isSaving
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : Text(_isEditing ? 'Save Changes' : 'Create Facility'),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.onSurfaceVariant),
               ),
-              if (_isEditing) ...[
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _openAssignManagerSheet,
-                  icon: const Icon(Icons.person_add_alt, size: 16),
-                  label: const Text('Assign Facility Manager'),
+            ],
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pair(Widget left, Widget right) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: left),
+        const SizedBox(width: 12),
+        Expanded(child: right),
+      ],
+    );
+  }
+
+  Widget _buildManagerCard() {
+    final hasManager = _managerName != null && _managerName!.isNotEmpty;
+
+    return _section(
+      icon: Icons.manage_accounts_outlined,
+      title: 'Facility manager',
+      subtitle: 'The person responsible for operating this facility.',
+      children: [
+        Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: hasManager
+                  ? AppColors.primaryContainer
+                  : AppColors.surfaceContainerHigh,
+              child: Icon(
+                hasManager ? Icons.person : Icons.person_off_outlined,
+                color: hasManager ? Colors.white : AppColors.onSurfaceVariant,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasManager ? _managerName! : 'No manager assigned',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  if (hasManager &&
+                      _managerEmail != null &&
+                      _managerEmail!.isNotEmpty)
+                    Text(
+                      _managerEmail!,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.onSurfaceVariant),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        _gap,
+        OutlinedButton.icon(
+          onPressed: _openAssignManagerSheet,
+          icon: const Icon(Icons.person_add_alt, size: 16),
+          label: Text(hasManager ? 'Change manager' : 'Assign manager'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _section(
+              icon: Icons.business_outlined,
+              title: 'Facility details',
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: _dec('Facility name'),
+                  validator: (v) => (v == null || v.trim().length < 2)
+                      ? 'Enter a name (min 2 characters)'
+                      : null,
                 ),
-                const SizedBox(height: 28),
-                const Divider(),
-                const SizedBox(height: 12),
-                const Text('Rental Policy',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const SizedBox(height: 4),
-                Text(
-                  _policy == null
-                      ? 'No policy configured yet for this facility.'
-                      : 'Editing the existing policy for this facility.',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.onSurfaceVariant),
+                _gap,
+                TextFormField(
+                  controller: _codeController,
+                  decoration: _dec('Facility code', hint: 'e.g. HCM-01'),
+                  validator: (v) => (v == null || v.trim().length < 2)
+                      ? 'Enter a code (min 2 characters)'
+                      : null,
                 ),
-                const SizedBox(height: 12),
-                if (_isLoadingPolicy)
-                  const Center(
-                      child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: CircularProgressIndicator()))
-                else ...[
-                  TextFormField(
-                    controller: _depositController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                        labelText: 'Deposit percentage (%)',
-                        hintText: 'e.g. 100'),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _lateFeeController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                        labelText: 'Daily late fee (\$)', hintText: 'e.g. 5'),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _minMonthsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                        labelText: 'Minimum rental months', hintText: 'e.g. 1'),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton(
-                    onPressed: _savePolicy,
-                    child:
-                        Text(_policy == null ? 'Create Policy' : 'Save Policy'),
+                _gap,
+                TextFormField(
+                  controller: _addressController,
+                  decoration: _dec('Address'),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Address is required'
+                      : null,
+                ),
+                _gap,
+                TextFormField(
+                  controller: _cityController,
+                  decoration: _dec('City (optional)'),
+                ),
+                if (_isEditing) ...[
+                  _gap,
+                  DropdownButtonFormField<String>(
+                    initialValue: _status,
+                    decoration: _dec('Status'),
+                    items: const [
+                      DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
+                      DropdownMenuItem(
+                          value: 'INACTIVE', child: Text('Inactive')),
+                      DropdownMenuItem(
+                          value: 'MAINTENANCE', child: Text('Maintenance')),
+                    ],
+                    onChanged: (v) => setState(() => _status = v ?? _status),
                   ),
                 ],
               ],
-              const SizedBox(height: 24),
+            ),
+            _section(
+              icon: Icons.contact_phone_outlined,
+              title: 'Contact',
+              children: [
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: _dec('Contact phone (optional)'),
+                ),
+                _gap,
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: _dec('Email (optional)'),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null;
+                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                        .hasMatch(v.trim())) {
+                      return 'Enter a valid email';
+                    }
+                    return null;
+                  },
+                ),
+                _gap,
+                TextFormField(
+                  controller: _descriptionController,
+                  maxLines: 3,
+                  decoration: _dec('Description (optional)'),
+                ),
+              ],
+            ),
+            if (_isEditing) _buildManagerCard(),
+            ElevatedButton(
+              onPressed: _isSaving ? null : _saveFacility,
+              child: _isSaving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : Text(_isEditing ? 'Save Changes' : 'Create Facility'),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPolicyTab() {
+    if (_isLoadingPolicy) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12, left: 2),
+            child: Text(
+              _policy == null
+                  ? 'No policy configured yet for this facility.'
+                  : 'Editing the existing policy for this facility.',
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.onSurfaceVariant),
+            ),
+          ),
+          _section(
+            icon: Icons.payments_outlined,
+            title: 'Deposit & fees',
+            children: [
+              _pair(
+                _policyField(_depositController, 'Deposit', suffix: '%'),
+                _policyField(_lateFeeController, 'Daily late fee', suffix: 'VND'),
+              ),
+              _gap,
+              _pair(
+                _policyField(_minMonthsController, 'Min. rental',
+                    int_: true, suffix: 'months'),
+                _policyField(_refundSlaController, 'Deposit refund',
+                    int_: true, suffix: 'days'),
+              ),
             ],
           ),
+          _section(
+            icon: Icons.autorenew,
+            title: 'Renewal & return',
+            children: [
+              _pair(
+                _policyField(_renewalWindowController, 'Renewal window',
+                    int_: true, suffix: 'days'),
+                _policyField(_returnNoticeController, 'Return notice',
+                    int_: true, suffix: 'days'),
+              ),
+            ],
+          ),
+          _section(
+            icon: Icons.sell_outlined,
+            title: 'Extra fee & discount',
+            subtitle:
+                'Management fee 0 = fee waived. Discount 0 months = no discount.',
+            children: [
+              _policyField(_managementFeeController, 'Management fee',
+                  suffix: 'VND / month'),
+              _gap,
+              _pair(
+                _policyField(_discountMonthsController, 'Discount from',
+                    int_: true, suffix: 'months'),
+                _policyField(_discountPercentController, 'Rent discount',
+                    suffix: '%'),
+              ),
+            ],
+          ),
+          _section(
+            icon: Icons.event_busy_outlined,
+            title: 'Cancellation refund',
+            subtitle: 'Time before the rental start date.',
+            children: [
+              _pair(
+                _policyField(_fullRefundHoursController, 'Full refund',
+                    int_: true, suffix: 'hours'),
+                _policyField(_partialRefundHoursController, 'Partial refund',
+                    int_: true, suffix: 'hours'),
+              ),
+              _gap,
+              _policyField(_partialRefundPercentController,
+                  'Partial refund amount',
+                  suffix: '%'),
+            ],
+          ),
+          _section(
+            icon: Icons.warning_amber_rounded,
+            title: 'Overdue handling',
+            subtitle: 'Days after the rental end date.',
+            children: [
+              _policyField(_graceController, 'Grace period',
+                  int_: true, suffix: 'days'),
+              _gap,
+              _pair(
+                _policyField(_accessDisableController, 'Disable access',
+                    int_: true, suffix: 'days'),
+                _policyField(_sealingController, 'Sealing',
+                    int_: true, suffix: 'days'),
+              ),
+            ],
+          ),
+          ElevatedButton(
+            onPressed: _savePolicy,
+            child: Text(_policy == null ? 'Create Policy' : 'Save Policy'),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isEditing) {
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: AppBar(title: const Text('New Facility')),
+        body: _buildDetailsTab(),
+      );
+    }
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: AppBar(
+          title: const Text('Edit Facility'),
+          bottom: const TabBar(
+            labelColor: AppColors.secondaryContainer,
+            unselectedLabelColor: AppColors.onSurfaceVariant,
+            indicatorColor: AppColors.secondaryContainer,
+            tabs: [Tab(text: 'Details'), Tab(text: 'Rental Policy')],
+          ),
+        ),
+        body: TabBarView(
+          children: [_buildDetailsTab(), _buildPolicyTab()],
         ),
       ),
     );

@@ -8,6 +8,7 @@ class StaffTicketMapper {
   ) {
     return StaffTicketModel(
       id: _text(json['id']),
+      bookingId: _text(json['bookingId']),
       ticketCode: _text(json['ticketCode']),
       bookingCode: _text(json['bookingCode']),
       category: _text(json['category']),
@@ -19,6 +20,10 @@ class StaffTicketMapper {
       assignedStaffName: _text(json['assignedStaffName']),
       resolutionNote: _text(json['resolutionNote']),
       createdAt: _text(json['createdAt']),
+      customerName: _text(json['customerName']),
+      customerEmail: _text(json['customerEmail']),
+      customerPhone: _text(json['customerPhone']),
+      unitCode: _text(json['unitCode']),
     );
   }
 

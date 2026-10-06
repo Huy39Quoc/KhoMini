@@ -34,7 +34,7 @@ public class FacilityManagementController {
     }
 
     @GetMapping("/{facilityId}/units")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
     public ApiResponse<List<FacilityUnitResponse>> units(
             @PathVariable UUID facilityId,
             @AuthenticationPrincipal UserDetails principal
@@ -176,6 +176,36 @@ public class FacilityManagementController {
         return ApiResponse.success(
                 "Staff unassigned from facility successfully",
                 null
+        );
+    }
+
+    @GetMapping("/{facilityId}/bookings")
+    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    public ApiResponse<List<FacilityContractResponse>> contracts(
+            @PathVariable UUID facilityId,
+            @AuthenticationPrincipal UserDetails principal
+    ) {
+        return ApiResponse.success(
+                service.contracts(
+                        facilityId,
+                        principal.getUsername()
+                )
+        );
+    }
+
+    @PutMapping("/{facilityId}/bookings/{bookingId}/sealing/approve")
+    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    public ApiResponse<FacilityContractResponse> approveSealing(
+            @PathVariable UUID facilityId,
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails principal
+    ) {
+        return ApiResponse.success(
+                service.approveSealing(
+                        facilityId,
+                        bookingId,
+                        principal.getUsername()
+                )
         );
     }
 

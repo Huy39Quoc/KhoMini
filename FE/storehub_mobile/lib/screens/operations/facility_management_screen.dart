@@ -4,7 +4,6 @@ import '../../services/facility_admin_api_service.dart';
 import '../../widgets/state_views.dart';
 import 'facility_edit_screen.dart';
 
-/// Wires FacilityController (GET/POST /facilities) - list + create.
 class FacilityManagementScreen extends StatefulWidget {
   const FacilityManagementScreen({super.key});
 
@@ -130,11 +129,54 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                           title: Text(f['name']?.toString() ?? '',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 14)),
-                          subtitle: Text(
-                            '${f['code'] ?? ''} • ${f['address'] ?? ''}${f['city'] != null && f['city'].toString().isNotEmpty ? ', ${f['city']}' : ''}',
-                            style: const TextStyle(fontSize: 12),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${f['code'] ?? ''} • ${f['address'] ?? ''}${f['city'] != null && f['city'].toString().isNotEmpty ? ', ${f['city']}' : ''}',
+                                style: const TextStyle(fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.manage_accounts_outlined,
+                                    size: 14,
+                                    color: (f['managerName'] != null &&
+                                            f['managerName']
+                                                .toString()
+                                                .isNotEmpty)
+                                        ? AppColors.primaryContainer
+                                        : AppColors.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      (f['managerName'] != null &&
+                                              f['managerName']
+                                                  .toString()
+                                                  .isNotEmpty)
+                                          ? 'Manager: ${f['managerName']}'
+                                          : 'No manager assigned',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: (f['managerName'] != null &&
+                                                f['managerName']
+                                                    .toString()
+                                                    .isNotEmpty)
+                                            ? AppColors.onSurface
+                                            : AppColors.onSurfaceVariant,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                           trailing: Container(
                             padding: const EdgeInsets.symmetric(
@@ -151,13 +193,14 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                                     color: _statusColor(status))),
                           ),
                           onTap: () async {
-                            final changed = await Navigator.push<bool>(
+                            await Navigator.push<bool>(
                               context,
                               MaterialPageRoute(
                                   builder: (_) =>
                                       FacilityEditScreen(facility: f)),
                             );
-                            if (changed == true) _load();
+                            if (!mounted) return;
+                            _load();
                           },
                         ),
                       );

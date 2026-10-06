@@ -6,6 +6,7 @@ import com.storehub.dto.response.PaymentResponse;
 import com.storehub.entity.Booking;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.UUID;
 
 public interface PaymentService {
@@ -15,8 +16,16 @@ public interface PaymentService {
             PaymentInitiationRequest request
     );
 
+    // Khách chỉ được HỎI trạng thái giao dịch. Việc đánh dấu PAID chỉ xảy ra khi
+    // VNPay gọi về (vnpay-return / vnpay-ipn) với chữ ký hợp lệ.
+    PaymentResponse getPaymentStatus(String customerEmail, String transactionId);
+
     PaymentResponse confirmPayment(
             String customerEmail,
+            PaymentConfirmationRequest request
+    );
+
+    PaymentResponse confirmPayment(
             PaymentConfirmationRequest request
     );
 
@@ -30,9 +39,14 @@ public interface PaymentService {
             UUID bookingId
     );
 
+    PaymentResponse processVnpayCallback(Map<String, String> queryParams);
+
     // Hoàn (một phần hoặc toàn bộ) tiền cọc của booking. Trả về số tiền thực tế đã hoàn.
-    // Payment cọc gốc -> REFUNDED (hoàn hết) hoặc giảm còn phần giữ lại + 1 Payment REFUNDED cho phần hoàn.
     BigDecimal refundDeposit(Booking booking, BigDecimal refundAmount);
+
+    // Khách huỷ đơn đã CONFIRMED: hoàn tiền (cọc + tiền thuê đã trả) theo bậc chính sách huỷ của cơ sở.
+    // Ưu tiên hoàn vào khoản cọc trước, phần còn lại hoàn vào tiền thuê. Trả về tổng số tiền đã hoàn.
+    BigDecimal refundOnCancellation(Booking booking);
 
     // Dùng khi nhân viên nghiệm thu trả kho: chặn nếu còn phí trễ hạn chưa thanh toán,
     // huỷ yêu cầu gia hạn đang treo, rồi hoàn toàn bộ tiền cọc. Trả về số tiền đã hoàn.

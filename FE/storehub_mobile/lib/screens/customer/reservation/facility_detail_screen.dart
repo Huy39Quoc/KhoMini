@@ -612,19 +612,60 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             ],
           ),
           const Divider(height: 20),
-          _quoteLine('Rental fee ($_rentalMonths mo)', total,
-              isHighlight: false),
-          const SizedBox(height: 8),
-          _quoteLine('Deposit (refunded at checkout)', deposit,
-              isHighlight: false),
+          ..._quoteBreakdownLines(total, deposit),
           const Divider(height: 20),
           _quoteLine('💳 Due Now', initial, isHighlight: true),
           const SizedBox(height: 6),
-          const Text('* The deposit will be refunded when your rental ends.',
+          const Text(
+              '* Only the deposit is refunded when your rental ends. Rental and management fees are not refundable after check-in.',
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         ],
       ),
     );
+  }
+
+  /// Các dòng chi tiết lấy từ breakdown của BE: tiền thuê, giảm giá (nếu có), cọc, phí quản lý.
+  List<Widget> _quoteBreakdownLines(dynamic total, dynamic deposit) {
+    final items = (_quote!['breakdown'] as List?) ?? const [];
+    if (items.isEmpty) {
+      return [
+        _quoteLine('Rental fee ($_rentalMonths mo)', total),
+        const SizedBox(height: 8),
+        _quoteLine('Deposit (refunded at checkout)', deposit),
+      ];
+    }
+    const labels = {
+      'RENTAL_FEE': 'Rental fee',
+      'DISCOUNT': 'Long-term discount',
+      'DEPOSIT': 'Deposit (refunded at checkout)',
+      'MANAGEMENT_FEE': 'Management fee',
+    };
+    final widgets = <Widget>[];
+    for (final raw in items) {
+      final item = Map<String, dynamic>.from(raw as Map);
+      final type = item['feeType']?.toString() ?? '';
+      final amount = item['totalAmount'];
+      final label = labels[type] ?? item['name']?.toString() ?? type;
+      if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
+      if (type == 'DISCOUNT' && amount is num) {
+        widgets.add(Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary)),
+            Text('- ${_formatPrice(amount.abs())}',
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.success)),
+          ],
+        ));
+      } else {
+        widgets.add(_quoteLine(label, amount));
+      }
+    }
+    return widgets;
   }
 
   Widget _quoteLine(String label, dynamic value, {bool isHighlight = false}) {

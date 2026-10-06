@@ -25,6 +25,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.storehub.dto.response.FacilityBookingResponse;
+import com.storehub.dto.response.FacilityContractResponse;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
+import com.storehub.repository.PaymentRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,6 +47,8 @@ public class FacilityManagementServiceImpl
     private final UnitTypeRepository types;
     private final BookingRepository bookings;
     private final UserRepository users;
+    private final PaymentRepository payments;
+    private final ActivityLogService activityLogService;
 
     @Transactional(readOnly = true)
     public AssignedFacilityResponse myFacility(String email) {
@@ -232,6 +242,8 @@ public class FacilityManagementServiceImpl
                         BookingStatus.ACTIVE
                 );
 
+        BigDecimal revenue = payments.sumPaidByFacility(facilityId);
+
         return new FacilityReportResponse(
                 facilityId,
                 all.size(),
@@ -240,7 +252,8 @@ public class FacilityManagementServiceImpl
                 occupied,
                 maintenance,
                 overdueBookings,
-                occupancyRate
+                occupancyRate,
+                revenue == null ? BigDecimal.ZERO : revenue
         );
     }
 
@@ -354,6 +367,101 @@ public class FacilityManagementServiceImpl
                 .stream()
                 .map(this::toFacilityBooking)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FacilityContractResponse> contracts(
+            UUID facilityId,
+            String managerEmail
+    ) {
+        access.require(managerEmail, facilityId);
+        requireFacility(facilityId);
+
+        return bookings.findFacilityContracts(
+                        facilityId,
+                        List.of(BookingStatus.CONFIRMED, BookingStatus.ACTIVE)
+                )
+                .stream()
+                .map(this::toContract)
+                .toList();
+    }
+
+    private FacilityContractResponse toContract(Booking booking) {
+        StorageUnit unit = booking.getStorageUnit();
+        LocalDate today = LocalDate.now();
+
+        boolean overdue = booking.getStatus() == BookingStatus.ACTIVE
+                && booking.getOverdueDetectedAt() != null;
+
+        long overdueDays = overdue && booking.getEndDate() != null
+                ? Math.max(0, ChronoUnit.DAYS.between(booking.getEndDate(), today))
+                : 0;
+
+        return new FacilityContractResponse(
+                booking.getId(),
+                booking.getBookingCode(),
+                booking.getCustomer().getFullName(),
+                booking.getCustomer().getEmail(),
+                unit.getUnitCode(),
+                unit.getUnitType().getTypeName(),
+                booking.getStartDate(),
+                booking.getEndDate(),
+                booking.getRentalMonths(),
+                booking.getStatus(),
+                booking.getDepositPaid(),
+                booking.getTotalRentalFee(),
+                booking.getReturnTime(),
+                overdue,
+                overdueDays,
+                booking.getOverdueFeeAccrued() == null
+                        ? BigDecimal.ZERO
+                        : booking.getOverdueFeeAccrued(),
+                booking.getAccessDisabledAt() != null,
+                booking.getSealingPendingAt() != null,
+                booking.getPendingExtensionFee(),
+                booking.getSealingApprovedAt() != null
+        );
+    }
+
+    @Override
+    @Transactional
+    public FacilityContractResponse approveSealing(
+            UUID facilityId,
+            UUID bookingId,
+            String managerEmail
+    ) {
+        access.require(managerEmail, facilityId);
+        requireFacility(facilityId);
+
+        Booking booking = bookings.findById(bookingId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (booking.getStorageUnit() == null
+                || booking.getStorageUnit().getFacility() == null
+                || !facilityId.equals(booking.getStorageUnit().getFacility().getId())) {
+            throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
+        }
+        if (booking.getStatus() != BookingStatus.ACTIVE
+                || booking.getSealingPendingAt() == null) {
+            throw new AppException(ErrorCode.UNIT_NOT_OVERDUE);
+        }
+
+        if (booking.getSealingApprovedAt() == null) {
+            booking.setSealingApprovedAt(LocalDateTime.now());
+            bookings.save(booking);
+
+            activityLogService.record(
+                    ActivityAction.OVERDUE_SEALING_APPROVED,
+                    "BOOKING",
+                    booking.getId(),
+                    "Sealing approved for overdue booking " + booking.getBookingCode()
+                            + " (unit " + booking.getStorageUnit().getUnitCode() + ")",
+                    null,
+                    null
+            );
+        }
+        return toContract(booking);
     }
 
     private FacilityUnitResponse toUnit(StorageUnit unit) {

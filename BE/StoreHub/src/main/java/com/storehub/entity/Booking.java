@@ -51,11 +51,16 @@ public class Booking extends BaseEntity {
     @Column(name = "access_code", length = 20)
     private String accessCode;
 
-    @Column(name = "access_pin", length = 10)
+    // Mã PIN mở khóa, lưu dạng băm BCrypt (không bao giờ lưu/trả về PIN dạng chữ rõ).
+    @Column(name = "access_pin", length = 100)
     private String accessPin;
 
-    @Column(name = "qr_access_token", length = 255)
-    private String qrAccessToken;
+    @Column(name = "pin_failed_attempts", nullable = false)
+    @Builder.Default
+    private Integer pinFailedAttempts = 0;
+
+    @Column(name = "pin_locked_until")
+    private LocalDateTime pinLockedUntil;
 
     @Column(name = "pin_updated_at")
     private LocalDateTime pinUpdatedAt;
@@ -99,4 +104,8 @@ public class Booking extends BaseEntity {
 
     @Column(name = "sealing_pending_at")
     private LocalDateTime sealingPendingAt;
+
+    // Facility Manager đã duyệt niêm phong cho hợp đồng quá hạn
+    @Column(name = "sealing_approved_at")
+    private LocalDateTime sealingApprovedAt;
 }

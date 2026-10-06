@@ -1,18 +1,11 @@
-/// Matches BE FacilityResponse: { id, name, code, address, city,
-/// contactPhone, email, managerId, managerName, status, openTime,
-/// closeTime, description, createdAt, updatedAt }. Area/price/availability
-/// still aren't facility fields - those come from aggregating GET
-/// /catalog/unit-types?facilityId=... (see withUnitTypeStats), and stay
-/// null ("not loaded yet") rather than silently defaulting to 0.
 class FacilityModel {
   final String id;
   final String name;
   final String address;
   final String city;
   final String contactPhone;
-  final String status; // ACTIVE, INACTIVE, MAINTENANCE
+  final String status;
 
-  // Derived from unit types (nullable = not computed / no unit types yet)
   final double? minAreaSqm;
   final double? maxAreaSqm;
   final double? minPricePerMonth;
@@ -49,9 +42,6 @@ class FacilityModel {
   String get fullAddress =>
       [address, city].where((s) => s.isNotEmpty).join(', ');
 
-  /// Returns a copy of this facility with real stats computed from its
-  /// unit types (as returned by GET /catalog/unit-types?facilityId=...:
-  /// areaSqm, basePricePerMonth, availableUnitsCount per type).
   FacilityModel withUnitTypeStats(List<dynamic> unitTypes) {
     if (unitTypes.isEmpty) {
       return FacilityModel(
@@ -73,9 +63,6 @@ class FacilityModel {
       if (raw is! Map) continue;
       final area = (raw['areaSqm'] as num?)?.toDouble();
       final price = (raw['basePricePerMonth'] as num?)?.toDouble();
-      // Note: this field has been observed coming back as a UUID string
-      // instead of a count on some BE builds (likely an upstream bug) - the
-      // `as num?` cast safely yields null / 0 rather than crashing.
       final available = (raw['availableUnitsCount'] as num?)?.toInt() ?? 0;
 
       if (area != null) {

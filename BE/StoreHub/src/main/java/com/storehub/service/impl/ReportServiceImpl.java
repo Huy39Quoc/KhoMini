@@ -1,10 +1,10 @@
 package com.storehub.service.impl;
 
 import com.storehub.dto.response.*;
-import com.storehub.enums.BookingStatus;
 import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
+import com.storehub.enums.BookingStatus;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.StorageUnitRepository;
@@ -51,14 +51,11 @@ public class ReportServiceImpl implements ReportService {
                     .build();
         }
 
-        BigDecimal overdueRevenue = paymentRepository.sumOverdueRevenue(from, to);
-
         return RevenueReportResponse.builder()
                 .fromDate(fromDate)
                 .toDate(toDate)
                 .systemSummary(systemSummary)
                 .byFacility(byFacility)
-                .overdue(overdueRevenue != null ? overdueRevenue : BigDecimal.ZERO)
                 .build();
     }
 
@@ -95,15 +92,12 @@ public class ReportServiceImpl implements ReportService {
             }
         }
 
-        LocalDate today = LocalDate.now();
-        List<Object[]> overdueRows = bookingRepository.countOverdueBookingsGroupedByFacility(
-                BookingStatus.ACTIVE, today
-        );
-        Map<UUID, Long> overdueCounts = new HashMap<>();
-        for (Object[] row : overdueRows) {
-            UUID facilityId = (UUID) row[0];
-            Long count = row[1] instanceof Number num ? num.longValue() : 0L;
-            overdueCounts.put(facilityId, count);
+        Map<UUID, Long> overdueByFacility = new HashMap<>();
+        for (Object[] row : bookingRepository.countOverdueGroupedByFacility()) {
+            overdueByFacility.put(
+                    (UUID) row[0],
+                    row[1] instanceof Number num ? num.longValue() : 0L
+            );
         }
 
         List<FacilityOccupancyResponse> byFacility = new ArrayList<>();
@@ -111,29 +105,28 @@ public class ReportServiceImpl implements ReportService {
         long sysOverdue = 0;
 
         for (Map.Entry<UUID, long[]> entry : counts.entrySet()) {
-            UUID facilityId = entry.getKey();
             long[] c = entry.getValue();
-            long overdue = overdueCounts.getOrDefault(facilityId, 0L);
             double rate = c[0] == 0 ? 0.0 : (c[1] * 100.0) / c[0];
 
             byFacility.add(FacilityOccupancyResponse.builder()
-                    .facilityId(facilityId)
-                    .facilityName(facilityNames.get(facilityId))
+                    .facilityId(entry.getKey())
+                    .facilityName(facilityNames.get(entry.getKey()))
                     .totalUnits(c[0])
                     .occupiedUnits(c[1])
                     .availableUnits(c[2])
                     .reservedUnits(c[3])
                     .maintenanceUnits(c[4])
-                    .overdue(overdue)
+                    .overdueBookings(overdueByFacility.getOrDefault(entry.getKey(), 0L))
                     .occupancyRate(round2(rate))
                     .build());
+
+            sysOverdue += overdueByFacility.getOrDefault(entry.getKey(), 0L);
 
             sysTotal += c[0];
             sysOccupied += c[1];
             sysAvailable += c[2];
             sysReserved += c[3];
             sysMaintenance += c[4];
-            sysOverdue += overdue;
         }
 
         double systemRate = sysTotal == 0 ? 0.0 : (sysOccupied * 100.0) / sysTotal;
@@ -144,15 +137,78 @@ public class ReportServiceImpl implements ReportService {
                 .availableUnits(sysAvailable)
                 .reservedUnits(sysReserved)
                 .maintenanceUnits(sysMaintenance)
-                .overdue(sysOverdue)
+                .overdueBookings(sysOverdue)
                 .occupancyRate(round2(systemRate))
                 .build();
 
         return OccupancyReportResponse.builder()
                 .systemSummary(systemSummary)
                 .byFacility(byFacility)
-                .overdue(sysOverdue)
+                .byUnitType(buildUnitTypeBreakdown())
+                .bookingsByStatus(buildBookingStatusBreakdown())
                 .build();
+    }
+
+    private List<UnitTypeOccupancyResponse> buildUnitTypeBreakdown() {
+        Map<UUID, String> names = new LinkedHashMap<>();
+        // bucket layout: [total, occupied, available, reserved, maintenance]
+        Map<UUID, long[]> counts = new LinkedHashMap<>();
+
+        for (Object[] row : storageUnitRepository.countUnitsGroupedByUnitTypeAndStatus()) {
+            UUID unitTypeId = (UUID) row[0];
+            String typeName = (String) row[1];
+
+            UnitStatus status;
+            if (row[2] instanceof UnitStatus us) {
+                status = us;
+            } else if (row[2] instanceof String str) {
+                status = UnitStatus.valueOf(str);
+            } else {
+                continue;
+            }
+            long count = row[3] instanceof Number num ? num.longValue() : 0L;
+
+            names.putIfAbsent(unitTypeId, typeName);
+            long[] bucket = counts.computeIfAbsent(unitTypeId, k -> new long[5]);
+            bucket[0] += count;
+            switch (status) {
+                case OCCUPIED -> bucket[1] += count;
+                case AVAILABLE -> bucket[2] += count;
+                case RESERVED -> bucket[3] += count;
+                case UNDER_MAINTENANCE -> bucket[4] += count;
+            }
+        }
+
+        List<UnitTypeOccupancyResponse> result = new ArrayList<>();
+        for (Map.Entry<UUID, long[]> entry : counts.entrySet()) {
+            long[] c = entry.getValue();
+            double rate = c[0] == 0 ? 0.0 : (c[1] * 100.0) / c[0];
+            result.add(UnitTypeOccupancyResponse.builder()
+                    .unitTypeId(entry.getKey())
+                    .typeName(names.get(entry.getKey()))
+                    .totalUnits(c[0])
+                    .occupiedUnits(c[1])
+                    .availableUnits(c[2])
+                    .reservedUnits(c[3])
+                    .maintenanceUnits(c[4])
+                    .occupancyRate(round2(rate))
+                    .build());
+        }
+        return result;
+    }
+
+    private Map<String, Long> buildBookingStatusBreakdown() {
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (BookingStatus status : BookingStatus.values()) {
+            result.put(status.name(), 0L);
+        }
+        for (Object[] row : bookingRepository.countGroupedByStatus()) {
+            String key = row[0] == null ? null : row[0].toString();
+            if (key != null) {
+                result.put(key, row[1] instanceof Number num ? num.longValue() : 0L);
+            }
+        }
+        return result;
     }
 
     private double round2(double value) {

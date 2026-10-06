@@ -2,11 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../services/storage_api_service.dart';
 import '../../../models/smart_access_model.dart';
+import '../../../services/storage_api_service.dart';
 
+/// Khóa thông minh: mở/đóng cửa ngăn kho bằng mã PIN 6 số.
+///
+/// - PIN do hệ thống cấp hoặc khách tự đặt. Server chỉ lưu bản băm nên không thể xem lại PIN.
+/// - Mở khóa phải nhập đúng PIN (sai 5 lần -> khóa tạm 15 phút). Đóng khóa không cần PIN.
+/// - Quên PIN -> đặt lại bằng mật khẩu tài khoản.
 class SmartKeyScreen extends StatefulWidget {
   final String bookingId;
   final String unitNumber;
@@ -22,12 +26,19 @@ class SmartKeyScreen extends StatefulWidget {
 }
 
 class _SmartKeyScreenState extends State<SmartKeyScreen> {
-  final StorageApiService _storageService = StorageApiService();
-  late Future<SmartAccessModel> _accessFuture;
-  bool _isPinVisible = true;
-  bool _isTogglingLock = false;
-  Timer? _ticker;
-  Duration? _remaining;
+  final StorageApiService _service = StorageApiService();
+  final TextEditingController _pinController = TextEditingController();
+
+  SmartAccessModel? _access;
+  String? _loadError;
+  bool _loading = true;
+  bool _busy = false;
+  Timer? _blockTicker;
+
+  static final _digitsOnly = <TextInputFormatter>[
+    FilteringTextInputFormatter.digitsOnly,
+    LengthLimitingTextInputFormatter(6),
+  ];
 
   @override
   void initState() {
@@ -37,161 +48,550 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
 
   @override
   void dispose() {
-    _ticker?.cancel();
+    _blockTicker?.cancel();
+    _pinController.dispose();
     super.dispose();
   }
 
-  void _load() {
-    _ticker?.cancel();
-    setState(() {
-      _accessFuture =
-          _storageService.getSmartAccess(widget.bookingId).then((json) {
-        final model = SmartAccessModel.fromJson(json);
-        _startCountdown(model.tokenExpiresAt);
-        return model;
+  String _msg(Object e) => e.toString().replaceAll('Exception: ', '');
+
+  void _toast(String text, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(text),
+      backgroundColor: error ? AppColors.error : AppColors.success,
+    ));
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
       });
-    });
-  }
-
-  void _startCountdown(DateTime? expiresAt) {
-    _ticker?.cancel();
-    if (expiresAt == null) {
-      setState(() => _remaining = null);
-      return;
     }
-    void tick() {
-      final diff = expiresAt.difference(DateTime.now());
-      if (!mounted) return;
-      setState(() => _remaining = diff.isNegative ? Duration.zero : diff);
-    }
-
-    tick();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => tick());
-  }
-
-  // Không có phần cứng khóa thật đứng sau QR/PIN, nên đây là cách duy nhất
-  // để test được hành động mở/đóng khóa - đổi trạng thái xong load lại
-  // toàn bộ access info (giống pattern _showUpdatePinDialog đang dùng).
-  Future<void> _toggleLock(bool currentlyLocked) async {
-    setState(() => _isTogglingLock = true);
     try {
-      if (currentlyLocked) {
-        await _storageService.unlockUnit(widget.bookingId);
-      } else {
-        await _storageService.lockUnit(widget.bookingId);
-      }
+      final json = await _service.getSmartAccess(widget.bookingId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(currentlyLocked ? 'Unit unlocked' : 'Unit locked'),
-          backgroundColor:
-              currentlyLocked ? AppColors.success : AppColors.secondary,
-        ),
-      );
-      _load();
+      _apply(SmartAccessModel.fromJson(json));
+      setState(() => _loading = false);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isTogglingLock = false);
+      if (!silent) {
+        setState(() {
+          _loading = false;
+          _loadError = _msg(e);
+        });
+      }
     }
   }
 
-  String _formatDuration(Duration d) {
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    if (d.inHours > 0) {
-      return '${d.inHours}h ${m}m';
+  void _apply(SmartAccessModel model) {
+    _access = model;
+    _blockTicker?.cancel();
+    if (model.isTemporarilyBlocked) {
+      _blockTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        if (_access?.isTemporarilyBlocked != true) {
+          _blockTicker?.cancel();
+          _load(silent: true);
+        } else {
+          setState(() {});
+        }
+      });
     }
-    return '$m:$s';
   }
 
-  Future<void> _showUpdatePinDialog(String currentPin) async {
-    final controller = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    bool saving = false;
+  /// Chạy một thao tác thay đổi trạng thái; luôn đồng bộ lại trạng thái từ server sau khi lỗi
+  /// (để cập nhật số lần nhập sai còn lại / thời gian khóa tạm).
+  Future<SmartAccessModel?> _run(
+      Future<Map<String, dynamic>> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      final model = SmartAccessModel.fromJson(await action());
+      if (!mounted) return null;
+      setState(() {
+        _apply(model);
+        _busy = false;
+      });
+      return model;
+    } catch (e) {
+      if (!mounted) return null;
+      setState(() => _busy = false);
+      _toast(_msg(e), error: true);
+      _load(silent: true);
+      return null;
+    }
+  }
 
-    await showDialog(
+  // ---------------------------------------------------------------- actions
+
+  Future<void> _unlock() async {
+    final pin = _pinController.text;
+    if (pin.length != 6) {
+      _toast('Nhập đủ mã PIN 6 số', error: true);
+      return;
+    }
+    final model = await _run(() => _service.unlockUnit(widget.bookingId, pin));
+    _pinController.clear();
+    if (model != null) _toast('Đã mở khóa ngăn ${widget.unitNumber}');
+  }
+
+  Future<void> _lock() async {
+    final model = await _run(() => _service.lockUnit(widget.bookingId));
+    if (model != null) _toast('Đã đóng khóa');
+  }
+
+  Future<void> _setupPin({String? customPin}) async {
+    final model = await _run(
+        () => _service.setupPin(widget.bookingId, newPin: customPin));
+    if (model == null) return;
+    if (model.generatedPin != null) {
+      await _showGeneratedPin(model.generatedPin!);
+    } else {
+      _toast('Đã tạo mã PIN của bạn');
+    }
+  }
+
+  Future<void> _showGeneratedPin(String pin) {
+    return showDialog<void>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Set a new access PIN'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: controller,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'New 6-digit PIN',
-                helperText: 'Must be exactly 6 digits (0-9)',
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Mã PIN của bạn'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(14),
               ),
-              validator: (value) {
-                final v = value ?? '';
-                if (!RegExp(r'^[0-9]{6}$').hasMatch(v)) {
-                  return 'PIN must be exactly 6 digits';
-                }
-                return null;
+              child: SelectableText(
+                pin,
+                style: const TextStyle(
+                    fontSize: 38,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 10,
+                    color: AppColors.primary),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: pin));
+                _toast('Đã chép mã PIN');
               },
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Chép mã'),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Hãy ghi nhớ mã này. Vì lý do bảo mật, mã chỉ hiển thị MỘT lần. '
+              'Nếu quên, bạn có thể đặt lại bằng mật khẩu tài khoản.',
+              style:
+                  TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Tôi đã ghi nhớ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pinField(TextEditingController c, String label,
+      {String? Function(String?)? validator}) {
+    return TextFormField(
+      controller: c,
+      keyboardType: TextInputType.number,
+      obscureText: true,
+      inputFormatters: _digitsOnly,
+      maxLength: 6,
+      decoration: InputDecoration(labelText: label, counterText: ''),
+      validator: validator ??
+          (v) => (v == null || v.length != 6) ? 'PIN phải đủ 6 số' : null,
+    );
+  }
+
+  /// Hộp thoại tự đặt PIN lần đầu.
+  Future<void> _customPinDialog() async {
+    final pin = TextEditingController();
+    final confirm = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tự đặt mã PIN'),
+        content: Form(
+          key: formKey,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _pinField(pin, 'Mã PIN mới (6 số)'),
+            _pinField(confirm, 'Nhập lại mã PIN',
+                validator: (v) => v != pin.text ? 'Mã PIN không khớp' : null),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+    final value = pin.text;
+    pin.dispose();
+    confirm.dispose();
+    if (ok == true) await _setupPin(customPin: value);
+  }
+
+  /// Đổi PIN: phải biết PIN hiện tại.
+  Future<void> _changePinDialog() async {
+    final current = TextEditingController();
+    final pin = TextEditingController();
+    final confirm = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Đổi mã PIN'),
+        content: Form(
+          key: formKey,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _pinField(current, 'Mã PIN hiện tại'),
+            _pinField(pin, 'Mã PIN mới (6 số)'),
+            _pinField(confirm, 'Nhập lại mã PIN mới',
+                validator: (v) => v != pin.text ? 'Mã PIN không khớp' : null),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
+            },
+            child: const Text('Đổi mã'),
+          ),
+        ],
+      ),
+    );
+    final cur = current.text, neu = pin.text;
+    current.dispose();
+    pin.dispose();
+    confirm.dispose();
+    if (ok != true) return;
+    final model =
+        await _run(() => _service.updatePin(widget.bookingId, cur, neu));
+    if (model != null) _toast('Đã đổi mã PIN, cửa đã được khóa lại');
+  }
+
+  /// Quên PIN: xác minh bằng mật khẩu tài khoản rồi cấp/đặt PIN mới.
+  Future<void> _forgotPinDialog() async {
+    final password = TextEditingController();
+    final pin = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var generate = true;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Quên mã PIN?'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Nhập mật khẩu tài khoản để xác minh đúng là bạn, '
+                    'sau đó tạo mã PIN mới. Mã cũ sẽ không còn dùng được.',
+                    style: TextStyle(
+                        fontSize: 12.5, color: AppColors.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: password,
+                    obscureText: true,
+                    decoration:
+                        const InputDecoration(labelText: 'Mật khẩu tài khoản'),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Nhập mật khẩu' : null,
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<bool>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(value: true, label: Text('Hệ thống cấp')),
+                        ButtonSegment(value: false, label: Text('Tự đặt mã')),
+                      ],
+                      selected: {generate},
+                      onSelectionChanged: (s) =>
+                          setLocal(() => generate = s.first),
+                    ),
+                  ),
+                  if (!generate) _pinField(pin, 'Mã PIN mới (6 số)'),
+                ],
+              ),
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Hủy')),
             ElevatedButton(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      setDialogState(() => saving = true);
-                      try {
-                        await _storageService.updatePin(
-                            widget.bookingId, controller.text);
-                        if (!dialogContext.mounted) return;
-                        Navigator.pop(dialogContext);
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('PIN updated successfully'),
-                            backgroundColor: AppColors.success,
-                          ),
-                        );
-                        _load();
-                      } catch (e) {
-                        setDialogState(() => saving = false);
-                        if (!dialogContext.mounted) return;
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                e.toString().replaceAll('Exception: ', '')),
-                            backgroundColor: AppColors.error,
-                          ),
-                        );
-                      }
-                    },
-              child: saving
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('Save'),
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
+              },
+              child: const Text('Đặt lại PIN'),
             ),
           ],
         ),
       ),
+    );
+    final pass = password.text, custom = pin.text;
+    final useGenerated = generate;
+    password.dispose();
+    pin.dispose();
+    if (ok != true) return;
+
+    final model = await _run(() => _service.resetPin(widget.bookingId, pass,
+        newPin: useGenerated ? null : custom));
+    if (model == null) return;
+    if (model.generatedPin != null) {
+      await _showGeneratedPin(model.generatedPin!);
+    } else {
+      _toast('Đã đặt lại mã PIN, cửa đã được khóa lại');
+    }
+  }
+
+  // ------------------------------------------------------------------- UI
+
+  String _blockedText(DateTime until) {
+    final d = until.difference(DateTime.now());
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return 'Nhập sai quá nhiều lần. Thử lại sau $m:$s, hoặc đặt lại PIN bằng mật khẩu tài khoản.';
+  }
+
+  Widget _card({required Widget child}) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 14,
+                offset: const Offset(0, 4)),
+          ],
+        ),
+        child: child,
+      );
+
+  Widget _noPinView() {
+    return _card(
+      child: Column(
+        children: [
+          const Icon(Icons.pin_outlined, size: 56, color: AppColors.primary),
+          const SizedBox(height: 12),
+          const Text('Bạn chưa có mã PIN',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          const Text(
+            'Mã PIN 6 số dùng để mở cửa ngăn kho. Bạn có thể để hệ thống cấp '
+            'mã hoặc tự đặt mã dễ nhớ.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: _busy ? null : () => _setupPin(),
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('Hệ thống cấp mã cho tôi'),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: _busy ? null : _customPinDialog,
+              icon: const Icon(Icons.edit),
+              label: const Text('Tự đặt mã PIN'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _lockView(SmartAccessModel a) {
+    final blocked = a.isTemporarilyBlocked;
+    final locked = a.locked;
+    final color = locked ? AppColors.primary : AppColors.success;
+
+    return Column(
+      children: [
+        _card(
+          child: Column(
+            children: [
+              Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(locked ? Icons.lock : Icons.lock_open,
+                    size: 44, color: color),
+              ),
+              const SizedBox(height: 12),
+              Text(locked ? 'Cửa đang KHÓA' : 'Cửa đang MỞ',
+                  style: TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+              const SizedBox(height: 4),
+              Text('Ngăn ${a.unitCode}',
+                  style: const TextStyle(color: AppColors.onSurfaceVariant)),
+              const SizedBox(height: 20),
+              if (locked) ...[
+                TextField(
+                  controller: _pinController,
+                  enabled: !blocked && !_busy,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  textAlign: TextAlign.center,
+                  inputFormatters: _digitsOnly,
+                  style: const TextStyle(
+                      fontSize: 28, letterSpacing: 12, fontWeight: FontWeight.bold),
+                  decoration: const InputDecoration(
+                    hintText: '••••••',
+                    labelText: 'Nhập mã PIN để mở khóa',
+                  ),
+                  onSubmitted: (_) => _unlock(),
+                ),
+                if (blocked)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(_blockedText(a.pinLockedUntil!),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            color: AppColors.error, fontSize: 12.5)),
+                  )
+                else if (a.attemptsRemaining < 5)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text('Còn ${a.attemptsRemaining} lần thử',
+                        style: const TextStyle(
+                            color: AppColors.warning, fontSize: 12.5)),
+                  ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: (blocked || _busy) ? null : _unlock,
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.lock_open),
+                    label: const Text('Mở khóa'),
+                  ),
+                ),
+              ] else
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _busy ? null : _lock,
+                    icon: const Icon(Icons.lock),
+                    label: const Text('Đóng khóa'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _card(
+          child: Column(
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.password),
+                title: const Text('Đổi mã PIN'),
+                subtitle: const Text('Cần nhập mã PIN hiện tại'),
+                onTap: _busy ? null : _changePinDialog,
+              ),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.help_outline),
+                title: const Text('Quên mã PIN?'),
+                subtitle:
+                    const Text('Đặt lại bằng mật khẩu tài khoản của bạn'),
+                onTap: _busy ? null : _forgotPinDialog,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Mã PIN được lưu mã hóa nên không ai (kể cả nhân viên) xem được. '
+          'Nếu cũng quên mật khẩu hoặc cửa gặp sự cố, hãy gửi yêu cầu hỗ trợ '
+          '(loại "Access PIN issue") để nhân viên cơ sở giúp bạn.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+
+  Widget _body() {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loadError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_outline, size: 48, color: AppColors.error),
+              const SizedBox(height: 12),
+              Text(_loadError!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: _load, child: const Text('Thử lại')),
+            ],
+          ),
+        ),
+      );
+    }
+    final a = _access!;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [a.pinSet ? _lockView(a) : _noPinView()],
     );
   }
 
@@ -205,277 +605,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),
-      body: FutureBuilder<SmartAccessModel>(
-        future: _accessFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Text(
-                  "Couldn't load your smart key: ${snapshot.error.toString().replaceAll('Exception: ', '')}",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.error),
-                ),
-              ),
-            );
-          }
-
-          final access = snapshot.data!;
-          final pin = access.accessPin.isNotEmpty ? access.accessPin : '------';
-          final pinDigits = pin.split('');
-          final isExpired = _remaining != null && _remaining == Duration.zero;
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'ACTIVE LEASE PASS',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.secondary,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text('Bearer Token · JWT Secured',
-                          style: TextStyle(
-                              fontSize: 10, fontWeight: FontWeight.w600)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // QR card - real qrCodeToken from the BE
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('UNIT ${widget.unitNumber} ACCESS',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold)),
-                          if (_remaining != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isExpired
-                                    ? AppColors.error.withValues(alpha: 0.3)
-                                    : Colors.white12,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                isExpired
-                                    ? 'EXPIRED'
-                                    : _formatDuration(_remaining!),
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 10),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: access.qrCodeToken.isNotEmpty
-                            ? QrImageView(
-                                data: access.qrCodeToken,
-                                version: QrVersions.auto,
-                                size: 180.0,
-                              )
-                            : const SizedBox(
-                                height: 180,
-                                width: 180,
-                                child: Center(child: Text('QR not available')),
-                              ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        isExpired
-                            ? 'This QR code has expired. Pull to refresh for a new one.'
-                            : 'Scan at the facility gate or unit scanner',
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                const SizedBox(height: 16),
-
-                // Nút Mở khóa / Khóa lại - mô phỏng hành động thật vì
-                // không có phần cứng khóa đứng sau QR/PIN để test.
-                Card(
-                  color: access.locked
-                      ? AppColors.surfaceContainerLow
-                      : AppColors.success.withValues(alpha: 0.12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Icon(
-                          access.locked ? Icons.lock : Icons.lock_open,
-                          color: access.locked
-                              ? AppColors.onSurfaceVariant
-                              : AppColors.success,
-                          size: 28,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                access.locked
-                                    ? 'Unit is locked'
-                                    : 'Unit is unlocked',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                access.locked
-                                    ? 'Tap to unlock (simulated - no real hardware attached)'
-                                    : 'Tap to lock it back',
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    color: AppColors.onSurfaceVariant),
-                              ),
-                            ],
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: _isTogglingLock
-                              ? null
-                              : () => _toggleLock(access.locked),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: access.locked
-                                ? AppColors.primary
-                                : AppColors.secondary,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: _isTogglingLock
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
-                                )
-                              : Text(access.locked ? 'Unlock' : 'Lock'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // PIN card
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Keypad Access PIN',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: Icon(
-                                      _isPinVisible
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
-                                      size: 20),
-                                  onPressed: () => setState(
-                                      () => _isPinVisible = !_isPinVisible),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.copy, size: 20),
-                                  onPressed: () {
-                                    Clipboard.setData(ClipboardData(text: pin));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content:
-                                              Text('PIN copied to clipboard')),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: pinDigits.map((digit) {
-                            return Container(
-                              width: 40,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceContainerLow,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                _isPinVisible ? digit : '•',
-                                style: const TextStyle(
-                                    fontSize: 22, fontWeight: FontWeight.bold),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: () => _showUpdatePinDialog(pin),
-                          icon: const Icon(Icons.password, size: 16),
-                          label: const Text('Set a new PIN',
-                              style: TextStyle(fontSize: 13)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Enter this PIN on the gate or unit keypad followed by #, or scan the QR code above.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: AppColors.onSurfaceVariant, fontSize: 12),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+      body: _body(),
     );
   }
 }

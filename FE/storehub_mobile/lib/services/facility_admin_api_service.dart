@@ -2,10 +2,6 @@ import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 
-/// Wires FacilityController, FacilityPolicyController, ReportController and
-/// ActivityLogController - these were merged onto the BE after the
-/// operations/admin dashboards were first built, so the FE never had real
-/// revenue/occupancy numbers or a facility/policy manager until now.
 class FacilityAdminApiService {
   final Dio _dio = HttpClient.instance.dio;
 
@@ -22,8 +18,6 @@ class FacilityAdminApiService {
     final message = e.response?.data?['message'] ?? e.message;
     return Exception('Failed to $action: $message');
   }
-
-  // ===== Facilities (FacilityController) =====
 
   Future<List<dynamic>> getFacilities({String? search}) async {
     try {
@@ -75,8 +69,6 @@ class FacilityAdminApiService {
       throw _err(e, 'delete facility');
     }
   }
-
-  // ===== Facility Policies (FacilityPolicyController) =====
 
   Future<List<dynamic>> getFacilityPolicies({String? search}) async {
     try {
@@ -134,8 +126,6 @@ class FacilityAdminApiService {
     }
   }
 
-  // ===== Reports (ReportController) =====
-
   Future<Map<String, dynamic>> getRevenueReport(
       {DateTime? fromDate, DateTime? toDate}) async {
     try {
@@ -161,7 +151,48 @@ class FacilityAdminApiService {
     }
   }
 
-  // ===== Activity Log (ActivityLogController) =====
+  Future<String> exportReport({
+    required String type,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiEndpoints.reportExport,
+        queryParameters: {
+          'type': type,
+          if (fromDate != null) 'fromDate': _formatDate(fromDate),
+          if (toDate != null) 'toDate': _formatDate(toDate),
+        },
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {'Accept': '*/*'},
+        ),
+      );
+      return response.data?.toString() ?? '';
+    } on DioException catch (e) {
+      throw _err(e, 'export the report');
+    }
+  }
+
+  Future<Map<String, dynamic>> updateUnitTypePrice({
+    required String unitTypeId,
+    required double basePricePerMonth,
+    required double depositAmount,
+  }) async {
+    try {
+      final response = await _dio.put(
+        ApiEndpoints.unitTypePrice(unitTypeId),
+        data: {
+          'basePricePerMonth': basePricePerMonth,
+          'depositAmount': depositAmount,
+        },
+      );
+      return _unwrap(response.data);
+    } on DioException catch (e) {
+      throw _err(e, 'update the unit type price');
+    }
+  }
 
   Future<List<dynamic>> getActivityLogs({
     String? search,

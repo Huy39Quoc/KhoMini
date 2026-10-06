@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Dev: BE chạy http://10.0.2.2:8080, và trang VNPay redirect về BE bằng http ngay trong WebView -->
     <application
+        android:usesCleartextTraffic="true"
         android:label="khomini_mobile"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
@@ -23,6 +26,12 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="storehub" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

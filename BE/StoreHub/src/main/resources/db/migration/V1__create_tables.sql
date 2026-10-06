@@ -252,6 +252,9 @@ CREATE TABLE IF NOT EXISTS facility_policies
     overdue_access_disable_days          INTEGER          NOT NULL DEFAULT 3,
     overdue_sealing_days                 INTEGER          NOT NULL DEFAULT 7,
     minimum_rental_months                INTEGER          NOT NULL DEFAULT 1,
+    management_fee_per_month             NUMERIC(12,0)    NOT NULL DEFAULT 50000,
+    long_term_discount_min_months        INTEGER          NOT NULL DEFAULT 0,
+    long_term_discount_percent           DOUBLE PRECISION NOT NULL DEFAULT 0,
 
     CONSTRAINT pk_facility_policies PRIMARY KEY (id),
 
@@ -286,8 +289,9 @@ CREATE TABLE IF NOT EXISTS bookings
     handed_over_by_staff_id  UUID,
     handover_time            TIMESTAMP,
     return_time              TIMESTAMP,
-    access_pin               VARCHAR(10),
-    qr_access_token          VARCHAR(255),
+    access_pin               VARCHAR(100),
+    pin_failed_attempts      INTEGER      NOT NULL DEFAULT 0,
+    pin_locked_until         TIMESTAMP,
     pin_updated_at           TIMESTAMP,
     expires_at               TIMESTAMP,
     pending_extra_months     INTEGER,
