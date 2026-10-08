@@ -33,7 +33,7 @@ class TicketApiService {
     String category,
     String title,
     String description,
-    String? bookingId,
+    String bookingId,
   ) async {
     try {
       await _dio.post(
@@ -42,7 +42,7 @@ class TicketApiService {
           'category': category,
           'title': title,
           'description': description,
-          if (bookingId != null && bookingId.isNotEmpty) 'bookingId': bookingId,
+          'bookingId': bookingId,
         },
       );
     } on DioException catch (e) {

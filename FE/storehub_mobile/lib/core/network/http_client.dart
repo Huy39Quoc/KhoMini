@@ -111,7 +111,7 @@ class HttpClient {
 
       _notifyPending(newAccessToken);
       return newAccessToken;
-    } on DioException {
+    } catch (_) {
       _notifyPending(null);
       return null;
     } finally {

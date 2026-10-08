@@ -115,7 +115,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
         _selectedCategory,
         _titleController.text.trim(),
         _descriptionController.text.trim(),
-        _selectedBookingId,
+        _selectedBookingId!,
       );
 
       if (!mounted) return;
@@ -161,7 +161,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 4),
                 const Text(
-                  'Optional - pick a unit if this issue is about a specific storage unit',
+                  'Select the rented unit related to this issue',
                   style: TextStyle(
                       fontSize: 12, color: AppColors.onSurfaceVariant),
                 ),

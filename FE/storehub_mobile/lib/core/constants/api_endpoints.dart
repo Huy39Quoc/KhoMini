@@ -1,5 +1,8 @@
 class ApiEndpoints {
-  static const String baseUrl = 'http://10.0.2.2:8080/api/v1';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://10.0.2.2:8080/api/v1',
+  );
 
   // ---- Auth (AuthController) ----
   static const String login = '/auth/login';
