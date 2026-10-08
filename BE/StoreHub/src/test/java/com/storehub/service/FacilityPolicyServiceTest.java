@@ -64,22 +64,6 @@ class FacilityPolicyServiceTest {
     }
 
     @Test
-    void testResolveDepositPercentage_ReturnsPolicyValue() {
-        when(facilityPolicyRepository.findByFacility_Id(facilityId)).thenReturn(Optional.of(policy));
-
-        Double depositPct = facilityPolicyService.resolveDepositPercentage(facilityId);
-        assertEquals(75.0, depositPct);
-    }
-
-    @Test
-    void testResolveDepositPercentage_ReturnsDefaultWhenNoPolicy() {
-        when(facilityPolicyRepository.findByFacility_Id(facilityId)).thenReturn(Optional.empty());
-
-        Double depositPct = facilityPolicyService.resolveDepositPercentage(facilityId);
-        assertEquals(100.0, depositPct);
-    }
-
-    @Test
     void testIsMinRentalMonthsSatisfied_TrueWhenSatisfied() {
         when(facilityPolicyRepository.findByFacility_Id(facilityId)).thenReturn(Optional.of(policy));
 

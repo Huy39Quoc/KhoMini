@@ -2,7 +2,9 @@ package com.storehub.repository;
 
 import com.storehub.entity.Waitlist;
 import com.storehub.enums.WaitlistStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,6 +16,7 @@ import java.util.UUID;
 @Repository
 public interface WaitlistRepository extends JpaRepository<Waitlist, UUID> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT w FROM Waitlist w
             JOIN FETCH w.customer

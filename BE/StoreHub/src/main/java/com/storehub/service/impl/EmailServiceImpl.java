@@ -155,7 +155,6 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    @Async
     public void sendWaitlistNotificationEmail(
             String toEmail,
             String fullName,
@@ -181,11 +180,19 @@ public class EmailServiceImpl implements EmailService {
                 </div>
                 """.formatted(fullName, facilityName, unitTypeName);
 
-        sendHtmlEmail(toEmail, subject, content);
+        sendHtmlEmailOrThrow(toEmail, subject, content);
     }
 
 
     private void sendHtmlEmail(String to, String subject, String htmlContent) {
+        try {
+            sendHtmlEmailOrThrow(to, subject, htmlContent);
+        } catch (IllegalStateException ignored) {
+            // Other email flows are best-effort; waitlist delivery must report failure.
+        }
+    }
+
+    private void sendHtmlEmailOrThrow(String to, String subject, String htmlContent) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -197,6 +204,7 @@ public class EmailServiceImpl implements EmailService {
             log.info("Email sent to: {}", to);
         } catch (Exception e) {
             log.warn("Failed to send email to {}: {}", to, e.getMessage());
+            throw new IllegalStateException("Failed to send email to " + to, e);
         }
     }
 }

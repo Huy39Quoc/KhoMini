@@ -83,7 +83,9 @@ public class BookingServiceImpl implements BookingService {
         selectedUnit.setStatus(UnitStatus.RESERVED);
         storageUnitRepository.save(selectedUnit);
 
-        String bookingCode = "BK-" + System.currentTimeMillis();
+        String bookingCode = "BK-" + UUID.randomUUID()
+                .toString().replace("-", "")
+                .substring(0, 20).toUpperCase(java.util.Locale.ROOT);
 
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(BOOKING_EXPIRY_MINUTES);
 

@@ -4,7 +4,6 @@ import com.storehub.dto.response.FacilityOccupancyResponse;
 import com.storehub.dto.response.OccupancyReportResponse;
 import com.storehub.dto.response.RevenueReportResponse;
 import com.storehub.dto.response.SystemRevenueSummaryResponse;
-import com.storehub.enums.BookingStatus;
 import com.storehub.enums.UnitStatus;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
@@ -17,14 +16,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -61,27 +58,26 @@ class ReportServiceOverdueTest {
         overdueRows.add(new Object[]{f1, 3L}); // 3 overdue in f1
         overdueRows.add(new Object[]{f2, 1L}); // 1 overdue in f2
 
-        when(bookingRepository.countOverdueBookingsGroupedByFacility(eq(BookingStatus.ACTIVE), any(LocalDate.class)))
+        when(bookingRepository.countOverdueGroupedByFacility())
                 .thenReturn(overdueRows);
 
         OccupancyReportResponse response = reportService.getOccupancyReport();
 
         assertNotNull(response);
         // Total overdue in system = 3 + 1 = 4
-        assertEquals(4L, response.getOverdue());
-        assertEquals(4L, response.getSystemSummary().getOverdue());
+        assertEquals(4L, response.getSystemSummary().getOverdueBookings());
 
         assertEquals(2, response.getByFacility().size());
 
         FacilityOccupancyResponse f1Resp = response.getByFacility().stream()
                 .filter(f -> f.getFacilityId().equals(f1))
                 .findFirst().orElseThrow();
-        assertEquals(3L, f1Resp.getOverdue());
+        assertEquals(3L, f1Resp.getOverdueBookings());
 
         FacilityOccupancyResponse f2Resp = response.getByFacility().stream()
                 .filter(f -> f.getFacilityId().equals(f2))
                 .findFirst().orElseThrow();
-        assertEquals(1L, f2Resp.getOverdue());
+        assertEquals(1L, f2Resp.getOverdueBookings());
     }
 
     @Test

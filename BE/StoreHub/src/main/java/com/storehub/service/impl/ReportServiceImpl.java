@@ -41,6 +41,7 @@ public class ReportServiceImpl implements ReportService {
 
         List<FacilityRevenueResponse> byFacility = paymentRepository.sumRevenueByFacility(from, to);
         SystemRevenueSummaryResponse systemSummary = paymentRepository.sumSystemRevenue(from, to);
+        BigDecimal overdueRevenue = paymentRepository.sumOverdueRevenue(from, to);
         if (systemSummary == null) {
             systemSummary = SystemRevenueSummaryResponse.builder()
                     .totalRevenue(BigDecimal.ZERO)
@@ -56,6 +57,7 @@ public class ReportServiceImpl implements ReportService {
                 .toDate(toDate)
                 .systemSummary(systemSummary)
                 .byFacility(byFacility)
+                .overdue(overdueRevenue == null ? BigDecimal.ZERO : overdueRevenue)
                 .build();
     }
 

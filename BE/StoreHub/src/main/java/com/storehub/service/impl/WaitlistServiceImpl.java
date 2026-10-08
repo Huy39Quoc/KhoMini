@@ -5,10 +5,12 @@ import com.storehub.entity.UnitType;
 import com.storehub.entity.User;
 import com.storehub.entity.Waitlist;
 import com.storehub.enums.WaitlistStatus;
+import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.UnitTypeRepository;
+import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.repository.WaitlistRepository;
 import com.storehub.service.EmailService;
@@ -30,13 +32,18 @@ public class WaitlistServiceImpl implements WaitlistService {
     private final UserRepository userRepository;
     private final FacilityRepository facilityRepository;
     private final UnitTypeRepository unitTypeRepository;
+    private final StorageUnitRepository storageUnitRepository;
     private final EmailService emailService;
 
     @Override
     @Transactional
     public void joinWaitlist(String customerEmail, UUID facilityId, UUID unitTypeId) {
-        User customer = userRepository.findByEmail(customerEmail)
+        User customer = userRepository.findByEmailForUpdate(customerEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (customer.getRole() == null || !"CUSTOMER".equals(customer.getRole().getName())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
 
         boolean alreadyWaiting = waitlistRepository
                 .existsByCustomer_IdAndFacility_IdAndUnitType_IdAndStatus(
@@ -52,6 +59,11 @@ public class WaitlistServiceImpl implements WaitlistService {
 
         UnitType unitType = unitTypeRepository.findById(unitTypeId)
                 .orElseThrow(() -> new AppException(ErrorCode.UNIT_TYPE_NOT_FOUND));
+
+        if (storageUnitRepository.existsByFacility_IdAndUnitType_IdAndStatus(
+                facilityId, unitTypeId, UnitStatus.AVAILABLE)) {
+            throw new AppException(ErrorCode.WAITLIST_UNITS_AVAILABLE);
+        }
 
         Waitlist waitlist = Waitlist.builder()
                 .customer(customer)
@@ -79,9 +91,6 @@ public class WaitlistServiceImpl implements WaitlistService {
         Waitlist first = waitingList.get(0);
         User customer = first.getCustomer();
 
-        first.setStatus(WaitlistStatus.NOTIFIED);
-        waitlistRepository.save(first);
-
         try {
             emailService.sendWaitlistNotificationEmail(
                     customer.getEmail(),
@@ -89,6 +98,8 @@ public class WaitlistServiceImpl implements WaitlistService {
                     first.getFacility().getName(),
                     first.getUnitType().getTypeName()
             );
+            first.setStatus(WaitlistStatus.NOTIFIED);
+            waitlistRepository.save(first);
             log.info("Waitlist notification sent to {} for facility {} unitType {}",
                     customer.getEmail(), facilityId, unitTypeId);
         } catch (Exception e) {

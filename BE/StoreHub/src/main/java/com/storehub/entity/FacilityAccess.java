@@ -19,6 +19,17 @@ public class FacilityAccess {
         User user = users.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
+        return requireAssignedFacility(user, facilityId);
+    }
+
+    public User requireForUpdate(String email, UUID facilityId) {
+        User user = users.findByEmailForUpdate(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        return requireAssignedFacility(user, facilityId);
+    }
+
+    private User requireAssignedFacility(User user, UUID facilityId) {
         if (facilityId == null
                 || user.getFacility() == null
                 || !facilityId.equals(user.getFacility().getId())) {

@@ -61,6 +61,12 @@ public interface StorageUnitRepository
             UnitStatus status
     );
 
+    boolean existsByFacility_IdAndUnitType_IdAndStatus(
+            UUID facilityId,
+            UUID unitTypeId,
+            UnitStatus status
+    );
+
     @Query("""
             SELECT su.facility.id,
                    su.facility.name,

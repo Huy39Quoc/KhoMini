@@ -66,8 +66,8 @@ public enum ErrorCode {
     CHECKIN_TOO_EARLY(723, "Check-in is only allowed from the booking start date", HttpStatus.BAD_REQUEST),
     RESOURCE_IN_USE(724, "This record is referenced by other data and cannot be deleted. Deactivate it instead.", HttpStatus.CONFLICT),
     UNIT_NOT_OVERDUE(725, "This booking is not waiting for sealing", HttpStatus.CONFLICT),
-    RENTAL_BELOW_MINIMUM_MONTHS(718, "The rental period is shorter than this facility's minimum required months", HttpStatus.BAD_REQUEST),
-    OVERDUE_FEE_UNPAID_ON_RETURN(719, "Outstanding late fee must be paid by the customer before the unit return can be completed", HttpStatus.CONFLICT),
+    RENTAL_BELOW_MINIMUM_MONTHS(726, "The rental period is shorter than this facility's minimum required months", HttpStatus.BAD_REQUEST),
+    OVERDUE_FEE_UNPAID_ON_RETURN(727, "Outstanding late fee must be paid by the customer before the unit return can be completed", HttpStatus.CONFLICT),
 
 
     UNIT_UNAVAILABLE(
@@ -107,12 +107,14 @@ public enum ErrorCode {
 
     // ========================= SUPPORT_TICKET (1200 - 1299) =========================
     TICKET_NOT_FOUND(1200, "Support ticket not found or does not belong to user", HttpStatus.NOT_FOUND),
+    STAFF_HAS_UNCLOSED_TICKETS(1201, "Reassign or close this staff member's tickets before removing them from the facility", HttpStatus.CONFLICT),
 
     // ========================= ACTIVITY_LOG (1300 - 1399) =========================
     ACTIVITY_LOG_NOT_FOUND(1300, "Activity log entry not found", HttpStatus.NOT_FOUND),
 
     // ========================= WAITLIST (1400 - 1499) =========================
-    WAITLIST_ALREADY_JOINED(1400, "You are already on the waitlist for this unit type at this facility", HttpStatus.CONFLICT);
+    WAITLIST_ALREADY_JOINED(1400, "You are already on the waitlist for this unit type at this facility", HttpStatus.CONFLICT),
+    WAITLIST_UNITS_AVAILABLE(1401, "Units are available for this facility and type; book one instead of joining the waitlist", HttpStatus.CONFLICT);
 
 
     private final int code;

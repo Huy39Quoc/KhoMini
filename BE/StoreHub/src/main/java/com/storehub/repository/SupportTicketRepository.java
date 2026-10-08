@@ -1,9 +1,12 @@
 package com.storehub.repository;
 
 import com.storehub.entity.SupportTicket;
+import com.storehub.enums.TicketStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -50,4 +53,20 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, UU
             @Param("ticketId") UUID ticketId,
             @Param("facilityId") UUID facilityId
     );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT t
+            FROM SupportTicket t
+            JOIN t.booking b
+            JOIN b.storageUnit su
+            WHERE t.id = :ticketId
+              AND su.facility.id = :facilityId
+            """)
+    Optional<SupportTicket> findByIdAndFacilityIdForUpdate(
+            @Param("ticketId") UUID ticketId,
+            @Param("facilityId") UUID facilityId
+    );
+
+    boolean existsByAssignedStaff_IdAndStatusNot(UUID staffId, TicketStatus status);
 }

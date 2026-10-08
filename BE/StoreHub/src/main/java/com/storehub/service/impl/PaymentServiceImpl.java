@@ -39,6 +39,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -528,19 +529,29 @@ public class PaymentServiceImpl implements PaymentService {
             return confirmPayment(confirmationRequest);
         } else {
             log.warn("VNPay payment failed or cancelled with response code: {} for transactionId: {}", responseCode, transactionId);
-            Payment payment = paymentRepository.findByTransactionId(transactionId)
+            Payment payment = paymentRepository.lockByTransactionId(transactionId)
                     .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
+            BigDecimal payableAmount = groupAmount(payment);
             if (payment.getStatus() == PaymentStatus.PENDING) {
                 payment.setStatus(PaymentStatus.FAILED);
                 paymentRepository.save(payment);
+
+                if (payment.getPaymentType() == PaymentType.DEPOSIT) {
+                    paymentRepository.findByTransactionId(transactionId + RENTAL_SUFFIX)
+                            .filter(companion -> companion.getStatus() == PaymentStatus.PENDING)
+                            .ifPresent(companion -> {
+                                companion.setStatus(PaymentStatus.FAILED);
+                                paymentRepository.save(companion);
+                            });
+                }
             }
 
             return PaymentResponse.builder()
                     .id(payment.getId())
                     .transactionId(payment.getTransactionId())
                     .bookingId(payment.getBooking() != null ? payment.getBooking().getId() : null)
-                    .amount(groupAmount(payment))
+                    .amount(payableAmount)
                     .paymentType(payment.getPaymentType())
                     .status(payment.getStatus())
                     .paymentMethod(payment.getPaymentMethod())
@@ -556,9 +567,11 @@ public class PaymentServiceImpl implements PaymentService {
         if (payment.getPaymentType() == PaymentType.DEPOSIT
                 && payment.getTransactionId() != null
                 && payment.getTransactionId().startsWith("TXN-")
-                && (payment.getStatus() == PaymentStatus.PENDING || payment.getStatus() == PaymentStatus.PAID)) {
+                && (payment.getStatus() == PaymentStatus.PENDING
+                || payment.getStatus() == PaymentStatus.PAID
+                || payment.getStatus() == PaymentStatus.FAILED)) {
             return paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX)
-                    .filter(p -> p.getStatus() == PaymentStatus.PENDING || p.getStatus() == PaymentStatus.PAID)
+                    .filter(p -> p.getStatus() == payment.getStatus())
                     .map(p -> payment.getAmount().add(p.getAmount()))
                     .orElse(payment.getAmount());
         }
@@ -735,6 +748,19 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional(readOnly = true)
     public List<PaymentResponse> getFacilityPaymentHistory(String userEmail, UUID facilityId) {
+        User viewer = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        String role = viewer.getRole() == null || viewer.getRole().getName() == null
+                ? "" : viewer.getRole().getName().toUpperCase(Locale.ROOT);
+        if (!"ADMIN".equals(role) && !"BUSINESS_MANAGER".equals(role)) {
+            if (!"STAFF".equals(role) && !"FACILITY_MANAGER".equals(role)) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
+            if (facilityId == null || viewer.getFacility() == null
+                    || !facilityId.equals(viewer.getFacility().getId())) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
+        }
         return paymentRepository.findFacilityPayments(facilityId)
                 .stream()
                 .map(this::toPaymentResponse)
@@ -759,13 +785,27 @@ public class PaymentServiceImpl implements PaymentService {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        String role = user.getRole() != null ? user.getRole().getName() : "";
-        if ("CUSTOMER".equalsIgnoreCase(role)) {
-            Booking booking = payment.getBooking();
-            if (booking == null || booking.getCustomer() == null
-                    || !user.getId().equals(booking.getCustomer().getId())) {
-                throw new AppException(ErrorCode.PAYMENT_NOT_FOUND);
+        String role = user.getRole() == null || user.getRole().getName() == null
+                ? "" : user.getRole().getName().toUpperCase(Locale.ROOT);
+        Booking booking = payment.getBooking();
+        switch (role) {
+            case "CUSTOMER" -> {
+                if (booking == null || booking.getCustomer() == null
+                        || !user.getId().equals(booking.getCustomer().getId())) {
+                    throw new AppException(ErrorCode.PAYMENT_NOT_FOUND);
+                }
             }
+            case "STAFF", "FACILITY_MANAGER" -> {
+                if (user.getFacility() == null || booking == null
+                        || booking.getStorageUnit() == null
+                        || booking.getStorageUnit().getFacility() == null
+                        || !user.getFacility().getId().equals(
+                        booking.getStorageUnit().getFacility().getId())) {
+                    throw new AppException(ErrorCode.PAYMENT_NOT_FOUND);
+                }
+            }
+            case "ADMIN", "BUSINESS_MANAGER" -> { }
+            default -> throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         return toPaymentResponse(payment);

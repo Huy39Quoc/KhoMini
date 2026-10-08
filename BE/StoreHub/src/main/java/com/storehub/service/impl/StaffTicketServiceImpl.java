@@ -53,7 +53,7 @@ public class StaffTicketServiceImpl implements StaffTicketService {
             UUID ticketId,
             String staffEmail
     ) {
-        User staff = facilityAccess.require(staffEmail, facilityId);
+        User staff = facilityAccess.requireForUpdate(staffEmail, facilityId);
         SupportTicket ticket = requireTicket(ticketId, facilityId);
 
         if (ticket.getAssignedStaff() != null
@@ -93,9 +93,7 @@ public class StaffTicketServiceImpl implements StaffTicketService {
             String managerEmail
     ) {
         User manager = facilityAccess.require(managerEmail, facilityId);
-        SupportTicket ticket = requireTicket(ticketId, facilityId);
-
-        User staff = userRepository.findById(staffId)
+        User staff = userRepository.findByIdForUpdate(staffId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (staff.getRole() == null
@@ -104,6 +102,8 @@ public class StaffTicketServiceImpl implements StaffTicketService {
                 || !facilityId.equals(staff.getFacility().getId())) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
+
+        SupportTicket ticket = requireTicket(ticketId, facilityId);
 
         if (ticket.getStatus() == TicketStatus.RESOLVED
                 || ticket.getStatus() == TicketStatus.CLOSED) {
@@ -187,7 +187,7 @@ public class StaffTicketServiceImpl implements StaffTicketService {
     }
 
     private SupportTicket requireTicket(UUID ticketId, UUID facilityId) {
-        return ticketRepository.findByIdAndFacilityId(ticketId, facilityId)
+        return ticketRepository.findByIdAndFacilityIdForUpdate(ticketId, facilityId)
                 .orElseThrow(() -> new AppException(ErrorCode.TICKET_NOT_FOUND));
     }
 

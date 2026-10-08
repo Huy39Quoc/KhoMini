@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +24,7 @@ public class WaitlistController {
     private final WaitlistService waitlistService;
 
     @PostMapping
+    @PreAuthorize("hasRole('CUSTOMER')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Đăng ký vào hàng đợi khi không còn kho trống cho loại kho đã chọn")
     public ResponseEntity<ApiResponse<Void>> joinWaitlist(
