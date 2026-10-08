@@ -38,12 +38,12 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
     @Transactional
     public TicketResponse createTicket(String customerEmail, CreateTicketRequest request) {
         User customer = resolveCustomer(customerEmail);
-        Booking booking = null;
-
-        if (request.getBookingId() != null) {
-            booking = bookingRepository.findByIdAndCustomerId(request.getBookingId(), customer.getId())
-                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+        if (request.getBookingId() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
         }
+        Booking booking = bookingRepository.findByIdAndCustomerId(
+                        request.getBookingId(), customer.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         String ticketCode = "TK-" + System.currentTimeMillis() + "-"
                 + UUID.randomUUID().toString().substring(0, 4).toUpperCase();

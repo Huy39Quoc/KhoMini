@@ -35,5 +35,6 @@ public class RefreshToken extends BaseEntity{
     private LocalDateTime lastUsedAt;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean revoked = false;
 }
