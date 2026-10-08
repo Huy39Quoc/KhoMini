@@ -4,8 +4,11 @@ import com.storehub.dto.request.PaymentConfirmationRequest;
 import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
 import com.storehub.entity.Booking;
+import com.storehub.entity.Facility;
 import com.storehub.entity.Payment;
+import com.storehub.entity.StorageUnit;
 import com.storehub.entity.User;
+import java.util.List;
 import com.storehub.enums.ActivityAction;
 import com.storehub.enums.BookingStatus;
 import com.storehub.enums.PaymentStatus;
@@ -279,10 +282,20 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {
+        Booking booking = payment.getBooking();
+        User customer = booking != null ? booking.getCustomer() : null;
+        StorageUnit unit = booking != null ? booking.getStorageUnit() : null;
+        Facility facility = unit != null ? unit.getFacility() : null;
+
         return PaymentResponse.builder()
                 .id(payment.getId())
                 .transactionId(payment.getTransactionId())
-                .bookingId(payment.getBooking() != null ? payment.getBooking().getId() : null)
+                .bookingId(booking != null ? booking.getId() : null)
+                .bookingCode(booking != null ? booking.getBookingCode() : null)
+                .customerName(customer != null ? customer.getFullName() : null)
+                .customerEmail(customer != null ? customer.getEmail() : null)
+                .facilityName(facility != null ? facility.getName() : null)
+                .unitCode(unit != null ? unit.getUnitCode() : null)
                 .amount(groupAmount(payment))
                 .paymentType(payment.getPaymentType())
                 .status(payment.getStatus())
@@ -705,5 +718,56 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         return refundDeposit(booking, booking.getDepositPaid());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getMyPaymentHistory(String customerEmail) {
+        User customer = userRepository.findByEmail(customerEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        return paymentRepository.findCustomerPayments(customer.getId())
+                .stream()
+                .map(this::toPaymentResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getFacilityPaymentHistory(String userEmail, UUID facilityId) {
+        return paymentRepository.findFacilityPayments(facilityId)
+                .stream()
+                .map(this::toPaymentResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getAllPaymentHistory() {
+        return paymentRepository.findAllPayments()
+                .stream()
+                .map(this::toPaymentResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentResponse getPaymentDetail(UUID paymentId, String userEmail) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        String role = user.getRole() != null ? user.getRole().getName() : "";
+        if ("CUSTOMER".equalsIgnoreCase(role)) {
+            Booking booking = payment.getBooking();
+            if (booking == null || booking.getCustomer() == null
+                    || !user.getId().equals(booking.getCustomer().getId())) {
+                throw new AppException(ErrorCode.PAYMENT_NOT_FOUND);
+            }
+        }
+
+        return toPaymentResponse(payment);
     }
 }

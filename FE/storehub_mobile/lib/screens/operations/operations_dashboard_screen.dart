@@ -4,6 +4,7 @@ import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
 import '../admin/role_permission_screen.dart';
 import '../common/profile_screen.dart';
+import '../common/transaction_history_screen.dart';
 import 'facility_management_screen.dart';
 import 'reports_screen.dart';
 import 'unit_price_screen.dart';
@@ -239,6 +240,38 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                           context,
                           MaterialPageRoute(
                               builder: (_) => const UnitPriceScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.receipt_long_outlined,
+                            color: AppColors.primaryContainer),
+                      ),
+                      title: const Text('Transaction History',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text(
+                          'View all payment transactions across the system',
+                          style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => TransactionHistoryScreen(
+                                    userRole: widget.user.roleName,
+                                  )),
                         );
                       },
                     ),

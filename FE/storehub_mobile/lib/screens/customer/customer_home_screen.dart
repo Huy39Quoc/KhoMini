@@ -4,6 +4,7 @@ import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
 import '../auth/login_screen.dart';
 import '../common/profile_screen.dart';
+import '../common/transaction_history_screen.dart';
 import 'my_units/my_rented_units_screen.dart';
 import 'reservation/explore_screen.dart';
 import 'tickets/ticket_list_screen.dart';
@@ -186,7 +187,36 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   AppColors.secondaryContainer,
                   () => setState(() => _currentIndex = 3)),
             ],
-          )
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryContainer.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.receipt_long_outlined,
+                    color: AppColors.primaryContainer),
+              ),
+              title: const Text('Transaction History',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: const Text('View payment receipts and transaction records',
+                  style: TextStyle(fontSize: 12)),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TransactionHistoryScreen(
+                      userRole: widget.user.roleName,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );

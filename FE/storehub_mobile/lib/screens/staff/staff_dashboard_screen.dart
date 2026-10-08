@@ -8,6 +8,7 @@ import '../../models/user_model.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
+import '../common/transaction_history_screen.dart';
 
 class StaffDashboardScreen extends StatefulWidget {
   final UserModel user;
@@ -685,6 +686,22 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     builder: (_) => StaffTicketScreen(
                       facilityId: _facilityId!,
                       staffId: widget.user.id,
+                    ),
+                  ),
+                );
+              },
+            ),
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Facility Transactions',
+              icon: const Icon(Icons.receipt_long_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TransactionHistoryScreen(
+                      userRole: widget.user.roleName,
+                      facilityId: _facilityId,
                     ),
                   ),
                 );

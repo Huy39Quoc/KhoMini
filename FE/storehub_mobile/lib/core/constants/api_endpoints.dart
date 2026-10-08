@@ -93,6 +93,12 @@ class ApiEndpoints {
   static const String paymentConfirm = '/payments/confirm'; // deprecated: chỉ trả trạng thái
   static String paymentStatus(String transactionId) =>
       '/payments/$transactionId/status';
+  static const String paymentMyHistory = '/payments/my-history';
+  static String paymentFacilityHistory(String facilityId) =>
+      '/payments/facility/$facilityId';
+  static const String paymentAllHistory = '/payments/all';
+  static String paymentDetail(String paymentId) =>
+      '/payments/detail/$paymentId';
 
   // ---- Facilities (FacilityController) ----
   static const String facilitiesAdmin = '/facilities';

@@ -51,4 +51,12 @@ public interface PaymentService {
     // Dùng khi nhân viên nghiệm thu trả kho: chặn nếu còn phí trễ hạn chưa thanh toán,
     // huỷ yêu cầu gia hạn đang treo, rồi hoàn toàn bộ tiền cọc. Trả về số tiền đã hoàn.
     BigDecimal refundDepositOnReturn(Booking booking);
+
+    java.util.List<PaymentResponse> getMyPaymentHistory(String customerEmail);
+
+    java.util.List<PaymentResponse> getFacilityPaymentHistory(String userEmail, UUID facilityId);
+
+    java.util.List<PaymentResponse> getAllPaymentHistory();
+
+    PaymentResponse getPaymentDetail(UUID paymentId, String userEmail);
 }

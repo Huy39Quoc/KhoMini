@@ -17,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -110,6 +111,50 @@ public class PaymentController {
                         response
                 )
         );
+    }
+
+    @GetMapping("/my-history")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Lấy lịch sử giao dịch cá nhân của khách hàng đang đăng nhập")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getMyPaymentHistory(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        List<PaymentResponse> responses = paymentService.getMyPaymentHistory(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success("Payment history retrieved successfully", responses));
+    }
+
+    @GetMapping("/facility/{facilityId}")
+    @PreAuthorize("hasAnyRole('FACILITY_MANAGER', 'STAFF', 'ADMIN', 'BUSINESS_MANAGER')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Lấy lịch sử giao dịch thuộc một cơ sở cụ thể")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getFacilityPaymentHistory(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID facilityId
+    ) {
+        List<PaymentResponse> responses = paymentService.getFacilityPaymentHistory(userDetails.getUsername(), facilityId);
+        return ResponseEntity.ok(ApiResponse.success("Facility payment history retrieved successfully", responses));
+    }
+
+    @GetMapping("/all")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Lấy toàn bộ lịch sử giao dịch thanh toán trong hệ thống")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getAllPaymentHistory() {
+        List<PaymentResponse> responses = paymentService.getAllPaymentHistory();
+        return ResponseEntity.ok(ApiResponse.success("All system payment history retrieved successfully", responses));
+    }
+
+    @GetMapping("/detail/{paymentId}")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF', 'FACILITY_MANAGER', 'BUSINESS_MANAGER', 'ADMIN')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Xem chi tiết thông tin một giao dịch thanh toán theo ID")
+    public ResponseEntity<ApiResponse<PaymentResponse>> getPaymentDetail(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID paymentId
+    ) {
+        PaymentResponse response = paymentService.getPaymentDetail(paymentId, userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success("Payment detail retrieved successfully", response));
     }
 
     @GetMapping("/vnpay-return")

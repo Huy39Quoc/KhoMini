@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
 import '../common/profile_screen.dart';
+import '../common/transaction_history_screen.dart';
 import 'activity_log_screen.dart';
 import '../operations/facility_management_screen.dart';
 import 'role_permission_screen.dart';
@@ -189,6 +190,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         context,
                         MaterialPageRoute(
                             builder: (_) => const FacilityManagementScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _actionTile(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'Transaction History',
+                    subtitle: 'All payment receipts and transaction records',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => TransactionHistoryScreen(
+                                  userRole: widget.user.roleName,
+                                )),
                       );
                     },
                   ),

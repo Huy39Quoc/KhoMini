@@ -170,4 +170,27 @@ public interface PaymentRepository
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
     );
+
+    @Query("""
+            SELECT p FROM Payment p
+            WHERE p.booking.customer.id = :customerId
+            AND p.transactionId NOT LIKE '%-R'
+            ORDER BY p.paymentTime DESC
+            """)
+    List<Payment> findCustomerPayments(@Param("customerId") UUID customerId);
+
+    @Query("""
+            SELECT p FROM Payment p
+            WHERE p.booking.storageUnit.facility.id = :facilityId
+            AND p.transactionId NOT LIKE '%-R'
+            ORDER BY p.paymentTime DESC
+            """)
+    List<Payment> findFacilityPayments(@Param("facilityId") UUID facilityId);
+
+    @Query("""
+            SELECT p FROM Payment p
+            WHERE p.transactionId NOT LIKE '%-R'
+            ORDER BY p.paymentTime DESC
+            """)
+    List<Payment> findAllPayments();
 }

@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
 import '../auth/login_screen.dart';
+import 'transaction_history_screen.dart';
 
 const Map<String, String> _kRoleLabels = {
   'ADMIN': 'System Administrator',
@@ -188,6 +189,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.receipt_long_outlined, color: AppColors.primaryContainer),
+                title: const Text('Transaction History',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('View payment history & receipts',
+                    style: TextStyle(fontSize: 12)),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TransactionHistoryScreen(userRole: user.roleName),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 20),
