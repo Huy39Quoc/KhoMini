@@ -54,26 +54,6 @@ class FacilityOpsApiService {
     );
   }
 
-  List<dynamic> _unwrapPageContent(dynamic data) {
-    if (data is Map) {
-      final payload = data['data'];
-
-      if (payload is Map && payload['content'] is List) {
-        return List<dynamic>.from(
-          payload['content'],
-        );
-      }
-
-      if (data['content'] is List) {
-        return List<dynamic>.from(
-          data['content'],
-        );
-      }
-    }
-
-    return _unwrapList(data);
-  }
-
   // =========================================================
   // Facility Manager - Flow 5
   // Tạm thời giữ Map/dynamic, sẽ đổi sang mapper khi làm Flow 5
@@ -211,20 +191,13 @@ class FacilityOpsApiService {
     }
   }
 
-  Future<List<AssignableUserModel>> getAssignableUsers() async {
+  Future<List<AssignableUserModel>> getAssignableUsers(String facilityId) async {
     try {
       final response = await _dio.get(
-        ApiEndpoints.users,
-        queryParameters: {
-          'page': 0,
-          'size': 200,
-          'isActive': true,
-          'sortBy': 'fullName',
-          'sortDir': 'asc',
-        },
+        ApiEndpoints.facilityAssignableStaff(facilityId),
       );
 
-      return _unwrapPageContent(response.data)
+      return _unwrapList(response.data)
           .map(FacilityManagementMapper.asJsonMap)
           .map(
             FacilityManagementMapper.assignableUserFromJson,
@@ -315,7 +288,7 @@ class FacilityOpsApiService {
     }
   }
   /// Hợp đồng đang CONFIRMED / ACTIVE của cơ sở (Facility Manager theo dõi).
-  Future<List<Map<String, dynamic>>> getFacilityContracts(
+  Future<List<FacilityContractModel>> getFacilityContracts(
     String facilityId,
   ) async {
     try {
@@ -325,6 +298,7 @@ class FacilityOpsApiService {
 
       return _unwrapList(response.data)
           .map(FacilityManagementMapper.asJsonMap)
+          .map(FacilityManagementMapper.contractFromJson)
           .toList();
     } on DioException catch (error) {
       throw _err(error, 'load facility contracts');

@@ -729,6 +729,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                 MaterialPageRoute(
                   builder: (_) => ProfileScreen(
                     user: widget.user,
+                    facilityId: _facilityId,
                   ),
                 ),
               );

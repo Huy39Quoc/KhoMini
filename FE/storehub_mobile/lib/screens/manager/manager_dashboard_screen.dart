@@ -476,7 +476,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     List<FacilityStaffModel> currentStaff;
 
     try {
-      users = await _opsService.getAssignableUsers();
+      users = await _opsService.getAssignableUsers(_facilityId!);
 
       currentStaff = await _opsService.getFacilityStaff(
         _facilityId!,
@@ -849,6 +849,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                 MaterialPageRoute(
                   builder: (_) => ProfileScreen(
                     user: widget.user,
+                    facilityId: _facilityId,
                   ),
                 ),
               );

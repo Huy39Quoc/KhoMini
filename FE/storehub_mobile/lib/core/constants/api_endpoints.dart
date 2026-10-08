@@ -137,6 +137,8 @@ class ApiEndpoints {
       '/facility/management/$facilityId/report';
   static String facilityStaffList(String facilityId) =>
       '/facility/management/$facilityId/staff';
+  static String facilityAssignableStaff(String facilityId) =>
+      '/facility/management/$facilityId/staff/assignable';
   static String facilityAssignStaff(String facilityId, String userId) =>
       '/facility/management/$facilityId/staff/$userId';
   static String facilityAssignManager(String facilityId, String userId) =>

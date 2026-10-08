@@ -24,7 +24,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   final PaymentApiService _paymentService = PaymentApiService();
   final TextEditingController _searchController = TextEditingController();
   final DateFormat _dateFormat = DateFormat('MMM d, yyyy • h:mm a');
-  final NumberFormat _currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+  final NumberFormat _currencyFormat = NumberFormat.currency(
+    locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -55,12 +56,15 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
       if (role == 'CUSTOMER') {
         payments = await _paymentService.getMyPayments();
-      } else if ((role == 'FACILITY_MANAGER' || role == 'STAFF' || role == 'FACILITY_STAFF') &&
-          widget.facilityId != null &&
-          widget.facilityId!.isNotEmpty) {
+      } else if (role == 'FACILITY_MANAGER' || role == 'STAFF' || role == 'FACILITY_STAFF') {
+        if (widget.facilityId == null || widget.facilityId!.isEmpty) {
+          throw StateError('Your account has no assigned facility.');
+        }
         payments = await _paymentService.getFacilityPayments(widget.facilityId!);
-      } else {
+      } else if (role == 'ADMIN' || role == 'BUSINESS_MANAGER') {
         payments = await _paymentService.getAllPayments();
+      } else {
+        throw StateError('This account cannot view payment history.');
       }
 
       if (!mounted) return;
@@ -71,7 +75,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage = e.toString()
+            .replaceAll('Exception: ', '')
+            .replaceAll('Bad state: ', '');
         _isLoading = false;
       });
     }

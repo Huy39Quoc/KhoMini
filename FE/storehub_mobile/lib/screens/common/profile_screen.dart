@@ -15,7 +15,8 @@ const Map<String, String> _kRoleLabels = {
 
 class ProfileScreen extends StatefulWidget {
   final UserModel user;
-  const ProfileScreen({super.key, required this.user});
+  final String? facilityId;
+  const ProfileScreen({super.key, required this.user, this.facilityId});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -205,7 +206,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => TransactionHistoryScreen(userRole: user.roleName),
+                      builder: (_) => TransactionHistoryScreen(
+                        userRole: user.roleName,
+                        facilityId: widget.facilityId,
+                      ),
                     ),
                   );
                 },

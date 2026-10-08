@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../models/facility_management_models.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 
@@ -24,7 +25,7 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
   final NumberFormat _currency =
       NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
-  late Future<List<Map<String, dynamic>>> _future;
+  late Future<List<FacilityContractModel>> _future;
   String _filter = 'ALL';
 
   @override
@@ -48,14 +49,14 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
     }
   }
 
-  Future<void> _approveSealing(Map<String, dynamic> item) async {
-    final code = _text(item['bookingCode']);
+  Future<void> _approveSealing(FacilityContractModel item) async {
+    final code = item.bookingCode;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Approve sealing?'),
         content: Text(
-            'Approve sealing of unit ${_text(item['unitCode'])} for booking $code. '
+            'Approve sealing of unit ${item.unitCode} for booking $code. '
             'The customer is overdue and access has been disabled.'),
         actions: [
           TextButton(
@@ -69,7 +70,7 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
     );
     if (ok != true) return;
     try {
-      await _service.approveSealing(widget.facilityId, _text(item['bookingId']));
+      await _service.approveSealing(widget.facilityId, item.bookingId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -87,21 +88,14 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
     }
   }
 
-  double _num(dynamic value) {
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  String _text(dynamic value) => value?.toString() ?? '';
-
-  bool _matches(Map<String, dynamic> item) {
+  bool _matches(FacilityContractModel item) {
     switch (_filter) {
       case 'CONFIRMED':
-        return _text(item['status']) == 'CONFIRMED';
+        return item.status == 'CONFIRMED';
       case 'ACTIVE':
-        return _text(item['status']) == 'ACTIVE';
+        return item.status == 'ACTIVE';
       case 'OVERDUE':
-        return item['overdue'] == true;
+        return item.overdue;
       default:
         return true;
     }
@@ -109,7 +103,7 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
+    return FutureBuilder<List<FacilityContractModel>>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -123,7 +117,7 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
           );
         }
 
-        final all = snapshot.data ?? <Map<String, dynamic>>[];
+        final all = snapshot.data ?? <FacilityContractModel>[];
         final items = all.where(_matches).toList();
 
         return Column(
@@ -199,14 +193,13 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
     );
   }
 
-  Widget _buildCard(Map<String, dynamic> item) {
-    final status = _text(item['status']);
-    final overdue = item['overdue'] == true;
-    final accessDisabled = item['accessDisabled'] == true;
-    final sealingPending = item['sealingPending'] == true;
-    final sealingApproved = item['sealingApproved'] == true;
-    final pendingExtension = item['pendingExtensionFee'];
-    final months = _text(item['rentalMonths']);
+  Widget _buildCard(FacilityContractModel item) {
+    final status = item.status;
+    final overdue = item.overdue;
+    final accessDisabled = item.accessDisabled;
+    final sealingPending = item.sealingPending;
+    final sealingApproved = item.sealingApproved;
+    final pendingExtension = item.pendingExtensionFee;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -219,7 +212,7 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
               children: [
                 Expanded(
                   child: Text(
-                    _text(item['bookingCode']),
+                    item.bookingCode,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -238,12 +231,12 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${_text(item['customerName'])} • ${_text(item['customerEmail'])}',
+              '${item.customerName} • ${item.customerEmail}',
               style: const TextStyle(fontSize: 12),
             ),
             const SizedBox(height: 4),
             Text(
-              'Unit ${_text(item['unitCode'])} • ${_text(item['unitType'])}',
+              'Unit ${item.unitCode} • ${item.unitType}',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.onSurfaceVariant,
@@ -251,8 +244,8 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${_text(item['startDate'])} → ${_text(item['endDate'])}'
-              '${months.isNotEmpty ? ' ($months months)' : ''}',
+              '${item.startDate} → ${item.endDate}'
+              '${item.rentalMonths > 0 ? ' (${item.rentalMonths} months)' : ''}',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.onSurfaceVariant,
@@ -260,15 +253,15 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Deposit paid ${_currency.format(_num(item['depositPaid']))}'
-              ' • Rental total ${_currency.format(_num(item['totalRentalFee']))}',
+              'Deposit paid ${_currency.format(item.depositPaid)}'
+              ' • Rental total ${_currency.format(item.totalRentalFee)}',
               style: const TextStyle(fontSize: 12),
             ),
             if (pendingExtension != null) ...[
               const SizedBox(height: 4),
               Text(
                 'Extension awaiting payment: '
-                '${_currency.format(_num(pendingExtension))}',
+                '${_currency.format(pendingExtension)}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: AppColors.warning,
@@ -278,8 +271,8 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
             if (overdue) ...[
               const SizedBox(height: 8),
               Text(
-                'Overdue ${_text(item['overdueDays'])} day(s) • '
-                'late fee accrued ${_currency.format(_num(item['overdueFeeAccrued']))}',
+                'Overdue ${item.overdueDays} day(s) • '
+                'late fee accrued ${_currency.format(item.overdueFeeAccrued)}',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

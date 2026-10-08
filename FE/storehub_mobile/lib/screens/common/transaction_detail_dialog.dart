@@ -23,13 +23,14 @@ class TransactionDetailDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final currencyFormat = NumberFormat.currency(
+      locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
     final dateFormat = DateFormat('MMM d, yyyy • h:mm a');
     final formattedDate = payment.paymentTime != null
         ? dateFormat.format(payment.paymentTime!)
         : 'N/A';
 
-    return Container(
+    return SafeArea(child: SingleChildScrollView(child: Container(
       decoration: const BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -203,7 +204,7 @@ class TransactionDetailDialog extends StatelessWidget {
           ),
         ],
       ),
-    );
+    )));
   }
 
   Widget _detailRow(

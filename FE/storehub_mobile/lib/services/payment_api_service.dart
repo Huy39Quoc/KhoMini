@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
+import '../mappers/payment_mapper.dart';
 import '../models/payment_model.dart';
 
 class PaymentApiService {
@@ -10,9 +11,9 @@ class PaymentApiService {
     try {
       final response = await _dio.get(ApiEndpoints.paymentMyHistory);
       final rawData = _extractList(response.data);
-      return rawData.map((json) => PaymentModel.fromJson(json)).toList();
+      return rawData.map((json) => PaymentMapper.fromJson(PaymentMapper.asJsonMap(json))).toList();
     } on DioException catch (e) {
-      final message = e.response?.data?['message'] ?? e.message;
+      final message = _errorMessage(e);
       throw Exception('Failed to load payment history: $message');
     }
   }
@@ -21,9 +22,9 @@ class PaymentApiService {
     try {
       final response = await _dio.get(ApiEndpoints.paymentFacilityHistory(facilityId));
       final rawData = _extractList(response.data);
-      return rawData.map((json) => PaymentModel.fromJson(json)).toList();
+      return rawData.map((json) => PaymentMapper.fromJson(PaymentMapper.asJsonMap(json))).toList();
     } on DioException catch (e) {
-      final message = e.response?.data?['message'] ?? e.message;
+      final message = _errorMessage(e);
       throw Exception('Failed to load facility payments: $message');
     }
   }
@@ -32,9 +33,9 @@ class PaymentApiService {
     try {
       final response = await _dio.get(ApiEndpoints.paymentAllHistory);
       final rawData = _extractList(response.data);
-      return rawData.map((json) => PaymentModel.fromJson(json)).toList();
+      return rawData.map((json) => PaymentMapper.fromJson(PaymentMapper.asJsonMap(json))).toList();
     } on DioException catch (e) {
-      final message = e.response?.data?['message'] ?? e.message;
+      final message = _errorMessage(e);
       throw Exception('Failed to load system payment history: $message');
     }
   }
@@ -43,9 +44,9 @@ class PaymentApiService {
     try {
       final response = await _dio.get(ApiEndpoints.paymentDetail(paymentId));
       final data = _extractObject(response.data);
-      return PaymentModel.fromJson(data);
+      return PaymentMapper.fromJson(data);
     } on DioException catch (e) {
-      final message = e.response?.data?['message'] ?? e.message;
+      final message = _errorMessage(e);
       throw Exception('Failed to load payment detail: $message');
     }
   }
@@ -73,5 +74,13 @@ class PaymentApiService {
       return responseData;
     }
     return {};
+  }
+
+  String _errorMessage(DioException error) {
+    final data = error.response?.data;
+    if (data is Map && data['message'] != null) {
+      return data['message'].toString();
+    }
+    return error.message ?? 'Unknown error';
   }
 }

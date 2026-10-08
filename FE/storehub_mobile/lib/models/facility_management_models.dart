@@ -119,3 +119,49 @@ class FacilityBookingModel {
     required this.status,
   });
 }
+
+class FacilityContractModel {
+  final String bookingId;
+  final String bookingCode;
+  final String customerName;
+  final String customerEmail;
+  final String unitCode;
+  final String unitType;
+  final String startDate;
+  final String endDate;
+  final int rentalMonths;
+  final String status;
+  final double depositPaid;
+  final double totalRentalFee;
+  final String? returnTime;
+  final bool overdue;
+  final int overdueDays;
+  final double overdueFeeAccrued;
+  final bool accessDisabled;
+  final bool sealingPending;
+  final double? pendingExtensionFee;
+  final bool sealingApproved;
+
+  const FacilityContractModel({
+    required this.bookingId,
+    required this.bookingCode,
+    required this.customerName,
+    required this.customerEmail,
+    required this.unitCode,
+    required this.unitType,
+    required this.startDate,
+    required this.endDate,
+    required this.rentalMonths,
+    required this.status,
+    required this.depositPaid,
+    required this.totalRentalFee,
+    required this.returnTime,
+    required this.overdue,
+    required this.overdueDays,
+    required this.overdueFeeAccrued,
+    required this.accessDisabled,
+    required this.sealingPending,
+    required this.pendingExtensionFee,
+    required this.sealingApproved,
+  });
+}
