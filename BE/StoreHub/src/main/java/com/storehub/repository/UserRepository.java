@@ -18,6 +18,7 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
+    boolean existsByEmailAndRole_NameAndFacility_IdAndIsActiveTrue(String email, String roleName, UUID facilityId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.email = :email")

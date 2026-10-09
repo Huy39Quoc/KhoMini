@@ -4,6 +4,7 @@ import com.storehub.entity.Booking;
 import com.storehub.enums.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Lock;
@@ -16,6 +17,20 @@ import java.util.UUID;
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+
+    @Modifying
+    @Query(value = """
+            UPDATE bookings SET assigned_check_in_staff_id = NULL
+            WHERE assigned_check_in_staff_id = :staffId AND status = 'CONFIRMED'
+            """, nativeQuery = true)
+    int clearOpenCheckInAssignments(@Param("staffId") UUID staffId);
+
+    @Modifying
+    @Query(value = """
+            UPDATE bookings SET assigned_check_out_staff_id = NULL
+            WHERE assigned_check_out_staff_id = :staffId AND status = 'ACTIVE'
+            """, nativeQuery = true)
+    int clearOpenCheckOutAssignments(@Param("staffId") UUID staffId);
 
     @Query("""
             SELECT b FROM Booking b

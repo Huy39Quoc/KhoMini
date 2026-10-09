@@ -69,6 +69,7 @@ public enum ErrorCode {
     RENTAL_BELOW_MINIMUM_MONTHS(726, "The rental period is shorter than this facility's minimum required months", HttpStatus.BAD_REQUEST),
     OVERDUE_FEE_UNPAID_ON_RETURN(727, "Outstanding late fee must be paid by the customer before the unit return can be completed", HttpStatus.CONFLICT),
     CHECKIN_RENTAL_ENDED(728, "The rental period has ended. The customer must make a new booking before check-in", HttpStatus.CONFLICT),
+    HANDOVER_ASSIGNED_TO_ANOTHER_STAFF(729, "This appointment is assigned to another staff member", HttpStatus.FORBIDDEN),
 
 
     UNIT_UNAVAILABLE(

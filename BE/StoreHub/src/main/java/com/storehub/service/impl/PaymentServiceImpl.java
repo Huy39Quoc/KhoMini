@@ -6,6 +6,7 @@ import com.storehub.dto.response.PaymentResponse;
 import com.storehub.entity.Booking;
 import com.storehub.entity.Facility;
 import com.storehub.entity.Payment;
+import com.storehub.entity.RefundRequest;
 import com.storehub.entity.StorageUnit;
 import com.storehub.entity.User;
 import java.util.List;
@@ -13,11 +14,13 @@ import com.storehub.enums.ActivityAction;
 import com.storehub.enums.BookingStatus;
 import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
+import com.storehub.enums.RefundStatus;
 import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
+import com.storehub.repository.RefundRequestRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.EmailService;
@@ -53,6 +56,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final EmailService emailService;
     private final ActivityLogService activityLogService;
     private final PricingService pricingService;
+    private final RefundRequestRepository refundRequests;
 
     // Dòng RENTAL_FEE đi kèm khoản cọc dùng mã giao dịch = mã của dòng DEPOSIT + hậu tố này.
     private static final String RENTAL_SUFFIX = "-R";
@@ -69,6 +73,9 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Value("${vnpay.return-url}")
     private String vnpReturnUrl;
+
+    @Value("${vnpay.merchant-ip}")
+    private String vnpMerchantIp;
 
     @Override
     @Transactional
@@ -166,6 +173,7 @@ public class PaymentServiceImpl implements PaymentService {
                         .substring(0, 8)
                         .toUpperCase();
 
+        LocalDateTime initiatedAt = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         Payment payment = Payment.builder()
                 .transactionId(transactionId)
                 .booking(booking)
@@ -177,6 +185,8 @@ public class PaymentServiceImpl implements PaymentService {
                         ? RENTAL_EXTENSION
                         : null)
                 .paymentTime(LocalDateTime.now())
+                .gatewayCreateDate(initiatedAt.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")))
+                .gatewayAmount(payableAmount)
                 .build();
 
         Payment savedPayment = paymentRepository.save(payment);
@@ -192,7 +202,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .paymentTime(LocalDateTime.now())
                     .build());
         }
-        String vnpayUrl = buildVnpayUrl(transactionId, payableAmount);
+        String vnpayUrl = buildVnpayUrl(transactionId, payableAmount, initiatedAt);
 
         return PaymentResponse.builder()
                 .id(savedPayment.getId())
@@ -210,8 +220,12 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private String buildVnpayUrl(String transactionId, BigDecimal amount) {
+        return buildVnpayUrl(transactionId, amount,
+                LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")));
+    }
+
+    private String buildVnpayUrl(String transactionId, BigDecimal amount, LocalDateTime now) {
         long vnpAmount = amount.multiply(new BigDecimal(100)).longValue();
-        LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
         Map<String, String> vnpParams = new HashMap<>();
@@ -225,7 +239,7 @@ public class PaymentServiceImpl implements PaymentService {
         vnpParams.put("vnp_OrderType", "other");
         vnpParams.put("vnp_Locale", "vn");
         vnpParams.put("vnp_ReturnUrl", vnpReturnUrl);
-        vnpParams.put("vnp_IpAddr", "127.0.0.1");
+        vnpParams.put("vnp_IpAddr", vnpMerchantIp);
         vnpParams.put("vnp_CreateDate", now.format(formatter));
         vnpParams.put("vnp_ExpireDate", now.plusMinutes(15).format(formatter));
 
@@ -300,6 +314,10 @@ public class PaymentServiceImpl implements PaymentService {
                 .amount(groupAmount(payment))
                 .paymentType(payment.getPaymentType())
                 .status(payment.getStatus())
+                .refundStatus(payment.getTransactionId() != null
+                        && payment.getTransactionId().startsWith("RF-")
+                        ? refundRequests.findByRefundPayment_Id(payment.getId())
+                            .map(RefundRequest::getStatus).orElse(null) : null)
                 .paymentMethod(payment.getPaymentMethod())
                 .paymentTime(payment.getPaymentTime())
                 .note(payment.getNote())
@@ -511,6 +529,9 @@ public class PaymentServiceImpl implements PaymentService {
             Payment pending = paymentRepository.findByTransactionId(transactionId)
                     .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
             if (pending.getStatus() == PaymentStatus.PENDING) {
+                pending.setGatewayTransactionNo(queryParams.get("vnp_TransactionNo"));
+            }
+            if (pending.getStatus() == PaymentStatus.PENDING) {
                 long expected = groupAmount(pending).multiply(new BigDecimal(100)).longValue();
                 long actual;
                 try {
@@ -600,35 +621,9 @@ public class PaymentServiceImpl implements PaymentService {
             return BigDecimal.ZERO;
         }
 
-        BigDecimal refunded = refundDeposit(booking, refundTotal.min(depositPaid));
-        BigDecimal remaining = refundTotal.subtract(refundTotal.min(depositPaid));
-
-        if (remaining.signum() > 0 && rent != null) {
-            BigDecimal refundRent = remaining.min(rentPaid);
-            BigDecimal retained = rentPaid.subtract(refundRent);
-            if (retained.signum() == 0) {
-                rent.setStatus(PaymentStatus.REFUNDED);
-                rent.setNote(RENTAL_FEE_REFUND);
-            } else {
-                rent.setAmount(retained);
-                paymentRepository.save(Payment.builder()
-                        .transactionId("RF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase())
-                        .booking(booking)
-                        .amount(refundRent)
-                        .paymentType(PaymentType.RENTAL_FEE)
-                        .status(PaymentStatus.REFUNDED)
-                        .paymentMethod(rent.getPaymentMethod())
-                        .note(RENTAL_FEE_REFUND)
-                        .paymentTime(LocalDateTime.now())
-                        .build());
-            }
-            paymentRepository.save(rent);
-            activityLogService.recordSystem(
-                    ActivityAction.REFUND_PROCESSED, "BOOKING", booking.getId(),
-                    "Refunded rental fee " + refundRent.toPlainString() + " for cancelled booking " + booking.getBookingCode());
-            refunded = refunded.add(refundRent);
-        }
-        return refunded;
+        BigDecimal depositPart = refundTotal.min(depositPaid);
+        BigDecimal rentalPart = refundTotal.subtract(depositPart).min(rentPaid);
+        return queueRefund(booking, depositPart, rentalPart);
     }
 
     @Override
@@ -644,56 +639,39 @@ public class PaymentServiceImpl implements PaymentService {
             return BigDecimal.ZERO;
         }
 
-        BigDecimal refund = refundAmount.min(deposit);
-        BigDecimal retained = deposit.subtract(refund);
+        return queueRefund(booking, refundAmount.min(deposit), BigDecimal.ZERO);
+    }
 
+    private BigDecimal queueRefund(Booking booking, BigDecimal depositPart, BigDecimal rentalPart) {
+        BigDecimal total = depositPart.add(rentalPart);
+        if (total.signum() <= 0) return BigDecimal.ZERO;
+        if (refundRequests.existsByBooking_Id(booking.getId())) {
+            throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        }
         Payment original = paymentRepository
                 .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
-                        booking.getId(),
-                        PaymentType.DEPOSIT,
-                        PaymentStatus.PAID
-                )
-                .orElse(null);
-
-        if (original != null) {
-            if (retained.signum() == 0) {
-                original.setStatus(PaymentStatus.REFUNDED);
-                original.setNote(DEPOSIT_REFUND);
-            } else {
-                original.setAmount(retained);
-                paymentRepository.save(Payment.builder()
-                        .transactionId("RF-" + UUID.randomUUID()
-                                .toString()
-                                .replace("-", "")
-                                .substring(0, 12)
-                                .toUpperCase())
-                        .booking(booking)
-                        .amount(refund)
-                        .paymentType(PaymentType.DEPOSIT)
-                        .status(PaymentStatus.REFUNDED)
-                        .paymentMethod(original.getPaymentMethod())
-                        .note(DEPOSIT_REFUND)
-                        .paymentTime(LocalDateTime.now())
-                        .build());
-            }
-            paymentRepository.save(original);
-        }
-
-        booking.setDepositPaid(retained);
-        bookingRepository.save(booking);
-
-        activityLogService.recordSystem(
-                ActivityAction.REFUND_PROCESSED,
-                "BOOKING",
-                booking.getId(),
-                "Refunded deposit " + refund.toPlainString() + " for booking "
-                        + booking.getBookingCode()
-                        + (retained.signum() > 0
-                        ? " (retained " + retained.toPlainString() + ")"
-                        : "")
-        );
-
-        return refund;
+                        booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+        String requestId = UUID.randomUUID().toString().replace("-", "").toUpperCase();
+        Payment refundPayment = paymentRepository.save(Payment.builder()
+                .transactionId("RF-" + requestId)
+                .booking(booking)
+                .amount(total)
+                .paymentType(PaymentType.DEPOSIT)
+                .status(PaymentStatus.REFUND_PENDING)
+                .paymentMethod(original.getPaymentMethod())
+                .note(DEPOSIT_REFUND)
+                .paymentTime(LocalDateTime.now())
+                .build());
+        refundRequests.save(RefundRequest.builder()
+                .booking(booking).originalPayment(original).refundPayment(refundPayment)
+                .requestId(requestId).amount(total).depositAmount(depositPart)
+                .rentalAmount(rentalPart)
+                .status(original.getGatewayCreateDate() == null
+                        ? RefundStatus.MISSING_METADATA : RefundStatus.QUEUED)
+                .updatedStatusAt(LocalDateTime.now())
+                .build());
+        return total;
     }
 
     @Override

@@ -24,6 +24,7 @@ public class PaymentResponse {
     private BigDecimal amount;
     private PaymentType paymentType;
     private PaymentStatus status;
+    private com.storehub.enums.RefundStatus refundStatus;
     private String paymentMethod;
     private String note;
     private String paymentUrl;

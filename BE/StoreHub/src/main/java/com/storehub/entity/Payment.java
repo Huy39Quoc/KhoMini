@@ -43,4 +43,14 @@ public class Payment extends BaseEntity {
 
     @Column(name = "note", length = 100)
     private String note;
+
+    // Metadata of the original VNPay payment, required by its refund API.
+    @Column(name = "gateway_create_date", length = 14)
+    private String gatewayCreateDate;
+
+    @Column(name = "gateway_transaction_no", length = 20)
+    private String gatewayTransactionNo;
+
+    @Column(name = "gateway_amount", precision = 12, scale = 2)
+    private BigDecimal gatewayAmount;
 }

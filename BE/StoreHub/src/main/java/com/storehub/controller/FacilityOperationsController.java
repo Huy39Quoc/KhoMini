@@ -7,6 +7,7 @@ import com.storehub.dto.response.DailyScheduleResponse;
 import com.storehub.dto.response.HandoverRecordResponse;
 import com.storehub.dto.response.HandoverResponse;
 import com.storehub.service.FacilityOperationsService;
+import com.storehub.dto.request.AppointmentAssignmentRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,6 +34,19 @@ import java.util.UUID;
 public class FacilityOperationsController {
 
     private final FacilityOperationsService facilityOperationsService;
+
+    @PutMapping("/{bookingId}/appointment-assignment")
+    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    public ResponseEntity<ApiResponse<DailyScheduleResponse>> assignAppointment(
+            @PathVariable UUID bookingId,
+            @RequestParam UUID facilityId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody @Valid AppointmentAssignmentRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Appointment assignment updated",
+                facilityOperationsService.assignAppointment(bookingId, facilityId,
+                        userDetails.getUsername(), request.getScheduleType(), request.getStaffId())));
+    }
 
     @GetMapping("/daily-schedule")
     @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")

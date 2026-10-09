@@ -543,6 +543,8 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.STAFF_HAS_UNCLOSED_TICKETS);
         }
 
+        bookings.clearOpenCheckInAssignments(userId);
+        bookings.clearOpenCheckOutAssignments(userId);
         staff.setFacility(null);
     }
 }

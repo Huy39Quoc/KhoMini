@@ -1,0 +1,5 @@
+package com.storehub.enums;
+
+public enum RefundStatus {
+    MISSING_METADATA, QUEUED, SENDING, AWAITING_CONFIRMATION, COMPLETED, REJECTED, NEEDS_REVIEW
+}

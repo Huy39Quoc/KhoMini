@@ -158,11 +158,11 @@ public class BookingServiceImpl implements BookingService {
         }
 
         // Đơn đã đặt cọc (CONFIRMED): hoàn cọc theo bậc chính sách huỷ của cơ sở
-        BigDecimal refunded = BigDecimal.ZERO;
+        BigDecimal requestedRefund = BigDecimal.ZERO;
         if (previousStatus == BookingStatus.CONFIRMED
                 && booking.getStorageUnit() != null
                 && booking.getStorageUnit().getFacility() != null) {
-            refunded = paymentService.refundOnCancellation(booking);
+            requestedRefund = paymentService.refundOnCancellation(booking);
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
@@ -185,7 +185,7 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        log.info("Booking {} cancelled by customer {} (refunded: {})",
-                bookingId, customerEmail, refunded);
+        log.info("Booking {} cancelled by customer {} (refund requested: {})",
+                bookingId, customerEmail, requestedRefund);
     }
 }
