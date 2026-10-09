@@ -74,6 +74,9 @@ public class Booking extends BaseEntity {
     @Column(name = "return_time")
     private LocalDateTime returnTime;
 
+    @Column(name = "scheduled_return_time")
+    private LocalDateTime scheduledReturnTime;
+
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 

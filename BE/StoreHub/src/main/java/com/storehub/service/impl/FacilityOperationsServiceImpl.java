@@ -93,8 +93,8 @@ public class FacilityOperationsServiceImpl
         for (Booking booking : checkOutBookings) {
             // Khách đã hẹn trả kho: theo giờ hẹn. Khách chưa hẹn nhưng hợp đồng
             // đã đến/quá hạn: theo ngày hết hạn.
-            LocalDateTime scheduled = booking.getReturnTime() != null
-                    ? booking.getReturnTime()
+            LocalDateTime scheduled = booking.getScheduledReturnTime() != null
+                    ? booking.getScheduledReturnTime()
                     : booking.getEndDate().atStartOfDay();
 
             result.add(toScheduleResponse(
@@ -245,6 +245,10 @@ public class FacilityOperationsServiceImpl
         if (booking.getStartDate() != null
                 && booking.getStartDate().isAfter(java.time.LocalDate.now())) {
             throw new AppException(ErrorCode.CHECKIN_TOO_EARLY);
+        }
+        if (booking.getEndDate() != null
+                && !booking.getEndDate().isAfter(LocalDate.now())) {
+            throw new AppException(ErrorCode.CHECKIN_RENTAL_ENDED);
         }
 
         StorageUnit storageUnit = storageUnitRepository

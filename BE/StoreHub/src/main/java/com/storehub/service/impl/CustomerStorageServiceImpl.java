@@ -335,7 +335,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
             throw new AppException(ErrorCode.RETURN_NOTICE_NOT_SATISFIED);
         }
 
-        booking.setReturnTime(request.getScheduledReturnTime());
+        booking.setScheduledReturnTime(request.getScheduledReturnTime());
         bookingRepository.save(booking);
 
         activityLogService.record(customerId, ActivityAction.CHECKOUT_REQUEST, "BOOKING", booking.getId(),
@@ -348,7 +348,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
                 .status(booking.getStatus())
-                .scheduledReturnTime(booking.getReturnTime())
+                .scheduledReturnTime(booking.getScheduledReturnTime())
                 .message("Checkout request submitted successfully. Staff will contact you for handover inspection.")
                 .build();
     }

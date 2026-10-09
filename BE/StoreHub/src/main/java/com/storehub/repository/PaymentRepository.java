@@ -31,6 +31,7 @@ public interface PaymentRepository
             FROM Payment p
             WHERE p.booking.storageUnit.facility.id = :facilityId
             AND p.status = com.storehub.enums.PaymentStatus.PAID
+            AND p.paymentType <> com.storehub.enums.PaymentType.DEPOSIT
             """)
     java.math.BigDecimal sumPaidByFacility(@Param("facilityId") UUID facilityId);
 
@@ -51,7 +52,9 @@ public interface PaymentRepository
             SELECT new com.storehub.dto.response.FacilityRevenueResponse(
                 f.id,
                 f.name,
-                COALESCE(SUM(p.amount), 0),
+                COALESCE(SUM(CASE
+                    WHEN p.paymentType <> com.storehub.enums.PaymentType.DEPOSIT
+                    THEN p.amount ELSE null END), 0),
                 COALESCE(
                     SUM(
                         CASE
@@ -104,7 +107,9 @@ public interface PaymentRepository
 
     @Query("""
             SELECT new com.storehub.dto.response.SystemRevenueSummaryResponse(
-                COALESCE(SUM(p.amount), 0),
+                COALESCE(SUM(CASE
+                    WHEN p.paymentType <> com.storehub.enums.PaymentType.DEPOSIT
+                    THEN p.amount ELSE null END), 0),
                 COALESCE(
                     SUM(
                         CASE

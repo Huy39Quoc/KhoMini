@@ -437,7 +437,7 @@ public class FacilityManagementServiceImpl
                 booking.getStatus(),
                 booking.getDepositPaid(),
                 booking.getTotalRentalFee(),
-                booking.getReturnTime(),
+                booking.getScheduledReturnTime(),
                 overdue,
                 overdueDays,
                 booking.getOverdueFeeAccrued() == null

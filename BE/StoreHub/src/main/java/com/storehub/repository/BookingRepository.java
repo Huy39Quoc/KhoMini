@@ -79,6 +79,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             WHERE f.id = :facilityId
             AND b.status = :status
             AND b.startDate <= :date
+            AND b.endDate > :date
             ORDER BY b.startDate ASC
             """)
     List<Booking> findCheckInSchedule(
@@ -95,8 +96,8 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             WHERE f.id = :facilityId
             AND b.status = :status
             AND (
-                (b.returnTime IS NOT NULL AND b.returnTime < :endOfDay)
-                OR (b.returnTime IS NULL AND b.endDate <= :date)
+                (b.scheduledReturnTime IS NOT NULL AND b.scheduledReturnTime < :endOfDay)
+                OR (b.scheduledReturnTime IS NULL AND b.endDate <= :date)
             )
             ORDER BY b.endDate ASC
             """)
