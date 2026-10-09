@@ -152,10 +152,14 @@ public class RefundDispatcher {
         BigDecimal depositRemaining = booking.getDepositPaid().subtract(request.getDepositAmount());
         if (depositRemaining.signum() < 0) throw new IllegalStateException("Refund exceeds deposit");
         booking.setDepositPaid(depositRemaining);
-        if (depositRemaining.signum() == 0) {
+        // The booking may contain deposits from several captured attempts.
+        // Settle this original transaction independently of the booking total.
+        BigDecimal originalRemaining = original.getAmount().subtract(request.getDepositAmount());
+        if (originalRemaining.signum() < 0) throw new IllegalStateException("Refund exceeds original deposit");
+        if (originalRemaining.signum() == 0) {
             original.setStatus(PaymentStatus.REFUNDED);
         } else {
-            original.setAmount(depositRemaining);
+            original.setAmount(originalRemaining);
         }
         if (request.getRentalAmount().signum() > 0) {
             Payment rent = payments.findByTransactionId(original.getTransactionId() + "-R")

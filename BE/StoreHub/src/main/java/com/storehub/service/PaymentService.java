@@ -25,10 +25,6 @@ public interface PaymentService {
             PaymentConfirmationRequest request
     );
 
-    PaymentResponse confirmPayment(
-            PaymentConfirmationRequest request
-    );
-
     PaymentResponse getPendingExtensionPayment(
             String customerEmail,
             UUID bookingId

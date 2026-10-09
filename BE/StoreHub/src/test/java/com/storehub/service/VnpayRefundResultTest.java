@@ -17,4 +17,13 @@ class VnpayRefundResultTest {
         assertFalse(new GatewayResult("00", "00", "01", "10000000").confirmed(requested));
         assertTrue(new GatewayResult("00", "00", "03", "10000000").confirmed(requested));
     }
+
+    @Test
+    void queryDrChargeRequiresSuccessfulPaymentTypeAndExactAmount() {
+        BigDecimal charged = new BigDecimal("1000");
+        assertFalse(new GatewayResult("00", "01", "01", "100000").confirmedCharge(charged));
+        assertFalse(new GatewayResult("00", "00", "02", "100000").confirmedCharge(charged));
+        assertFalse(new GatewayResult("00", "00", "01", "90000").confirmedCharge(charged));
+        assertTrue(new GatewayResult("00", "00", "01", "100000").confirmedCharge(charged));
+    }
 }

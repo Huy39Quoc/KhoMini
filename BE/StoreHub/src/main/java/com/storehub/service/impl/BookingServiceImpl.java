@@ -148,7 +148,7 @@ public class BookingServiceImpl implements BookingService {
         User customer = userRepository.findByEmail(customerEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        Booking booking = bookingRepository.findByIdAndCustomerId(bookingId, customer.getId())
+        Booking booking = bookingRepository.lockByIdAndCustomerId(bookingId, customer.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         BookingStatus previousStatus = booking.getStatus();

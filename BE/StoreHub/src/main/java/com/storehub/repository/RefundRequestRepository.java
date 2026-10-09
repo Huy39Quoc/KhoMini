@@ -15,8 +15,10 @@ import java.time.LocalDateTime;
 
 public interface RefundRequestRepository extends JpaRepository<RefundRequest, UUID> {
     boolean existsByBooking_Id(UUID bookingId);
+    boolean existsByOriginalPayment_Id(UUID paymentId);
     boolean existsByIdAndBooking_StorageUnit_Facility_Id(UUID id, UUID facilityId);
     Optional<RefundRequest> findByRefundPayment_Id(UUID refundPaymentId);
+    Optional<RefundRequest> findByOriginalPayment_Id(UUID originalPaymentId);
     List<RefundRequest> findTop50ByBooking_StorageUnit_Facility_IdOrderByCreatedAtDesc(UUID facilityId);
 
     List<RefundRequest> findTop20ByStatusOrderByCreatedAtAsc(RefundStatus status);

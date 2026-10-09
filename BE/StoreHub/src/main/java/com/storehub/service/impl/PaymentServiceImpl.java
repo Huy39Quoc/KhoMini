@@ -316,26 +316,51 @@ public class PaymentServiceImpl implements PaymentService {
         return getPaymentStatus(customerEmail, request.getTransactionId());
     }
 
-    @Override
     @Transactional
-    public PaymentResponse confirmPayment(PaymentConfirmationRequest request) {
-        Payment payment = paymentRepository
-                .lockByTransactionId(request.getTransactionId())
+    public PaymentResponse reconcileConfirmedCharge(String transactionId,
+                                                     VnpayRefundClient.GatewayResult result) {
+        Payment payment = paymentRepository.findByTransactionId(transactionId)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+        if (payment.getGatewayAmount() == null
+                || !result.confirmedCharge(payment.getGatewayAmount())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        return settleVerifiedCharge(transactionId, result.transactionNo(), result.amount());
+    }
+
+    private PaymentResponse settleVerifiedCharge(String transactionId, String gatewayTxnNo,
+                                                 String gatewayAmount) {
+        UUID bookingId = paymentRepository.findBookingIdByTransactionId(transactionId)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+        // All booking status transitions (callback, cancel, expiry) take this lock first.
+        Booking booking = bookingRepository.lockById(bookingId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+        Payment payment = paymentRepository.lockByTransactionId(transactionId)
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
-        if (payment.getStatus() == PaymentStatus.PAID) {
+        if (gatewayAmount != null) {
+            BigDecimal expected = payment.getGatewayAmount() != null
+                    ? payment.getGatewayAmount() : groupAmount(payment);
+            try {
+                if (gatewayAmount.isBlank()
+                        || new BigDecimal(gatewayAmount).compareTo(expected.movePointRight(2)) != 0) {
+                    throw new AppException(ErrorCode.INVALID_REQUEST);
+                }
+            } catch (NumberFormatException e) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+        }
+        if (payment.getStatus() == PaymentStatus.PAID
+                || payment.getStatus() == PaymentStatus.REFUND_PENDING
+                || payment.getStatus() == PaymentStatus.REFUNDED) {
             return toPaymentResponse(payment);
         }
-        if (payment.getStatus() != PaymentStatus.PENDING) {
+        if (payment.getStatus() != PaymentStatus.PENDING && payment.getStatus() != PaymentStatus.FAILED) {
             throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
-
-        Booking booking = payment.getBooking();
-
-        if (booking == null) {
-            throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
+        if (gatewayTxnNo != null && !gatewayTxnNo.isBlank()) {
+            payment.setGatewayTransactionNo(gatewayTxnNo);
         }
-
         return processPaymentConfirmation(payment, booking);
     }
 
@@ -360,7 +385,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .refundStatus(payment.getTransactionId() != null
                         && payment.getTransactionId().startsWith("RF-")
                         ? refundRequests.findByRefundPayment_Id(payment.getId())
-                            .map(RefundRequest::getStatus).orElse(null) : null)
+                            .map(RefundRequest::getStatus).orElse(null)
+                        : refundRequests.findByOriginalPayment_Id(payment.getId())
+                            .map(RefundRequest::getStatus).orElse(null))
                 .paymentMethod(payment.getPaymentMethod())
                 .paymentTime(payment.getPaymentTime())
                 .note(payment.getNote())
@@ -368,18 +395,13 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private PaymentResponse processPaymentConfirmation(Payment payment, Booking booking) {
-        if (booking.getExpiresAt() != null
-                && booking.getExpiresAt().isBefore(LocalDateTime.now())
-                && booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
-            throw new AppException(ErrorCode.BOOKING_EXPIRED);
-        }
-
+        boolean expired = booking.getExpiresAt() != null
+                && booking.getExpiresAt().isBefore(LocalDateTime.now());
+        boolean lateDeposit = false;
         if (payment.getPaymentType() == PaymentType.DEPOSIT) {
-            if (booking.getStatus() != BookingStatus.PENDING_PAYMENT
+            lateDeposit = expired || booking.getStatus() != BookingStatus.PENDING_PAYMENT
                     || booking.getStorageUnit() == null
-                    || booking.getStorageUnit().getStatus() != UnitStatus.RESERVED) {
-                throw new AppException(ErrorCode.UNIT_UNAVAILABLE);
-            }
+                    || booking.getStorageUnit().getStatus() != UnitStatus.RESERVED;
         }
 
         payment.setStatus(PaymentStatus.PAID);
@@ -387,19 +409,45 @@ public class PaymentServiceImpl implements PaymentService {
         paymentRepository.save(payment);
 
         if (payment.getPaymentType() == PaymentType.DEPOSIT) {
-            booking.setDepositPaid(
-                    booking.getDepositPaid().add(payment.getAmount())
-            );
-            booking.setStatus(BookingStatus.CONFIRMED);
-
+            booking.setDepositPaid(booking.getDepositPaid().add(payment.getAmount()));
             // Dòng tiền thuê + phí quản lý đi kèm trong cùng giao dịch VNPay
-            paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX)
-                    .filter(p -> p.getStatus() == PaymentStatus.PENDING)
-                    .ifPresent(p -> {
-                        p.setStatus(PaymentStatus.PAID);
-                        p.setPaymentTime(LocalDateTime.now());
-                        paymentRepository.save(p);
-                    });
+            Payment rental = paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX)
+                    .orElse(null);
+            BigDecimal rentalAmount = rental != null ? rental.getAmount() : BigDecimal.ZERO;
+            if (payment.getGatewayAmount() == null) {
+                // Older attempts did not persist the gateway amount. A signed
+                // callback has already been compared to these two ledger rows.
+                payment.setGatewayAmount(payment.getAmount().add(rentalAmount));
+            }
+            if ((payment.getGatewayAmount() != null
+                    && payment.getGatewayAmount().compareTo(payment.getAmount().add(rentalAmount)) != 0)
+                    || (rental != null && rental.getStatus() != PaymentStatus.PENDING
+                        && rental.getStatus() != PaymentStatus.FAILED)) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+            if (rental != null) {
+                rental.setStatus(PaymentStatus.PAID);
+                rental.setPaymentTime(payment.getPaymentTime());
+                paymentRepository.save(rental);
+            }
+
+            if (lateDeposit) {
+                if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+                    booking.setStatus(BookingStatus.CANCELLED);
+                    if (booking.getStorageUnit() != null
+                            && booking.getStorageUnit().getStatus() == UnitStatus.RESERVED) {
+                        booking.getStorageUnit().setStatus(UnitStatus.AVAILABLE);
+                    }
+                }
+                // The gateway captured money even though this booking cannot be
+                // handed over. Refund the FULL original charge, not just the deposit.
+                queueRefund(booking, payment, payment.getAmount(), rentalAmount);
+                payment.setStatus(PaymentStatus.REFUND_PENDING);
+                if (rental != null) rental.setStatus(PaymentStatus.REFUND_PENDING);
+                bookingRepository.save(booking);
+                return toPaymentResponse(payment);
+            }
+            booking.setStatus(BookingStatus.CONFIRMED);
         }
 
         if (payment.getPaymentType() == PaymentType.EXTRA_CHARGE
@@ -575,30 +623,12 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         if ("00".equals(responseCode) && "00".equals(transactionStatus)) {
-            // Đối chiếu số tiền VNPay báo về với số tiền của giao dịch (chỉ khi còn PENDING,
-            // để IPN/return gọi lặp lại vẫn idempotent).
-            Payment pending = paymentRepository.findByTransactionId(transactionId)
-                    .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
-            if (pending.getStatus() == PaymentStatus.PENDING) {
-                pending.setGatewayTransactionNo(queryParams.get("vnp_TransactionNo"));
+            if (queryParams.get("vnp_Amount") == null) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
             }
-            if (pending.getStatus() == PaymentStatus.PENDING) {
-                long expected = groupAmount(pending).multiply(new BigDecimal(100)).longValue();
-                long actual;
-                try {
-                    actual = Long.parseLong(queryParams.get("vnp_Amount"));
-                } catch (NumberFormatException e) {
-                    log.error("VNPay callback has invalid vnp_Amount for {}", transactionId);
-                    throw new AppException(ErrorCode.INVALID_REQUEST);
-                }
-                if (actual != expected) {
-                    log.error("VNPay amount mismatch for {}: expected {}, got {}", transactionId, expected, actual);
-                    throw new AppException(ErrorCode.INVALID_REQUEST);
-                }
-            }
-            PaymentConfirmationRequest confirmationRequest = new PaymentConfirmationRequest();
-            confirmationRequest.setTransactionId(transactionId);
-            return confirmPayment(confirmationRequest);
+            // Verify amount under the same booking/payment locks used to settle.
+            return settleVerifiedCharge(transactionId,
+                    queryParams.get("vnp_TransactionNo"), queryParams.get("vnp_Amount"));
         } else {
             log.warn("VNPay payment failed or cancelled with response code: {}, transaction status: {} for transactionId: {}",
                     responseCode, transactionStatus, transactionId);
@@ -642,7 +672,9 @@ public class PaymentServiceImpl implements PaymentService {
                 && payment.getTransactionId().startsWith("TXN-")
                 && (payment.getStatus() == PaymentStatus.PENDING
                 || payment.getStatus() == PaymentStatus.PAID
-                || payment.getStatus() == PaymentStatus.FAILED)) {
+                || payment.getStatus() == PaymentStatus.FAILED
+                || payment.getStatus() == PaymentStatus.REFUND_PENDING
+                || payment.getStatus() == PaymentStatus.REFUNDED)) {
             return paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX)
                     .filter(p -> p.getStatus() == payment.getStatus())
                     .map(p -> payment.getAmount().add(p.getAmount()))
@@ -704,6 +736,18 @@ public class PaymentServiceImpl implements PaymentService {
                 .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
                         booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+        return queueRefund(booking, original, depositPart, rentalPart);
+    }
+
+    // Multiple captured payment attempts can belong to the same cancelled
+    // booking. Each original gateway transaction is refunded at most once.
+    private BigDecimal queueRefund(Booking booking, Payment original,
+                                   BigDecimal depositPart, BigDecimal rentalPart) {
+        BigDecimal total = depositPart.add(rentalPart);
+        if (total.signum() <= 0) return BigDecimal.ZERO;
+        if (refundRequests.existsByOriginalPayment_Id(original.getId())) {
+            throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        }
         String requestId = UUID.randomUUID().toString().replace("-", "").toUpperCase();
         Payment refundPayment = paymentRepository.save(Payment.builder()
                 .transactionId("RF-" + requestId)

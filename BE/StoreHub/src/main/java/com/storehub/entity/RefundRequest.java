@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
 @Table(name = "refund_requests")
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class RefundRequest extends BaseEntity {
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "booking_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

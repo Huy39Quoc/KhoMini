@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -22,6 +23,26 @@ public interface PaymentRepository
         extends JpaRepository<Payment, UUID> {
 
     Optional<Payment> findByTransactionId(String transactionId);
+
+    @Query("select p.booking.id from Payment p where p.transactionId = :transactionId")
+    Optional<UUID> findBookingIdByTransactionId(@Param("transactionId") String transactionId);
+
+    @Query("""
+            select p.id from Payment p
+            where p.status in (com.storehub.enums.PaymentStatus.PENDING,
+                               com.storehub.enums.PaymentStatus.FAILED)
+            and p.gatewayCreateDate is not null
+            and p.paymentTime < :createdBefore
+            and (p.lastGatewayQueryAt is null or p.lastGatewayQueryAt < :queriedBefore)
+            order by p.paymentTime asc
+            """)
+    List<UUID> findChargeIdsToReconcile(@Param("createdBefore") LocalDateTime createdBefore,
+                                        @Param("queriedBefore") LocalDateTime queriedBefore,
+                                        Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Payment p where p.id = :id")
+    Optional<Payment> lockById(@Param("id") UUID id);
 
     List<Payment> findByBooking_IdAndStatusAndPaymentTypeIn(
             UUID bookingId, PaymentStatus status, java.util.Collection<PaymentType> paymentTypes);

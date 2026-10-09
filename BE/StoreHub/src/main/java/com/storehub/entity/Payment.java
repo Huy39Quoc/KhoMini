@@ -53,4 +53,7 @@ public class Payment extends BaseEntity {
 
     @Column(name = "gateway_amount", precision = 12, scale = 2)
     private BigDecimal gatewayAmount;
+
+    @Column(name = "last_gateway_query_at")
+    private LocalDateTime lastGatewayQueryAt;
 }

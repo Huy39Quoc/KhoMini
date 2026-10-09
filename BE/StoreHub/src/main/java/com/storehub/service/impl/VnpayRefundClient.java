@@ -115,11 +115,28 @@ public class VnpayRefundClient {
         return new GatewayResult(json.path("vnp_ResponseCode").asText(),
                 json.path("vnp_TransactionStatus").asText(),
                 json.path("vnp_TransactionType").asText(),
-                json.path("vnp_Amount").asText());
+                json.path("vnp_Amount").asText(),
+                json.path("vnp_TransactionNo").asText());
     }
 
     public record GatewayResult(String responseCode, String transactionStatus,
-                                String transactionType, String amount) {
+                                String transactionType, String amount, String transactionNo) {
+        public GatewayResult(String responseCode, String transactionStatus,
+                             String transactionType, String amount) {
+            this(responseCode, transactionStatus, transactionType, amount, "");
+        }
+
+        public boolean confirmedCharge(BigDecimal expectedAmount) {
+            try {
+                return "00".equals(responseCode) && "00".equals(transactionStatus)
+                        && "01".equals(transactionType)
+                        && expectedAmount != null && amount != null
+                        && new BigDecimal(amount).compareTo(expectedAmount.movePointRight(2)) == 0;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+
         public boolean confirmed(BigDecimal requestedAmount) {
             boolean matches;
             try {
