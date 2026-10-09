@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/booking_api_service.dart';
+import '../../../services/auth_api_service.dart';
 import '../../../services/storage_api_service.dart';
 import '../../../models/my_unit_model.dart';
 import '../../../widgets/state_views.dart';
@@ -21,7 +21,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   final StorageApiService _storageService = StorageApiService();
   final BookingApiService _bookingService = BookingApiService();
   late Future<List<MyUnitModel>> _unitsFuture;
-  final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
+  final _currency = NumberFormat.currency(
+      locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('MMM d, yyyy');
   final _dateTimeFmt = DateFormat('MMM d, yyyy • h:mm a');
 
@@ -297,8 +298,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   }
 
   void _logout(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await AuthApiService().logout();
 
     if (!context.mounted) return;
     Navigator.pushNamedAndRemoveUntil(

@@ -17,7 +17,7 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
   final CatalogApiService _catalog = CatalogApiService();
   final FacilityAdminApiService _admin = FacilityAdminApiService();
   final NumberFormat _currency =
-      NumberFormat.currency(locale: 'en_US', symbol: '\$');
+      NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
   late Future<List<dynamic>> _future;
 

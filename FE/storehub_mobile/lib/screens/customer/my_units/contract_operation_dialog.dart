@@ -30,7 +30,8 @@ class ContractOperationDialog extends StatefulWidget {
 class _ContractOperationDialogState extends State<ContractOperationDialog> {
   final StorageApiService _storageService = StorageApiService();
   final TextEditingController _notesController = TextEditingController();
-  final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
+  final _currency = NumberFormat.currency(
+      locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('MMM d, yyyy');
   final _dateTimeFmt = DateFormat('MMM d, yyyy • h:mm a');
 

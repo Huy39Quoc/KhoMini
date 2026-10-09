@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_endpoints.dart';
+import 'token_store.dart';
 
 class HttpClient {
   static final HttpClient _instance = HttpClient._internal();
@@ -37,10 +37,11 @@ class HttpClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final prefs = await SharedPreferences.getInstance();
-          final token = prefs.getString('jwt_token');
+          final token = await TokenStore.instance.readAccessToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
+          } else {
+            options.headers.remove('Authorization');
           }
           return handler.next(options);
         },
@@ -55,9 +56,7 @@ class HttpClient {
 
           final newToken = await _refreshAccessToken();
           if (newToken == null) {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.remove('jwt_token');
-            await prefs.remove('refresh_token');
+            await TokenStore.instance.clear();
             return handler.next(error);
           }
 
@@ -83,8 +82,7 @@ class HttpClient {
 
     _isRefreshing = true;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final refreshToken = prefs.getString('refresh_token');
+      final refreshToken = await TokenStore.instance.readRefreshToken();
       if (refreshToken == null || refreshToken.isEmpty) {
         _notifyPending(null);
         return null;
@@ -104,10 +102,7 @@ class HttpClient {
         return null;
       }
 
-      await prefs.setString('jwt_token', newAccessToken);
-      if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
-        await prefs.setString('refresh_token', newRefreshToken);
-      }
+      await TokenStore.instance.saveRefresh(newAccessToken, newRefreshToken);
 
       _notifyPending(newAccessToken);
       return newAccessToken;

@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
+import '../core/network/token_store.dart';
 
 class AuthApiService {
   final Dio _dio = HttpClient.instance.dio;
@@ -27,11 +27,10 @@ class AuthApiService {
       final refreshToken = data['refreshToken'];
 
       if (accessToken is String && accessToken.isNotEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('jwt_token', accessToken);
-        if (refreshToken is String && refreshToken.isNotEmpty) {
-          await prefs.setString('refresh_token', refreshToken);
-        }
+        await TokenStore.instance.saveLogin(
+          accessToken,
+          refreshToken is String ? refreshToken : null,
+        );
       }
 
       if (accessToken is String && accessToken.isNotEmpty) {
@@ -159,9 +158,8 @@ class AuthApiService {
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    final refreshToken = prefs.getString('refresh_token');
     try {
+      final refreshToken = await TokenStore.instance.readRefreshToken();
       if (refreshToken != null && refreshToken.isNotEmpty) {
         await _dio.post(
           ApiEndpoints.logout,
@@ -170,8 +168,7 @@ class AuthApiService {
       }
     } on DioException catch (_) {
     } finally {
-      await prefs.remove('jwt_token');
-      await prefs.remove('refresh_token');
+      await TokenStore.instance.clear();
     }
   }
 }

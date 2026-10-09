@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/facility_management_models.dart';
@@ -1280,7 +1281,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                   ),
                   _statTile(
                     'Revenue (paid)',
-                    '\$${report.revenue.toStringAsFixed(0)}',
+                    NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0)
+                        .format(report.revenue),
                     Icons.attach_money,
                     AppColors.success,
                   ),
