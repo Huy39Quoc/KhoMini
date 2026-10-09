@@ -171,8 +171,8 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
           setState(() {
             _isRefundStatus = true;
             _failedMessage = s == 'REFUNDED'
-                ? 'Thanh toán đến sau khi đơn hết hiệu lực. Khoản tiền đã được hoàn qua VNPay.'
-                : 'Thanh toán đến sau khi đơn hết hiệu lực. Hệ thống đã ghi nhận và đang xử lý hoàn tiền.';
+                ? 'Giao dịch không còn hiệu lực. Khoản tiền đã được hoàn qua VNPay.'
+                : 'Giao dịch không còn hiệu lực. Hệ thống đã ghi nhận và đang xử lý hoàn tiền.';
           });
           return;
         }
