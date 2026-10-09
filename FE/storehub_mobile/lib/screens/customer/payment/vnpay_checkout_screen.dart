@@ -42,6 +42,7 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
   bool _showCard = true;
   bool _checking = false;
   bool _finished = false;
+  bool _isRefundStatus = false;
   String? _failedMessage;
   String? _loadError; // lỗi tải trang VNPay (mạng, SSL, ...)
 
@@ -162,6 +163,17 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
           _pollTimer?.cancel();
           setState(() => _failedMessage =
               'Thanh toán không thành công hoặc đã bị hủy. Bạn có thể quay lại và thử thanh toán lại.');
+          return;
+        }
+        if (s == 'REFUND_PENDING' || s == 'REFUNDED') {
+          _finished = true;
+          _pollTimer?.cancel();
+          setState(() {
+            _isRefundStatus = true;
+            _failedMessage = s == 'REFUNDED'
+                ? 'Thanh toán đến sau khi đơn hết hiệu lực. Khoản tiền đã được hoàn qua VNPay.'
+                : 'Thanh toán đến sau khi đơn hết hiệu lực. Hệ thống đã ghi nhận và đang xử lý hoàn tiền.';
+          });
           return;
         }
         if (attempt < retries) {
@@ -368,7 +380,9 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 56, color: AppColors.error),
+            Icon(_isRefundStatus ? Icons.info_outline : Icons.error_outline,
+                size: 56,
+                color: _isRefundStatus ? Colors.orange : AppColors.error),
             const SizedBox(height: 12),
             Text(_failedMessage!, textAlign: TextAlign.center),
             const SizedBox(height: 20),
