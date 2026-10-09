@@ -22,6 +22,10 @@ public interface UnitTypeRepository extends JpaRepository<UnitType, UUID> {
         FROM UnitType ut
         LEFT JOIN StorageUnit su ON su.unitType = ut
              AND su.status = com.storehub.enums.UnitStatus.AVAILABLE
+             AND su.facility.id IN (
+                 SELECT f.id FROM Facility f
+                 WHERE f.status = com.storehub.enums.FacilityStatus.ACTIVE
+             )
              AND (:facilityId IS NULL OR su.facility.id = :facilityId)
         GROUP BY ut.id, ut.typeName, ut.dimensions, ut.areaSqm, ut.basePricePerMonth, ut.depositAmount
         ORDER BY ut.basePricePerMonth ASC

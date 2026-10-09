@@ -5,13 +5,16 @@ import com.storehub.dto.request.RentalQuoteRequest;
 import com.storehub.dto.response.BookingResponse;
 import com.storehub.dto.response.RentalQuoteResponse;
 import com.storehub.entity.Booking;
+import com.storehub.entity.Facility;
 import com.storehub.entity.StorageUnit;
 import com.storehub.entity.User;
 import com.storehub.enums.BookingStatus;
+import com.storehub.enums.FacilityStatus;
 import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
+import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.service.BookingService;
@@ -36,6 +39,7 @@ public class BookingServiceImpl implements BookingService {
     private static final int BOOKING_EXPIRY_MINUTES = 30;
 
     private final BookingRepository bookingRepository;
+    private final FacilityRepository facilityRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final UserRepository userRepository;
     private final PricingService pricingService;
@@ -53,6 +57,12 @@ public class BookingServiceImpl implements BookingService {
         User customer = userRepository
                 .findByEmail(customerEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        Facility facility = facilityRepository.findById(request.getFacilityId())
+                .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
+        if (facility.getStatus() != FacilityStatus.ACTIVE) {
+            throw new AppException(ErrorCode.FACILITY_NOT_ACTIVE);
+        }
 
         if (!facilityPolicyService.isMinRentalMonthsSatisfied(
                 request.getFacilityId(), request.getRentalMonths())) {

@@ -71,6 +71,14 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("customerId") UUID customerId
     );
 
+    // Serialize PIN attempts and state changes for the same customer booking.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from Booking b where b.id = :id and b.customer.id = :customerId")
+    Optional<Booking> lockByIdAndCustomerId(
+            @Param("id") UUID id,
+            @Param("customerId") UUID customerId
+    );
+
     @Query("""
             SELECT b FROM Booking b
             JOIN FETCH b.storageUnit su

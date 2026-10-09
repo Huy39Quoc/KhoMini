@@ -450,7 +450,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     }
 
     private Booking validateActiveBooking(UUID bookingId, UUID customerId) {
-        Booking booking = bookingRepository.findByIdAndCustomerId(bookingId, customerId)
+        Booking booking = bookingRepository.lockByIdAndCustomerId(bookingId, customerId)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         if (booking.getStatus() != BookingStatus.ACTIVE) {

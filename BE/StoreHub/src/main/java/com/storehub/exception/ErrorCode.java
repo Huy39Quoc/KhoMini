@@ -101,6 +101,7 @@ public enum ErrorCode {
     FACILITY_NOT_FOUND(1000, "Facility not found", HttpStatus.NOT_FOUND),
     FACILITY_CODE_EXISTED(1001, "Facility code already exists", HttpStatus.BAD_REQUEST),
     INVALID_MANAGER_TO_ASSIGN(1002,"Invalid manager to assign for this facility",HttpStatus.BAD_REQUEST),
+    FACILITY_NOT_ACTIVE(1003, "This facility is not accepting new bookings", HttpStatus.CONFLICT),
     // ========================= FACILITY_POLICY (1100 - 1199) =========================
     FACILITY_POLICY_NOT_FOUND(1100, "Facility policy not found", HttpStatus.NOT_FOUND),
     FACILITY_POLICY_ALREADY_EXISTS(1101, "This facility already has a policy configured", HttpStatus.BAD_REQUEST),

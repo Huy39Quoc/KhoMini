@@ -7,6 +7,7 @@ import com.storehub.entity.Facility;
 import com.storehub.entity.FacilityPolicy;
 import com.storehub.entity.StorageUnit;
 import com.storehub.entity.UnitType;
+import com.storehub.enums.FacilityStatus;
 import com.storehub.enums.RentalFeeType;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
@@ -69,6 +70,10 @@ public class PricingServiceImpl implements PricingService {
                 facility = facilityRepository.findById(request.getFacilityId())
                         .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
             }
+        }
+
+        if (facility != null && facility.getStatus() != FacilityStatus.ACTIVE) {
+            throw new AppException(ErrorCode.FACILITY_NOT_ACTIVE);
         }
 
         if (unitType.getBasePricePerMonth() == null) {

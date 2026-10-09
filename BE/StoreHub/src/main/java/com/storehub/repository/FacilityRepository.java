@@ -14,6 +14,7 @@ import java.util.UUID;
 @Repository
 public interface FacilityRepository extends JpaRepository<Facility, UUID> {
     List<Facility> findAllByOrderByCreatedAtAsc();
+    List<Facility> findByStatusOrderByCreatedAtAsc(com.storehub.enums.FacilityStatus status);
     boolean existsByCode(String code);
 
     boolean existsByCodeAndIdNot(String code, UUID id);
