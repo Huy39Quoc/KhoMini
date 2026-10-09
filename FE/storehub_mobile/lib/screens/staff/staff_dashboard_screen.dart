@@ -137,6 +137,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     final notesController = TextEditingController();
 
     bool submitting = false;
+    bool inspectionConfirmed = false;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -262,9 +263,22 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                         labelText: 'Notes (optional)',
                       ),
                     ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: inspectionConfirmed,
+                      onChanged: submitting
+                          ? null
+                          : (value) => setSheetState(() {
+                                inspectionConfirmed = value ?? false;
+                              }),
+                      title: Text(isCheckIn
+                          ? 'I verified the customer, unit and lock before handover'
+                          : 'I inspected the returned unit and lock'),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
                     const SizedBox(height: 20),
                     ElevatedButton(
-                      onPressed: submitting
+                      onPressed: submitting || !inspectionConfirmed
                           ? null
                           : () async {
                               setSheetState(() {
