@@ -61,6 +61,7 @@ public class PaymentServiceImpl implements PaymentService {
     // Dòng RENTAL_FEE đi kèm khoản cọc dùng mã giao dịch = mã của dòng DEPOSIT + hậu tố này.
     private static final String RENTAL_SUFFIX = "-R";
     private static final String RENTAL_FEE_REFUND = "RENTAL_FEE_REFUND";
+    private static final DateTimeFormatter VNP_DATE = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     @Value("${vnpay.tmn-code}")
     private String vnpTmnCode;
@@ -88,7 +89,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         Booking booking = bookingRepository
-                .findByIdAndCustomerId(request.getBookingId(), customer.getId())
+                .lockByIdAndCustomerId(request.getBookingId(), customer.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         if (booking.getExpiresAt() != null
@@ -110,6 +111,15 @@ public class PaymentServiceImpl implements PaymentService {
         if (requestedType == PaymentType.EXTRA_CHARGE
                 && booking.getStatus() != BookingStatus.ACTIVE) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
+        if (requestedType == PaymentType.DEPOSIT) {
+            List<Payment> pending = paymentRepository.findByBooking_IdAndStatusAndPaymentTypeIn(
+                    booking.getId(), PaymentStatus.PENDING,
+                    List.of(PaymentType.DEPOSIT, PaymentType.RENTAL_FEE));
+            if (!pending.isEmpty()) {
+                return reusePendingDeposit(booking, pending);
+            }
         }
 
         UUID facilityId = (booking.getStorageUnit() != null && booking.getStorageUnit().getFacility() != null)
@@ -154,16 +164,6 @@ public class PaymentServiceImpl implements PaymentService {
         if (payableAmount == null
                 || payableAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
-        }
-
-        // Thử thanh toán lại: các giao dịch đặt chỗ cũ chưa hoàn tất không còn hiệu lực.
-        if (request.getPaymentType() == PaymentType.DEPOSIT) {
-            for (Payment stale : paymentRepository.findByBooking_IdAndStatusAndPaymentTypeIn(
-                    booking.getId(), PaymentStatus.PENDING,
-                    java.util.List.of(PaymentType.DEPOSIT, PaymentType.RENTAL_FEE))) {
-                stale.setStatus(PaymentStatus.FAILED);
-                paymentRepository.save(stale);
-            }
         }
 
         String transactionId =
@@ -216,6 +216,49 @@ public class PaymentServiceImpl implements PaymentService {
                 .qrCodeUrl(vnpayUrl)
                 .paymentTime(savedPayment.getPaymentTime())
                 .note(payment.getNote())
+                .build();
+    }
+
+    private PaymentResponse reusePendingDeposit(Booking booking, List<Payment> pending) {
+        List<Payment> primaries = pending.stream()
+                .filter(p -> p.getPaymentType() == PaymentType.DEPOSIT).toList();
+        if (primaries.size() != 1) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        Payment primary = primaries.get(0);
+        if (primary.getGatewayAmount() == null || primary.getGatewayCreateDate() == null
+                || pending.stream().anyMatch(p -> p != primary &&
+                        !((primary.getTransactionId() + RENTAL_SUFFIX).equals(p.getTransactionId())
+                                && p.getPaymentType() == PaymentType.RENTAL_FEE))
+                || primary.getGatewayAmount().compareTo(pending.stream()
+                        .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)) != 0) {
+            // Legacy or inconsistent attempts must be reconciled before opening a new payment.
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        LocalDateTime created;
+        try {
+            created = LocalDateTime.parse(primary.getGatewayCreateDate(), VNP_DATE);
+        } catch (java.time.format.DateTimeParseException ex) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        if (!created.plusMinutes(15).isAfter(LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")))) {
+            // The old VNPay URL has expired. Do not overwrite its PENDING record:
+            // a successful IPN can still arrive late and must be reconciled first.
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        String url = buildVnpayUrl(primary.getTransactionId(), primary.getGatewayAmount(), created);
+        return PaymentResponse.builder()
+                .id(primary.getId())
+                .transactionId(primary.getTransactionId())
+                .bookingId(booking.getId())
+                .amount(primary.getGatewayAmount())
+                .paymentType(primary.getPaymentType())
+                .status(primary.getStatus())
+                .paymentMethod(primary.getPaymentMethod())
+                .paymentUrl(url)
+                .qrCodeUrl(url)
+                .paymentTime(primary.getPaymentTime())
+                .note(primary.getNote())
                 .build();
     }
 
