@@ -108,6 +108,31 @@ class LateCapturedBookingPaymentTest {
         verify(refunds, times(1)).save(any(RefundRequest.class));
     }
 
+    @Test
+    void competingSuccessfulAttemptsConfirmOnlyTheFirstAndRefundTheSecond() {
+        Booking booking = booking(BookingStatus.PENDING_PAYMENT, UnitStatus.RESERVED);
+        Payment first = deposit(booking);
+        setup(booking, first, rent(booking));
+        Payment second = Payment.builder().booking(booking).transactionId("TXN-2")
+                .paymentType(PaymentType.DEPOSIT).amount(new BigDecimal("200"))
+                .gatewayAmount(new BigDecimal("1000")).gatewayCreateDate("20261009230000")
+                .status(PaymentStatus.PENDING).build();
+        second.setId(UUID.randomUUID());
+        Payment secondRent = Payment.builder().booking(booking).transactionId("TXN-2-R")
+                .paymentType(PaymentType.RENTAL_FEE).amount(new BigDecimal("800"))
+                .status(PaymentStatus.PENDING).build();
+        when(payments.findBookingIdByTransactionId("TXN-2")).thenReturn(Optional.of(booking.getId()));
+        when(payments.lockByTransactionId("TXN-2")).thenReturn(Optional.of(second));
+        when(payments.findByTransactionId("TXN-2-R")).thenReturn(Optional.of(secondRent));
+
+        assertEquals(PaymentStatus.PAID, service.processVnpayCallback(signedSuccess()).getStatus());
+        assertEquals(PaymentStatus.REFUND_PENDING,
+                service.processVnpayCallback(signedSuccess("TXN-2")).getStatus());
+        assertEquals(BookingStatus.CONFIRMED, booking.getStatus());
+        assertEquals(PaymentStatus.REFUND_PENDING, secondRent.getStatus());
+        verify(refunds, times(1)).save(any(RefundRequest.class));
+    }
+
     private Booking booking(BookingStatus status, UnitStatus unitStatus) {
         Booking booking = Booking.builder().bookingCode("BK-1").status(status)
                 .depositPaid(BigDecimal.ZERO)
@@ -147,15 +172,19 @@ class LateCapturedBookingPaymentTest {
     }
 
     private Map<String, String> signedSuccess() {
+        return signedSuccess("TXN-1");
+    }
+
+    private Map<String, String> signedSuccess(String transactionId) {
         Map<String, String> params = new HashMap<>();
         params.put("vnp_Amount", "100000");
         params.put("vnp_ResponseCode", "00");
         params.put("vnp_TransactionNo", "12345678");
         params.put("vnp_TransactionStatus", "00");
-        params.put("vnp_TxnRef", "TXN-1");
+        params.put("vnp_TxnRef", transactionId);
         params.put("vnp_SecureHash", VNPayUtil.hmacSHA512("test-secret",
                 "vnp_Amount=100000&vnp_ResponseCode=00&vnp_TransactionNo=12345678"
-                        + "&vnp_TransactionStatus=00&vnp_TxnRef=TXN-1"));
+                        + "&vnp_TransactionStatus=00&vnp_TxnRef=" + transactionId));
         return params;
     }
 }

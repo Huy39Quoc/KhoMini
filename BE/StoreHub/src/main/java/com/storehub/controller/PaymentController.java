@@ -204,7 +204,7 @@ public class PaymentController {
                     isPaid ? "✓" : isPending ? "…" : "✕",
                     isPaid ? "Thanh Toán Thành Công!" : refunding ? "Đang Hoàn Tiền" : isPending ? "Đang Xử Lý Thanh Toán" : "Thanh Toán Thất Bại",
                     isPaid ? "Giao dịch qua VNPAY đã hoàn tất thành công."
-                            : refunding ? "VNPay đã thu tiền sau khi đơn đặt chỗ không còn hiệu lực. Hệ thống đang xử lý hoàn tiền."
+                            : refunding ? "VNPay đã thu tiền sau khi đơn hoặc yêu cầu thanh toán không còn hiệu lực. Hệ thống đang xử lý hoàn tiền."
                             : isPending ? "Giao dịch chưa hoàn tất. Vui lòng kiểm tra lại trong ứng dụng."
                             : "Giao dịch không thành công hoặc đã bị hủy.",
                     response.getTransactionId() != null ? response.getTransactionId() : "—",

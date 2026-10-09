@@ -56,4 +56,8 @@ public class Payment extends BaseEntity {
 
     @Column(name = "last_gateway_query_at")
     private LocalDateTime lastGatewayQueryAt;
+
+    // A cancelled extension can still be captured by VNPay after its URL is opened.
+    @Column(name = "voided_at")
+    private LocalDateTime voidedAt;
 }

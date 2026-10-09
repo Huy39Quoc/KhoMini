@@ -184,6 +184,13 @@ public interface PaymentRepository
             String note
     );
 
+    List<Payment> findByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeAsc(
+            UUID bookingId, PaymentType paymentType, PaymentStatus status, String note);
+
+    List<Payment> findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+            UUID bookingId, PaymentType paymentType, String note,
+            java.util.Collection<PaymentStatus> statuses);
+
     @Query("""
             SELECT COALESCE(SUM(p.amount), 0)
             FROM Payment p

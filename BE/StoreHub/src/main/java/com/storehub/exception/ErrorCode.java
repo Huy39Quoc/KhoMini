@@ -86,6 +86,7 @@ public enum ErrorCode {
     // ========================= PAYMENT (750 - 799) =========================
     PAYMENT_NOT_FOUND(750, "Payment transaction not found", HttpStatus.NOT_FOUND),
     PAYMENT_ALREADY_PROCESSED(751, "Payment has already been processed", HttpStatus.CONFLICT),
+    PAYMENT_RECONCILIATION_PENDING(752, "The previous VNPay transaction is still being reconciled. Please try again shortly.", HttpStatus.CONFLICT),
 
     // ========================= ROLE_PERMISSION (800 - 899) =========================
     ROLE_PERMISSION_NOT_FOUND(800, "Role-permission mapping not found", HttpStatus.NOT_FOUND),

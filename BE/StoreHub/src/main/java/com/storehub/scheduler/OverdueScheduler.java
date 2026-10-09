@@ -204,6 +204,7 @@ public class OverdueScheduler {
                         PaymentStatus.PENDING,
                         OVERDUE_LATE_FEE
                 )
+                .filter(payment -> payment.getGatewayCreateDate() == null)
                 .orElseGet(() -> Payment.builder()
                         .transactionId(createTransactionId())
                         .booking(booking)

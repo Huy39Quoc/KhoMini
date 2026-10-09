@@ -5,6 +5,7 @@ import com.storehub.entity.Payment;
 import com.storehub.entity.RefundRequest;
 import com.storehub.enums.ActivityAction;
 import com.storehub.enums.PaymentStatus;
+import com.storehub.enums.PaymentType;
 import com.storehub.enums.RefundStatus;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
@@ -149,25 +150,29 @@ public class RefundDispatcher {
     private void settle(RefundRequest request) {
         Booking booking = bookings.lockById(request.getBooking().getId()).orElseThrow();
         Payment original = request.getOriginalPayment();
-        BigDecimal depositRemaining = booking.getDepositPaid().subtract(request.getDepositAmount());
-        if (depositRemaining.signum() < 0) throw new IllegalStateException("Refund exceeds deposit");
-        booking.setDepositPaid(depositRemaining);
-        // The booking may contain deposits from several captured attempts.
-        // Settle this original transaction independently of the booking total.
-        BigDecimal originalRemaining = original.getAmount().subtract(request.getDepositAmount());
-        if (originalRemaining.signum() < 0) throw new IllegalStateException("Refund exceeds original deposit");
-        if (originalRemaining.signum() == 0) {
+        if (original.getPaymentType() == PaymentType.EXTRA_CHARGE) {
+            if (request.getDepositAmount().signum() != 0
+                    || request.getRentalAmount().compareTo(original.getAmount()) != 0) {
+                throw new IllegalStateException("Extra charge refund must match the captured charge");
+            }
             original.setStatus(PaymentStatus.REFUNDED);
         } else {
-            original.setAmount(originalRemaining);
-        }
-        if (request.getRentalAmount().signum() > 0) {
-            Payment rent = payments.findByTransactionId(original.getTransactionId() + "-R")
-                    .orElseThrow();
-            BigDecimal remaining = rent.getAmount().subtract(request.getRentalAmount());
-            if (remaining.signum() < 0) throw new IllegalStateException("Refund exceeds rent");
-            if (remaining.signum() == 0) rent.setStatus(PaymentStatus.REFUNDED);
-            else rent.setAmount(remaining);
+            BigDecimal depositRemaining = booking.getDepositPaid().subtract(request.getDepositAmount());
+            if (depositRemaining.signum() < 0) throw new IllegalStateException("Refund exceeds deposit");
+            booking.setDepositPaid(depositRemaining);
+            // Another captured attempt may still have its own deposit on this booking.
+            BigDecimal originalRemaining = original.getAmount().subtract(request.getDepositAmount());
+            if (originalRemaining.signum() < 0) throw new IllegalStateException("Refund exceeds original deposit");
+            if (originalRemaining.signum() == 0) original.setStatus(PaymentStatus.REFUNDED);
+            else original.setAmount(originalRemaining);
+            if (request.getRentalAmount().signum() > 0) {
+                Payment rent = payments.findByTransactionId(original.getTransactionId() + "-R")
+                        .orElseThrow();
+                BigDecimal remaining = rent.getAmount().subtract(request.getRentalAmount());
+                if (remaining.signum() < 0) throw new IllegalStateException("Refund exceeds rent");
+                if (remaining.signum() == 0) rent.setStatus(PaymentStatus.REFUNDED);
+                else rent.setAmount(remaining);
+            }
         }
         request.getRefundPayment().setStatus(PaymentStatus.REFUNDED);
         request.setStatus(RefundStatus.COMPLETED);

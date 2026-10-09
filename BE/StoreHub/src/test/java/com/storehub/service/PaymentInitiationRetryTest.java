@@ -11,11 +11,13 @@ import com.storehub.enums.BookingStatus;
 import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
 import com.storehub.exception.AppException;
+import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.service.impl.PaymentServiceImpl;
+import com.storehub.service.impl.VnpayRefundClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentInitiationRetryTest {
@@ -48,6 +51,7 @@ class PaymentInitiationRetryTest {
     @Mock ActivityLogService logs;
     @Mock PricingService pricing;
     @Mock RefundRequestRepository refunds;
+    @Mock VnpayRefundClient gateway;
     @InjectMocks PaymentServiceImpl service;
 
     @Test
@@ -71,7 +75,7 @@ class PaymentInitiationRetryTest {
     }
 
     @Test
-    void expiredUrlDoesNotCreateAnotherChargeWhileOldIpnCouldStillArrive() {
+    void expiredUrlWithSignedNoTransactionCreatesFreshAttemptAndKeepsOldForLateIpn() throws Exception {
         Booking booking = booking();
         Payment deposit = deposit(booking, LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"))
                 .minusMinutes(16));
@@ -79,9 +83,40 @@ class PaymentInitiationRetryTest {
                 .paymentType(PaymentType.RENTAL_FEE).amount(new BigDecimal("800"))
                 .status(PaymentStatus.PENDING).build();
         configure(booking, List.of(deposit, rent));
+        when(gateway.query("TXN-1", deposit.getGatewayCreateDate()))
+                .thenReturn(new VnpayRefundClient.GatewayResult("91", "", "", ""));
+        when(payments.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThrows(AppException.class,
-                () -> service.initiatePayment("customer@example.com", request(booking.getId())));
+        PaymentResponse response = service.initiatePayment("customer@example.com", request(booking.getId()));
+
+        assertEquals(PaymentStatus.FAILED, deposit.getStatus());
+        assertEquals(PaymentStatus.FAILED, rent.getStatus());
+        assertEquals(PaymentStatus.PENDING, response.getStatus());
+        assertTrue(!response.getTransactionId().equals("TXN-1"));
+        assertTrue(response.getPaymentUrl().contains("vnp_TxnRef=" + response.getTransactionId()));
+        ArgumentCaptor<Payment> saved = ArgumentCaptor.forClass(Payment.class);
+        verify(payments, org.mockito.Mockito.atLeast(2)).save(saved.capture());
+        assertTrue(saved.getAllValues().stream().anyMatch(p ->
+                p.getTransactionId().equals(response.getTransactionId())
+                        && p.getGatewayAmount().compareTo(new BigDecimal("1000")) == 0));
+    }
+
+    @Test
+    void gatewayStillProcessingPreventsAnotherAttempt() throws Exception {
+        Booking booking = booking();
+        Payment deposit = deposit(booking, LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"))
+                .minusMinutes(16));
+        Payment rent = Payment.builder().transactionId("TXN-1-R")
+                .paymentType(PaymentType.RENTAL_FEE).amount(new BigDecimal("800"))
+                .status(PaymentStatus.PENDING).build();
+        configure(booking, List.of(deposit, rent));
+        when(gateway.query("TXN-1", deposit.getGatewayCreateDate()))
+                .thenReturn(new VnpayRefundClient.GatewayResult("00", "01", "01", "100000"));
+
+        assertEquals(ErrorCode.PAYMENT_RECONCILIATION_PENDING,
+                assertThrows(AppException.class,
+                        () -> service.initiatePayment("customer@example.com", request(booking.getId())))
+                        .getErrorCode());
         assertEquals(PaymentStatus.PENDING, deposit.getStatus());
         verify(payments, never()).save(any());
     }

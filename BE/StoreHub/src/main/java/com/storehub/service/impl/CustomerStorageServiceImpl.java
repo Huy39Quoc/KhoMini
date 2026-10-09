@@ -372,10 +372,11 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         int cancelledMonths = booking.getPendingExtraMonths();
 
         // Đóng giao dịch gia hạn đang treo để không còn thanh toán được QR cũ
-        paymentRepository
-                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
-                        booking.getId(), PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, RENTAL_EXTENSION)
-                .ifPresent(payment -> {
+        paymentRepository.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        booking.getId(), PaymentType.EXTRA_CHARGE, RENTAL_EXTENSION,
+                        List.of(PaymentStatus.PENDING, PaymentStatus.FAILED))
+                .forEach(payment -> {
+                    payment.setVoidedAt(LocalDateTime.now());
                     payment.setStatus(PaymentStatus.FAILED);
                     paymentRepository.save(payment);
                 });
@@ -473,8 +474,12 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
             response.setOverdueDays(ChronoUnit.DAYS.between(b.getEndDate(), LocalDate.now()));
         }
 
-        Payment lateFee = b.getOverdueDetectedAt() != null ? findPendingLateFee(b.getId()) : null;
-        response.setOverdueFeeOutstanding(lateFee != null ? lateFee.getAmount() : BigDecimal.ZERO);
+        BigDecimal lateFees = b.getOverdueDetectedAt() != null
+                ? paymentRepository.findByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeAsc(
+                        b.getId(), PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, OVERDUE_LATE_FEE)
+                        .stream().map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)
+                : BigDecimal.ZERO;
+        response.setOverdueFeeOutstanding(lateFees);
         return response;
     }
 }
