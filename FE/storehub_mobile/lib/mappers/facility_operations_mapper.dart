@@ -30,6 +30,8 @@ class FacilityOperationsMapper {
       type: _text(json['type']),
       scheduledTime: _dateTime(json['scheduledTime']),
       scheduleType: _text(json['scheduleType']),
+      assignedStaffId: json['assignedStaffId']?.toString(),
+      assignedStaffName: json['assignedStaffName']?.toString(),
       bookingStatus: _text(json['bookingStatus']),
     );
   }

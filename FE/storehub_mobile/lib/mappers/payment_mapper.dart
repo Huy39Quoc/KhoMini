@@ -16,6 +16,7 @@ class PaymentMapper {
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       paymentType: json['paymentType']?.toString() ?? 'DEPOSIT',
       status: json['status']?.toString() ?? 'PENDING',
+      refundStatus: json['refundStatus']?.toString(),
       paymentMethod: json['paymentMethod']?.toString(),
       note: json['note']?.toString(),
       paymentTime: DateTime.tryParse(json['paymentTime']?.toString() ?? ''),

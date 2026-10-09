@@ -24,6 +24,8 @@ class DailyScheduleModel {
   final String type;
   final DateTime? scheduledTime;
   final String scheduleType;
+  final String? assignedStaffId;
+  final String? assignedStaffName;
   final String bookingStatus;
 
   const DailyScheduleModel({
@@ -40,6 +42,8 @@ class DailyScheduleModel {
     required this.type,
     required this.scheduledTime,
     required this.scheduleType,
+    this.assignedStaffId,
+    this.assignedStaffName,
     required this.bookingStatus,
   });
 

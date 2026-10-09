@@ -156,6 +156,10 @@ class ApiEndpoints {
       '/facility/operations/$bookingId/reset-pin';
   // ---- Facility Operations (FacilityOperationsController) - Facility Staff ----
   static const String dailySchedule = '/facility/operations/daily-schedule';
+  static String appointmentAssignment(String bookingId) =>
+      '/facility/operations/$bookingId/appointment-assignment';
+  static String facilityRefunds(String facilityId) =>
+      '/facility/$facilityId/refunds';
   static String checkIn(String bookingId) =>
       '/facility/operations/$bookingId/check-in';
 

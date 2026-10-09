@@ -608,6 +608,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                         ),
                       ),
                     ),
+                  if (item.assignedStaffName?.isNotEmpty == true)
+                    Text('Assigned: ${item.assignedStaffName}',
+                        style: const TextStyle(fontSize: 11)),
                 ],
               ),
             ),
@@ -625,7 +628,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   horizontal: 12,
                 ),
               ),
-              onPressed: () {
+              onPressed: item.assignedStaffId != null &&
+                      item.assignedStaffId != widget.user.id
+                  ? null
+                  : () {
                 _openHandoverSheet(item);
               },
               child: Text(

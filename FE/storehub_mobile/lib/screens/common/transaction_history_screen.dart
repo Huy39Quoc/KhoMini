@@ -156,6 +156,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                       const SizedBox(width: 8),
                       _statusFilterChip('PENDING', 'Pending'),
                       const SizedBox(width: 8),
+                      _statusFilterChip('REFUND_PENDING', 'Refund processing'),
+                      const SizedBox(width: 8),
                       _statusFilterChip('FAILED', 'Failed'),
                       const SizedBox(width: 8),
                       _statusFilterChip('REFUNDED', 'Refunded'),

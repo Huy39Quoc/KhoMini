@@ -13,6 +13,7 @@ class PaymentModel {
   final double amount;
   final String paymentType;
   final String status;
+  final String? refundStatus;
   final String? paymentMethod;
   final String? note;
   final DateTime? paymentTime;
@@ -29,12 +30,14 @@ class PaymentModel {
     required this.amount,
     required this.paymentType,
     required this.status,
+    this.refundStatus,
     this.paymentMethod,
     this.note,
     this.paymentTime,
   });
 
   String get paymentTypeLabel {
+    if (transactionId.startsWith('RF-')) return 'Refund request';
     switch (paymentType.toUpperCase()) {
       case 'DEPOSIT':
         return 'Deposit Payment';
@@ -55,6 +58,13 @@ class PaymentModel {
         return 'Paid';
       case 'PENDING':
         return 'Pending';
+      case 'REFUND_PENDING':
+        return switch (refundStatus) {
+          'REJECTED' => 'Refund rejected',
+          'NEEDS_REVIEW' => 'Refund needs review',
+          'MISSING_METADATA' => 'Refund needs payment details',
+          _ => 'Refund processing',
+        };
       case 'FAILED':
         return 'Failed';
       case 'REFUNDED':
@@ -69,7 +79,8 @@ class PaymentModel {
       case 'PAID':
         return AppColors.success;
       case 'PENDING':
-        return AppColors.warning;
+      case 'REFUND_PENDING':
+        return refundStatus == 'REJECTED' ? AppColors.error : AppColors.warning;
       case 'FAILED':
         return AppColors.error;
       case 'REFUNDED':

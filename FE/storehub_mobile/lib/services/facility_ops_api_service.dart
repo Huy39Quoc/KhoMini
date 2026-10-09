@@ -374,6 +374,63 @@ class FacilityOpsApiService {
     }
   }
 
+  Future<void> assignAppointment({
+    required String facilityId,
+    required DailyScheduleModel appointment,
+    String? staffId,
+  }) async {
+    try {
+      await _dio.put(
+        ApiEndpoints.appointmentAssignment(appointment.bookingId),
+        queryParameters: {'facilityId': facilityId},
+        data: {'scheduleType': appointment.scheduleType, 'staffId': staffId},
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'assign appointment');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getFacilityRefunds(String facilityId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.facilityRefunds(facilityId));
+      return _unwrapList(response.data)
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load refunds');
+    }
+  }
+
+  Future<void> provideRefundDetails(String facilityId, String refundId,
+      String transactionDate, String transactionNo, num originalAmount) async {
+    try {
+      await _dio.put('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/gateway-details',
+          data: {
+            'transactionDate': transactionDate,
+            'transactionNo': transactionNo.isEmpty ? null : transactionNo,
+            'originalAmount': originalAmount,
+          });
+    } on DioException catch (error) {
+      throw _err(error, 'provide original payment details');
+    }
+  }
+
+  Future<void> retryRejectedRefund(String facilityId, String refundId) async {
+    try {
+      await _dio.post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/retry');
+    } on DioException catch (error) {
+      throw _err(error, 'retry rejected refund');
+    }
+  }
+
+  Future<void> reconcileRefund(String facilityId, String refundId) async {
+    try {
+      await _dio.post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/reconcile');
+    } on DioException catch (error) {
+      throw _err(error, 'check refund with VNPay');
+    }
+  }
+
   Future<HandoverModel> checkIn({
     required String bookingId,
     required String facilityId,

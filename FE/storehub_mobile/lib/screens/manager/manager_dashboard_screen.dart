@@ -11,6 +11,8 @@ import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
 import '../common/transaction_history_screen.dart';
 import 'booking_assignment_screen.dart';
+import 'appointment_assignment_screen.dart';
+import 'refund_review_screen.dart';
 import 'facility_contracts_tab.dart';
 import 'facility_tickets_tab.dart';
 
@@ -792,6 +794,30 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
               : _facilityName!,
         ),
         actions: [
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Refund requests',
+              icon: const Icon(Icons.currency_exchange_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RefundReviewScreen(facilityId: _facilityId!),
+                ),
+              ),
+            ),
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Handover appointments',
+              icon: const Icon(Icons.event_note_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AppointmentAssignmentScreen(
+                    facilityId: _facilityId!,
+                  ),
+                ),
+              ),
+            ),
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
               tooltip: 'Confirmed bookings',
