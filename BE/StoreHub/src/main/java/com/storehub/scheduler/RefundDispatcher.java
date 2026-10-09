@@ -49,9 +49,13 @@ public class RefundDispatcher {
                 inTransaction(() -> { markNeedsReview(payload.id()); return null; });
             }
         }
-        for (RefundRequest pending : refunds.findTop20ByStatusOrderByCreatedAtAsc(RefundStatus.AWAITING_CONFIRMATION)) {
-            if (pending.getUpdatedStatusAt() != null &&
-                    pending.getUpdatedStatusAt().isAfter(LocalDateTime.now().minusMinutes(6))) continue;
+        // A timeout can leave NEEDS_REVIEW, and a process restart can leave SENDING.
+        // Query the gateway for these as well; never send another refund automatically.
+        for (RefundRequest pending : refunds
+                .findTop20ByStatusInAndUpdatedStatusAtBeforeOrderByUpdatedStatusAtAsc(
+                        java.util.List.of(RefundStatus.AWAITING_CONFIRMATION,
+                                RefundStatus.NEEDS_REVIEW, RefundStatus.SENDING),
+                        LocalDateTime.now().minusMinutes(6))) {
             reconcile(pending.getId());
         }
     }
@@ -67,7 +71,9 @@ public class RefundDispatcher {
             log.warn("Refund reconciliation {} failed: {}", payload.requestId(), ex.toString());
             inTransaction(() -> {
                 RefundRequest request = refunds.lockById(payload.id()).orElse(null);
-                if (request != null && request.getStatus() == RefundStatus.AWAITING_CONFIRMATION) {
+                if (request != null && (request.getStatus() == RefundStatus.AWAITING_CONFIRMATION
+                        || request.getStatus() == RefundStatus.NEEDS_REVIEW
+                        || request.getStatus() == RefundStatus.SENDING)) {
                     request.setUpdatedStatusAt(LocalDateTime.now());
                 }
                 return null;

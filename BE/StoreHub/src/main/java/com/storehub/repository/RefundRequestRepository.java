@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 public interface RefundRequestRepository extends JpaRepository<RefundRequest, UUID> {
     boolean existsByBooking_Id(UUID bookingId);
@@ -19,6 +20,9 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, UU
     List<RefundRequest> findTop50ByBooking_StorageUnit_Facility_IdOrderByCreatedAtDesc(UUID facilityId);
 
     List<RefundRequest> findTop20ByStatusOrderByCreatedAtAsc(RefundStatus status);
+
+    List<RefundRequest> findTop20ByStatusInAndUpdatedStatusAtBeforeOrderByUpdatedStatusAtAsc(
+            List<RefundStatus> statuses, LocalDateTime before);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from RefundRequest r where r.id = :id")
