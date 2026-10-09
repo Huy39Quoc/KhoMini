@@ -521,9 +521,17 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         String responseCode = queryParams.get("vnp_ResponseCode");
+        String transactionStatus = queryParams.get("vnp_TransactionStatus");
         String transactionId = queryParams.get("vnp_TxnRef");
 
-        if ("00".equals(responseCode)) {
+        if ("00".equals(responseCode) && "01".equals(transactionStatus)) {
+            // VNPay has not finished the transaction. Keep it pending for a later IPN.
+            Payment payment = paymentRepository.findByTransactionId(transactionId)
+                    .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+            return toPaymentResponse(payment);
+        }
+
+        if ("00".equals(responseCode) && "00".equals(transactionStatus)) {
             // Đối chiếu số tiền VNPay báo về với số tiền của giao dịch (chỉ khi còn PENDING,
             // để IPN/return gọi lặp lại vẫn idempotent).
             Payment pending = paymentRepository.findByTransactionId(transactionId)
@@ -549,7 +557,8 @@ public class PaymentServiceImpl implements PaymentService {
             confirmationRequest.setTransactionId(transactionId);
             return confirmPayment(confirmationRequest);
         } else {
-            log.warn("VNPay payment failed or cancelled with response code: {} for transactionId: {}", responseCode, transactionId);
+            log.warn("VNPay payment failed or cancelled with response code: {}, transaction status: {} for transactionId: {}",
+                    responseCode, transactionStatus, transactionId);
             Payment payment = paymentRepository.lockByTransactionId(transactionId)
                     .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 

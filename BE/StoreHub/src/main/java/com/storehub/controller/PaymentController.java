@@ -163,6 +163,7 @@ public class PaymentController {
         try {
             PaymentResponse response = paymentService.processVnpayCallback(queryParams);
             boolean isPaid = response.getStatus() == PaymentStatus.PAID;
+            boolean isPending = response.getStatus() == PaymentStatus.PENDING;
             String html = """
                 <!DOCTYPE html>
                 <html lang="vi">
@@ -175,6 +176,7 @@ public class PaymentController {
                         .card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; max-width: 420px; width: 90%%; }
                         .icon { width: 80px; height: 80px; background: #4caf50; color: white; border-radius: 50%%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 20px; }
                         .icon.error { background: #f44336; }
+                        .icon.pending { background: #ff9800; }
                         h2 { margin: 0 0 10px; color: #1e3c72; }
                         p { color: #666; font-size: 14px; margin: 5px 0; }
                         .txn { font-weight: bold; color: #333; font-size: 16px; margin-top: 15px; }
@@ -196,10 +198,12 @@ public class PaymentController {
                 </body>
                 </html>
                 """.formatted(
-                    isPaid ? "" : "error",
-                    isPaid ? "✓" : "✕",
-                    isPaid ? "Thanh Toán Thành Công!" : "Thanh Toán Thất Bại",
-                    isPaid ? "Giao dịch qua VNPAY đã hoàn tất thành công." : "Giao dịch không thành công hoặc đã bị hủy.",
+                    isPaid ? "" : isPending ? "pending" : "error",
+                    isPaid ? "✓" : isPending ? "…" : "✕",
+                    isPaid ? "Thanh Toán Thành Công!" : isPending ? "Đang Xử Lý Thanh Toán" : "Thanh Toán Thất Bại",
+                    isPaid ? "Giao dịch qua VNPAY đã hoàn tất thành công."
+                            : isPending ? "Giao dịch chưa hoàn tất. Vui lòng kiểm tra lại trong ứng dụng."
+                            : "Giao dịch không thành công hoặc đã bị hủy.",
                     response.getTransactionId() != null ? response.getTransactionId() : "—",
                     response.getStatus() != null ? response.getStatus().name() : "FAILED"
             );
