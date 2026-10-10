@@ -1,0 +1,2075 @@
+diff --git a/BE/StoreHub/src/main/java/com/storehub/controller/WaitlistController.java b/BE/StoreHub/src/main/java/com/storehub/controller/WaitlistController.java
+index 58ba895..00228cd 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/controller/WaitlistController.java
++++ b/BE/StoreHub/src/main/java/com/storehub/controller/WaitlistController.java
+@@ -2,6 +2,7 @@ package com.storehub.controller;
+ 
+ import com.storehub.common.ApiResponse;
+ import com.storehub.service.WaitlistService;
++import com.storehub.dto.response.WaitlistResponse;
+ import io.swagger.v3.oas.annotations.Operation;
+ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+ import io.swagger.v3.oas.annotations.tags.Tag;
+@@ -14,6 +15,7 @@ import org.springframework.security.core.userdetails.UserDetails;
+ import org.springframework.web.bind.annotation.*;
+ 
+ import java.util.UUID;
++import java.util.List;
+ 
+ @RestController
+ @RequestMapping("/api/v1/waitlist")
+@@ -36,4 +38,20 @@ public class WaitlistController {
+         return ResponseEntity.ok(
+                 ApiResponse.success("You have been added to the waitlist. We will notify you when a unit becomes available.", null));
+     }
++
++    @GetMapping("/mine")
++    @PreAuthorize("hasRole('CUSTOMER')")
++    public ResponseEntity<ApiResponse<List<WaitlistResponse>>> myWaitlist(
++            @AuthenticationPrincipal UserDetails userDetails) {
++        return ResponseEntity.ok(ApiResponse.success(
++                waitlistService.myWaitlist(userDetails.getUsername())));
++    }
++
++    @DeleteMapping("/{waitlistId}")
++    @PreAuthorize("hasRole('CUSTOMER')")
++    public ResponseEntity<ApiResponse<Void>> leaveWaitlist(
++            @AuthenticationPrincipal UserDetails userDetails, @PathVariable UUID waitlistId) {
++        waitlistService.leaveWaitlist(userDetails.getUsername(), waitlistId);
++        return ResponseEntity.ok(ApiResponse.success("Left waitlist", null));
++    }
+ }
+diff --git a/BE/StoreHub/src/main/java/com/storehub/dto/request/BookingCreationRequest.java b/BE/StoreHub/src/main/java/com/storehub/dto/request/BookingCreationRequest.java
+index fd227d8..8090155 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/dto/request/BookingCreationRequest.java
++++ b/BE/StoreHub/src/main/java/com/storehub/dto/request/BookingCreationRequest.java
+@@ -10,6 +10,7 @@ import lombok.Data;
+ import lombok.NoArgsConstructor;
+ 
+ import java.time.LocalDate;
++import java.time.LocalTime;
+ import java.util.UUID;
+ 
+ @Data
+@@ -28,6 +29,9 @@ public class BookingCreationRequest {
+     @FutureOrPresent(message = "Start date cannot be in the past")
+     private LocalDate startDate;
+ 
++    // Giờ hẹn nhận kho tại chi nhánh; nếu không gửi, dùng giờ mở cửa.
++    private LocalTime checkInTime;
++
+     @NotNull(message = "Rental months is required")
+     @Min(value = 1, message = "Rental months must be at least 1")
+     @Max(value = 36, message = "Rental months must be at most 36")
+diff --git a/BE/StoreHub/src/main/java/com/storehub/dto/response/BookingResponse.java b/BE/StoreHub/src/main/java/com/storehub/dto/response/BookingResponse.java
+index 9d483c2..269d975 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/dto/response/BookingResponse.java
++++ b/BE/StoreHub/src/main/java/com/storehub/dto/response/BookingResponse.java
+@@ -21,6 +21,7 @@ public class BookingResponse {
+     private String unitTypeName;
+     private String unitTypeDimensions;
+     private LocalDate startDate;
++    private LocalDateTime scheduledCheckInTime;
+     private LocalDate endDate;
+     private Integer rentalMonths;
+     private BigDecimal totalRentalFee;
+diff --git a/BE/StoreHub/src/main/java/com/storehub/dto/response/WaitlistResponse.java b/BE/StoreHub/src/main/java/com/storehub/dto/response/WaitlistResponse.java
+new file mode 100644
+index 0000000..170d379
+--- /dev/null
++++ b/BE/StoreHub/src/main/java/com/storehub/dto/response/WaitlistResponse.java
+@@ -0,0 +1,9 @@
++package com.storehub.dto.response;
++
++import com.storehub.enums.WaitlistStatus;
++import java.time.Instant;
++import java.util.UUID;
++
++public record WaitlistResponse(UUID id, UUID facilityId, String facilityName,
++                               UUID unitTypeId, String unitTypeName, WaitlistStatus status,
++                               Instant notifiedAt, Instant offerExpiresAt) {}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/entity/Booking.java b/BE/StoreHub/src/main/java/com/storehub/entity/Booking.java
+index 60da4b3..4f3566b 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/entity/Booking.java
++++ b/BE/StoreHub/src/main/java/com/storehub/entity/Booking.java
+@@ -32,6 +32,9 @@ public class Booking extends BaseEntity {
+     @Column(name = "start_date", nullable = false)
+     private LocalDate startDate;
+ 
++    @Column(name = "scheduled_check_in_time")
++    private LocalDateTime scheduledCheckInTime;
++
+     @Column(name = "end_date", nullable = false)
+     private LocalDate endDate;
+ 
+diff --git a/BE/StoreHub/src/main/java/com/storehub/entity/Waitlist.java b/BE/StoreHub/src/main/java/com/storehub/entity/Waitlist.java
+index ab961fe..a2d2912 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/entity/Waitlist.java
++++ b/BE/StoreHub/src/main/java/com/storehub/entity/Waitlist.java
+@@ -3,6 +3,7 @@ package com.storehub.entity;
+ import com.storehub.enums.WaitlistStatus;
+ import jakarta.persistence.*;
+ import lombok.*;
++import java.time.Instant;
+ 
+ @Entity
+ @Table(
+@@ -35,4 +36,10 @@ public class Waitlist extends BaseEntity {
+     @Column(name = "status", nullable = false, length = 20)
+     @Builder.Default
+     private WaitlistStatus status = WaitlistStatus.WAITING;
++
++    @Column(name = "notified_at")
++    private Instant notifiedAt;
++
++    @Column(name = "offer_expires_at")
++    private Instant offerExpiresAt;
+ }
+diff --git a/BE/StoreHub/src/main/java/com/storehub/enums/WaitlistStatus.java b/BE/StoreHub/src/main/java/com/storehub/enums/WaitlistStatus.java
+index 7b0f30a..4ad7166 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/enums/WaitlistStatus.java
++++ b/BE/StoreHub/src/main/java/com/storehub/enums/WaitlistStatus.java
+@@ -3,5 +3,7 @@ package com.storehub.enums;
+ public enum WaitlistStatus {
+     WAITING,
+     NOTIFIED,
+-    EXPIRED
++    EXPIRED,
++    FULFILLED,
++    CANCELLED
+ }
+diff --git a/BE/StoreHub/src/main/java/com/storehub/repository/WaitlistRepository.java b/BE/StoreHub/src/main/java/com/storehub/repository/WaitlistRepository.java
+index 2da083e..fa65a2a 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/repository/WaitlistRepository.java
++++ b/BE/StoreHub/src/main/java/com/storehub/repository/WaitlistRepository.java
+@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
+ import java.util.List;
+ import java.util.Optional;
+ import java.util.UUID;
++import java.time.Instant;
+ 
+ @Repository
+ public interface WaitlistRepository extends JpaRepository<Waitlist, UUID> {
+@@ -44,4 +45,44 @@ public interface WaitlistRepository extends JpaRepository<Waitlist, UUID> {
+             UUID unitTypeId,
+             WaitlistStatus status
+     );
++
++    boolean existsByCustomer_IdAndFacility_IdAndUnitType_IdAndStatusIn(
++            UUID customerId, UUID facilityId, UUID unitTypeId, List<WaitlistStatus> statuses);
++
++    @Lock(LockModeType.PESSIMISTIC_WRITE)
++    @Query("""
++            SELECT w FROM Waitlist w JOIN FETCH w.customer
++            WHERE w.facility.id = :facilityId AND w.unitType.id = :unitTypeId
++              AND w.status IN :statuses ORDER BY w.createdAt ASC
++            """)
++    List<Waitlist> findOpenForUpdate(@Param("facilityId") UUID facilityId,
++                                     @Param("unitTypeId") UUID unitTypeId,
++                                     @Param("statuses") List<WaitlistStatus> statuses);
++
++    @Lock(LockModeType.PESSIMISTIC_WRITE)
++    @Query("SELECT w FROM Waitlist w WHERE w.status = :status AND w.offerExpiresAt <= :now")
++    List<Waitlist> findExpiredOffersForUpdate(@Param("status") WaitlistStatus status,
++                                              @Param("now") Instant now);
++
++    @Query("SELECT DISTINCT w.facility.id, w.unitType.id FROM Waitlist w WHERE w.status = :status")
++    List<Object[]> findWaitingPairs(@Param("status") WaitlistStatus status);
++
++    @org.springframework.data.jpa.repository.Modifying
++    @Query("""
++            UPDATE Waitlist w SET w.status = :fulfilled
++            WHERE w.customer.id = :customerId AND w.facility.id = :facilityId
++              AND w.unitType.id = :unitTypeId AND w.status IN :openStatuses
++            """)
++    int markFulfilled(@Param("customerId") UUID customerId,
++                      @Param("facilityId") UUID facilityId,
++                      @Param("unitTypeId") UUID unitTypeId,
++                      @Param("openStatuses") List<WaitlistStatus> openStatuses,
++                      @Param("fulfilled") WaitlistStatus fulfilled);
++
++    List<Waitlist> findByCustomer_IdOrderByCreatedAtDesc(UUID customerId);
++
++    @Lock(LockModeType.PESSIMISTIC_WRITE)
++    @Query("SELECT w FROM Waitlist w WHERE w.id = :id AND w.customer.id = :customerId")
++    Optional<Waitlist> findOwnedForUpdate(@Param("id") UUID id,
++                                          @Param("customerId") UUID customerId);
+ }
+diff --git a/BE/StoreHub/src/main/java/com/storehub/scheduler/WaitlistExpiryScheduler.java b/BE/StoreHub/src/main/java/com/storehub/scheduler/WaitlistExpiryScheduler.java
+new file mode 100644
+index 0000000..0b6c147
+--- /dev/null
++++ b/BE/StoreHub/src/main/java/com/storehub/scheduler/WaitlistExpiryScheduler.java
+@@ -0,0 +1,23 @@
++package com.storehub.scheduler;
++
++import com.storehub.service.WaitlistService;
++import lombok.RequiredArgsConstructor;
++import lombok.extern.slf4j.Slf4j;
++import org.springframework.scheduling.annotation.Scheduled;
++import org.springframework.stereotype.Component;
++
++@Component
++@RequiredArgsConstructor
++@Slf4j
++public class WaitlistExpiryScheduler {
++    private final WaitlistService waitlistService;
++
++    @Scheduled(fixedDelay = 60_000)
++    public void expireOffers() {
++        try {
++            waitlistService.expireStaleNotifications();
++        } catch (Exception e) {
++            log.warn("Waitlist expiry retry on next run: {}", e.getMessage());
++        }
++    }
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/WaitlistService.java b/BE/StoreHub/src/main/java/com/storehub/service/WaitlistService.java
+index c5f8244..c92b200 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/WaitlistService.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/WaitlistService.java
+@@ -1,10 +1,20 @@
+ package com.storehub.service;
+ 
+ import java.util.UUID;
++import java.util.List;
++import com.storehub.dto.response.WaitlistResponse;
+ 
+ public interface WaitlistService {
+ 
+     void joinWaitlist(String customerEmail, UUID facilityId, UUID unitTypeId);
+ 
+     void notifyNextInWaitlist(UUID facilityId, UUID unitTypeId);
++
++    void expireStaleNotifications();
++
++    void markFulfilled(UUID customerId, UUID facilityId, UUID unitTypeId);
++
++    List<WaitlistResponse> myWaitlist(String customerEmail);
++
++    void leaveWaitlist(String customerEmail, UUID waitlistId);
+ }
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java
+index 8f010ed..4cf28f4 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java
+@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
+ 
+ import java.math.BigDecimal;
+ import java.time.LocalDateTime;
++import java.time.LocalTime;
+ import java.util.UUID;
+ import java.util.List;
+ 
+@@ -70,6 +71,16 @@ public class BookingServiceImpl implements BookingService {
+             throw new AppException(ErrorCode.FACILITY_NOT_ACTIVE);
+         }
+ 
++        LocalTime checkInTime = request.getCheckInTime() != null
++                ? request.getCheckInTime() : facility.getOpenTime();
++        if (checkInTime == null || facility.getOpenTime() == null
++                || facility.getCloseTime() == null
++                || checkInTime.isBefore(facility.getOpenTime())
++                || !checkInTime.isBefore(facility.getCloseTime())
++                || !request.getStartDate().atTime(checkInTime).isAfter(LocalDateTime.now())) {
++            throw new AppException(ErrorCode.INVALID_REQUEST);
++        }
++
+         if (!facilityPolicyService.isMinRentalMonthsSatisfied(
+                 request.getFacilityId(), request.getRentalMonths())) {
+             throw new AppException(ErrorCode.RENTAL_BELOW_MINIMUM_MONTHS);
+@@ -110,6 +121,7 @@ public class BookingServiceImpl implements BookingService {
+                 .customer(customer)
+                 .storageUnit(selectedUnit)
+                 .startDate(request.getStartDate())
++                .scheduledCheckInTime(request.getStartDate().atTime(checkInTime))
+                 .endDate(quote.getEndDate())
+                 .rentalMonths(request.getRentalMonths())
+                 .totalRentalFee(quote.getTotalRentalFee())
+@@ -130,6 +142,7 @@ public class BookingServiceImpl implements BookingService {
+                 .unitTypeName(selectedUnit.getUnitType().getTypeName())
+                 .unitTypeDimensions(selectedUnit.getUnitType().getDimensions())
+                 .startDate(savedBooking.getStartDate())
++                .scheduledCheckInTime(savedBooking.getScheduledCheckInTime())
+                 .endDate(savedBooking.getEndDate())
+                 .rentalMonths(savedBooking.getRentalMonths())
+                 .totalRentalFee(savedBooking.getTotalRentalFee())
+@@ -182,6 +195,7 @@ public class BookingServiceImpl implements BookingService {
+                             .unitTypeName(unit.getUnitType().getTypeName())
+                             .unitTypeDimensions(unit.getUnitType().getDimensions())
+                             .startDate(booking.getStartDate())
++                            .scheduledCheckInTime(booking.getScheduledCheckInTime())
+                             .endDate(booking.getEndDate())
+                             .rentalMonths(booking.getRentalMonths())
+                             .totalRentalFee(booking.getTotalRentalFee())
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerStorageServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerStorageServiceImpl.java
+index 0ad2184..5b992bc 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerStorageServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerStorageServiceImpl.java
+@@ -335,10 +335,22 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
+         }
+         UUID facilityId = booking.getStorageUnit().getFacility().getId();
+ 
++        var facility = booking.getStorageUnit().getFacility();
++        var returnTime = request.getScheduledReturnTime().toLocalTime();
++        if (facility.getOpenTime() == null || facility.getCloseTime() == null
++                || returnTime.isBefore(facility.getOpenTime())
++                || !returnTime.isBefore(facility.getCloseTime())) {
++            throw new AppException(ErrorCode.INVALID_REQUEST);
++        }
++
+         if (!facilityPolicyService.isReturnNoticeSatisfied(facilityId, request.getScheduledReturnTime())) {
+             throw new AppException(ErrorCode.RETURN_NOTICE_NOT_SATISFIED);
+         }
+ 
++        if (!request.getScheduledReturnTime().equals(booking.getScheduledReturnTime())) {
++            // Lịch cũ đã giao cho nhân viên không tự động chuyển sang giờ mới.
++            booking.setAssignedCheckOutStaff(null);
++        }
+         booking.setScheduledReturnTime(request.getScheduledReturnTime());
+         bookingRepository.save(booking);
+ 
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerTicketServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerTicketServiceImpl.java
+index b260f30..3b68b29 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerTicketServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerTicketServiceImpl.java
+@@ -73,17 +73,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
+         User customer = resolveCustomer(customerEmail);
+         Page<SupportTicket> ticketPage = ticketRepository.findAllByCustomerId(customer.getId(), pageable);
+ 
+-        List<TicketResponse> responses = ticketPage.getContent().stream()
+-                .map(this::mapToResponse)
+-                .collect(Collectors.toList());
+-
+-        return PageResponse.<TicketResponse>builder()
+-                .page(ticketPage.getNumber())
+-                .size(ticketPage.getSize())
+-                .totalElements(ticketPage.getTotalElements())
+-                .totalPages(ticketPage.getTotalPages())
+-                .content(responses)
+-                .build();
++        return PageResponse.from(ticketPage.map(this::mapToResponse));
+     }
+ 
+     @Override
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/EmailServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/EmailServiceImpl.java
+index d880862..6b73da2 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/EmailServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/EmailServiceImpl.java
+@@ -174,7 +174,8 @@ public class EmailServiceImpl implements EmailService {
+                       <li><strong>Cơ sở:</strong> %s</li>
+                       <li><strong>Loại kho:</strong> %s</li>
+                     </ul>
+-                    <p>Vui lòng mở ứng dụng Store Hub và đặt chỗ <strong>ngay bây giờ</strong> trước khi kho được người khác đặt.</p>
++                    <p>Bạn có 24 giờ để xem thông báo trong ứng dụng. Kho chưa được giữ riêng cho bạn;
++                    vui lòng đặt chỗ sớm nếu vẫn còn kho trống.</p>
+                     <p style="color:#9ca3af; font-size:12px;">Email này được gửi tự động. Nếu bạn đã đặt chỗ thành công, hãy bỏ qua email này.</p>
+                   </div>
+                 </div>
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/FacilityManagementServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/FacilityManagementServiceImpl.java
+index 7526ac5..5be9928 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/FacilityManagementServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/FacilityManagementServiceImpl.java
+@@ -331,6 +331,7 @@ public class FacilityManagementServiceImpl
+ 
+         return users.findByFacility_IdAndRole_Name(facilityId, "STAFF")
+                 .stream()
++                .filter(user -> Boolean.TRUE.equals(user.getIsActive()))
+                 .map(user -> new FacilityStaffResponse(
+                         user.getId(),
+                         user.getFullName(),
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/FacilityOperationsServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/FacilityOperationsServiceImpl.java
+index b56ffd5..11edae9 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/FacilityOperationsServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/FacilityOperationsServiceImpl.java
+@@ -71,7 +71,7 @@ public class FacilityOperationsServiceImpl
+         }
+         User staff = null;
+         if (staffId != null) {
+-            staff = userRepository.findById(staffId)
++            staff = userRepository.findByIdForUpdate(staffId)
+                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+             if (!Boolean.TRUE.equals(staff.getIsActive()) || staff.getRole() == null
+                     || !"STAFF".equals(staff.getRole().getName()) || staff.getFacility() == null
+@@ -86,9 +86,9 @@ public class FacilityOperationsServiceImpl
+         }
+         bookingRepository.save(booking);
+         LocalDateTime scheduled = "CHECK_IN".equals(scheduleType)
+-                ? booking.getStartDate().atStartOfDay()
++                ? checkInTime(booking)
+                 : booking.getScheduledReturnTime() != null
+-                    ? booking.getScheduledReturnTime() : booking.getEndDate().atStartOfDay();
++                    ? booking.getScheduledReturnTime() : booking.getEndDate().atTime(9, 0);
+         return toScheduleResponse(booking, scheduleType, scheduled);
+     }
+ 
+@@ -103,7 +103,7 @@ public class FacilityOperationsServiceImpl
+             throw new AppException(ErrorCode.INVALID_REQUEST);
+         }
+ 
+-        facilityAccess.require(staffEmail, facilityId);
++        User viewer = facilityAccess.require(staffEmail, facilityId);
+ 
+         List<DailyScheduleResponse> result = new ArrayList<>();
+ 
+@@ -115,14 +115,14 @@ public class FacilityOperationsServiceImpl
+                 );
+ 
+         for (Booking booking : checkInBookings) {
++            if (!visibleToStaff(viewer, booking.getAssignedCheckInStaff())) continue;
+             result.add(toScheduleResponse(
+                     booking,
+                     "CHECK_IN",
+-                    booking.getStartDate().atStartOfDay()
++                    checkInTime(booking)
+             ));
+         }
+ 
+-        LocalDateTime startOfDay = date.atStartOfDay();
+         LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
+ 
+         List<Booking> checkOutBookings =
+@@ -134,11 +134,12 @@ public class FacilityOperationsServiceImpl
+                 );
+ 
+         for (Booking booking : checkOutBookings) {
++            if (!visibleToStaff(viewer, booking.getAssignedCheckOutStaff())) continue;
+             // Khách đã hẹn trả kho: theo giờ hẹn. Khách chưa hẹn nhưng hợp đồng
+             // đã đến/quá hạn: theo ngày hết hạn.
+             LocalDateTime scheduled = booking.getScheduledReturnTime() != null
+                     ? booking.getScheduledReturnTime()
+-                    : booking.getEndDate().atStartOfDay();
++                    : booking.getEndDate().atTime(9, 0);
+ 
+             result.add(toScheduleResponse(
+                     booking,
+@@ -517,6 +518,21 @@ public class FacilityOperationsServiceImpl
+                 + request.getLockCondition();
+     }
+ 
++    private LocalDateTime checkInTime(Booking booking) {
++        if (booking.getScheduledCheckInTime() != null) {
++            return booking.getScheduledCheckInTime();
++        }
++        return booking.getStartDate().atTime(
++                booking.getStorageUnit().getFacility().getOpenTime() != null
++                        ? booking.getStorageUnit().getFacility().getOpenTime()
++                        : java.time.LocalTime.of(8, 0));
++    }
++
++    private boolean visibleToStaff(User viewer, User assigned) {
++        return viewer.getRole() == null || !"STAFF".equals(viewer.getRole().getName())
++                || assigned == null || viewer.getId().equals(assigned.getId());
++    }
++
+     private DailyScheduleResponse toScheduleResponse(
+             Booking booking,
+             String scheduleType,
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/PaymentServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/PaymentServiceImpl.java
+index 09ea384..89a2769 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/PaymentServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/PaymentServiceImpl.java
+@@ -26,6 +26,7 @@ import com.storehub.service.ActivityLogService;
+ import com.storehub.service.EmailService;
+ import com.storehub.service.PaymentService;
+ import com.storehub.service.PricingService;
++import com.storehub.service.WaitlistService;
+ import com.storehub.util.VNPayUtil;
+ import lombok.RequiredArgsConstructor;
+ import lombok.extern.slf4j.Slf4j;
+@@ -59,6 +60,7 @@ public class PaymentServiceImpl implements PaymentService {
+     private final PricingService pricingService;
+     private final RefundRequestRepository refundRequests;
+     private final VnpayRefundClient gateway;
++    private final WaitlistService waitlistService;
+ 
+     // Dòng RENTAL_FEE đi kèm khoản cọc dùng mã giao dịch = mã của dòng DEPOSIT + hậu tố này.
+     private static final String RENTAL_SUFFIX = "-R";
+@@ -516,6 +518,13 @@ public class PaymentServiceImpl implements PaymentService {
+                 return toPaymentResponse(payment);
+             }
+             booking.setStatus(BookingStatus.CONFIRMED);
++            if (booking.getCustomer() != null && booking.getStorageUnit() != null
++                    && booking.getStorageUnit().getFacility() != null
++                    && booking.getStorageUnit().getUnitType() != null) {
++                waitlistService.markFulfilled(booking.getCustomer().getId(),
++                        booking.getStorageUnit().getFacility().getId(),
++                        booking.getStorageUnit().getUnitType().getId());
++            }
+         }
+ 
+         if (payment.getPaymentType() == PaymentType.EXTRA_CHARGE
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/StaffTicketServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/StaffTicketServiceImpl.java
+index e8af30b..cfc9402 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/StaffTicketServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/StaffTicketServiceImpl.java
+@@ -54,6 +54,9 @@ public class StaffTicketServiceImpl implements StaffTicketService {
+             String staffEmail
+     ) {
+         User staff = facilityAccess.requireForUpdate(staffEmail, facilityId);
++        if (!Boolean.TRUE.equals(staff.getIsActive())) {
++            throw new AppException(ErrorCode.FORBIDDEN);
++        }
+         SupportTicket ticket = requireTicket(ticketId, facilityId);
+ 
+         if (ticket.getAssignedStaff() != null
+@@ -96,7 +99,8 @@ public class StaffTicketServiceImpl implements StaffTicketService {
+         User staff = userRepository.findByIdForUpdate(staffId)
+                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+ 
+-        if (staff.getRole() == null
++        if (!Boolean.TRUE.equals(staff.getIsActive())
++                || staff.getRole() == null
+                 || !"STAFF".equals(staff.getRole().getName())
+                 || staff.getFacility() == null
+                 || !facilityId.equals(staff.getFacility().getId())) {
+@@ -137,6 +141,9 @@ public class StaffTicketServiceImpl implements StaffTicketService {
+             UpdateStaffTicketStatusRequest request
+     ) {
+         User staff = facilityAccess.require(staffEmail, facilityId);
++        if (!Boolean.TRUE.equals(staff.getIsActive())) {
++            throw new AppException(ErrorCode.FORBIDDEN);
++        }
+         SupportTicket ticket = requireTicket(ticketId, facilityId);
+ 
+         if (ticket.getAssignedStaff() == null
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/WaitlistServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/WaitlistServiceImpl.java
+index 0cabe3d..7f43761 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/WaitlistServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/WaitlistServiceImpl.java
+@@ -6,6 +6,7 @@ import com.storehub.entity.User;
+ import com.storehub.entity.Waitlist;
+ import com.storehub.enums.WaitlistStatus;
+ import com.storehub.enums.UnitStatus;
++import com.storehub.enums.FacilityStatus;
+ import com.storehub.exception.AppException;
+ import com.storehub.exception.ErrorCode;
+ import com.storehub.repository.FacilityRepository;
+@@ -15,12 +16,15 @@ import com.storehub.repository.UserRepository;
+ import com.storehub.repository.WaitlistRepository;
+ import com.storehub.service.EmailService;
+ import com.storehub.service.WaitlistService;
++import com.storehub.dto.response.WaitlistResponse;
+ import lombok.RequiredArgsConstructor;
+ import lombok.extern.slf4j.Slf4j;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+ import java.util.List;
++import java.time.Instant;
++import java.time.temporal.ChronoUnit;
+ import java.util.UUID;
+ 
+ @Service
+@@ -46,8 +50,9 @@ public class WaitlistServiceImpl implements WaitlistService {
+         }
+ 
+         boolean alreadyWaiting = waitlistRepository
+-                .existsByCustomer_IdAndFacility_IdAndUnitType_IdAndStatus(
+-                        customer.getId(), facilityId, unitTypeId, WaitlistStatus.WAITING);
++                .existsByCustomer_IdAndFacility_IdAndUnitType_IdAndStatusIn(
++                        customer.getId(), facilityId, unitTypeId,
++                        List.of(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED));
+         if (alreadyWaiting) {
+             log.info("Customer {} already in waitlist for facility {} unitType {}",
+                     customerEmail, facilityId, unitTypeId);
+@@ -56,6 +61,9 @@ public class WaitlistServiceImpl implements WaitlistService {
+ 
+         Facility facility = facilityRepository.findById(facilityId)
+                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
++        if (facility.getStatus() != FacilityStatus.ACTIVE) {
++            throw new AppException(ErrorCode.FACILITY_NOT_ACTIVE);
++        }
+ 
+         UnitType unitType = unitTypeRepository.findById(unitTypeId)
+                 .orElseThrow(() -> new AppException(ErrorCode.UNIT_TYPE_NOT_FOUND));
+@@ -80,15 +88,29 @@ public class WaitlistServiceImpl implements WaitlistService {
+     @Override
+     @Transactional
+     public void notifyNextInWaitlist(UUID facilityId, UUID unitTypeId) {
+-        List<Waitlist> waitingList = waitlistRepository.findByFacilityAndUnitTypeAndStatus(
+-                facilityId, unitTypeId, WaitlistStatus.WAITING);
++        if (!storageUnitRepository.existsByFacility_IdAndUnitType_IdAndStatus(
++                facilityId, unitTypeId, UnitStatus.AVAILABLE)) return;
++
++        List<Waitlist> waitingList = waitlistRepository.findOpenForUpdate(
++                facilityId, unitTypeId, List.of(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED));
++
++        Instant now = Instant.now();
++        // Mỗi loại kho chỉ có một thông báo còn hạn; thông báo hết hạn nhường lượt.
++        for (Waitlist entry : waitingList) {
++            if (entry.getStatus() == WaitlistStatus.NOTIFIED) {
++                if (entry.getOfferExpiresAt() == null || entry.getOfferExpiresAt().isAfter(now)) return;
++                entry.setStatus(WaitlistStatus.EXPIRED);
++                waitlistRepository.save(entry);
++            }
++        }
+ 
+-        if (waitingList.isEmpty()) {
++        Waitlist first = waitingList.stream()
++                .filter(w -> w.getStatus() == WaitlistStatus.WAITING).findFirst().orElse(null);
++        if (first == null) {
+             log.info("No one waiting for facility {} unitType {}", facilityId, unitTypeId);
+             return;
+         }
+ 
+-        Waitlist first = waitingList.get(0);
+         User customer = first.getCustomer();
+ 
+         try {
+@@ -99,6 +121,8 @@ public class WaitlistServiceImpl implements WaitlistService {
+                     first.getUnitType().getTypeName()
+             );
+             first.setStatus(WaitlistStatus.NOTIFIED);
++            first.setNotifiedAt(now);
++            first.setOfferExpiresAt(now.plus(24, ChronoUnit.HOURS));
+             waitlistRepository.save(first);
+             log.info("Waitlist notification sent to {} for facility {} unitType {}",
+                     customer.getEmail(), facilityId, unitTypeId);
+@@ -107,4 +131,56 @@ public class WaitlistServiceImpl implements WaitlistService {
+                     customer.getEmail(), e.getMessage());
+         }
+     }
++
++    @Override
++    @Transactional
++    public void expireStaleNotifications() {
++        Instant now = Instant.now();
++        List<Waitlist> expired = waitlistRepository.findExpiredOffersForUpdate(
++                WaitlistStatus.NOTIFIED, now);
++        for (Waitlist entry : expired) {
++            entry.setStatus(WaitlistStatus.EXPIRED);
++            waitlistRepository.save(entry);
++        }
++        // Retry cả trường hợp email hỏng ở lần mở kho trước: người chờ vẫn WAITING.
++        for (Object[] pair : waitlistRepository.findWaitingPairs(WaitlistStatus.WAITING)) {
++            notifyNextInWaitlist((UUID) pair[0], (UUID) pair[1]);
++        }
++    }
++
++    @Override
++    @Transactional
++    public void markFulfilled(UUID customerId, UUID facilityId, UUID unitTypeId) {
++        waitlistRepository.markFulfilled(customerId, facilityId, unitTypeId,
++                List.of(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED), WaitlistStatus.FULFILLED);
++    }
++
++    @Override
++    @Transactional(readOnly = true)
++    public List<WaitlistResponse> myWaitlist(String customerEmail) {
++        User customer = userRepository.findByEmail(customerEmail)
++                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
++        return waitlistRepository.findByCustomer_IdOrderByCreatedAtDesc(customer.getId())
++                .stream().map(w -> new WaitlistResponse(w.getId(), w.getFacility().getId(),
++                        w.getFacility().getName(), w.getUnitType().getId(),
++                        w.getUnitType().getTypeName(), w.getStatus(),
++                        w.getNotifiedAt(), w.getOfferExpiresAt())).toList();
++    }
++
++    @Override
++    @Transactional
++    public void leaveWaitlist(String customerEmail, UUID waitlistId) {
++        User customer = userRepository.findByEmail(customerEmail)
++                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
++        Waitlist entry = waitlistRepository.findOwnedForUpdate(waitlistId, customer.getId())
++                .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST));
++        if (entry.getStatus() != WaitlistStatus.WAITING
++                && entry.getStatus() != WaitlistStatus.NOTIFIED) {
++            throw new AppException(ErrorCode.INVALID_REQUEST);
++        }
++        boolean offered = entry.getStatus() == WaitlistStatus.NOTIFIED;
++        entry.setStatus(WaitlistStatus.CANCELLED);
++        waitlistRepository.save(entry);
++        if (offered) notifyNextInWaitlist(entry.getFacility().getId(), entry.getUnitType().getId());
++    }
+ }
+diff --git a/BE/StoreHub/src/main/resources/db/migration/V18__checkin_time_waitlist_lifecycle.sql b/BE/StoreHub/src/main/resources/db/migration/V18__checkin_time_waitlist_lifecycle.sql
+new file mode 100644
+index 0000000..f101c59
+--- /dev/null
++++ b/BE/StoreHub/src/main/resources/db/migration/V18__checkin_time_waitlist_lifecycle.sql
+@@ -0,0 +1,4 @@
++ALTER TABLE bookings ADD COLUMN scheduled_check_in_time TIMESTAMP;
++
++ALTER TABLE waitlists ADD COLUMN notified_at TIMESTAMP WITH TIME ZONE;
++ALTER TABLE waitlists ADD COLUMN offer_expires_at TIMESTAMP WITH TIME ZONE;
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/AppointmentAssignmentTest.java b/BE/StoreHub/src/test/java/com/storehub/service/AppointmentAssignmentTest.java
+index 94ed35d..d9b5a5f 100644
+--- a/BE/StoreHub/src/test/java/com/storehub/service/AppointmentAssignmentTest.java
++++ b/BE/StoreHub/src/test/java/com/storehub/service/AppointmentAssignmentTest.java
+@@ -14,6 +14,10 @@ import org.mockito.Mock;
+ import org.mockito.junit.jupiter.MockitoExtension;
+ 
+ import java.util.Optional;
++import java.util.List;
++import java.time.LocalDate;
++import java.time.LocalDateTime;
++import java.time.LocalTime;
+ import java.util.UUID;
+ 
+ import static org.junit.jupiter.api.Assertions.assertEquals;
+@@ -75,7 +79,7 @@ class AppointmentAssignmentTest {
+         booking.setId(bookingId);
+         when(access.require("manager@test.com", facilityId)).thenReturn(manager);
+         when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
+-        when(users.findById(staffId)).thenReturn(Optional.of(staff));
++        when(users.findByIdForUpdate(staffId)).thenReturn(Optional.of(staff));
+ 
+         var assigned = operations.assignAppointment(bookingId, facilityId,
+                 "manager@test.com", "CHECK_IN", staffId);
+@@ -101,11 +105,40 @@ class AppointmentAssignmentTest {
+                 .storageUnit(StorageUnit.builder().facility(facility).build()).build();
+         when(access.require("manager@test.com", facilityId)).thenReturn(manager);
+         when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
+-        when(users.findById(staffId)).thenReturn(Optional.of(staff));
++        when(users.findByIdForUpdate(staffId)).thenReturn(Optional.of(staff));
+ 
+         AppException error = assertThrows(AppException.class,
+                 () -> operations.assignAppointment(bookingId, facilityId,
+                         "manager@test.com", "CHECK_IN", staffId));
+         assertEquals(ErrorCode.INVALID_REQUEST, error.getErrorCode());
+     }
++
++    @Test
++    void staffScheduleShowsOnlyUnassignedOrOwnAppointmentsWithActualTime() {
++        UUID facilityId = UUID.randomUUID();
++        Facility facility = Facility.builder().openTime(LocalTime.of(8, 0)).build();
++        facility.setId(facilityId);
++        User caller = User.builder().role(Role.builder().name("STAFF").build()).build();
++        caller.setId(UUID.randomUUID());
++        User other = new User();
++        other.setId(UUID.randomUUID());
++        StorageUnit unit = StorageUnit.builder().facility(facility).build();
++        LocalDate today = LocalDate.now();
++        Booking own = Booking.builder().storageUnit(unit).startDate(today)
++                .scheduledCheckInTime(today.atTime(10, 30))
++                .status(BookingStatus.CONFIRMED).assignedCheckInStaff(caller).build();
++        Booking someoneElse = Booking.builder().storageUnit(unit).startDate(today)
++                .status(BookingStatus.CONFIRMED).assignedCheckInStaff(other).build();
++        when(access.require("staff@test.com", facilityId)).thenReturn(caller);
++        when(bookings.findCheckInSchedule(facilityId, BookingStatus.CONFIRMED, today))
++                .thenReturn(List.of(own, someoneElse));
++        when(bookings.findCheckOutSchedule(facilityId, BookingStatus.ACTIVE,
++                today.plusDays(1).atStartOfDay(), today)).thenReturn(List.of());
++
++        var schedule = operations.getDailySchedule(facilityId, today, "staff@test.com");
++
++        assertEquals(1, schedule.size());
++        assertEquals(LocalDateTime.of(today, LocalTime.of(10, 30)),
++                schedule.get(0).getScheduledTime());
++    }
+ }
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/BookingAppointmentTimeTest.java b/BE/StoreHub/src/test/java/com/storehub/service/BookingAppointmentTimeTest.java
+new file mode 100644
+index 0000000..f7acd86
+--- /dev/null
++++ b/BE/StoreHub/src/test/java/com/storehub/service/BookingAppointmentTimeTest.java
+@@ -0,0 +1,54 @@
++package com.storehub.service;
++
++import com.storehub.dto.request.BookingCreationRequest;
++import com.storehub.entity.*;
++import com.storehub.exception.*;
++import com.storehub.repository.*;
++import com.storehub.service.impl.BookingServiceImpl;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++
++import java.time.LocalDate;
++import java.time.LocalTime;
++import java.util.Optional;
++import java.util.UUID;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.*;
++
++@ExtendWith(MockitoExtension.class)
++class BookingAppointmentTimeTest {
++    @Mock BookingRepository bookings;
++    @Mock PaymentRepository payments;
++    @Mock FacilityRepository facilities;
++    @Mock StorageUnitRepository units;
++    @Mock UserRepository users;
++    @Mock PricingService pricing;
++    @Mock WaitlistService waitlist;
++    @Mock FacilityPolicyService policy;
++    @Mock PaymentService paymentService;
++    @InjectMocks BookingServiceImpl service;
++
++    @Test
++    void bookingRejectsCheckInOutsideFacilityHoursBeforeClaimingAUnit() {
++        UUID facilityId = UUID.randomUUID(), typeId = UUID.randomUUID();
++        Facility facility = Facility.builder().openTime(LocalTime.of(8, 0))
++                .closeTime(LocalTime.of(20, 0)).build();
++        when(users.findByEmail("customer@test.com")).thenReturn(Optional.of(new User()));
++        when(facilities.findById(facilityId)).thenReturn(Optional.of(facility));
++        var request = BookingCreationRequest.builder().facilityId(facilityId)
++                .unitTypeId(typeId).startDate(LocalDate.now().plusDays(1))
++                .checkInTime(LocalTime.of(22, 0)).rentalMonths(1).build();
++
++        AppException error = assertThrows(AppException.class,
++                () -> service.createBooking("customer@test.com", request));
++
++        assertEquals(ErrorCode.INVALID_REQUEST, error.getErrorCode());
++        verify(units, never()).claimAvailableUnitId(any(), any());
++    }
++}
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/LateCapturedBookingPaymentTest.java b/BE/StoreHub/src/test/java/com/storehub/service/LateCapturedBookingPaymentTest.java
+index 05e3898..3daa68c 100644
+--- a/BE/StoreHub/src/test/java/com/storehub/service/LateCapturedBookingPaymentTest.java
++++ b/BE/StoreHub/src/test/java/com/storehub/service/LateCapturedBookingPaymentTest.java
+@@ -47,6 +47,7 @@ class LateCapturedBookingPaymentTest {
+     @Mock EmailService email;
+     @Mock ActivityLogService log;
+     @Mock PricingService pricing;
++    @Mock WaitlistService waitlist;
+     @InjectMocks PaymentServiceImpl service;
+ 
+     @Test
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/PaymentCallbackStatusTest.java b/BE/StoreHub/src/test/java/com/storehub/service/PaymentCallbackStatusTest.java
+index b2b6584..4efe7a9 100644
+--- a/BE/StoreHub/src/test/java/com/storehub/service/PaymentCallbackStatusTest.java
++++ b/BE/StoreHub/src/test/java/com/storehub/service/PaymentCallbackStatusTest.java
+@@ -36,6 +36,7 @@ class PaymentCallbackStatusTest {
+     @Mock ActivityLogService activityLog;
+     @Mock PricingService pricing;
+     @Mock RefundRequestRepository refunds;
++    @Mock WaitlistService waitlist;
+     @InjectMocks PaymentServiceImpl service;
+ 
+     @Test
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/PaymentInitiationRetryTest.java b/BE/StoreHub/src/test/java/com/storehub/service/PaymentInitiationRetryTest.java
+index ab8d715..aadd059 100644
+--- a/BE/StoreHub/src/test/java/com/storehub/service/PaymentInitiationRetryTest.java
++++ b/BE/StoreHub/src/test/java/com/storehub/service/PaymentInitiationRetryTest.java
+@@ -52,6 +52,7 @@ class PaymentInitiationRetryTest {
+     @Mock PricingService pricing;
+     @Mock RefundRequestRepository refunds;
+     @Mock VnpayRefundClient gateway;
++    @Mock WaitlistService waitlist;
+     @InjectMocks PaymentServiceImpl service;
+ 
+     @Test
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/RefundRequestTest.java b/BE/StoreHub/src/test/java/com/storehub/service/RefundRequestTest.java
+index 29b32e8..7c52e29 100644
+--- a/BE/StoreHub/src/test/java/com/storehub/service/RefundRequestTest.java
++++ b/BE/StoreHub/src/test/java/com/storehub/service/RefundRequestTest.java
+@@ -36,6 +36,7 @@ class RefundRequestTest {
+     @Mock EmailService email;
+     @Mock ActivityLogService logs;
+     @Mock PricingService pricing;
++    @Mock WaitlistService waitlist;
+     @InjectMocks PaymentServiceImpl service;
+ 
+     @Test
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/TicketAssignmentActiveStaffTest.java b/BE/StoreHub/src/test/java/com/storehub/service/TicketAssignmentActiveStaffTest.java
+new file mode 100644
+index 0000000..6f903ca
+--- /dev/null
++++ b/BE/StoreHub/src/test/java/com/storehub/service/TicketAssignmentActiveStaffTest.java
+@@ -0,0 +1,45 @@
++package com.storehub.service;
++
++import com.storehub.entity.*;
++import com.storehub.exception.*;
++import com.storehub.repository.SupportTicketRepository;
++import com.storehub.repository.UserRepository;
++import com.storehub.service.impl.StaffTicketServiceImpl;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++
++import java.util.Optional;
++import java.util.UUID;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.Mockito.*;
++
++@ExtendWith(MockitoExtension.class)
++class TicketAssignmentActiveStaffTest {
++    @Mock SupportTicketRepository tickets;
++    @Mock FacilityAccess access;
++    @Mock UserRepository users;
++    @Mock ActivityLogService log;
++    @InjectMocks StaffTicketServiceImpl service;
++
++    @Test
++    void managerCannotAssignTicketToDeactivatedEmployee() {
++        UUID facilityId = UUID.randomUUID(), staffId = UUID.randomUUID();
++        Facility facility = new Facility();
++        facility.setId(facilityId);
++        User staff = User.builder().role(Role.builder().name("STAFF").build())
++                .facility(facility).isActive(false).build();
++        when(access.require("manager@test.com", facilityId)).thenReturn(new User());
++        when(users.findByIdForUpdate(staffId)).thenReturn(Optional.of(staff));
++
++        AppException error = assertThrows(AppException.class,
++                () -> service.assignToStaff(facilityId, UUID.randomUUID(), staffId,
++                        "manager@test.com"));
++
++        assertEquals(ErrorCode.INVALID_REQUEST, error.getErrorCode());
++        verifyNoInteractions(tickets);
++    }
++}
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/VoidedExtensionPaymentTest.java b/BE/StoreHub/src/test/java/com/storehub/service/VoidedExtensionPaymentTest.java
+index b1ba56b..fc555b9 100644
+--- a/BE/StoreHub/src/test/java/com/storehub/service/VoidedExtensionPaymentTest.java
++++ b/BE/StoreHub/src/test/java/com/storehub/service/VoidedExtensionPaymentTest.java
+@@ -43,6 +43,7 @@ class VoidedExtensionPaymentTest {
+     @Mock EmailService email;
+     @Mock ActivityLogService logs;
+     @Mock PricingService pricing;
++    @Mock WaitlistService waitlist;
+     @InjectMocks PaymentServiceImpl service;
+ 
+     @Test
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/WaitlistLifecycleTest.java b/BE/StoreHub/src/test/java/com/storehub/service/WaitlistLifecycleTest.java
+new file mode 100644
+index 0000000..376c7c1
+--- /dev/null
++++ b/BE/StoreHub/src/test/java/com/storehub/service/WaitlistLifecycleTest.java
+@@ -0,0 +1,100 @@
++package com.storehub.service;
++
++import com.storehub.entity.*;
++import com.storehub.enums.*;
++import com.storehub.repository.*;
++import com.storehub.service.impl.WaitlistServiceImpl;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++
++import java.time.Instant;
++import java.util.List;
++import java.util.UUID;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.mockito.ArgumentMatchers.*;
++import static org.mockito.Mockito.*;
++
++@ExtendWith(MockitoExtension.class)
++class WaitlistLifecycleTest {
++    @Mock WaitlistRepository entries;
++    @Mock UserRepository users;
++    @Mock FacilityRepository facilities;
++    @Mock UnitTypeRepository types;
++    @Mock StorageUnitRepository units;
++    @Mock EmailService email;
++    @InjectMocks WaitlistServiceImpl service;
++
++    @Test
++    void expiredOfferAdvancesToNextCustomerOnlyWhenUnitIsAvailable() {
++        UUID facilityId = UUID.randomUUID(), typeId = UUID.randomUUID();
++        Facility facility = Facility.builder().name("Central").build();
++        facility.setId(facilityId);
++        UnitType type = UnitType.builder().typeName("Small").build();
++        type.setId(typeId);
++        User first = User.builder().email("first@test.com").fullName("First").build();
++        User second = User.builder().email("second@test.com").fullName("Second").build();
++        Waitlist expired = Waitlist.builder().customer(first).facility(facility).unitType(type)
++                .status(WaitlistStatus.NOTIFIED).offerExpiresAt(Instant.now().minusSeconds(1)).build();
++        Waitlist next = Waitlist.builder().customer(second).facility(facility).unitType(type)
++                .status(WaitlistStatus.WAITING).build();
++        when(units.existsByFacility_IdAndUnitType_IdAndStatus(facilityId, typeId, UnitStatus.AVAILABLE))
++                .thenReturn(true);
++        when(entries.findOpenForUpdate(facilityId, typeId,
++                List.of(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED)))
++                .thenReturn(List.of(expired, next));
++
++        service.notifyNextInWaitlist(facilityId, typeId);
++
++        assertEquals(WaitlistStatus.EXPIRED, expired.getStatus());
++        assertEquals(WaitlistStatus.NOTIFIED, next.getStatus());
++        verify(email).sendWaitlistNotificationEmail("second@test.com", "Second", "Central", "Small");
++        verify(entries).save(next);
++    }
++
++    @Test
++    void activeOfferDoesNotSendAnotherNotice() {
++        UUID facilityId = UUID.randomUUID(), typeId = UUID.randomUUID();
++        Waitlist active = Waitlist.builder().status(WaitlistStatus.NOTIFIED)
++                .offerExpiresAt(Instant.now().plusSeconds(3600)).build();
++        when(units.existsByFacility_IdAndUnitType_IdAndStatus(facilityId, typeId, UnitStatus.AVAILABLE))
++                .thenReturn(true);
++        when(entries.findOpenForUpdate(facilityId, typeId,
++                List.of(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED)))
++                .thenReturn(List.of(active));
++
++        service.notifyNextInWaitlist(facilityId, typeId);
++
++        verifyNoInteractions(email);
++        verify(entries, never()).save(any());
++    }
++
++    @Test
++    void schedulerRetriesWaitingCustomerAfterEmailFailureWhenUnitIsStillFree() {
++        UUID facilityId = UUID.randomUUID(), typeId = UUID.randomUUID();
++        Facility facility = Facility.builder().name("Central").build();
++        facility.setId(facilityId);
++        UnitType type = UnitType.builder().typeName("Small").build();
++        type.setId(typeId);
++        Waitlist waiting = Waitlist.builder()
++                .customer(User.builder().email("customer@test.com").fullName("Customer").build())
++                .facility(facility).unitType(type).status(WaitlistStatus.WAITING).build();
++        when(entries.findExpiredOffersForUpdate(eq(WaitlistStatus.NOTIFIED), any(Instant.class)))
++                .thenReturn(List.of());
++        when(entries.findWaitingPairs(WaitlistStatus.WAITING))
++                .thenReturn(java.util.Collections.singletonList(new Object[]{facilityId, typeId}));
++        when(units.existsByFacility_IdAndUnitType_IdAndStatus(facilityId, typeId, UnitStatus.AVAILABLE))
++                .thenReturn(true);
++        when(entries.findOpenForUpdate(facilityId, typeId,
++                List.of(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED)))
++                .thenReturn(List.of(waiting));
++
++        service.expireStaleNotifications();
++
++        assertEquals(WaitlistStatus.NOTIFIED, waiting.getStatus());
++        verify(email).sendWaitlistNotificationEmail("customer@test.com", "Customer", "Central", "Small");
++    }
++}
+diff --git a/FE/storehub_mobile/lib/models/paged_result.dart b/FE/storehub_mobile/lib/models/paged_result.dart
+new file mode 100644
+index 0000000..88010fb
+--- /dev/null
++++ b/FE/storehub_mobile/lib/models/paged_result.dart
+@@ -0,0 +1,19 @@
++class PagedResult<T> {
++  final List<T> content;
++  final int page;
++  final bool last;
++
++  const PagedResult({required this.content, required this.page, required this.last});
++
++  factory PagedResult.fromApi(dynamic body, T Function(dynamic) parse) {
++    final data = body is Map ? body['data'] : null;
++    if (data is! Map || data['content'] is! List || data['last'] is! bool) {
++      throw const FormatException('Invalid paginated response');
++    }
++    return PagedResult(
++      content: (data['content'] as List).map(parse).toList(),
++      page: (data['page'] as num?)?.toInt() ?? 0,
++      last: data['last'] as bool,
++    );
++  }
++}
+diff --git a/FE/storehub_mobile/lib/screens/admin/user_management_screen.dart b/FE/storehub_mobile/lib/screens/admin/user_management_screen.dart
+index 9e09211..42750b8 100644
+--- a/FE/storehub_mobile/lib/screens/admin/user_management_screen.dart
++++ b/FE/storehub_mobile/lib/screens/admin/user_management_screen.dart
+@@ -1,6 +1,8 @@
+ import 'package:flutter/material.dart';
+ import '../../core/constants/app_colors.dart';
+ import '../../services/admin_api_service.dart';
++import '../../models/paged_result.dart';
++import 'dart:async';
+ import '../../widgets/state_views.dart';
+ 
+ class UserManagementScreen extends StatefulWidget {
+@@ -12,7 +14,12 @@ class UserManagementScreen extends StatefulWidget {
+ 
+ class _UserManagementScreenState extends State<UserManagementScreen> {
+   final AdminApiService _adminService = AdminApiService();
+-  late Future<List<dynamic>> _usersFuture;
++  late Future<PagedResult<Map<String, dynamic>>> _usersFuture;
++  final List<Map<String, dynamic>> _additional = [];
++  int _nextPage = 1;
++  bool _lastPage = false;
++  bool _loadingMore = false;
++  Timer? _searchTimer;
+   final TextEditingController _searchController = TextEditingController();
+   String _query = '';
+   String _statusFilter = 'ALL';
+@@ -25,16 +32,42 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
+ 
+   @override
+   void dispose() {
++    _searchTimer?.cancel();
+     _searchController.dispose();
+     super.dispose();
+   }
+ 
+   void _loadUsers() {
+     setState(() {
+-      _usersFuture = _adminService.getUsers();
++      _additional.clear();
++      _nextPage = 1;
++      _lastPage = false;
++      _usersFuture = _adminService.getUsersPage(search: _query,
++          isActive: _statusFilter == 'ALL' ? null : _statusFilter == 'ACTIVE');
+     });
+   }
+ 
++  Future<void> _loadMore() async {
++    if (_loadingMore || _lastPage) return;
++    final currentLoad = _usersFuture;
++    setState(() => _loadingMore = true);
++    try {
++      final page = await _adminService.getUsersPage(page: _nextPage, search: _query,
++          isActive: _statusFilter == 'ALL' ? null : _statusFilter == 'ACTIVE');
++      if (!mounted || !identical(currentLoad, _usersFuture)) return;
++      setState(() {
++        _additional.addAll(page.content);
++        _nextPage++;
++        _lastPage = page.last;
++      });
++    } catch (error) {
++      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
++        SnackBar(content: Text(error.toString())));
++    } finally {
++      if (mounted) setState(() => _loadingMore = false);
++    }
++  }
++
+   Future<void> _showAssignRoleSheet(
+       String userId, String username, String currentPhone) async {
+     List<dynamic> roles;
+@@ -165,7 +198,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
+             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+             child: TextField(
+               controller: _searchController,
+-              onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
++              onChanged: (v) {
++                _query = v.trim();
++                _searchTimer?.cancel();
++                _searchTimer = Timer(const Duration(milliseconds: 350), _loadUsers);
++              },
+               decoration: const InputDecoration(
+                 hintText: 'Search by name, username, or email',
+                 prefixIcon: Icon(Icons.search),
+@@ -188,7 +225,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
+           Expanded(
+             child: RefreshIndicator(
+               onRefresh: () async => _loadUsers(),
+-              child: FutureBuilder<List<dynamic>>(
++              child: FutureBuilder<PagedResult<Map<String, dynamic>>>(
+                 future: _usersFuture,
+                 builder: (context, snapshot) {
+                   if (snapshot.connectionState == ConnectionState.waiting) {
+@@ -207,22 +244,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
+                     );
+                   }
+ 
+-                  var users = (snapshot.data ?? []).whereType<Map>().toList();
+-                  if (_statusFilter == 'ACTIVE') {
+-                    users = users.where((u) => u['isActive'] == true).toList();
+-                  } else if (_statusFilter == 'INACTIVE') {
+-                    users = users.where((u) => u['isActive'] != true).toList();
+-                  }
+-                  if (_query.isNotEmpty) {
+-                    users = users.where((u) {
+-                      final haystack = [
+-                        u['username'],
+-                        u['email'],
+-                        u['fullName'],
+-                      ].whereType<String>().join(' ').toLowerCase();
+-                      return haystack.contains(_query);
+-                    }).toList();
+-                  }
++                  final users = [...?snapshot.data?.content, ..._additional];
++                  final hasMore = snapshot.data != null && !snapshot.data!.last && !_lastPage;
+ 
+                   if (users.isEmpty) {
+                     return ListView(
+@@ -238,8 +261,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
+ 
+                   return ListView.builder(
+                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+-                    itemCount: users.length,
++                    itemCount: users.length + (hasMore ? 1 : 0),
+                     itemBuilder: (context, index) {
++                      if (index == users.length) {
++                        return Center(child: TextButton(
++                          onPressed: _loadingMore ? null : _loadMore,
++                          child: Text(_loadingMore ? 'Loading...' : 'Load more users'),
++                        ));
++                      }
+                       final user = users[index];
+                       final userId = user['id']?.toString() ?? '';
+                       final username =
+@@ -313,7 +342,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
+     return ChoiceChip(
+       label: Text(label),
+       selected: selected,
+-      onSelected: (_) => setState(() => _statusFilter = value),
++      onSelected: (_) {
++        _statusFilter = value;
++        _loadUsers();
++      },
+     );
+   }
+ }
+diff --git a/FE/storehub_mobile/lib/screens/customer/reservation/facility_detail_screen.dart b/FE/storehub_mobile/lib/screens/customer/reservation/facility_detail_screen.dart
+index a75a32c..653584a 100644
+--- a/FE/storehub_mobile/lib/screens/customer/reservation/facility_detail_screen.dart
++++ b/FE/storehub_mobile/lib/screens/customer/reservation/facility_detail_screen.dart
+@@ -4,6 +4,7 @@ import '../../../models/unit_type_model.dart';
+ import '../../../services/booking_api_service.dart';
+ import '../../../services/catalog_api_service.dart';
+ import 'payment_screen.dart';
++import 'my_waitlist_screen.dart';
+ 
+ class FacilityDetailScreen extends StatefulWidget {
+   final String facilityId;
+@@ -28,6 +29,9 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
+ 
+   UnitTypeModel? _selectedType;
+   DateTime _startDate = DateTime.now().add(const Duration(days: 1));
++  TimeOfDay _checkInTime = const TimeOfDay(hour: 9, minute: 0);
++  TimeOfDay? _opensAt;
++  TimeOfDay? _closesAt;
+   int _rentalMonths = 1;
+ 
+   Map<String, dynamic>? _quote;
+@@ -42,6 +46,35 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
+   void initState() {
+     super.initState();
+     _loadUnitTypes();
++    _loadFacilityHours();
++  }
++
++  TimeOfDay? _parseHour(dynamic value) {
++    final parts = value?.toString().split(':');
++    if (parts == null || parts.length < 2) return null;
++    final hour = int.tryParse(parts[0]);
++    final minute = int.tryParse(parts[1]);
++    if (hour == null || minute == null || hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
++    return TimeOfDay(hour: hour, minute: minute);
++  }
++
++  Future<void> _loadFacilityHours() async {
++    try {
++      final facility = await _catalogService.getFacility(widget.facilityId);
++      final open = _parseHour(facility['openTime']);
++      final close = _parseHour(facility['closeTime']);
++      if (!mounted || open == null || close == null) return;
++      setState(() {
++        _opensAt = open;
++        _closesAt = close;
++        final chosen = _checkInTime.hour * 60 + _checkInTime.minute;
++        final opens = open.hour * 60 + open.minute;
++        final closes = close.hour * 60 + close.minute;
++        if (chosen < opens || chosen >= closes) _checkInTime = open;
++      });
++    } catch (_) {
++      // Backend validates the time even if opening hours cannot be loaded.
++    }
+   }
+ 
+   void _loadUnitTypes() {
+@@ -106,6 +139,12 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
+                 pinned: true,
+                 backgroundColor: const Color(0xFF1E3C72),
+                 foregroundColor: Colors.white,
++                actions: [IconButton(
++                  tooltip: 'My waitlist',
++                  onPressed: () => Navigator.push(context, MaterialPageRoute(
++                    builder: (_) => const MyWaitlistScreen())),
++                  icon: const Icon(Icons.notifications_active_outlined),
++                )],
+                 flexibleSpace: FlexibleSpaceBar(
+                   background: Container(
+                     decoration: const BoxDecoration(
+@@ -287,10 +326,30 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
+ 
+         // ── Move-in appointment ──────────────────────────────────────
+         _sectionHeader('📅 Move-in Appointment',
+-            subtitle: 'Choose your rental start date'),
++            subtitle: 'Choose the date and time to receive your unit'),
+         const SizedBox(height: 10),
+         _buildDatePicker(),
+ 
++        ListTile(
++          leading: const Icon(Icons.schedule_outlined),
++          title: const Text('Check-in time'),
++          subtitle: Text('${_checkInTime.format(context)}${_opensAt != null && _closesAt != null ? ' • Open ${_opensAt!.format(context)}–${_closesAt!.format(context)}' : ''}'),
++          onTap: () async {
++            final picked = await showTimePicker(context: context,
++                initialTime: _checkInTime);
++            if (!mounted || picked == null) return;
++            final selected = picked.hour * 60 + picked.minute;
++            final open = _opensAt == null ? null : _opensAt!.hour * 60 + _opensAt!.minute;
++            final close = _closesAt == null ? null : _closesAt!.hour * 60 + _closesAt!.minute;
++            if (open != null && close != null && (selected < open || selected >= close)) {
++              ScaffoldMessenger.of(context).showSnackBar(
++                const SnackBar(content: Text('Choose a time during facility opening hours.')));
++              return;
++            }
++            setState(() => _checkInTime = picked);
++          },
++        ),
++
+         const SizedBox(height: 24),
+ 
+         // ── Rental period ─────────────────────────────────────────────
+@@ -792,6 +851,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
+         facilityId: widget.facilityId,
+         unitTypeId: _selectedType!.id,
+         startDate: _startDate,
++        checkInTime: '${_checkInTime.hour.toString().padLeft(2, '0')}:${_checkInTime.minute.toString().padLeft(2, '0')}:00',
+         rentalMonths: _rentalMonths,
+       );
+       if (!mounted) return;
+diff --git a/FE/storehub_mobile/lib/screens/customer/reservation/my_waitlist_screen.dart b/FE/storehub_mobile/lib/screens/customer/reservation/my_waitlist_screen.dart
+new file mode 100644
+index 0000000..06383a0
+--- /dev/null
++++ b/FE/storehub_mobile/lib/screens/customer/reservation/my_waitlist_screen.dart
+@@ -0,0 +1,81 @@
++import 'package:flutter/material.dart';
++import 'package:intl/intl.dart';
++import '../../../services/booking_api_service.dart';
++
++class MyWaitlistScreen extends StatefulWidget {
++  const MyWaitlistScreen({super.key});
++
++  @override
++  State<MyWaitlistScreen> createState() => _MyWaitlistScreenState();
++}
++
++class _MyWaitlistScreenState extends State<MyWaitlistScreen> {
++  final BookingApiService _api = BookingApiService();
++  late Future<List<Map<String, dynamic>>> _entries;
++
++  @override
++  void initState() {
++    super.initState();
++    _entries = _api.getMyWaitlist();
++  }
++
++  Future<void> _refresh() async {
++    setState(() => _entries = _api.getMyWaitlist());
++    try { await _entries; } catch (_) { /* FutureBuilder shows the error. */ }
++  }
++
++  Future<void> _leave(String id) async {
++    try {
++      await _api.leaveWaitlist(id);
++      if (mounted) await _refresh();
++    } catch (error) {
++      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
++        SnackBar(content: Text(error.toString())));
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) => Scaffold(
++    appBar: AppBar(title: const Text('My waitlist')),
++    body: FutureBuilder<List<Map<String, dynamic>>>(
++      future: _entries,
++      builder: (context, snapshot) {
++        if (snapshot.connectionState == ConnectionState.waiting) {
++          return const Center(child: CircularProgressIndicator());
++        }
++        if (snapshot.hasError) {
++          return Center(child: Text('Could not load waitlist: ${snapshot.error}'));
++        }
++        final entries = snapshot.data ?? [];
++        return RefreshIndicator(
++          onRefresh: _refresh,
++          child: ListView.builder(
++            physics: const AlwaysScrollableScrollPhysics(),
++            itemCount: entries.isEmpty ? 1 : entries.length,
++            itemBuilder: (context, index) {
++              if (entries.isEmpty) return const ListTile(
++                title: Text('No waitlist entries'),
++                subtitle: Text('Join a waitlist from a facility when a unit type is full.'),
++              );
++              final entry = entries[index];
++              final status = entry['status']?.toString() ?? 'WAITING';
++              final canLeave = status == 'WAITING' || status == 'NOTIFIED';
++              final expiry = entry['offerExpiresAt']?.toString();
++              final expiryLocal = expiry == null ? null : DateTime.tryParse(expiry)?.toLocal();
++              return ListTile(
++                title: Text('${entry['facilityName']} • ${entry['unitTypeName']}'),
++                subtitle: Text(status == 'NOTIFIED' && expiryLocal != null
++                    ? 'Book if still vacant. Notice expires: ${DateFormat('dd/MM/yyyy HH:mm').format(expiryLocal)}'
++                    : status.replaceAll('_', ' ')),
++                trailing: canLeave ? TextButton(
++                  onPressed: () => _leave(entry['id'].toString()),
++                  child: const Text('Leave'),
++                ) : null,
++              );
++            },
++          ),
++        );
++      },
++    ),
++  );
++}
+diff --git a/FE/storehub_mobile/lib/screens/customer/tickets/ticket_list_screen.dart b/FE/storehub_mobile/lib/screens/customer/tickets/ticket_list_screen.dart
+index 7ca56b8..92cdba9 100644
+--- a/FE/storehub_mobile/lib/screens/customer/tickets/ticket_list_screen.dart
++++ b/FE/storehub_mobile/lib/screens/customer/tickets/ticket_list_screen.dart
+@@ -1,6 +1,7 @@
+ import 'package:flutter/material.dart';
+ import '../../../core/constants/app_colors.dart';
+ import '../../../services/ticket_api_service.dart';
++import '../../../models/paged_result.dart';
+ import '../../../widgets/state_views.dart';
+ import 'create_ticket_screen.dart';
+ import 'ticket_detail_screen.dart';
+@@ -14,7 +15,11 @@ class TicketListScreen extends StatefulWidget {
+ 
+ class _TicketListScreenState extends State<TicketListScreen> {
+   final TicketApiService _ticketApiService = TicketApiService();
+-  late Future<List<dynamic>> _ticketsFuture;
++  late Future<PagedResult<Map<String, dynamic>>> _ticketsFuture;
++  final List<Map<String, dynamic>> _additional = [];
++  int _nextPage = 1;
++  bool _lastPage = false;
++  bool _loadingMore = false;
+ 
+   @override
+   void initState() {
+@@ -24,10 +29,33 @@ class _TicketListScreenState extends State<TicketListScreen> {
+ 
+   void _loadTickets() {
+     setState(() {
++      _additional.clear();
++      _nextPage = 1;
++      _lastPage = false;
+       _ticketsFuture = _ticketApiService.getMyTickets();
+     });
+   }
+ 
++  Future<void> _loadMore() async {
++    if (_loadingMore || _lastPage) return;
++    final currentLoad = _ticketsFuture;
++    setState(() => _loadingMore = true);
++    try {
++      final result = await _ticketApiService.getMyTickets(page: _nextPage);
++      if (!mounted || !identical(currentLoad, _ticketsFuture)) return;
++      setState(() {
++        _additional.addAll(result.content);
++        _nextPage++;
++        _lastPage = result.last;
++      });
++    } catch (error) {
++      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
++        SnackBar(content: Text(error.toString())));
++    } finally {
++      if (mounted) setState(() => _loadingMore = false);
++    }
++  }
++
+   static const Map<String, String> _categoryLabels = {
+     'PIN_CODE': 'Access PIN issue',
+     'LOCK_ISSUE': 'Lock / door issue',
+@@ -65,7 +93,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
+       ),
+       body: RefreshIndicator(
+         onRefresh: () async => _loadTickets(),
+-        child: FutureBuilder<List<dynamic>>(
++        child: FutureBuilder<PagedResult<Map<String, dynamic>>>(
+           future: _ticketsFuture,
+           builder: (context, snapshot) {
+             if (snapshot.connectionState == ConnectionState.waiting) {
+@@ -80,7 +108,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
+                   ),
+                 ],
+               );
+-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
++            } else if (!snapshot.hasData || snapshot.data!.content.isEmpty) {
+               return ListView(
+                 children: const [
+                   AppEmptyState(
+@@ -93,12 +121,19 @@ class _TicketListScreenState extends State<TicketListScreen> {
+               );
+             }
+ 
+-            final tickets = snapshot.data!;
++            final tickets = [...snapshot.data!.content, ..._additional];
++            final hasMore = !snapshot.data!.last && !_lastPage;
+             return ListView.builder(
+               padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+-              itemCount: tickets.length,
++              itemCount: tickets.length + (hasMore ? 1 : 0),
+               itemBuilder: (context, index) {
+-                final ticket = tickets[index] as Map;
++                if (index == tickets.length) {
++                  return Center(child: TextButton(
++                    onPressed: _loadingMore ? null : _loadMore,
++                    child: Text(_loadingMore ? 'Loading...' : 'Load more tickets'),
++                  ));
++                }
++                final ticket = tickets[index];
+                 final category = ticket['category']?.toString();
+                 final status = ticket['status']?.toString();
+                 final priority = ticket['priority']?.toString();
+diff --git a/FE/storehub_mobile/lib/screens/manager/facility_tickets_tab.dart b/FE/storehub_mobile/lib/screens/manager/facility_tickets_tab.dart
+index e695a33..e64fc1a 100644
+--- a/FE/storehub_mobile/lib/screens/manager/facility_tickets_tab.dart
++++ b/FE/storehub_mobile/lib/screens/manager/facility_tickets_tab.dart
+@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
+ import '../../core/constants/app_colors.dart';
+ import '../../models/facility_management_models.dart';
+ import '../../models/staff_ticket_model.dart';
++import '../../models/paged_result.dart';
+ import '../../services/facility_ops_api_service.dart';
+ import '../../services/staff_ticket_api_service.dart';
+ import '../../widgets/state_views.dart';
+@@ -23,7 +24,11 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
+   final StaffTicketApiService _ticketService = StaffTicketApiService();
+   final FacilityOpsApiService _opsService = FacilityOpsApiService();
+ 
+-  late Future<List<StaffTicketModel>> _future;
++  late Future<PagedResult<StaffTicketModel>> _future;
++  final List<StaffTicketModel> _additional = [];
++  int _nextPage = 1;
++  bool _lastPage = false;
++  bool _loadingMore = false;
+ 
+   @override
+   void initState() {
+@@ -33,10 +38,33 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
+ 
+   void _reload() {
+     setState(() {
++      _additional.clear();
++      _nextPage = 1;
++      _lastPage = false;
+       _future = _ticketService.getFacilityTickets(widget.facilityId);
+     });
+   }
+ 
++  Future<void> _loadMore() async {
++    if (_loadingMore || _lastPage) return;
++    final currentLoad = _future;
++    setState(() => _loadingMore = true);
++    try {
++      final page = await _ticketService.getFacilityTickets(widget.facilityId,
++          page: _nextPage);
++      if (!mounted || !identical(currentLoad, _future)) return;
++      setState(() {
++        _additional.addAll(page.content);
++        _nextPage++;
++        _lastPage = page.last;
++      });
++    } catch (error) {
++      _toast(error.toString(), error: true);
++    } finally {
++      if (mounted) setState(() => _loadingMore = false);
++    }
++  }
++
+   Future<void> _refresh() async {
+     _reload();
+     try {
+@@ -58,7 +86,8 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
+   Future<void> _assign(StaffTicketModel ticket) async {
+     List<FacilityStaffModel> staff;
+     try {
+-      staff = await _opsService.getFacilityStaff(widget.facilityId);
++      staff = (await _opsService.getFacilityStaff(widget.facilityId))
++          .where((member) => member.role == 'STAFF').toList();
+     } catch (e) {
+       _toast(e.toString().replaceFirst('Exception: ', ''), error: true);
+       return;
+@@ -141,7 +170,7 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
+ 
+   @override
+   Widget build(BuildContext context) {
+-    return FutureBuilder<List<StaffTicketModel>>(
++    return FutureBuilder<PagedResult<StaffTicketModel>>(
+       future: _future,
+       builder: (context, snapshot) {
+         if (snapshot.connectionState == ConnectionState.waiting) {
+@@ -155,7 +184,8 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
+           );
+         }
+ 
+-        final tickets = snapshot.data ?? <StaffTicketModel>[];
++        final tickets = [...?snapshot.data?.content, ..._additional];
++        final hasMore = snapshot.data != null && !snapshot.data!.last && !_lastPage;
+ 
+         return RefreshIndicator(
+           onRefresh: _refresh,
+@@ -173,8 +203,14 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
+               : ListView.builder(
+                   physics: const AlwaysScrollableScrollPhysics(),
+                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+-                  itemCount: tickets.length,
++                  itemCount: tickets.length + (hasMore ? 1 : 0),
+                   itemBuilder: (context, index) {
++                    if (index == tickets.length) {
++                      return Center(child: TextButton(
++                        onPressed: _loadingMore ? null : _loadMore,
++                        child: Text(_loadingMore ? 'Loading...' : 'Load more tickets'),
++                      ));
++                    }
+                     final ticket = tickets[index];
+                     final color = _statusColor(ticket.status);
+                     final closed = ticket.status == 'RESOLVED' ||
+diff --git a/FE/storehub_mobile/lib/screens/operations/facility_management_screen.dart b/FE/storehub_mobile/lib/screens/operations/facility_management_screen.dart
+index 77af5a4..1166fbf 100644
+--- a/FE/storehub_mobile/lib/screens/operations/facility_management_screen.dart
++++ b/FE/storehub_mobile/lib/screens/operations/facility_management_screen.dart
+@@ -1,6 +1,7 @@
+ import 'package:flutter/material.dart';
+ import '../../core/constants/app_colors.dart';
+ import '../../services/facility_admin_api_service.dart';
++import '../../models/paged_result.dart';
+ import '../../widgets/state_views.dart';
+ import 'facility_edit_screen.dart';
+ 
+@@ -14,7 +15,11 @@ class FacilityManagementScreen extends StatefulWidget {
+ 
+ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
+   final FacilityAdminApiService _service = FacilityAdminApiService();
+-  late Future<List<dynamic>> _facilitiesFuture;
++  late Future<PagedResult<Map<String, dynamic>>> _facilitiesFuture;
++  final List<Map<String, dynamic>> _additional = [];
++  int _nextPage = 1;
++  bool _lastPage = false;
++  bool _loadingMore = false;
+   final _searchController = TextEditingController();
+ 
+   @override
+@@ -25,11 +30,35 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
+ 
+   void _load() {
+     setState(() {
++      _additional.clear();
++      _nextPage = 1;
++      _lastPage = false;
+       _facilitiesFuture =
+-          _service.getFacilities(search: _searchController.text.trim());
++          _service.getFacilitiesPage(search: _searchController.text.trim());
+     });
+   }
+ 
++  Future<void> _loadMore() async {
++    if (_loadingMore || _lastPage) return;
++    final currentLoad = _facilitiesFuture;
++    setState(() => _loadingMore = true);
++    try {
++      final batch = await _service.getFacilitiesPage(
++          search: _searchController.text.trim(), page: _nextPage);
++      if (!mounted || !identical(currentLoad, _facilitiesFuture)) return;
++      setState(() {
++        _additional.addAll(batch.content);
++        _nextPage++;
++        _lastPage = batch.last;
++      });
++    } catch (error) {
++      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(content: Text(error.toString())));
++    } finally {
++      if (mounted) setState(() => _loadingMore = false);
++    }
++  }
++
+   Color _statusColor(String? status) {
+     switch (status) {
+       case 'ACTIVE':
+@@ -66,7 +95,7 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
+           Expanded(
+             child: RefreshIndicator(
+               onRefresh: () async => _load(),
+-              child: FutureBuilder<List<dynamic>>(
++              child: FutureBuilder<PagedResult<Map<String, dynamic>>>(
+                 future: _facilitiesFuture,
+                 builder: (context, snapshot) {
+                   if (snapshot.connectionState == ConnectionState.waiting) {
+@@ -81,7 +110,8 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
+                       onRetry: _load,
+                     );
+                   }
+-                  final facilities = snapshot.data ?? [];
++                  final facilities = [...?snapshot.data?.content, ..._additional];
++                  final hasMore = snapshot.data != null && !snapshot.data!.last && !_lastPage;
+                   if (facilities.isEmpty) {
+                     return AppEmptyState(
+                       icon: Icons.warehouse_outlined,
+@@ -103,9 +133,15 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
+                   }
+                   return ListView.builder(
+                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+-                    itemCount: facilities.length,
++                    itemCount: facilities.length + (hasMore ? 1 : 0),
+                     itemBuilder: (context, index) {
+-                      final f = facilities[index] as Map;
++                      if (index == facilities.length) {
++                        return Center(child: TextButton(
++                          onPressed: _loadingMore ? null : _loadMore,
++                          child: Text(_loadingMore ? 'Loading...' : 'Load more facilities'),
++                        ));
++                      }
++                      final f = facilities[index];
+                       final status = f['status']?.toString();
+                       return Card(
+                         margin: const EdgeInsets.only(bottom: 10),
+diff --git a/FE/storehub_mobile/lib/screens/staff/staff_ticket_screen.dart b/FE/storehub_mobile/lib/screens/staff/staff_ticket_screen.dart
+index 91db26c..a99f8be 100644
+--- a/FE/storehub_mobile/lib/screens/staff/staff_ticket_screen.dart
++++ b/FE/storehub_mobile/lib/screens/staff/staff_ticket_screen.dart
+@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
+ 
+ import '../../core/constants/app_colors.dart';
+ import '../../models/staff_ticket_model.dart';
++import '../../models/paged_result.dart';
+ import '../../services/facility_ops_api_service.dart';
+ import '../../services/staff_ticket_api_service.dart';
+ import '../../widgets/state_views.dart';
+@@ -24,7 +25,11 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
+   final StaffTicketApiService _ticketService = StaffTicketApiService();
+   final FacilityOpsApiService _opsService = FacilityOpsApiService();
+ 
+-  Future<List<StaffTicketModel>>? _ticketsFuture;
++  Future<PagedResult<StaffTicketModel>>? _ticketsFuture;
++  final List<StaffTicketModel> _additional = [];
++  int _nextPage = 1;
++  bool _lastPage = false;
++  bool _loadingMore = false;
+ 
+   @override
+   void initState() {
+@@ -34,12 +39,35 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
+ 
+   void _loadTickets() {
+     setState(() {
++      _additional.clear();
++      _nextPage = 1;
++      _lastPage = false;
+       _ticketsFuture = _ticketService.getFacilityTickets(
+         widget.facilityId,
+       );
+     });
+   }
+ 
++  Future<void> _loadMore() async {
++    if (_loadingMore || _lastPage) return;
++    final currentLoad = _ticketsFuture;
++    setState(() => _loadingMore = true);
++    try {
++      final page = await _ticketService.getFacilityTickets(widget.facilityId,
++          page: _nextPage);
++      if (!mounted || !identical(currentLoad, _ticketsFuture)) return;
++      setState(() {
++        _additional.addAll(page.content);
++        _nextPage++;
++        _lastPage = page.last;
++      });
++    } catch (error) {
++      if (mounted) _showError(_errorMessage(error));
++    } finally {
++      if (mounted) setState(() => _loadingMore = false);
++    }
++  }
++
+   Future<void> _refreshTickets() async {
+     _loadTickets();
+ 
+@@ -346,7 +374,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
+       appBar: AppBar(
+         title: const Text('Support Tickets'),
+       ),
+-      body: FutureBuilder<List<StaffTicketModel>>(
++      body: FutureBuilder<PagedResult<StaffTicketModel>>(
+         future: _ticketsFuture,
+         builder: (context, snapshot) {
+           if (snapshot.connectionState == ConnectionState.waiting) {
+@@ -362,7 +390,8 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
+             );
+           }
+ 
+-          final tickets = snapshot.data ?? <StaffTicketModel>[];
++          final tickets = [...?snapshot.data?.content, ..._additional];
++          final hasMore = snapshot.data != null && !snapshot.data!.last && !_lastPage;
+ 
+           if (tickets.isEmpty) {
+             return RefreshIndicator(
+@@ -386,9 +415,15 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
+             child: ListView.separated(
+               physics: const AlwaysScrollableScrollPhysics(),
+               padding: const EdgeInsets.all(16),
+-              itemCount: tickets.length,
++              itemCount: tickets.length + (hasMore ? 1 : 0),
+               separatorBuilder: (_, __) => const SizedBox(height: 10),
+               itemBuilder: (context, index) {
++                if (index == tickets.length) {
++                  return Center(child: TextButton(
++                    onPressed: _loadingMore ? null : _loadMore,
++                    child: Text(_loadingMore ? 'Loading...' : 'Load more tickets'),
++                  ));
++                }
+                 final ticket = tickets[index];
+                 final statusColor = _statusColor(ticket.status);
+ 
+diff --git a/FE/storehub_mobile/lib/services/admin_api_service.dart b/FE/storehub_mobile/lib/services/admin_api_service.dart
+index 4c57662..247cef1 100644
+--- a/FE/storehub_mobile/lib/services/admin_api_service.dart
++++ b/FE/storehub_mobile/lib/services/admin_api_service.dart
+@@ -1,6 +1,7 @@
+ import 'package:dio/dio.dart';
+ import '../core/constants/api_endpoints.dart';
+ import '../core/network/http_client.dart';
++import '../models/paged_result.dart';
+ 
+ class AdminApiService {
+   final Dio _dio = HttpClient.instance.dio;
+@@ -44,9 +45,25 @@ class AdminApiService {
+   }
+ 
+   Future<List<dynamic>> getUsers() async {
++    final all = <dynamic>[];
++    var page = 0;
++    while (true) {
++      final batch = await getUsersPage(page: page++);
++      all.addAll(batch.content);
++      if (batch.last) return all;
++    }
++  }
++
++  Future<PagedResult<Map<String, dynamic>>> getUsersPage({int page = 0,
++      String search = '', bool? isActive}) async {
+     try {
+-      final response = await _dio.get(ApiEndpoints.users);
+-      return _extractList(response.data);
++      final response = await _dio.get(ApiEndpoints.users, queryParameters: {
++        'page': page, 'size': 20,
++        if (search.isNotEmpty) 'search': search,
++        if (isActive != null) 'isActive': isActive,
++      });
++      return PagedResult.fromApi(response.data,
++          (item) => Map<String, dynamic>.from(item as Map));
+     } on DioException catch (e) {
+       final message = e.response?.data?['message'] ?? e.message;
+       throw Exception('Failed to load users: $message');
+@@ -90,11 +107,16 @@ class AdminApiService {
+ 
+   Future<List<dynamic>> getPermissions() async {
+     try {
+-      final response = await _dio.get(
+-        ApiEndpoints.permissions,
+-        queryParameters: {'size': 200},
+-      );
+-      return _extractList(response.data);
++      final permissions = <dynamic>[];
++      var page = 0;
++      while (true) {
++        final response = await _dio.get(ApiEndpoints.permissions,
++            queryParameters: {'page': page++, 'size': 50});
++        final batch = PagedResult.fromApi(response.data,
++            (item) => Map<String, dynamic>.from(item as Map));
++        permissions.addAll(batch.content);
++        if (batch.last) return permissions;
++      }
+     } on DioException catch (e) {
+       final message = e.response?.data?['message'] ?? e.message;
+       throw Exception('Failed to load permissions: $message');
+diff --git a/FE/storehub_mobile/lib/services/booking_api_service.dart b/FE/storehub_mobile/lib/services/booking_api_service.dart
+index 414b6c7..cfeb7cf 100644
+--- a/FE/storehub_mobile/lib/services/booking_api_service.dart
++++ b/FE/storehub_mobile/lib/services/booking_api_service.dart
+@@ -31,6 +31,7 @@ class BookingApiService {
+     required String facilityId,
+     required String unitTypeId,
+     required DateTime startDate,
++    required String checkInTime,
+     required int rentalMonths,
+   }) async {
+     try {
+@@ -40,6 +41,7 @@ class BookingApiService {
+           'facilityId': facilityId,
+           'unitTypeId': unitTypeId,
+           'startDate': _formatLocalDate(startDate),
++          'checkInTime': checkInTime,
+           'rentalMonths': rentalMonths,
+         },
+       );
+@@ -123,6 +125,18 @@ class BookingApiService {
+     }
+   }
+ 
++  Future<List<Map<String, dynamic>>> getMyWaitlist() async {
++    final response = await _dio.get('${ApiEndpoints.waitlist}/mine');
++    final data = response.data;
++    final entries = data is Map ? data['data'] : null;
++    if (entries is! List) throw const FormatException('Invalid waitlist response');
++    return entries.map((item) => Map<String, dynamic>.from(item as Map)).toList();
++  }
++
++  Future<void> leaveWaitlist(String id) async {
++    await _dio.delete('${ApiEndpoints.waitlist}/$id');
++  }
++
+   Map<String, dynamic> _unwrapMap(dynamic data) {
+     if (data is Map && data['data'] is Map) {
+       return Map<String, dynamic>.from(data['data']);
+diff --git a/FE/storehub_mobile/lib/services/catalog_api_service.dart b/FE/storehub_mobile/lib/services/catalog_api_service.dart
+index 5ba85b4..bc89f86 100644
+--- a/FE/storehub_mobile/lib/services/catalog_api_service.dart
++++ b/FE/storehub_mobile/lib/services/catalog_api_service.dart
+@@ -6,6 +6,14 @@ import '../models/facility_model.dart';
+ class CatalogApiService {
+   final Dio _dio = HttpClient.instance.dio;
+ 
++  Future<Map<String, dynamic>> getFacility(String facilityId) async {
++    final response = await _dio.get(ApiEndpoints.facilityDetail(facilityId));
++    final body = response.data;
++    final facility = body is Map ? body['data'] : null;
++    if (facility is! Map) throw const FormatException('Invalid facility');
++    return Map<String, dynamic>.from(facility);
++  }
++
+   Future<List<FacilityModel>> getFacilities() async {
+     try {
+       final response = await _dio.get(ApiEndpoints.facilities);
+diff --git a/FE/storehub_mobile/lib/services/facility_admin_api_service.dart b/FE/storehub_mobile/lib/services/facility_admin_api_service.dart
+index 9df1afa..376138c 100644
+--- a/FE/storehub_mobile/lib/services/facility_admin_api_service.dart
++++ b/FE/storehub_mobile/lib/services/facility_admin_api_service.dart
+@@ -1,6 +1,7 @@
+ import 'package:dio/dio.dart';
+ import '../core/constants/api_endpoints.dart';
+ import '../core/network/http_client.dart';
++import '../models/paged_result.dart';
+ 
+ class FacilityAdminApiService {
+   final Dio _dio = HttpClient.instance.dio;
+@@ -20,22 +21,28 @@ class FacilityAdminApiService {
+   }
+ 
+   Future<List<dynamic>> getFacilities({String? search}) async {
++    final all = <dynamic>[];
++    var page = 0;
++    while (true) {
++      final batch = await getFacilitiesPage(search: search, page: page++);
++      all.addAll(batch.content);
++      if (batch.last) return all;
++    }
++  }
++
++  Future<PagedResult<Map<String, dynamic>>> getFacilitiesPage(
++      {String? search, int page = 0}) async {
+     try {
+       final response = await _dio.get(
+         ApiEndpoints.facilitiesAdmin,
+         queryParameters: {
+-          'size': 200,
++          'page': page,
++          'size': 20,
+           if (search != null && search.isNotEmpty) 'search': search,
+         },
+       );
+-      final data = response.data;
+-      if (data is Map &&
+-          data['data'] is Map &&
+-          data['data']['content'] is List) {
+-        return data['data']['content'];
+-      }
+-      if (data is Map && data['content'] is List) return data['content'];
+-      return [];
++      return PagedResult.fromApi(response.data,
++          (item) => Map<String, dynamic>.from(item as Map));
+     } on DioException catch (e) {
+       throw _err(e, 'load facilities');
+     }
+diff --git a/FE/storehub_mobile/lib/services/staff_ticket_api_service.dart b/FE/storehub_mobile/lib/services/staff_ticket_api_service.dart
+index 7884123..38aeb85 100644
+--- a/FE/storehub_mobile/lib/services/staff_ticket_api_service.dart
++++ b/FE/storehub_mobile/lib/services/staff_ticket_api_service.dart
+@@ -4,28 +4,27 @@ import '../core/constants/api_endpoints.dart';
+ import '../core/network/http_client.dart';
+ import '../mappers/staff_ticket_mapper.dart';
+ import '../models/staff_ticket_model.dart';
++import '../models/paged_result.dart';
+ 
+ class StaffTicketApiService {
+   final Dio _dio = HttpClient.instance.dio;
+ 
+-  Future<List<StaffTicketModel>> getFacilityTickets(
+-    String facilityId,
++  Future<PagedResult<StaffTicketModel>> getFacilityTickets(
++    String facilityId, {int page = 0}
+   ) async {
+     try {
+       final response = await _dio.get(
+         ApiEndpoints.staffTickets,
+         queryParameters: {
+           'facilityId': facilityId,
+-          'page': 0,
+-          'size': 100,
++          'page': page,
++          'size': 20,
+           'sort': 'createdAt,desc',
+         },
+       );
+ 
+-      return _unwrapPageContent(response.data)
+-          .map(StaffTicketMapper.asJsonMap)
+-          .map(StaffTicketMapper.fromJson)
+-          .toList();
++      return PagedResult.fromApi(response.data, (item) =>
++          StaffTicketMapper.fromJson(StaffTicketMapper.asJsonMap(item)));
+     } on DioException catch (error) {
+       throw _error(error, 'load facility tickets');
+     }
+@@ -92,18 +91,6 @@ class StaffTicketApiService {
+     }
+   }
+ 
+-  List<dynamic> _unwrapPageContent(dynamic data) {
+-    if (data is Map && data['data'] is Map && data['data']['content'] is List) {
+-      return List<dynamic>.from(data['data']['content']);
+-    }
+-
+-    if (data is Map && data['content'] is List) {
+-      return List<dynamic>.from(data['content']);
+-    }
+-
+-    return <dynamic>[];
+-  }
+-
+   Map<String, dynamic> _unwrap(dynamic data) {
+     if (data is Map && data['data'] is Map) {
+       return Map<String, dynamic>.from(data['data']);
+diff --git a/FE/storehub_mobile/lib/services/ticket_api_service.dart b/FE/storehub_mobile/lib/services/ticket_api_service.dart
+index 239b37f..e45b742 100644
+--- a/FE/storehub_mobile/lib/services/ticket_api_service.dart
++++ b/FE/storehub_mobile/lib/services/ticket_api_service.dart
+@@ -1,28 +1,17 @@
+ import 'package:dio/dio.dart';
+ import '../core/constants/api_endpoints.dart';
+ import '../core/network/http_client.dart';
++import '../models/paged_result.dart';
+ 
+ class TicketApiService {
+   final Dio _dio = HttpClient.instance.dio;
+ 
+-  Future<List<dynamic>> getMyTickets() async {
++  Future<PagedResult<Map<String, dynamic>>> getMyTickets({int page = 0}) async {
+     try {
+-      final response = await _dio.get(ApiEndpoints.tickets);
+-      final data = response.data;
+-      if (data is List) {
+-        return data;
+-      } else if (data is Map) {
+-        if (data['data'] is Map && data['data']['content'] is List) {
+-          return data['data']['content'];
+-        } else if (data['content'] is List) {
+-          return data['content'];
+-        } else if (data['result'] is List) {
+-          return data['result'];
+-        } else if (data['data'] is List) {
+-          return data['data'];
+-        }
+-      }
+-      return [];
++      final response = await _dio.get(ApiEndpoints.tickets,
++          queryParameters: {'page': page, 'size': 20, 'sort': 'createdAt,desc'});
++      return PagedResult.fromApi(response.data,
++          (item) => Map<String, dynamic>.from(item as Map));
+     } on DioException catch (e) {
+       final message = e.response?.data?['message'] ?? e.message;
+       throw Exception('Failed to load tickets: $message');

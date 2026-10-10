@@ -16,6 +16,7 @@ import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.GatePassRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.service.impl.GatePassServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -44,7 +45,7 @@ class GatePassServiceTest {
     @Mock UserRepository users;
     @Mock FacilityAccess facilityAccess;
     @Mock ActivityLogService activityLog;
-    @InjectMocks GatePassService service;
+    @InjectMocks GatePassServiceImpl service;
 
     @Test
     void activeCustomerQrIsScannableAndCanBeUsedOnlyOnce() throws Exception {

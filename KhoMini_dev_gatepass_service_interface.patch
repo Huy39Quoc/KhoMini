@@ -1,0 +1,351 @@
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/GatePassService.java b/BE/StoreHub/src/main/java/com/storehub/service/GatePassService.java
+index 768cf75..d409878 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/GatePassService.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/GatePassService.java
+@@ -1,156 +1,12 @@
+ package com.storehub.service;
+ 
+-import com.google.zxing.BarcodeFormat;
+-import com.google.zxing.qrcode.QRCodeWriter;
+ import com.storehub.dto.response.GatePassResponse;
+ import com.storehub.dto.response.GatePassVerificationResponse;
+-import com.storehub.entity.Booking;
+-import com.storehub.entity.FacilityAccess;
+-import com.storehub.entity.GatePass;
+-import com.storehub.entity.User;
+-import com.storehub.enums.ActivityAction;
+-import com.storehub.enums.BookingStatus;
+-import com.storehub.exception.AppException;
+-import com.storehub.exception.ErrorCode;
+-import com.storehub.repository.BookingRepository;
+-import com.storehub.repository.GatePassRepository;
+-import com.storehub.repository.UserRepository;
+-import lombok.RequiredArgsConstructor;
+-import org.springframework.stereotype.Service;
+-import org.springframework.transaction.annotation.Transactional;
+ 
+-import javax.imageio.ImageIO;
+-import java.awt.image.BufferedImage;
+-import java.io.ByteArrayOutputStream;
+-import java.nio.charset.StandardCharsets;
+-import java.security.MessageDigest;
+-import java.security.NoSuchAlgorithmException;
+-import java.security.SecureRandom;
+-import java.time.Instant;
+-import java.time.LocalDate;
+-import java.util.Base64;
+-import java.util.HexFormat;
+ import java.util.UUID;
+ 
+-@Service
+-@RequiredArgsConstructor
+-public class GatePassService {
+-    private static final int PASS_LIFETIME_SECONDS = 90;
+-    private static final SecureRandom RANDOM = new SecureRandom();
++public interface GatePassService {
++    GatePassResponse issue(UUID bookingId, String customerEmail);
+ 
+-    private final GatePassRepository passes;
+-    private final BookingRepository bookings;
+-    private final UserRepository users;
+-    private final FacilityAccess facilityAccess;
+-    private final ActivityLogService activityLog;
+-
+-    @Transactional
+-    public GatePassResponse issue(UUID bookingId, String customerEmail) {
+-        User customer = users.findByEmail(customerEmail)
+-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+-        Booking booking = bookings.lockByIdAndCustomerId(bookingId, customer.getId())
+-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+-        requireGateAccess(booking);
+-
+-        byte[] secret = new byte[32];
+-        RANDOM.nextBytes(secret);
+-        String token = "KMG1." + Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
+-        Instant now = Instant.now();
+-        Instant expiresAt = now.plusSeconds(PASS_LIFETIME_SECONDS);
+-        UUID facilityId = booking.getStorageUnit().getFacility().getId();
+-
+-        // The booking row lock serializes issuance with verification and revocation.
+-        passes.revokeUnusedForBooking(bookingId, now);
+-        passes.save(GatePass.builder()
+-                .booking(booking).facilityId(facilityId)
+-                .tokenHash(hash(token)).expiresAt(expiresAt).build());
+-        activityLog.record(customer.getId(), ActivityAction.GATE_PASS_ISSUED,
+-                "BOOKING", bookingId, "Issued short-lived gate pass", null, null);
+-
+-        return GatePassResponse.builder()
+-                .bookingId(bookingId)
+-                .facilityName(booking.getStorageUnit().getFacility().getName())
+-                .token(token)
+-                .qrPngBase64(renderQr(token))
+-                .expiresAt(expiresAt)
+-                .build();
+-    }
+-
+-    @Transactional
+-    public GatePassVerificationResponse verify(String staffEmail, UUID facilityId, String token) {
+-        User staff = facilityAccess.requireForUpdate(staffEmail, facilityId);
+-        if (token == null || !token.matches("KMG1\\.[A-Za-z0-9_-]{43}")) {
+-            throw new AppException(ErrorCode.GATE_PASS_INVALID);
+-        }
+-        String tokenHash = hash(token);
+-        UUID bookingId = passes.findBookingIdByTokenHash(tokenHash)
+-                .orElseThrow(() -> new AppException(ErrorCode.GATE_PASS_INVALID));
+-        Booking booking = bookings.lockById(bookingId)
+-                .orElseThrow(() -> new AppException(ErrorCode.GATE_PASS_INVALID));
+-        GatePass pass = passes.lockByTokenHash(tokenHash)
+-                .orElseThrow(() -> new AppException(ErrorCode.GATE_PASS_INVALID));
+-
+-        if (booking.getStorageUnit() == null || booking.getStorageUnit().getFacility() == null
+-                || !facilityId.equals(pass.getFacilityId())
+-                || !facilityId.equals(booking.getStorageUnit().getFacility().getId())) {
+-            throw new AppException(ErrorCode.GATE_PASS_INVALID);
+-        }
+-        if (pass.getUsedAt() != null || pass.getRevokedAt() != null) {
+-            throw new AppException(ErrorCode.GATE_PASS_USED);
+-        }
+-        if (!Instant.now().isBefore(pass.getExpiresAt())) {
+-            throw new AppException(ErrorCode.GATE_PASS_EXPIRED);
+-        }
+-        requireGateAccess(booking);
+-        pass.setUsedAt(Instant.now());
+-        passes.save(pass);
+-        activityLog.record(staff.getId(), ActivityAction.GATE_PASS_VERIFIED,
+-                "BOOKING", bookingId, "Verified gate pass for " + booking.getBookingCode(), null, null);
+-
+-        return GatePassVerificationResponse.builder()
+-                .bookingId(bookingId)
+-                .bookingCode(booking.getBookingCode())
+-                .unitCode(booking.getStorageUnit().getUnitCode())
+-                .facilityName(booking.getStorageUnit().getFacility().getName())
+-                .build();
+-    }
+-
+-    private void requireGateAccess(Booking booking) {
+-        if (booking.getStatus() != BookingStatus.ACTIVE) {
+-            throw new AppException(ErrorCode.BOOKING_NOT_CHECKED_IN);
+-        }
+-        if (booking.getStorageUnit() == null
+-                || booking.getStorageUnit().getFacility() == null
+-                || booking.getEndDate() == null
+-                || booking.getEndDate().isBefore(LocalDate.now())
+-                || booking.getAccessDisabledAt() != null) {
+-            throw new AppException(ErrorCode.ACCESS_DISABLED_OVERDUE);
+-        }
+-    }
+-
+-    private static String hash(String token) {
+-        try {
+-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+-                    .digest(token.getBytes(StandardCharsets.US_ASCII)));
+-        } catch (NoSuchAlgorithmException e) {
+-            throw new IllegalStateException("SHA-256 unavailable", e);
+-        }
+-    }
+-
+-    private static String renderQr(String token) {
+-        try {
+-            var matrix = new QRCodeWriter().encode(token, BarcodeFormat.QR_CODE, 256, 256);
+-            var image = new BufferedImage(matrix.getWidth(), matrix.getHeight(), BufferedImage.TYPE_INT_RGB);
+-            for (int y = 0; y < matrix.getHeight(); y++) {
+-                for (int x = 0; x < matrix.getWidth(); x++) {
+-                    image.setRGB(x, y, matrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF);
+-                }
+-            }
+-            var output = new ByteArrayOutputStream();
+-            ImageIO.write(image, "png", output);
+-            return Base64.getEncoder().encodeToString(output.toByteArray());
+-        } catch (Exception e) {
+-            throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR);
+-        }
+-    }
++    GatePassVerificationResponse verify(String staffEmail, UUID facilityId, String token);
+ }
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/GatePassServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/GatePassServiceImpl.java
+new file mode 100644
+index 0000000..c743c93
+--- /dev/null
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/GatePassServiceImpl.java
+@@ -0,0 +1,160 @@
++package com.storehub.service.impl;
++
++import com.google.zxing.BarcodeFormat;
++import com.google.zxing.qrcode.QRCodeWriter;
++import com.storehub.dto.response.GatePassResponse;
++import com.storehub.dto.response.GatePassVerificationResponse;
++import com.storehub.entity.Booking;
++import com.storehub.entity.FacilityAccess;
++import com.storehub.entity.GatePass;
++import com.storehub.entity.User;
++import com.storehub.enums.ActivityAction;
++import com.storehub.enums.BookingStatus;
++import com.storehub.exception.AppException;
++import com.storehub.exception.ErrorCode;
++import com.storehub.repository.BookingRepository;
++import com.storehub.repository.GatePassRepository;
++import com.storehub.repository.UserRepository;
++import com.storehub.service.ActivityLogService;
++import com.storehub.service.GatePassService;
++import lombok.RequiredArgsConstructor;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++
++import javax.imageio.ImageIO;
++import java.awt.image.BufferedImage;
++import java.io.ByteArrayOutputStream;
++import java.nio.charset.StandardCharsets;
++import java.security.MessageDigest;
++import java.security.NoSuchAlgorithmException;
++import java.security.SecureRandom;
++import java.time.Instant;
++import java.time.LocalDate;
++import java.util.Base64;
++import java.util.HexFormat;
++import java.util.UUID;
++
++@Service
++@RequiredArgsConstructor
++public class GatePassServiceImpl implements GatePassService {
++    private static final int PASS_LIFETIME_SECONDS = 90;
++    private static final SecureRandom RANDOM = new SecureRandom();
++
++    private final GatePassRepository passes;
++    private final BookingRepository bookings;
++    private final UserRepository users;
++    private final FacilityAccess facilityAccess;
++    private final ActivityLogService activityLog;
++
++    @Override
++    @Transactional
++    public GatePassResponse issue(UUID bookingId, String customerEmail) {
++        User customer = users.findByEmail(customerEmail)
++                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
++        Booking booking = bookings.lockByIdAndCustomerId(bookingId, customer.getId())
++                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
++        requireGateAccess(booking);
++
++        byte[] secret = new byte[32];
++        RANDOM.nextBytes(secret);
++        String token = "KMG1." + Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
++        Instant now = Instant.now();
++        Instant expiresAt = now.plusSeconds(PASS_LIFETIME_SECONDS);
++        UUID facilityId = booking.getStorageUnit().getFacility().getId();
++
++        // The booking row lock serializes issuance with verification and revocation.
++        passes.revokeUnusedForBooking(bookingId, now);
++        passes.save(GatePass.builder()
++                .booking(booking).facilityId(facilityId)
++                .tokenHash(hash(token)).expiresAt(expiresAt).build());
++        activityLog.record(customer.getId(), ActivityAction.GATE_PASS_ISSUED,
++                "BOOKING", bookingId, "Issued short-lived gate pass", null, null);
++
++        return GatePassResponse.builder()
++                .bookingId(bookingId)
++                .facilityName(booking.getStorageUnit().getFacility().getName())
++                .token(token)
++                .qrPngBase64(renderQr(token))
++                .expiresAt(expiresAt)
++                .build();
++    }
++
++    @Override
++    @Transactional
++    public GatePassVerificationResponse verify(String staffEmail, UUID facilityId, String token) {
++        User staff = facilityAccess.requireForUpdate(staffEmail, facilityId);
++        if (token == null || !token.matches("KMG1\\.[A-Za-z0-9_-]{43}")) {
++            throw new AppException(ErrorCode.GATE_PASS_INVALID);
++        }
++        String tokenHash = hash(token);
++        UUID bookingId = passes.findBookingIdByTokenHash(tokenHash)
++                .orElseThrow(() -> new AppException(ErrorCode.GATE_PASS_INVALID));
++        Booking booking = bookings.lockById(bookingId)
++                .orElseThrow(() -> new AppException(ErrorCode.GATE_PASS_INVALID));
++        GatePass pass = passes.lockByTokenHash(tokenHash)
++                .orElseThrow(() -> new AppException(ErrorCode.GATE_PASS_INVALID));
++
++        if (booking.getStorageUnit() == null || booking.getStorageUnit().getFacility() == null
++                || !facilityId.equals(pass.getFacilityId())
++                || !facilityId.equals(booking.getStorageUnit().getFacility().getId())) {
++            throw new AppException(ErrorCode.GATE_PASS_INVALID);
++        }
++        if (pass.getUsedAt() != null || pass.getRevokedAt() != null) {
++            throw new AppException(ErrorCode.GATE_PASS_USED);
++        }
++        if (!Instant.now().isBefore(pass.getExpiresAt())) {
++            throw new AppException(ErrorCode.GATE_PASS_EXPIRED);
++        }
++        requireGateAccess(booking);
++        pass.setUsedAt(Instant.now());
++        passes.save(pass);
++        activityLog.record(staff.getId(), ActivityAction.GATE_PASS_VERIFIED,
++                "BOOKING", bookingId, "Verified gate pass for " + booking.getBookingCode(), null, null);
++
++        return GatePassVerificationResponse.builder()
++                .bookingId(bookingId)
++                .bookingCode(booking.getBookingCode())
++                .unitCode(booking.getStorageUnit().getUnitCode())
++                .facilityName(booking.getStorageUnit().getFacility().getName())
++                .build();
++    }
++
++    private void requireGateAccess(Booking booking) {
++        if (booking.getStatus() != BookingStatus.ACTIVE) {
++            throw new AppException(ErrorCode.BOOKING_NOT_CHECKED_IN);
++        }
++        if (booking.getStorageUnit() == null
++                || booking.getStorageUnit().getFacility() == null
++                || booking.getEndDate() == null
++                || booking.getEndDate().isBefore(LocalDate.now())
++                || booking.getAccessDisabledAt() != null) {
++            throw new AppException(ErrorCode.ACCESS_DISABLED_OVERDUE);
++        }
++    }
++
++    private static String hash(String token) {
++        try {
++            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
++                    .digest(token.getBytes(StandardCharsets.US_ASCII)));
++        } catch (NoSuchAlgorithmException e) {
++            throw new IllegalStateException("SHA-256 unavailable", e);
++        }
++    }
++
++    private static String renderQr(String token) {
++        try {
++            var matrix = new QRCodeWriter().encode(token, BarcodeFormat.QR_CODE, 256, 256);
++            var image = new BufferedImage(matrix.getWidth(), matrix.getHeight(), BufferedImage.TYPE_INT_RGB);
++            for (int y = 0; y < matrix.getHeight(); y++) {
++                for (int x = 0; x < matrix.getWidth(); x++) {
++                    image.setRGB(x, y, matrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF);
++                }
++            }
++            var output = new ByteArrayOutputStream();
++            ImageIO.write(image, "png", output);
++            return Base64.getEncoder().encodeToString(output.toByteArray());
++        } catch (Exception e) {
++            throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR);
++        }
++    }
++}
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/GatePassServiceTest.java b/BE/StoreHub/src/test/java/com/storehub/service/GatePassServiceTest.java
+index 854da9a..128a23f 100644
+--- a/BE/StoreHub/src/test/java/com/storehub/service/GatePassServiceTest.java
++++ b/BE/StoreHub/src/test/java/com/storehub/service/GatePassServiceTest.java
+@@ -16,6 +16,7 @@ import com.storehub.exception.ErrorCode;
+ import com.storehub.repository.BookingRepository;
+ import com.storehub.repository.GatePassRepository;
+ import com.storehub.repository.UserRepository;
++import com.storehub.service.impl.GatePassServiceImpl;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.extension.ExtendWith;
+ import org.mockito.ArgumentCaptor;
+@@ -44,7 +45,7 @@ class GatePassServiceTest {
+     @Mock UserRepository users;
+     @Mock FacilityAccess facilityAccess;
+     @Mock ActivityLogService activityLog;
+-    @InjectMocks GatePassService service;
++    @InjectMocks GatePassServiceImpl service;
+ 
+     @Test
+     void activeCustomerQrIsScannableAndCanBeUsedOnlyOnce() throws Exception {
