@@ -24,6 +24,31 @@ class StorageApiService {
     }
   }
 
+  Future<List<dynamic>> getAwaitingHandover() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.awaitingHandover);
+      final body = response.data;
+      return body is Map && body['data'] is List
+          ? List<dynamic>.from(body['data'])
+          : <dynamic>[];
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      throw Exception('Failed to load bookings awaiting handover: '
+          '${body is Map ? body['message'] : e.message}');
+    }
+  }
+
+  Future<Map<String, dynamic>> issueGatePass(String bookingId) async {
+    try {
+      final response = await _dio.post(ApiEndpoints.gatePass(bookingId));
+      return _unwrapMap(response.data);
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      throw Exception('Could not issue gate QR: '
+          '${body is Map ? body['message'] : e.message}');
+    }
+  }
+
   // Lấy trạng thái smart access (đã có PIN chưa, đang khóa/mở). Server không trả PIN đã lưu.
   Future<Map<String, dynamic>> getSmartAccess(String bookingId) async {
     try {

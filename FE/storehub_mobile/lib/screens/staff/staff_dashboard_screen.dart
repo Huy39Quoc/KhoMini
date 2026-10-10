@@ -9,6 +9,7 @@ import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
 import '../common/transaction_history_screen.dart';
+import '../common/gate_pass_verify_screen.dart';
 
 class StaffDashboardScreen extends StatefulWidget {
   final UserModel user;
@@ -679,6 +680,16 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       appBar: AppBar(
         title: const Text('Staff Operations'),
         actions: [
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Verify gate QR',
+              icon: const Icon(Icons.qr_code_scanner),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) =>
+                    GatePassVerifyScreen(facilityId: _facilityId!)),
+              ),
+            ),
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
               tooltip: 'Storage units',

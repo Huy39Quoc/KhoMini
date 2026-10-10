@@ -20,7 +20,8 @@ class MyRentedUnitsScreen extends StatefulWidget {
 class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   final StorageApiService _storageService = StorageApiService();
   final BookingApiService _bookingService = BookingApiService();
-  late Future<List<MyUnitModel>> _unitsFuture;
+  late Future<({List<MyUnitModel> active, List<MyUnitModel> awaiting})> _unitsFuture;
+  bool _showAwaiting = false;
   final _currency = NumberFormat.currency(
       locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('MMM d, yyyy');
@@ -39,13 +40,19 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
 
   void _loadUnits() {
     setState(() {
-      _unitsFuture = _storageService.getMyRentedUnits().then((response) {
-        return response.map((item) {
-          if (item is MyUnitModel) return item;
-          return MyUnitModel.fromJson(item as Map<String, dynamic>);
-        }).toList();
-      });
+      _unitsFuture = _fetchUnits();
     });
+  }
+
+  Future<({List<MyUnitModel> active, List<MyUnitModel> awaiting})> _fetchUnits() async {
+    final results = await Future.wait([
+      _storageService.getMyRentedUnits(),
+      _storageService.getAwaitingHandover(),
+    ]);
+    List<MyUnitModel> parse(List<dynamic> items) => items
+        .map((item) => MyUnitModel.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
+    return (active: parse(results[0]), awaiting: parse(results[1]));
   }
 
   void _showUnitActions(MyUnitModel unit) {
@@ -81,7 +88,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   child:
                       const Icon(Icons.key, color: AppColors.primaryContainer),
                 ),
-                title: const Text('Smart Access (PIN)'),
+                title: const Text('Smart Access (PIN & Gate QR)'),
                 enabled: unit.hasActiveAccess,
                 subtitle: unit.hasActiveAccess
                     ? null
@@ -346,7 +353,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async => _loadUnits(),
-        child: FutureBuilder<List<MyUnitModel>>(
+        child: FutureBuilder<({List<MyUnitModel> active, List<MyUnitModel> awaiting})>(
           future: _unitsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -361,20 +368,11 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                 ],
               );
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return ListView(
-                children: const [
-                  AppEmptyState(
-                    icon: Icons.inventory_2_outlined,
-                    title: 'No rented storage units yet',
-                    message: 'Units you rent will show up here.',
-                  ),
-                ],
-              );
             }
 
-            final units = snapshot.data!;
-            final activeCount = units.where((u) => u.status == 'ACTIVE').length;
+            final active = snapshot.data?.active ?? <MyUnitModel>[];
+            final awaiting = snapshot.data?.awaiting ?? <MyUnitModel>[];
+            final units = _showAwaiting ? awaiting : active;
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -402,15 +400,17 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '$activeCount active of ${units.length} unit${units.length == 1 ? '' : 's'}',
+                              '${active.length} active • ${awaiting.length} awaiting handover',
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14),
                             ),
-                            const Text(
-                              'Tap a unit to access its smart key, extend, or report an issue',
-                              style: TextStyle(
+                            Text(
+                              _showAwaiting
+                                  ? 'These bookings are waiting for staff check-in and handover.'
+                                  : 'Tap a unit for its smart key, gate QR, rental and support.',
+                              style: const TextStyle(
                                   color: Colors.white70, fontSize: 11),
                             ),
                           ],
@@ -420,6 +420,30 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: Text('Currently renting (${active.length})'),
+                      selected: !_showAwaiting,
+                      onSelected: (_) => setState(() => _showAwaiting = false),
+                    ),
+                    ChoiceChip(
+                      label: Text('Awaiting handover (${awaiting.length})'),
+                      selected: _showAwaiting,
+                      onSelected: (_) => setState(() => _showAwaiting = true),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (units.isEmpty)
+                  AppEmptyState(
+                    icon: Icons.inventory_2_outlined,
+                    title: _showAwaiting ? 'No upcoming handovers' : 'No active rentals',
+                    message: _showAwaiting
+                        ? 'Confirmed bookings will appear here until check-in.'
+                        : 'Units appear here after staff complete the handover.',
+                  ),
                 ...units.map((unit) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _buildUnitCard(unit),

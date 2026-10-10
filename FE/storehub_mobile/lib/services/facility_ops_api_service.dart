@@ -10,6 +10,19 @@ import '../models/facility_management_models.dart';
 class FacilityOpsApiService {
   final Dio _dio = HttpClient.instance.dio;
 
+  Future<Map<String, dynamic>> verifyGatePass({
+    required String facilityId,
+    required String token,
+  }) async {
+    try {
+      final response = await _dio.post(ApiEndpoints.verifyGatePass,
+          queryParameters: {'facilityId': facilityId}, data: {'token': token});
+      return _unwrap(response.data);
+    } on DioException catch (e) {
+      throw _err(e, 'verify gate pass');
+    }
+  }
+
   Map<String, dynamic> _unwrap(dynamic data) {
     if (data is Map && data['data'] is Map) {
       return Map<String, dynamic>.from(data['data']);

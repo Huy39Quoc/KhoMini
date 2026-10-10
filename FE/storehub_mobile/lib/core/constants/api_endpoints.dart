@@ -15,6 +15,10 @@ class ApiEndpoints {
 
   // ---- Customer Storage (CustomerStorageController) ----
   static const String myUnits = '/customer/storage/my-units';
+  static const String awaitingHandover = '/customer/storage/awaiting-handover';
+  static String gatePass(String bookingId) =>
+      '/customer/storage/$bookingId/gate-pass';
+  static const String verifyGatePass = '/facility/operations/gate-pass/verify';
   static String smartAccess(String bookingId) =>
       '/customer/storage/$bookingId/access';
   static String setupPin(String bookingId) =>
