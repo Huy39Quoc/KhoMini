@@ -6,14 +6,18 @@ import com.storehub.dto.response.BookingResponse;
 import com.storehub.dto.response.RentalQuoteResponse;
 import com.storehub.entity.Booking;
 import com.storehub.entity.Facility;
+import com.storehub.entity.Payment;
 import com.storehub.entity.StorageUnit;
 import com.storehub.entity.User;
 import com.storehub.enums.BookingStatus;
 import com.storehub.enums.FacilityStatus;
+import com.storehub.enums.PaymentStatus;
+import com.storehub.enums.PaymentType;
 import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
+import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
@@ -30,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +44,7 @@ public class BookingServiceImpl implements BookingService {
     private static final int BOOKING_EXPIRY_MINUTES = 30;
 
     private final BookingRepository bookingRepository;
+    private final PaymentRepository paymentRepository;
     private final FacilityRepository facilityRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final UserRepository userRepository;
@@ -120,6 +126,9 @@ public class BookingServiceImpl implements BookingService {
                 .customerId(customer.getId())
                 .storageUnitId(selectedUnit.getId())
                 .unitCode(selectedUnit.getUnitCode())
+                .facilityName(facility.getName())
+                .unitTypeName(selectedUnit.getUnitType().getTypeName())
+                .unitTypeDimensions(selectedUnit.getUnitType().getDimensions())
                 .startDate(savedBooking.getStartDate())
                 .endDate(savedBooking.getEndDate())
                 .rentalMonths(savedBooking.getRentalMonths())
@@ -132,6 +141,59 @@ public class BookingServiceImpl implements BookingService {
                 .createdAt(savedBooking.getCreatedAt())
                 .expiresAt(expiresAt)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingResponse> getPayableBookings(String customerEmail) {
+        User customer = userRepository.findByEmail(customerEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        return bookingRepository.findPayableBookingsByCustomerId(
+                        customer.getId(), BookingStatus.PENDING_PAYMENT, LocalDateTime.now())
+                .stream().map(booking -> {
+                    StorageUnit unit = booking.getStorageUnit();
+                    Facility facility = unit.getFacility();
+                    BigDecimal deposit = pricingService.calculateDepositAmount(
+                            facility.getId(), booking.getTotalRentalFee(),
+                            unit.getUnitType().getDepositAmount());
+                    BigDecimal fees = pricingService.calculateManagementFee(
+                            facility.getId(), booking.getRentalMonths());
+                    // Existing VNPay attempts retain their original amounts even if policy changes.
+                    List<Payment> pending = paymentRepository.findByBooking_IdAndStatusAndPaymentTypeIn(
+                            booking.getId(), PaymentStatus.PENDING,
+                            List.of(PaymentType.DEPOSIT, PaymentType.RENTAL_FEE));
+                    if (pending.size() == 2) {
+                        Payment primary = pending.stream()
+                                .filter(p -> p.getPaymentType() == PaymentType.DEPOSIT)
+                                .findFirst().orElse(null);
+                        if (primary != null && primary.getGatewayAmount() != null) {
+                            deposit = primary.getAmount();
+                            fees = primary.getGatewayAmount()
+                                    .subtract(deposit).subtract(booking.getTotalRentalFee());
+                        }
+                    }
+                    return BookingResponse.builder()
+                            .id(booking.getId())
+                            .bookingCode(booking.getBookingCode())
+                            .customerId(customer.getId())
+                            .storageUnitId(unit.getId())
+                            .unitCode(unit.getUnitCode())
+                            .facilityName(facility.getName())
+                            .unitTypeName(unit.getUnitType().getTypeName())
+                            .unitTypeDimensions(unit.getUnitType().getDimensions())
+                            .startDate(booking.getStartDate())
+                            .endDate(booking.getEndDate())
+                            .rentalMonths(booking.getRentalMonths())
+                            .totalRentalFee(booking.getTotalRentalFee())
+                            .depositAmount(deposit)
+                            .totalExtraFees(fees)
+                            .initialPaymentAmount(deposit.add(booking.getTotalRentalFee()).add(fees))
+                            .depositPaid(booking.getDepositPaid())
+                            .status(booking.getStatus())
+                            .createdAt(booking.getCreatedAt())
+                            .expiresAt(booking.getExpiresAt())
+                            .build();
+                }).toList();
     }
 
     @Override

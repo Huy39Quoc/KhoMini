@@ -6,6 +6,7 @@ import com.storehub.dto.response.BookingResponse;
 import com.storehub.dto.response.RentalQuoteResponse;
 
 import java.util.UUID;
+import java.util.List;
 
 public interface BookingService {
 
@@ -30,4 +31,6 @@ public interface BookingService {
     RentalQuoteResponse getRentalQuote(RentalQuoteRequest request);
 
     void cancelBooking(UUID bookingId, String customerEmail);
+
+    List<BookingResponse> getPayableBookings(String customerEmail);
 }

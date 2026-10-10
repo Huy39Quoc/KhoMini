@@ -18,6 +18,22 @@ import java.util.UUID;
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
+    @Query("""
+            SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            JOIN FETCH su.facility
+            JOIN FETCH su.unitType
+            WHERE b.customer.id = :customerId
+            AND b.status = :status
+            AND b.expiresAt > :now
+            ORDER BY b.createdAt DESC
+            """)
+    List<Booking> findPayableBookingsByCustomerId(
+            @Param("customerId") UUID customerId,
+            @Param("status") BookingStatus status,
+            @Param("now") LocalDateTime now
+    );
+
     @Modifying
     @Query(value = """
             UPDATE bookings SET assigned_check_in_staff_id = NULL
