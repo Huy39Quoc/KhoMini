@@ -4,6 +4,7 @@ import '../../../models/unit_type_model.dart';
 import '../../../services/booking_api_service.dart';
 import '../../../services/catalog_api_service.dart';
 import 'payment_screen.dart';
+import 'my_waitlist_screen.dart';
 
 class FacilityDetailScreen extends StatefulWidget {
   final String facilityId;
@@ -28,6 +29,9 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
   UnitTypeModel? _selectedType;
   DateTime _startDate = DateTime.now().add(const Duration(days: 1));
+  TimeOfDay _checkInTime = const TimeOfDay(hour: 9, minute: 0);
+  TimeOfDay? _opensAt;
+  TimeOfDay? _closesAt;
   int _rentalMonths = 1;
 
   Map<String, dynamic>? _quote;
@@ -42,6 +46,35 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   void initState() {
     super.initState();
     _loadUnitTypes();
+    _loadFacilityHours();
+  }
+
+  TimeOfDay? _parseHour(dynamic value) {
+    final parts = value?.toString().split(':');
+    if (parts == null || parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null || hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  Future<void> _loadFacilityHours() async {
+    try {
+      final facility = await _catalogService.getFacility(widget.facilityId);
+      final open = _parseHour(facility['openTime']);
+      final close = _parseHour(facility['closeTime']);
+      if (!mounted || open == null || close == null) return;
+      setState(() {
+        _opensAt = open;
+        _closesAt = close;
+        final chosen = _checkInTime.hour * 60 + _checkInTime.minute;
+        final opens = open.hour * 60 + open.minute;
+        final closes = close.hour * 60 + close.minute;
+        if (chosen < opens || chosen >= closes) _checkInTime = open;
+      });
+    } catch (_) {
+      // Backend validates the time even if opening hours cannot be loaded.
+    }
   }
 
   void _loadUnitTypes() {
@@ -106,6 +139,12 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                 pinned: true,
                 backgroundColor: const Color(0xFF1E3C72),
                 foregroundColor: Colors.white,
+                actions: [IconButton(
+                  tooltip: 'My waitlist',
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const MyWaitlistScreen())),
+                  icon: const Icon(Icons.notifications_active_outlined),
+                )],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Container(
                     decoration: const BoxDecoration(
@@ -287,9 +326,29 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
         // ── Move-in appointment ──────────────────────────────────────
         _sectionHeader('📅 Move-in Appointment',
-            subtitle: 'Choose your rental start date'),
+            subtitle: 'Choose the date and time to receive your unit'),
         const SizedBox(height: 10),
         _buildDatePicker(),
+
+        ListTile(
+          leading: const Icon(Icons.schedule_outlined),
+          title: const Text('Check-in time'),
+          subtitle: Text('${_checkInTime.format(context)}${_opensAt != null && _closesAt != null ? ' • Open ${_opensAt!.format(context)}–${_closesAt!.format(context)}' : ''}'),
+          onTap: () async {
+            final picked = await showTimePicker(context: context,
+                initialTime: _checkInTime);
+            if (!mounted || picked == null) return;
+            final selected = picked.hour * 60 + picked.minute;
+            final open = _opensAt == null ? null : _opensAt!.hour * 60 + _opensAt!.minute;
+            final close = _closesAt == null ? null : _closesAt!.hour * 60 + _closesAt!.minute;
+            if (open != null && close != null && (selected < open || selected >= close)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Choose a time during facility opening hours.')));
+              return;
+            }
+            setState(() => _checkInTime = picked);
+          },
+        ),
 
         const SizedBox(height: 24),
 
@@ -792,6 +851,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         facilityId: widget.facilityId,
         unitTypeId: _selectedType!.id,
         startDate: _startDate,
+        checkInTime: '${_checkInTime.hour.toString().padLeft(2, '0')}:${_checkInTime.minute.toString().padLeft(2, '0')}:00',
         rentalMonths: _rentalMonths,
       );
       if (!mounted) return;

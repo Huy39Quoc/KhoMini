@@ -4,28 +4,27 @@ import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 import '../mappers/staff_ticket_mapper.dart';
 import '../models/staff_ticket_model.dart';
+import '../models/paged_result.dart';
 
 class StaffTicketApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  Future<List<StaffTicketModel>> getFacilityTickets(
-    String facilityId,
+  Future<PagedResult<StaffTicketModel>> getFacilityTickets(
+    String facilityId, {int page = 0}
   ) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.staffTickets,
         queryParameters: {
           'facilityId': facilityId,
-          'page': 0,
-          'size': 100,
+          'page': page,
+          'size': 20,
           'sort': 'createdAt,desc',
         },
       );
 
-      return _unwrapPageContent(response.data)
-          .map(StaffTicketMapper.asJsonMap)
-          .map(StaffTicketMapper.fromJson)
-          .toList();
+      return PagedResult.fromApi(response.data, (item) =>
+          StaffTicketMapper.fromJson(StaffTicketMapper.asJsonMap(item)));
     } on DioException catch (error) {
       throw _error(error, 'load facility tickets');
     }
@@ -90,18 +89,6 @@ class StaffTicketApiService {
     } on DioException catch (error) {
       throw _error(error, 'update ticket status');
     }
-  }
-
-  List<dynamic> _unwrapPageContent(dynamic data) {
-    if (data is Map && data['data'] is Map && data['data']['content'] is List) {
-      return List<dynamic>.from(data['data']['content']);
-    }
-
-    if (data is Map && data['content'] is List) {
-      return List<dynamic>.from(data['content']);
-    }
-
-    return <dynamic>[];
   }
 
   Map<String, dynamic> _unwrap(dynamic data) {

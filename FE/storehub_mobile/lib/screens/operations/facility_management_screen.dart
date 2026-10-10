@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/facility_admin_api_service.dart';
+import '../../models/paged_result.dart';
 import '../../widgets/state_views.dart';
 import 'facility_edit_screen.dart';
 
@@ -14,7 +15,11 @@ class FacilityManagementScreen extends StatefulWidget {
 
 class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
   final FacilityAdminApiService _service = FacilityAdminApiService();
-  late Future<List<dynamic>> _facilitiesFuture;
+  late Future<PagedResult<Map<String, dynamic>>> _facilitiesFuture;
+  final List<Map<String, dynamic>> _additional = [];
+  int _nextPage = 1;
+  bool _lastPage = false;
+  bool _loadingMore = false;
   final _searchController = TextEditingController();
 
   @override
@@ -25,9 +30,36 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
 
   void _load() {
     setState(() {
+      _additional.clear();
+      _nextPage = 1;
+      _lastPage = false;
       _facilitiesFuture =
-          _service.getFacilities(search: _searchController.text.trim());
+          _service.getFacilitiesPage(search: _searchController.text.trim());
     });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _lastPage) return;
+    final currentLoad = _facilitiesFuture;
+    setState(() => _loadingMore = true);
+    try {
+      final batch = await _service.getFacilitiesPage(
+          search: _searchController.text.trim(), page: _nextPage);
+      if (!mounted || !identical(currentLoad, _facilitiesFuture)) return;
+      setState(() {
+        _additional.addAll(batch.content);
+        _nextPage++;
+        _lastPage = batch.last;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
   }
 
   Color _statusColor(String? status) {
@@ -66,7 +98,7 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async => _load(),
-              child: FutureBuilder<List<dynamic>>(
+              child: FutureBuilder<PagedResult<Map<String, dynamic>>>(
                 future: _facilitiesFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -81,7 +113,8 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                       onRetry: _load,
                     );
                   }
-                  final facilities = snapshot.data ?? [];
+                  final facilities = [...?snapshot.data?.content, ..._additional];
+                  final hasMore = snapshot.data != null && !snapshot.data!.last && !_lastPage;
                   if (facilities.isEmpty) {
                     return AppEmptyState(
                       icon: Icons.warehouse_outlined,
@@ -103,9 +136,15 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                   }
                   return ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
-                    itemCount: facilities.length,
+                    itemCount: facilities.length + (hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final f = facilities[index] as Map;
+                      if (index == facilities.length) {
+                        return Center(child: TextButton(
+                          onPressed: _loadingMore ? null : _loadMore,
+                          child: Text(_loadingMore ? 'Loading...' : 'Load more facilities'),
+                        ));
+                      }
+                      final f = facilities[index];
                       final status = f['status']?.toString();
                       return Card(
                         margin: const EdgeInsets.only(bottom: 10),

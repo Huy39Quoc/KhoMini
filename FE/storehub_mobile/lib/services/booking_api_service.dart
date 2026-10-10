@@ -31,6 +31,7 @@ class BookingApiService {
     required String facilityId,
     required String unitTypeId,
     required DateTime startDate,
+    required String checkInTime,
     required int rentalMonths,
   }) async {
     try {
@@ -40,6 +41,7 @@ class BookingApiService {
           'facilityId': facilityId,
           'unitTypeId': unitTypeId,
           'startDate': _formatLocalDate(startDate),
+          'checkInTime': checkInTime,
           'rentalMonths': rentalMonths,
         },
       );
@@ -121,6 +123,18 @@ class BookingApiService {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to join waitlist: $message');
     }
+  }
+
+  Future<List<Map<String, dynamic>>> getMyWaitlist() async {
+    final response = await _dio.get('${ApiEndpoints.waitlist}/mine');
+    final data = response.data;
+    final entries = data is Map ? data['data'] : null;
+    if (entries is! List) throw const FormatException('Invalid waitlist response');
+    return entries.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+  }
+
+  Future<void> leaveWaitlist(String id) async {
+    await _dio.delete('${ApiEndpoints.waitlist}/$id');
   }
 
   Map<String, dynamic> _unwrapMap(dynamic data) {

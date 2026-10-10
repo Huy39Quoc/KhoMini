@@ -6,6 +6,14 @@ import '../models/facility_model.dart';
 class CatalogApiService {
   final Dio _dio = HttpClient.instance.dio;
 
+  Future<Map<String, dynamic>> getFacility(String facilityId) async {
+    final response = await _dio.get(ApiEndpoints.facilityDetail(facilityId));
+    final body = response.data;
+    final facility = body is Map ? body['data'] : null;
+    if (facility is! Map) throw const FormatException('Invalid facility');
+    return Map<String, dynamic>.from(facility);
+  }
+
   Future<List<FacilityModel>> getFacilities() async {
     try {
       final response = await _dio.get(ApiEndpoints.facilities);

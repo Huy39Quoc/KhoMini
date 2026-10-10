@@ -1,28 +1,17 @@
 import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
+import '../models/paged_result.dart';
 
 class TicketApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  Future<List<dynamic>> getMyTickets() async {
+  Future<PagedResult<Map<String, dynamic>>> getMyTickets({int page = 0}) async {
     try {
-      final response = await _dio.get(ApiEndpoints.tickets);
-      final data = response.data;
-      if (data is List) {
-        return data;
-      } else if (data is Map) {
-        if (data['data'] is Map && data['data']['content'] is List) {
-          return data['data']['content'];
-        } else if (data['content'] is List) {
-          return data['content'];
-        } else if (data['result'] is List) {
-          return data['result'];
-        } else if (data['data'] is List) {
-          return data['data'];
-        }
-      }
-      return [];
+      final response = await _dio.get(ApiEndpoints.tickets,
+          queryParameters: {'page': page, 'size': 20, 'sort': 'createdAt,desc'});
+      return PagedResult.fromApi(response.data,
+          (item) => Map<String, dynamic>.from(item as Map));
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to load tickets: $message');
