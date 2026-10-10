@@ -56,7 +56,6 @@ class HttpClient {
 
           final newToken = await _refreshAccessToken();
           if (newToken == null) {
-            await TokenStore.instance.clear();
             return handler.next(error);
           }
 
@@ -84,6 +83,7 @@ class HttpClient {
     try {
       final refreshToken = await TokenStore.instance.readRefreshToken();
       if (refreshToken == null || refreshToken.isEmpty) {
+        await TokenStore.instance.clear();
         _notifyPending(null);
         return null;
       }
@@ -106,6 +106,13 @@ class HttpClient {
 
       _notifyPending(newAccessToken);
       return newAccessToken;
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 400 || status == 401 || status == 403) {
+        await TokenStore.instance.clear();
+      }
+      _notifyPending(null);
+      return null;
     } catch (_) {
       _notifyPending(null);
       return null;

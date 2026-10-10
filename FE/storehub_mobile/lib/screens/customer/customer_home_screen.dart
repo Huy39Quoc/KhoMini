@@ -7,6 +7,7 @@ import '../common/profile_screen.dart';
 import '../common/transaction_history_screen.dart';
 import 'my_units/my_rented_units_screen.dart';
 import 'reservation/explore_screen.dart';
+import 'reservation/pending_bookings_section.dart';
 import 'tickets/ticket_list_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -167,6 +168,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          const PendingBookingsSection(),
+          const SizedBox(height: 16),
           const Text('Quick Actions',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),

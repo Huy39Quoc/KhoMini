@@ -86,6 +86,7 @@ class ApiEndpoints {
 
   // ---- Bookings (BookingController) ----
   static const String bookings = '/bookings';
+  static const String myPendingBookings = '/bookings/my-pending';
   static String bookingDetail(String id) => '/bookings/$id';
 
   // ---- Waitlist (WaitlistController) ----

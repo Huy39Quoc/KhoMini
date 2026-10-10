@@ -5,9 +5,58 @@ import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 import '../core/network/token_store.dart';
+import '../models/user_model.dart';
 
 class AuthApiService {
   final Dio _dio = HttpClient.instance.dio;
+
+  /// Confirm the stored refresh token with the server on a cold start. The
+  /// response supplies the current user and role, including account changes.
+  Future<UserModel?> restoreSession() async {
+    final refreshToken = await TokenStore.instance.readRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) return null;
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.refreshToken,
+        data: {'refreshToken': refreshToken},
+      );
+      final body = Map<String, dynamic>.from(response.data as Map);
+      final data = body['data'] is Map
+          ? Map<String, dynamic>.from(body['data'] as Map)
+          : body;
+      final accessToken = data['accessToken'];
+      final userData = data['user'];
+      if (accessToken is! String || accessToken.isEmpty || userData is! Map) {
+        throw const FormatException('Invalid session response');
+      }
+      final userMap = Map<String, dynamic>.from(userData);
+      final role = _decodeJwtPayload(accessToken)?['role'];
+      if (role is! String || role.isEmpty ||
+          (userMap['id']?.toString().isEmpty ?? true)) {
+        throw const FormatException('Invalid user session');
+      }
+      userMap['roleName'] = role;
+      final user = UserModel.fromJson(userMap);
+      if (!user.hasSupportedRole) {
+        throw const FormatException('Unsupported account role');
+      }
+      await TokenStore.instance.saveRefresh(
+        accessToken,
+        data['refreshToken'] is String ? data['refreshToken'] as String : null,
+      );
+      return user;
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 400 || status == 401 || status == 403) {
+        await TokenStore.instance.clear();
+        return null;
+      }
+      rethrow; // An offline server must not silently sign out the customer.
+    } on FormatException {
+      await TokenStore.instance.clear();
+      return null;
+    }
+  }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {

@@ -9,6 +9,20 @@ import '../core/network/http_client.dart';
 class BookingApiService {
   final Dio _dio = HttpClient.instance.dio;
 
+  Future<List<Map<String, dynamic>>> getPayableBookings() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.myPendingBookings);
+      final body = response.data;
+      final list = body is Map ? body['data'] : null;
+      if (list is! List) throw const FormatException('Invalid booking list');
+      return list.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      final message = body is Map ? body['message'] : e.message;
+      throw Exception('Failed to load pending bookings: $message');
+    }
+  }
+
   /// POST /bookings - creates a real booking (status PENDING_PAYMENT).
   /// The BE recalculates the price itself from unitTypeId/startDate/
   /// rentalMonths (same PricingService used by /pricing/quote), and picks
