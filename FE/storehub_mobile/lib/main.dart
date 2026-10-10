@@ -3,8 +3,10 @@ import 'core/theme/app_theme.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/session_gate.dart';
 import 'models/user_model.dart';
+import 'core/constants/api_endpoints.dart';
 
 void main() {
+  ApiEndpoints.validateReleaseConfiguration();
   runApp(const StoreHubApp());
 }
 

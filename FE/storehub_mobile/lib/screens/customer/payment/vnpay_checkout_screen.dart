@@ -9,8 +9,8 @@ import '../../../core/constants/app_colors.dart';
 
 /// Màn hình thanh toán dùng chung (đặt cọc, gia hạn, phí trễ hạn).
 ///
-/// Mở thẳng trang VNPay Sandbox TRONG app, kèm bảng "thẻ test" luôn hiển thị phía trên để
-/// khách chép từng dòng vào form VNPay. Kết quả KHÔNG do app tự quyết định: giao dịch chỉ
+/// Mở trang VNPay trong app; thẻ test chỉ hiển thị ở bản debug hoặc khi
+/// VNPAY_SANDBOX được bật rõ ràng. Kết quả giao dịch chỉ
 /// thành PAID khi VNPay gọi về server. App chỉ đọc trạng thái qua [fetchStatus].
 ///
 /// Pop về: Map trạng thái giao dịch khi PAID, hoặc null nếu khách thoát / thất bại.
@@ -27,7 +27,7 @@ class VnpayCheckoutScreen extends StatefulWidget {
     required this.transactionId,
     required this.amount,
     required this.fetchStatus,
-    this.title = 'VNPay Sandbox',
+    this.title = 'Thanh toán VNPay',
   });
 
   @override
@@ -35,6 +35,8 @@ class VnpayCheckoutScreen extends StatefulWidget {
 }
 
 class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
+  static const bool _sandboxMode =
+      bool.fromEnvironment('VNPAY_SANDBOX') || !bool.fromEnvironment('dart.vm.product');
   late final WebViewController _controller;
   Timer? _pollTimer;
 
@@ -57,6 +59,9 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    if (!_sandboxMode && Uri.tryParse(widget.paymentUrl)?.host == 'sandbox.vnpayment.vn') {
+      throw StateError('Release payment URL points to VNPay sandbox');
+    }
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       // Một số trang thanh toán không hiển thị với User-Agent mặc định của WebView ("; wv)").
@@ -86,24 +91,13 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
               }
             }
           },
-          // Máy ảo/thiết bị cũ có thể thiếu chứng chỉ gốc của VNPay Sandbox
-          // ("Trust anchor for certification path not found"). Chỉ khi chạy bản debug và
-          // chỉ với đúng host sandbox VNPay mới cho đi tiếp; mọi trường hợp khác đều từ chối.
           onSslAuthError: (error) async {
-            const isRelease = bool.fromEnvironment('dart.vm.product');
-            final host = Uri.tryParse(widget.paymentUrl)?.host ?? '';
-            debugPrint('[VNPay] SSL certificate error for $host');
-            if (!isRelease && host == 'sandbox.vnpayment.vn') {
-              await error.proceed();
-            } else {
-              await error.cancel();
-              if (mounted) {
-                setState(() {
-                  _pageLoading = false;
-                  _loadError =
-                      'Chứng chỉ bảo mật của trang thanh toán không hợp lệ.';
-                });
-              }
+            await error.cancel();
+            if (mounted) {
+              setState(() {
+                _pageLoading = false;
+                _loadError = 'Chứng chỉ bảo mật của trang thanh toán không hợp lệ.';
+              });
             }
           },
           onHttpError: (error) {
@@ -433,7 +427,7 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
           ? _failedView()
           : Column(
               children: [
-                _cardPanel(),
+                if (_sandboxMode) _cardPanel(),
                 if (_pageLoading) const LinearProgressIndicator(minHeight: 2),
                 Expanded(
                   child: _loadError != null

@@ -4,6 +4,21 @@ class ApiEndpoints {
     defaultValue: 'http://10.0.2.2:8080/api/v1',
   );
 
+  static void validateReleaseConfiguration() {
+    const isRelease = bool.fromEnvironment('dart.vm.product');
+    if (!isRelease) {
+      return;
+    }
+    final uri = Uri.tryParse(baseUrl);
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty ||
+        uri.host == '10.0.2.2' || uri.host == 'localhost' ||
+        uri.host.startsWith('127.') ||
+        !uri.path.endsWith('/api/v1')) {
+      throw StateError(
+          'Release build requires an HTTPS API_BASE_URL ending in /api/v1');
+    }
+  }
+
   // ---- Auth (AuthController) ----
   static const String login = '/auth/login';
   static const String register = '/auth/register';
