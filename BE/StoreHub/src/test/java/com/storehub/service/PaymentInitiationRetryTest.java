@@ -52,6 +52,7 @@ class PaymentInitiationRetryTest {
     @Mock PricingService pricing;
     @Mock RefundRequestRepository refunds;
     @Mock VnpayRefundClient gateway;
+    @Mock WaitlistService waitlist;
     @InjectMocks PaymentServiceImpl service;
 
     @Test

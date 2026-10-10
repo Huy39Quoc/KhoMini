@@ -71,7 +71,7 @@ public class FacilityOperationsServiceImpl
         }
         User staff = null;
         if (staffId != null) {
-            staff = userRepository.findById(staffId)
+            staff = userRepository.findByIdForUpdate(staffId)
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
             if (!Boolean.TRUE.equals(staff.getIsActive()) || staff.getRole() == null
                     || !"STAFF".equals(staff.getRole().getName()) || staff.getFacility() == null
@@ -86,9 +86,9 @@ public class FacilityOperationsServiceImpl
         }
         bookingRepository.save(booking);
         LocalDateTime scheduled = "CHECK_IN".equals(scheduleType)
-                ? booking.getStartDate().atStartOfDay()
+                ? checkInTime(booking)
                 : booking.getScheduledReturnTime() != null
-                    ? booking.getScheduledReturnTime() : booking.getEndDate().atStartOfDay();
+                    ? booking.getScheduledReturnTime() : booking.getEndDate().atTime(9, 0);
         return toScheduleResponse(booking, scheduleType, scheduled);
     }
 
@@ -103,7 +103,7 @@ public class FacilityOperationsServiceImpl
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
-        facilityAccess.require(staffEmail, facilityId);
+        User viewer = facilityAccess.require(staffEmail, facilityId);
 
         List<DailyScheduleResponse> result = new ArrayList<>();
 
@@ -115,14 +115,14 @@ public class FacilityOperationsServiceImpl
                 );
 
         for (Booking booking : checkInBookings) {
+            if (!visibleToStaff(viewer, booking.getAssignedCheckInStaff())) continue;
             result.add(toScheduleResponse(
                     booking,
                     "CHECK_IN",
-                    booking.getStartDate().atStartOfDay()
+                    checkInTime(booking)
             ));
         }
 
-        LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
 
         List<Booking> checkOutBookings =
@@ -134,11 +134,12 @@ public class FacilityOperationsServiceImpl
                 );
 
         for (Booking booking : checkOutBookings) {
+            if (!visibleToStaff(viewer, booking.getAssignedCheckOutStaff())) continue;
             // Khách đã hẹn trả kho: theo giờ hẹn. Khách chưa hẹn nhưng hợp đồng
             // đã đến/quá hạn: theo ngày hết hạn.
             LocalDateTime scheduled = booking.getScheduledReturnTime() != null
                     ? booking.getScheduledReturnTime()
-                    : booking.getEndDate().atStartOfDay();
+                    : booking.getEndDate().atTime(9, 0);
 
             result.add(toScheduleResponse(
                     booking,
@@ -515,6 +516,21 @@ public class FacilityOperationsServiceImpl
                 + request.getUnitCondition()
                 + " | Lock: "
                 + request.getLockCondition();
+    }
+
+    private LocalDateTime checkInTime(Booking booking) {
+        if (booking.getScheduledCheckInTime() != null) {
+            return booking.getScheduledCheckInTime();
+        }
+        return booking.getStartDate().atTime(
+                booking.getStorageUnit().getFacility().getOpenTime() != null
+                        ? booking.getStorageUnit().getFacility().getOpenTime()
+                        : java.time.LocalTime.of(8, 0));
+    }
+
+    private boolean visibleToStaff(User viewer, User assigned) {
+        return viewer.getRole() == null || !"STAFF".equals(viewer.getRole().getName())
+                || assigned == null || viewer.getId().equals(assigned.getId());
     }
 
     private DailyScheduleResponse toScheduleResponse(

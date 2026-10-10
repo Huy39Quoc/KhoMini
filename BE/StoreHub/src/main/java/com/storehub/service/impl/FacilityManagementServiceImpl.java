@@ -331,6 +331,7 @@ public class FacilityManagementServiceImpl
 
         return users.findByFacility_IdAndRole_Name(facilityId, "STAFF")
                 .stream()
+                .filter(user -> Boolean.TRUE.equals(user.getIsActive()))
                 .map(user -> new FacilityStaffResponse(
                         user.getId(),
                         user.getFullName(),

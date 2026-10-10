@@ -26,6 +26,7 @@ import com.storehub.service.ActivityLogService;
 import com.storehub.service.EmailService;
 import com.storehub.service.PaymentService;
 import com.storehub.service.PricingService;
+import com.storehub.service.WaitlistService;
 import com.storehub.util.VNPayUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +60,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PricingService pricingService;
     private final RefundRequestRepository refundRequests;
     private final VnpayRefundClient gateway;
+    private final WaitlistService waitlistService;
 
     // Dòng RENTAL_FEE đi kèm khoản cọc dùng mã giao dịch = mã của dòng DEPOSIT + hậu tố này.
     private static final String RENTAL_SUFFIX = "-R";
@@ -516,6 +518,13 @@ public class PaymentServiceImpl implements PaymentService {
                 return toPaymentResponse(payment);
             }
             booking.setStatus(BookingStatus.CONFIRMED);
+            if (booking.getCustomer() != null && booking.getStorageUnit() != null
+                    && booking.getStorageUnit().getFacility() != null
+                    && booking.getStorageUnit().getUnitType() != null) {
+                waitlistService.markFulfilled(booking.getCustomer().getId(),
+                        booking.getStorageUnit().getFacility().getId(),
+                        booking.getStorageUnit().getUnitType().getId());
+            }
         }
 
         if (payment.getPaymentType() == PaymentType.EXTRA_CHARGE

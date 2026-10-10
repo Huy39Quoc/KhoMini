@@ -47,6 +47,7 @@ class LateCapturedBookingPaymentTest {
     @Mock EmailService email;
     @Mock ActivityLogService log;
     @Mock PricingService pricing;
+    @Mock WaitlistService waitlist;
     @InjectMocks PaymentServiceImpl service;
 
     @Test

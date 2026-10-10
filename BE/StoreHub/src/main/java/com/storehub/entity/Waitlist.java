@@ -3,6 +3,7 @@ package com.storehub.entity;
 import com.storehub.enums.WaitlistStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.Instant;
 
 @Entity
 @Table(
@@ -35,4 +36,10 @@ public class Waitlist extends BaseEntity {
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
     private WaitlistStatus status = WaitlistStatus.WAITING;
+
+    @Column(name = "notified_at")
+    private Instant notifiedAt;
+
+    @Column(name = "offer_expires_at")
+    private Instant offerExpiresAt;
 }

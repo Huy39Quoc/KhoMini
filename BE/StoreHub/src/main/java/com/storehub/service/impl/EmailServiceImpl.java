@@ -174,7 +174,8 @@ public class EmailServiceImpl implements EmailService {
                       <li><strong>Cơ sở:</strong> %s</li>
                       <li><strong>Loại kho:</strong> %s</li>
                     </ul>
-                    <p>Vui lòng mở ứng dụng Store Hub và đặt chỗ <strong>ngay bây giờ</strong> trước khi kho được người khác đặt.</p>
+                    <p>Bạn có 24 giờ để xem thông báo trong ứng dụng. Kho chưa được giữ riêng cho bạn;
+                    vui lòng đặt chỗ sớm nếu vẫn còn kho trống.</p>
                     <p style="color:#9ca3af; font-size:12px;">Email này được gửi tự động. Nếu bạn đã đặt chỗ thành công, hãy bỏ qua email này.</p>
                   </div>
                 </div>

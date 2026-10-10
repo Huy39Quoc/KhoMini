@@ -335,10 +335,22 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         }
         UUID facilityId = booking.getStorageUnit().getFacility().getId();
 
+        var facility = booking.getStorageUnit().getFacility();
+        var returnTime = request.getScheduledReturnTime().toLocalTime();
+        if (facility.getOpenTime() == null || facility.getCloseTime() == null
+                || returnTime.isBefore(facility.getOpenTime())
+                || !returnTime.isBefore(facility.getCloseTime())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
         if (!facilityPolicyService.isReturnNoticeSatisfied(facilityId, request.getScheduledReturnTime())) {
             throw new AppException(ErrorCode.RETURN_NOTICE_NOT_SATISFIED);
         }
 
+        if (!request.getScheduledReturnTime().equals(booking.getScheduledReturnTime())) {
+            // Lịch cũ đã giao cho nhân viên không tự động chuyển sang giờ mới.
+            booking.setAssignedCheckOutStaff(null);
+        }
         booking.setScheduledReturnTime(request.getScheduledReturnTime());
         bookingRepository.save(booking);
 

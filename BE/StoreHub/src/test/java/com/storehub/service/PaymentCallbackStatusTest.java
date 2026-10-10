@@ -36,6 +36,7 @@ class PaymentCallbackStatusTest {
     @Mock ActivityLogService activityLog;
     @Mock PricingService pricing;
     @Mock RefundRequestRepository refunds;
+    @Mock WaitlistService waitlist;
     @InjectMocks PaymentServiceImpl service;
 
     @Test

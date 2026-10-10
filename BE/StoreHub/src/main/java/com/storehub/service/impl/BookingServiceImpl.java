@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.UUID;
 import java.util.List;
 
@@ -68,6 +69,16 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
         if (facility.getStatus() != FacilityStatus.ACTIVE) {
             throw new AppException(ErrorCode.FACILITY_NOT_ACTIVE);
+        }
+
+        LocalTime checkInTime = request.getCheckInTime() != null
+                ? request.getCheckInTime() : facility.getOpenTime();
+        if (checkInTime == null || facility.getOpenTime() == null
+                || facility.getCloseTime() == null
+                || checkInTime.isBefore(facility.getOpenTime())
+                || !checkInTime.isBefore(facility.getCloseTime())
+                || !request.getStartDate().atTime(checkInTime).isAfter(LocalDateTime.now())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
         if (!facilityPolicyService.isMinRentalMonthsSatisfied(
@@ -110,6 +121,7 @@ public class BookingServiceImpl implements BookingService {
                 .customer(customer)
                 .storageUnit(selectedUnit)
                 .startDate(request.getStartDate())
+                .scheduledCheckInTime(request.getStartDate().atTime(checkInTime))
                 .endDate(quote.getEndDate())
                 .rentalMonths(request.getRentalMonths())
                 .totalRentalFee(quote.getTotalRentalFee())
@@ -130,6 +142,7 @@ public class BookingServiceImpl implements BookingService {
                 .unitTypeName(selectedUnit.getUnitType().getTypeName())
                 .unitTypeDimensions(selectedUnit.getUnitType().getDimensions())
                 .startDate(savedBooking.getStartDate())
+                .scheduledCheckInTime(savedBooking.getScheduledCheckInTime())
                 .endDate(savedBooking.getEndDate())
                 .rentalMonths(savedBooking.getRentalMonths())
                 .totalRentalFee(savedBooking.getTotalRentalFee())
@@ -182,6 +195,7 @@ public class BookingServiceImpl implements BookingService {
                             .unitTypeName(unit.getUnitType().getTypeName())
                             .unitTypeDimensions(unit.getUnitType().getDimensions())
                             .startDate(booking.getStartDate())
+                            .scheduledCheckInTime(booking.getScheduledCheckInTime())
                             .endDate(booking.getEndDate())
                             .rentalMonths(booking.getRentalMonths())
                             .totalRentalFee(booking.getTotalRentalFee())

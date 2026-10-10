@@ -14,6 +14,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.util.List;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -75,7 +79,7 @@ class AppointmentAssignmentTest {
         booking.setId(bookingId);
         when(access.require("manager@test.com", facilityId)).thenReturn(manager);
         when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
-        when(users.findById(staffId)).thenReturn(Optional.of(staff));
+        when(users.findByIdForUpdate(staffId)).thenReturn(Optional.of(staff));
 
         var assigned = operations.assignAppointment(bookingId, facilityId,
                 "manager@test.com", "CHECK_IN", staffId);
@@ -101,11 +105,40 @@ class AppointmentAssignmentTest {
                 .storageUnit(StorageUnit.builder().facility(facility).build()).build();
         when(access.require("manager@test.com", facilityId)).thenReturn(manager);
         when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
-        when(users.findById(staffId)).thenReturn(Optional.of(staff));
+        when(users.findByIdForUpdate(staffId)).thenReturn(Optional.of(staff));
 
         AppException error = assertThrows(AppException.class,
                 () -> operations.assignAppointment(bookingId, facilityId,
                         "manager@test.com", "CHECK_IN", staffId));
         assertEquals(ErrorCode.INVALID_REQUEST, error.getErrorCode());
+    }
+
+    @Test
+    void staffScheduleShowsOnlyUnassignedOrOwnAppointmentsWithActualTime() {
+        UUID facilityId = UUID.randomUUID();
+        Facility facility = Facility.builder().openTime(LocalTime.of(8, 0)).build();
+        facility.setId(facilityId);
+        User caller = User.builder().role(Role.builder().name("STAFF").build()).build();
+        caller.setId(UUID.randomUUID());
+        User other = new User();
+        other.setId(UUID.randomUUID());
+        StorageUnit unit = StorageUnit.builder().facility(facility).build();
+        LocalDate today = LocalDate.now();
+        Booking own = Booking.builder().storageUnit(unit).startDate(today)
+                .scheduledCheckInTime(today.atTime(10, 30))
+                .status(BookingStatus.CONFIRMED).assignedCheckInStaff(caller).build();
+        Booking someoneElse = Booking.builder().storageUnit(unit).startDate(today)
+                .status(BookingStatus.CONFIRMED).assignedCheckInStaff(other).build();
+        when(access.require("staff@test.com", facilityId)).thenReturn(caller);
+        when(bookings.findCheckInSchedule(facilityId, BookingStatus.CONFIRMED, today))
+                .thenReturn(List.of(own, someoneElse));
+        when(bookings.findCheckOutSchedule(facilityId, BookingStatus.ACTIVE,
+                today.plusDays(1).atStartOfDay(), today)).thenReturn(List.of());
+
+        var schedule = operations.getDailySchedule(facilityId, today, "staff@test.com");
+
+        assertEquals(1, schedule.size());
+        assertEquals(LocalDateTime.of(today, LocalTime.of(10, 30)),
+                schedule.get(0).getScheduledTime());
     }
 }

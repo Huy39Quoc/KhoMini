@@ -1,0 +1,4 @@
+ALTER TABLE bookings ADD COLUMN scheduled_check_in_time TIMESTAMP;
+
+ALTER TABLE waitlists ADD COLUMN notified_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE waitlists ADD COLUMN offer_expires_at TIMESTAMP WITH TIME ZONE;

@@ -54,6 +54,9 @@ public class StaffTicketServiceImpl implements StaffTicketService {
             String staffEmail
     ) {
         User staff = facilityAccess.requireForUpdate(staffEmail, facilityId);
+        if (!Boolean.TRUE.equals(staff.getIsActive())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
         SupportTicket ticket = requireTicket(ticketId, facilityId);
 
         if (ticket.getAssignedStaff() != null
@@ -96,7 +99,8 @@ public class StaffTicketServiceImpl implements StaffTicketService {
         User staff = userRepository.findByIdForUpdate(staffId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        if (staff.getRole() == null
+        if (!Boolean.TRUE.equals(staff.getIsActive())
+                || staff.getRole() == null
                 || !"STAFF".equals(staff.getRole().getName())
                 || staff.getFacility() == null
                 || !facilityId.equals(staff.getFacility().getId())) {
@@ -137,6 +141,9 @@ public class StaffTicketServiceImpl implements StaffTicketService {
             UpdateStaffTicketStatusRequest request
     ) {
         User staff = facilityAccess.require(staffEmail, facilityId);
+        if (!Boolean.TRUE.equals(staff.getIsActive())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
         SupportTicket ticket = requireTicket(ticketId, facilityId);
 
         if (ticket.getAssignedStaff() == null

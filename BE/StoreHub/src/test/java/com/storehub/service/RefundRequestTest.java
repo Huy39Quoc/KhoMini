@@ -36,6 +36,7 @@ class RefundRequestTest {
     @Mock EmailService email;
     @Mock ActivityLogService logs;
     @Mock PricingService pricing;
+    @Mock WaitlistService waitlist;
     @InjectMocks PaymentServiceImpl service;
 
     @Test

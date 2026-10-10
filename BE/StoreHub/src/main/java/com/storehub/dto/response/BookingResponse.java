@@ -21,6 +21,7 @@ public class BookingResponse {
     private String unitTypeName;
     private String unitTypeDimensions;
     private LocalDate startDate;
+    private LocalDateTime scheduledCheckInTime;
     private LocalDate endDate;
     private Integer rentalMonths;
     private BigDecimal totalRentalFee;

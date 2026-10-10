@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Data
@@ -27,6 +28,9 @@ public class BookingCreationRequest {
     @NotNull(message = "Start date is required")
     @FutureOrPresent(message = "Start date cannot be in the past")
     private LocalDate startDate;
+
+    // Giờ hẹn nhận kho tại chi nhánh; nếu không gửi, dùng giờ mở cửa.
+    private LocalTime checkInTime;
 
     @NotNull(message = "Rental months is required")
     @Min(value = 1, message = "Rental months must be at least 1")

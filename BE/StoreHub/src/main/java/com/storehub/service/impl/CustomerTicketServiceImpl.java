@@ -73,17 +73,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
         User customer = resolveCustomer(customerEmail);
         Page<SupportTicket> ticketPage = ticketRepository.findAllByCustomerId(customer.getId(), pageable);
 
-        List<TicketResponse> responses = ticketPage.getContent().stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-
-        return PageResponse.<TicketResponse>builder()
-                .page(ticketPage.getNumber())
-                .size(ticketPage.getSize())
-                .totalElements(ticketPage.getTotalElements())
-                .totalPages(ticketPage.getTotalPages())
-                .content(responses)
-                .build();
+        return PageResponse.from(ticketPage.map(this::mapToResponse));
     }
 
     @Override

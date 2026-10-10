@@ -32,6 +32,9 @@ public class Booking extends BaseEntity {
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
+    @Column(name = "scheduled_check_in_time")
+    private LocalDateTime scheduledCheckInTime;
+
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
