@@ -7,6 +7,9 @@ import com.storehub.dto.response.DailyScheduleResponse;
 import com.storehub.dto.response.HandoverRecordResponse;
 import com.storehub.dto.response.HandoverResponse;
 import com.storehub.service.FacilityOperationsService;
+import com.storehub.service.GatePassService;
+import com.storehub.dto.request.GatePassVerificationRequest;
+import com.storehub.dto.response.GatePassVerificationResponse;
 import com.storehub.dto.request.AppointmentAssignmentRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -34,6 +37,19 @@ import java.util.UUID;
 public class FacilityOperationsController {
 
     private final FacilityOperationsService facilityOperationsService;
+    private final GatePassService gatePassService;
+
+    @PostMapping("/gate-pass/verify")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @Operation(summary = "Kiểm tra và sử dụng một lần QR ra cổng tại cơ sở được phân công")
+    public ResponseEntity<ApiResponse<GatePassVerificationResponse>> verifyGatePass(
+            @RequestParam UUID facilityId,
+            @RequestBody @Valid GatePassVerificationRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Gate pass accepted",
+                gatePassService.verify(userDetails.getUsername(), facilityId, request.getToken())));
+    }
 
     @PutMapping("/{bookingId}/appointment-assignment")
     @PreAuthorize("hasRole('FACILITY_MANAGER')")

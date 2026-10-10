@@ -11,7 +11,9 @@ import com.storehub.dto.response.ContractOperationResponse;
 import com.storehub.dto.response.MyUnitResponse;
 import com.storehub.dto.response.PaymentResponse;
 import com.storehub.dto.response.SmartAccessResponse;
+import com.storehub.dto.response.GatePassResponse;
 import com.storehub.service.CustomerStorageService;
+import com.storehub.service.GatePassService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,9 +36,22 @@ import java.util.List;
 public class CustomerStorageController {
 
     private final CustomerStorageService customerStorageService;
+    private final GatePassService gatePassService;
+
+    @PostMapping("/{bookingId}/gate-pass")
+    @Operation(summary = "Cấp QR ra cổng có hạn dùng cho kho ACTIVE của khách")
+    public ResponseEntity<ApiResponse<GatePassResponse>> issueGatePass(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .body(ApiResponse.success("Gate pass issued",
+                        gatePassService.issue(bookingId, userDetails.getUsername())));
+    }
 
     @GetMapping("/my-units")
-    @Operation(summary = "Lấy danh sách các ngăn kho đang thuê của khách hàng hiện tại")
+    @Operation(summary = "Chỉ lấy ngăn kho đã bàn giao và đang thuê (ACTIVE)")
     public ResponseEntity<ApiResponse<List<MyUnitResponse>>> getMyRentedUnits(
             @AuthenticationPrincipal UserDetails userDetails
     ) {
@@ -47,6 +62,15 @@ public class CustomerStorageController {
                 .message("Rented units retrieved successfully")
                 .data(result)
                 .build());
+    }
+
+    @GetMapping("/awaiting-handover")
+    @Operation(summary = "Lấy booking đã đặt cọc, đang chờ nhận kho (CONFIRMED)")
+    public ResponseEntity<ApiResponse<List<MyUnitResponse>>> getAwaitingHandover(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Bookings awaiting handover retrieved",
+                customerStorageService.getAwaitingHandover(userDetails.getUsername())));
     }
 
     @GetMapping("/{bookingId}/access")

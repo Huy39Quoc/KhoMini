@@ -41,7 +41,6 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -66,14 +65,19 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     public List<MyUnitResponse> getMyRentedUnits(String customerEmail) {
         UUID customerId = resolveCustomerId(customerEmail);
 
-        List<BookingStatus> activeStatuses = Arrays.asList(
-                BookingStatus.CONFIRMED,
-                BookingStatus.ACTIVE
-        );
-
-        List<Booking> bookings = bookingRepository.findActiveBookingsByCustomerId(customerId, activeStatuses);
+        List<Booking> bookings = bookingRepository.findActiveBookingsByCustomerId(
+                customerId, List.of(BookingStatus.ACTIVE));
         bookings.forEach(this::reconcileOverdueState);
         return bookings.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MyUnitResponse> getAwaitingHandover(String customerEmail) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        return bookingRepository.findActiveBookingsByCustomerId(
+                        customerId, List.of(BookingStatus.CONFIRMED))
+                .stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     // ===================== SMART ACCESS (mở/đóng khóa bằng PIN) =====================

@@ -70,6 +70,9 @@ public enum ErrorCode {
     OVERDUE_FEE_UNPAID_ON_RETURN(727, "Outstanding late fee must be paid by the customer before the unit return can be completed", HttpStatus.CONFLICT),
     CHECKIN_RENTAL_ENDED(728, "The rental period has ended. The customer must make a new booking before check-in", HttpStatus.CONFLICT),
     HANDOVER_ASSIGNED_TO_ANOTHER_STAFF(729, "This appointment is assigned to another staff member", HttpStatus.FORBIDDEN),
+    GATE_PASS_INVALID(730, "Gate pass is invalid or belongs to a different facility", HttpStatus.FORBIDDEN),
+    GATE_PASS_EXPIRED(731, "Gate pass has expired. Please generate a new one.", HttpStatus.GONE),
+    GATE_PASS_USED(732, "Gate pass has already been used or replaced", HttpStatus.CONFLICT),
 
 
     UNIT_UNAVAILABLE(
