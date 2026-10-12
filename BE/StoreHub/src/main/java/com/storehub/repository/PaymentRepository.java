@@ -51,7 +51,10 @@ public interface PaymentRepository
             SELECT SUM(p.amount)
             FROM Payment p
             WHERE p.booking.storageUnit.facility.id = :facilityId
-            AND p.status = com.storehub.enums.PaymentStatus.PAID
+            AND p.status IN (com.storehub.enums.PaymentStatus.PAID,
+                             com.storehub.enums.PaymentStatus.REFUND_PENDING,
+                             com.storehub.enums.PaymentStatus.REFUNDED)
+            AND p.transactionId NOT LIKE 'RF-%'
             AND p.paymentType <> com.storehub.enums.PaymentType.DEPOSIT
             """)
     java.math.BigDecimal sumPaidByFacility(@Param("facilityId") UUID facilityId);
@@ -115,9 +118,12 @@ public interface PaymentRepository
             JOIN p.booking b
             JOIN b.storageUnit su
             JOIN su.facility f
-            WHERE p.status = com.storehub.enums.PaymentStatus.PAID
-            AND (:fromDate IS NULL OR p.paymentTime >= :fromDate)
-            AND (:toDate IS NULL OR p.paymentTime <= :toDate)
+            WHERE p.status IN (com.storehub.enums.PaymentStatus.PAID,
+                               com.storehub.enums.PaymentStatus.REFUND_PENDING,
+                               com.storehub.enums.PaymentStatus.REFUNDED)
+            AND p.transactionId NOT LIKE 'RF-%'
+            AND p.paymentTime >= :fromDate
+            AND p.paymentTime <= :toDate
             GROUP BY f.id, f.name
             ORDER BY f.name
             """)
@@ -167,9 +173,12 @@ public interface PaymentRepository
                 COUNT(p)
             )
             FROM Payment p
-            WHERE p.status = com.storehub.enums.PaymentStatus.PAID
-            AND (:fromDate IS NULL OR p.paymentTime >= :fromDate)
-            AND (:toDate IS NULL OR p.paymentTime <= :toDate)
+            WHERE p.status IN (com.storehub.enums.PaymentStatus.PAID,
+                               com.storehub.enums.PaymentStatus.REFUND_PENDING,
+                               com.storehub.enums.PaymentStatus.REFUNDED)
+            AND p.transactionId NOT LIKE 'RF-%'
+            AND p.paymentTime >= :fromDate
+            AND p.paymentTime <= :toDate
             """)
     SystemRevenueSummaryResponse sumSystemRevenue(
             @Param("fromDate") LocalDateTime fromDate,
@@ -194,10 +203,13 @@ public interface PaymentRepository
     @Query("""
             SELECT COALESCE(SUM(p.amount), 0)
             FROM Payment p
-            WHERE p.status = com.storehub.enums.PaymentStatus.PAID
+            WHERE p.status IN (com.storehub.enums.PaymentStatus.PAID,
+                               com.storehub.enums.PaymentStatus.REFUND_PENDING,
+                               com.storehub.enums.PaymentStatus.REFUNDED)
+            AND p.transactionId NOT LIKE 'RF-%'
             AND (p.note = 'OVERDUE_LATE_FEE' OR p.note = 'Phí phạt quá hạn')
-            AND (:fromDate IS NULL OR p.paymentTime >= :fromDate)
-            AND (:toDate IS NULL OR p.paymentTime <= :toDate)
+            AND p.paymentTime >= :fromDate
+            AND p.paymentTime <= :toDate
             """)
     java.math.BigDecimal sumOverdueRevenue(
             @Param("fromDate") LocalDateTime fromDate,

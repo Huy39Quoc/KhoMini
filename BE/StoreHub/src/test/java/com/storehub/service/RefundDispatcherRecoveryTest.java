@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -104,6 +105,7 @@ class RefundDispatcherRecoveryTest {
                 .reconcile(id);
 
         assertEquals(RefundStatus.COMPLETED, request.getStatus());
+        assertNotNull(request.getCompletedAt());
         assertEquals(PaymentStatus.REFUNDED, original.getStatus());
         assertEquals(PaymentStatus.REFUNDED, rent.getStatus());
         assertEquals(PaymentStatus.REFUNDED, refundPayment.getStatus());
@@ -142,5 +144,46 @@ class RefundDispatcherRecoveryTest {
         assertEquals(PaymentStatus.REFUNDED, refundPayment.getStatus());
         assertEquals(new BigDecimal("200"), booking.getDepositPaid());
         verify(payments, never()).findByTransactionId(any());
+    }
+
+    @Test
+    void partialRefundRetainsCapturedAmountsForHistoricalReports() throws Exception {
+        UUID id = UUID.randomUUID();
+        Booking booking = Booking.builder().bookingCode("BK-PARTIAL")
+                .depositPaid(new BigDecimal("200")).build();
+        booking.setId(UUID.randomUUID());
+        Payment original = Payment.builder().transactionId("TXN-PARTIAL")
+                .paymentType(PaymentType.DEPOSIT).amount(new BigDecimal("200"))
+                .gatewayAmount(new BigDecimal("1000"))
+                .gatewayCreateDate("20261009230000").status(PaymentStatus.PAID).build();
+        Payment rent = Payment.builder().transactionId("TXN-PARTIAL-R")
+                .paymentType(PaymentType.RENTAL_FEE).amount(new BigDecimal("800"))
+                .status(PaymentStatus.PAID).build();
+        Payment refundPayment = Payment.builder().status(PaymentStatus.REFUND_PENDING).build();
+        RefundRequest request = RefundRequest.builder().booking(booking)
+                .originalPayment(original).refundPayment(refundPayment)
+                .requestId("REFUND-PARTIAL").amount(new BigDecimal("400"))
+                .depositAmount(new BigDecimal("100")).rentalAmount(new BigDecimal("300"))
+                .status(RefundStatus.SENDING).build();
+        request.setId(id);
+        when(refunds.findById(id)).thenReturn(Optional.of(request));
+        when(refunds.lockById(id)).thenReturn(Optional.of(request));
+        when(bookings.lockById(booking.getId())).thenReturn(Optional.of(booking));
+        when(payments.findByTransactionId("TXN-PARTIAL-R")).thenReturn(Optional.of(rent));
+        when(transactionManager.getTransaction(any()))
+                .thenAnswer(invocation -> new SimpleTransactionStatus());
+        when(gateway.query("TXN-PARTIAL", "20261009230000"))
+                .thenReturn(new VnpayRefundClient.GatewayResult("00", "00", "02", "40000"));
+
+        new RefundDispatcher(refunds, payments, bookings, activityLog, gateway, transactionManager)
+                .reconcile(id);
+
+        assertEquals(RefundStatus.COMPLETED, request.getStatus());
+        assertNotNull(request.getCompletedAt());
+        assertEquals(PaymentStatus.PAID, original.getStatus());
+        assertEquals(new BigDecimal("200"), original.getAmount());
+        assertEquals(PaymentStatus.PAID, rent.getStatus());
+        assertEquals(new BigDecimal("800"), rent.getAmount());
+        assertEquals(new BigDecimal("100"), booking.getDepositPaid());
     }
 }

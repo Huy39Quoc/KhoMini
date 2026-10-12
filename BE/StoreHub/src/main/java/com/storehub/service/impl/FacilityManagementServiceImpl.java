@@ -32,6 +32,7 @@ import com.storehub.service.ActivityLogService;
 import com.storehub.service.WaitlistService;
 import lombok.extern.slf4j.Slf4j;
 import com.storehub.repository.PaymentRepository;
+import com.storehub.repository.RefundRequestRepository;
 import com.storehub.repository.SupportTicketRepository;
 import com.storehub.enums.TicketStatus;
 import java.math.BigDecimal;
@@ -54,6 +55,7 @@ public class FacilityManagementServiceImpl
     private final BookingRepository bookings;
     private final UserRepository users;
     private final PaymentRepository payments;
+    private final RefundRequestRepository refunds;
     private final SupportTicketRepository tickets;
     private final ActivityLogService activityLogService;
     private final WaitlistService waitlistService;
@@ -260,7 +262,10 @@ public class FacilityManagementServiceImpl
                         BookingStatus.ACTIVE
                 );
 
-        BigDecimal revenue = payments.sumPaidByFacility(facilityId);
+        BigDecimal captured = payments.sumPaidByFacility(facilityId);
+        BigDecimal refunded = refunds.sumCompletedRentalRefundsByFacility(facilityId);
+        BigDecimal revenue = (captured == null ? BigDecimal.ZERO : captured)
+                .subtract(refunded == null ? BigDecimal.ZERO : refunded);
 
         return new FacilityReportResponse(
                 facilityId,
@@ -271,7 +276,7 @@ public class FacilityManagementServiceImpl
                 maintenance,
                 overdueBookings,
                 occupancyRate,
-                revenue == null ? BigDecimal.ZERO : revenue
+                revenue
         );
     }
 

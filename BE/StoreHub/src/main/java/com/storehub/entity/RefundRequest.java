@@ -47,4 +47,7 @@ public class RefundRequest extends BaseEntity {
 
     @Column(name = "updated_status_at")
     private LocalDateTime updatedStatusAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 }

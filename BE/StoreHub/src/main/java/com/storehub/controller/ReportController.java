@@ -68,7 +68,7 @@ public class ReportController {
         if ("revenue".equalsIgnoreCase(type)) {
             RevenueReportResponse report =
                     reportService.getRevenueReport(fromDate, toDate);
-            csv.append("facility,total_revenue,deposit,rental_fee,extra_charge,payments\n");
+            csv.append("facility,net_revenue,net_deposit,net_rental_fee,net_extra_charge,captured_entries\n");
             for (FacilityRevenueResponse f : report.getByFacility()) {
                 csv.append(csvCell(f.getFacilityName())).append(',')
                         .append(f.getTotalRevenue()).append(',')

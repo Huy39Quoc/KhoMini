@@ -164,18 +164,17 @@ public class RefundDispatcher {
             BigDecimal originalRemaining = original.getAmount().subtract(request.getDepositAmount());
             if (originalRemaining.signum() < 0) throw new IllegalStateException("Refund exceeds original deposit");
             if (originalRemaining.signum() == 0) original.setStatus(PaymentStatus.REFUNDED);
-            else original.setAmount(originalRemaining);
             if (request.getRentalAmount().signum() > 0) {
                 Payment rent = payments.findByTransactionId(original.getTransactionId() + "-R")
                         .orElseThrow();
                 BigDecimal remaining = rent.getAmount().subtract(request.getRentalAmount());
                 if (remaining.signum() < 0) throw new IllegalStateException("Refund exceeds rent");
                 if (remaining.signum() == 0) rent.setStatus(PaymentStatus.REFUNDED);
-                else rent.setAmount(remaining);
             }
         }
         request.getRefundPayment().setStatus(PaymentStatus.REFUNDED);
         request.setStatus(RefundStatus.COMPLETED);
+        request.setCompletedAt(request.getUpdatedStatusAt());
         activityLog.recordSystem(ActivityAction.REFUND_PROCESSED, "BOOKING", booking.getId(),
                 "VNPay refund confirmed: " + request.getAmount() + " request " + request.getRequestId());
     }

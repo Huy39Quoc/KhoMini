@@ -2,7 +2,10 @@ package com.storehub.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.storehub.dto.response.RevenueReportResponse;
 import com.storehub.service.EmailService;
+import com.storehub.service.ReportService;
+import com.storehub.scheduler.RefundDispatcher;
 import com.storehub.util.VNPayUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,7 +20,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ContextConfiguration;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,7 +40,9 @@ class ReservationDatabaseFlowTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper json;
+    @Autowired ReportService reports;
     @MockBean EmailService emailService;
+    @MockBean RefundDispatcher refundDispatcher;
 
     @BeforeEach
     void ensureDisposableDatabase() {
@@ -47,7 +54,10 @@ class ReservationDatabaseFlowTest {
     @Test
     void migrationsAuthReservationPaymentAttemptAndCancellation() throws Exception {
         assertEquals(1, jdbc.queryForObject(
-                "select count(*) from flyway_schema_history where version = '18' and success = true",
+                "select count(*) from flyway_schema_history where version = '19' and success = true",
+                Integer.class));
+        assertEquals(1, jdbc.queryForObject(
+                "select count(*) from flyway_schema_history where version = '20' and success = true",
                 Integer.class));
 
         Map<String, String> available = jdbc.queryForMap("""
@@ -138,5 +148,33 @@ class ReservationDatabaseFlowTest {
         assertEquals(0, jdbc.queryForObject(
                 "select amount from refund_requests where booking_id = ?", BigDecimal.class, bookingId)
                 .compareTo(new BigDecimal(payment.path("amount").asText())));
+
+        // A refund completed next month must not erase the original charge
+        // from the month in which the gateway captured it.
+        LocalDate chargeDate = LocalDate.of(2010, 1, 15);
+        LocalDate refundDate = LocalDate.of(2010, 2, 10);
+        BigDecimal deposit = jdbc.queryForObject(
+                "select amount from payments where transaction_id = ?", BigDecimal.class, txn);
+        BigDecimal rental = jdbc.queryForObject(
+                "select amount from payments where transaction_id = ?", BigDecimal.class, txn + "-R");
+        jdbc.update("update payments set payment_time = ? where transaction_id in (?, ?)",
+                Timestamp.valueOf(chargeDate.atTime(12, 0)), txn, txn + "-R");
+
+        RevenueReportResponse before = reports.getRevenueReport(chargeDate, chargeDate);
+        assertEquals(0, rental.compareTo(before.getSystemSummary().getTotalRevenue()));
+        assertEquals(0, deposit.compareTo(before.getSystemSummary().getDepositRevenue()));
+
+        jdbc.update("update payments set status = 'REFUNDED' where transaction_id in (?, ?)",
+                txn, txn + "-R");
+        jdbc.update("update refund_requests set status = 'COMPLETED', completed_at = ? where booking_id = ?",
+                Timestamp.valueOf(LocalDateTime.of(2010, 2, 10, 12, 0)), bookingId);
+
+        RevenueReportResponse originalPeriod = reports.getRevenueReport(chargeDate, chargeDate);
+        RevenueReportResponse refundPeriod = reports.getRevenueReport(refundDate, refundDate);
+        assertEquals(0, rental.compareTo(originalPeriod.getSystemSummary().getTotalRevenue()));
+        assertEquals(0, deposit.compareTo(originalPeriod.getSystemSummary().getDepositRevenue()));
+        assertEquals(0, rental.negate().compareTo(refundPeriod.getSystemSummary().getTotalRevenue()));
+        assertEquals(0, deposit.negate().compareTo(refundPeriod.getSystemSummary().getDepositRevenue()));
+        assertEquals(0, rental.negate().compareTo(refundPeriod.getByFacility().get(0).getTotalRevenue()));
     }
 }
