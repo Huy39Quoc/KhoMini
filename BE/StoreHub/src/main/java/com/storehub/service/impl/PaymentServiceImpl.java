@@ -834,13 +834,13 @@ public class PaymentServiceImpl implements PaymentService {
     private BigDecimal queueRefund(Booking booking, BigDecimal depositPart, BigDecimal rentalPart) {
         BigDecimal total = depositPart.add(rentalPart);
         if (total.signum() <= 0) return BigDecimal.ZERO;
-        if (refundRequests.existsByBooking_Id(booking.getId())) {
-            throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
-        }
         Payment original = paymentRepository
                 .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
                         booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+        // An extension charge may already have its own refund on this booking.
+        // The overload below checks the original charge, which is the actual
+        // idempotency key for a refund request.
         return queueRefund(booking, original, depositPart, rentalPart);
     }
 
