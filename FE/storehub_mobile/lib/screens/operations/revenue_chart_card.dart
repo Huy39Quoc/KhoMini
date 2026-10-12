@@ -3,8 +3,8 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
 
-/// Plots the system revenue by facility from /reports/revenue.
-/// Deposits are shown separately because they are refundable, not revenue.
+/// Plots net revenue by facility from /reports/revenue.
+/// Deposits are a separate cash flow for the selected period, not revenue.
 class RevenueChartCard extends StatelessWidget {
   final Map<String, dynamic> report;
   final DateTime fromDate;
@@ -29,8 +29,8 @@ class RevenueChartCard extends StatelessWidget {
     final compact = NumberFormat.compact(locale: 'vi_VN');
     final total = (summary['totalRevenue'] as num?)?.toDouble() ?? 0;
     final deposit = (summary['depositRevenue'] as num?)?.toDouble() ?? 0;
-    final maxRevenue = rows.fold<double>(0, (max, row) {
-      final value = (row['totalRevenue'] as num?)?.toDouble() ?? 0;
+    final maxMagnitude = rows.fold<double>(0, (max, row) {
+      final value = ((row['totalRevenue'] as num?)?.toDouble() ?? 0).abs();
       return value > max ? value : max;
     });
 
@@ -40,17 +40,17 @@ class RevenueChartCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Revenue by facility • ${DateFormat('MMM d').format(fromDate)}–${DateFormat('MMM d, yyyy').format(toDate)}',
+            Text('Net revenue by facility • ${DateFormat('MMM d').format(fromDate)}–${DateFormat('MMM d, yyyy').format(toDate)}',
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(currency.format(total),
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
                     color: AppColors.primaryContainer)),
-            Text('Refundable deposits held: ${currency.format(deposit)}',
+            Text('Net deposit cash flow in period: ${currency.format(deposit)}',
                 style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
             const SizedBox(height: 16),
-            if (rows.isEmpty || maxRevenue <= 0)
-              const Text('No paid rental revenue in this period.',
+            if (rows.isEmpty || maxMagnitude <= 0)
+              const Text('No rental cash flow in this period.',
                   style: TextStyle(color: AppColors.onSurfaceVariant))
             else
               for (final row in rows) ...[
@@ -68,13 +68,13 @@ class RevenueChartCard extends StatelessWidget {
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final amount = (row['totalRevenue'] as num?)?.toDouble() ?? 0;
-                      final fraction = (amount / maxRevenue).clamp(0.0, 1.0);
+                      final fraction = (amount.abs() / maxMagnitude).clamp(0.0, 1.0);
                       return Align(
                         alignment: Alignment.centerLeft,
                         child: Container(
                           width: constraints.maxWidth * fraction,
                           decoration: BoxDecoration(
-                            color: AppColors.secondaryContainer,
+                            color: amount < 0 ? AppColors.error : AppColors.secondaryContainer,
                             borderRadius: BorderRadius.circular(6),
                           ),
                         ),

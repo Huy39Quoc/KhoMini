@@ -193,7 +193,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total Revenue',
+                    const Text('Net Revenue (period)',
                         style: TextStyle(color: Colors.white70, fontSize: 12)),
                     const SizedBox(height: 4),
                     Text(_currency.format(total),
@@ -202,7 +202,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                             fontSize: 30,
                             fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    Text('$count payment${count == 1 ? '' : 's'}',
+                    Text('$count captured payment entries',
                         style: const TextStyle(
                             color: Colors.white70, fontSize: 12)),
                   ],
@@ -213,7 +213,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                 children: [
                   Expanded(
                       child: _revenueChip(
-                          'Deposits', deposit, AppColors.secondary)),
+                          'Net Deposits', deposit, AppColors.secondary)),
                   const SizedBox(width: 10),
                   Expanded(
                       child: _revenueChip(
@@ -224,6 +224,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                           'Extra Charges', extra, AppColors.warning)),
                 ],
               ),
+              const SizedBox(height: 8),
+              const Text('Deposits are refundable cash flow. Refunds are recorded in the period they complete.',
+                  style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
               const SizedBox(height: 20),
               const Text('By Facility',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -243,7 +246,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                       title: Text(m['facilityName']?.toString() ?? '',
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: Text('${m['paymentCount'] ?? 0} payments',
+                      subtitle: Text('${m['paymentCount'] ?? 0} captured entries',
                           style: const TextStyle(fontSize: 12)),
                       trailing: Text(
                         _currency.format(
