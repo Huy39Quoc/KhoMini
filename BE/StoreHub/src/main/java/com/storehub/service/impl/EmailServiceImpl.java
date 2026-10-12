@@ -631,7 +631,6 @@ public void sendWelcomeEmail(String toEmail, String fullName) {
     }
 
     @Override
-    @Async
     public void sendWaitlistNotificationEmail(
             String toEmail,
             String fullName,

@@ -3,12 +3,15 @@ package com.storehub.service;
 import com.storehub.entity.*;
 import com.storehub.enums.*;
 import com.storehub.repository.*;
+import com.storehub.service.impl.WaitlistNotificationDispatcher;
 import com.storehub.service.impl.WaitlistServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.List;
@@ -26,7 +29,9 @@ class WaitlistLifecycleTest {
     @Mock UnitTypeRepository types;
     @Mock StorageUnitRepository units;
     @Mock EmailService email;
+    @Mock WaitlistNotificationDispatcher dispatcher;
     @InjectMocks WaitlistServiceImpl service;
+    @InjectMocks WaitlistNotificationDispatcher delivery;
 
     @Test
     void expiredOfferAdvancesToNextCustomerOnlyWhenUnitIsAvailable() {
@@ -47,7 +52,7 @@ class WaitlistLifecycleTest {
                 List.of(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED)))
                 .thenReturn(List.of(expired, next));
 
-        service.notifyNextInWaitlist(facilityId, typeId);
+        delivery.dispatch(facilityId, typeId);
 
         assertEquals(WaitlistStatus.EXPIRED, expired.getStatus());
         assertEquals(WaitlistStatus.NOTIFIED, next.getStatus());
@@ -66,14 +71,14 @@ class WaitlistLifecycleTest {
                 List.of(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED)))
                 .thenReturn(List.of(active));
 
-        service.notifyNextInWaitlist(facilityId, typeId);
+        delivery.dispatch(facilityId, typeId);
 
         verifyNoInteractions(email);
         verify(entries, never()).save(any());
     }
 
     @Test
-    void schedulerRetriesWaitingCustomerAfterEmailFailureWhenUnitIsStillFree() {
+    void emailFailureKeepsCustomerWaitingForScheduledRetry() {
         UUID facilityId = UUID.randomUUID(), typeId = UUID.randomUUID();
         Facility facility = Facility.builder().name("Central").build();
         facility.setId(facilityId);
@@ -82,19 +87,35 @@ class WaitlistLifecycleTest {
         Waitlist waiting = Waitlist.builder()
                 .customer(User.builder().email("customer@test.com").fullName("Customer").build())
                 .facility(facility).unitType(type).status(WaitlistStatus.WAITING).build();
-        when(entries.findExpiredOffersForUpdate(eq(WaitlistStatus.NOTIFIED), any(Instant.class)))
-                .thenReturn(List.of());
-        when(entries.findWaitingPairs(WaitlistStatus.WAITING))
-                .thenReturn(java.util.Collections.singletonList(new Object[]{facilityId, typeId}));
         when(units.existsByFacility_IdAndUnitType_IdAndStatus(facilityId, typeId, UnitStatus.AVAILABLE))
                 .thenReturn(true);
         when(entries.findOpenForUpdate(facilityId, typeId,
                 List.of(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED)))
                 .thenReturn(List.of(waiting));
+        doThrow(new IllegalStateException("SMTP unavailable")).when(email)
+                .sendWaitlistNotificationEmail("customer@test.com", "Customer", "Central", "Small");
 
-        service.expireStaleNotifications();
+        delivery.dispatch(facilityId, typeId);
 
-        assertEquals(WaitlistStatus.NOTIFIED, waiting.getStatus());
+        assertEquals(WaitlistStatus.WAITING, waiting.getStatus());
+        verify(entries, never()).save(waiting);
         verify(email).sendWaitlistNotificationEmail("customer@test.com", "Customer", "Central", "Small");
+    }
+
+    @Test
+    void notificationIsScheduledOnlyAfterCommit() {
+        UUID facilityId = UUID.randomUUID(), typeId = UUID.randomUUID();
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.notifyNextInWaitlist(facilityId, typeId);
+            verifyNoInteractions(dispatcher);
+            for (TransactionSynchronization synchronization :
+                    TransactionSynchronizationManager.getSynchronizations()) {
+                synchronization.afterCommit();
+            }
+            verify(dispatcher).dispatch(facilityId, typeId);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 }

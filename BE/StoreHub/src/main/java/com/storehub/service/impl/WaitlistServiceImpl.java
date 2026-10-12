@@ -14,17 +14,17 @@ import com.storehub.repository.UnitTypeRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.repository.WaitlistRepository;
-import com.storehub.service.EmailService;
 import com.storehub.service.WaitlistService;
 import com.storehub.dto.response.WaitlistResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Service
@@ -37,7 +37,7 @@ public class WaitlistServiceImpl implements WaitlistService {
     private final FacilityRepository facilityRepository;
     private final UnitTypeRepository unitTypeRepository;
     private final StorageUnitRepository storageUnitRepository;
-    private final EmailService emailService;
+    private final WaitlistNotificationDispatcher notificationDispatcher;
 
     @Override
     @Transactional
@@ -88,47 +88,27 @@ public class WaitlistServiceImpl implements WaitlistService {
     @Override
     @Transactional
     public void notifyNextInWaitlist(UUID facilityId, UUID unitTypeId) {
-        if (!storageUnitRepository.existsByFacility_IdAndUnitType_IdAndStatus(
-                facilityId, unitTypeId, UnitStatus.AVAILABLE)) return;
-
-        List<Waitlist> waitingList = waitlistRepository.findOpenForUpdate(
-                facilityId, unitTypeId, List.of(WaitlistStatus.WAITING, WaitlistStatus.NOTIFIED));
-
-        Instant now = Instant.now();
-        // Mỗi loại kho chỉ có một thông báo còn hạn; thông báo hết hạn nhường lượt.
-        for (Waitlist entry : waitingList) {
-            if (entry.getStatus() == WaitlistStatus.NOTIFIED) {
-                if (entry.getOfferExpiresAt() == null || entry.getOfferExpiresAt().isAfter(now)) return;
-                entry.setStatus(WaitlistStatus.EXPIRED);
-                waitlistRepository.save(entry);
-            }
+        // Other callers release a unit inside their own transaction. Schedule delivery
+        // after its commit so the worker sees committed availability and waitlist rows.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    dispatchNotification(facilityId, unitTypeId);
+                }
+            });
+        } else {
+            dispatchNotification(facilityId, unitTypeId);
         }
+    }
 
-        Waitlist first = waitingList.stream()
-                .filter(w -> w.getStatus() == WaitlistStatus.WAITING).findFirst().orElse(null);
-        if (first == null) {
-            log.info("No one waiting for facility {} unitType {}", facilityId, unitTypeId);
-            return;
-        }
-
-        User customer = first.getCustomer();
-
+    private void dispatchNotification(UUID facilityId, UUID unitTypeId) {
         try {
-            emailService.sendWaitlistNotificationEmail(
-                    customer.getEmail(),
-                    customer.getFullName(),
-                    first.getFacility().getName(),
-                    first.getUnitType().getTypeName()
-            );
-            first.setStatus(WaitlistStatus.NOTIFIED);
-            first.setNotifiedAt(now);
-            first.setOfferExpiresAt(now.plus(24, ChronoUnit.HOURS));
-            waitlistRepository.save(first);
-            log.info("Waitlist notification sent to {} for facility {} unitType {}",
-                    customer.getEmail(), facilityId, unitTypeId);
-        } catch (Exception e) {
-            log.error("Failed to send waitlist notification email to {}: {}",
-                    customer.getEmail(), e.getMessage());
+            notificationDispatcher.dispatch(facilityId, unitTypeId);
+        } catch (RuntimeException exception) {
+            // The scheduled retry still sees WAITING when the executor is unavailable.
+            log.error("Could not schedule waitlist delivery for facility {} unitType {}",
+                    facilityId, unitTypeId, exception);
         }
     }
 
