@@ -29,7 +29,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.UUID;
@@ -125,8 +124,6 @@ public class GatePassServiceImpl implements GatePassService {
         }
         if (booking.getStorageUnit() == null
                 || booking.getStorageUnit().getFacility() == null
-                || booking.getEndDate() == null
-                || booking.getEndDate().isBefore(LocalDate.now())
                 || booking.getAccessDisabledAt() != null) {
             throw new AppException(ErrorCode.ACCESS_DISABLED_OVERDUE);
         }

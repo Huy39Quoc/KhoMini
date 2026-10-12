@@ -646,6 +646,14 @@ public class PaymentServiceImpl implements PaymentService {
                         new AppException(ErrorCode.BOOKING_NOT_FOUND)
                 );
 
+        // Repair FAILED charges from before automatic retries, while holding the booking lock.
+        paymentRepository.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        bookingId, PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
+                        List.of(PaymentStatus.FAILED))
+                .stream().filter(p -> p.getVoidedAt() == null && p.getAmount() != null
+                        && p.getAmount().signum() > 0)
+                .forEach(this::replaceFailedLateFee);
+
         List<Payment> pending = paymentRepository
                 .findByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeAsc(
                         bookingId, PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, OVERDUE_LATE_FEE)
@@ -717,6 +725,11 @@ public class PaymentServiceImpl implements PaymentService {
                 payment.setStatus(PaymentStatus.FAILED);
                 paymentRepository.save(payment);
 
+                if (payment.getPaymentType() == PaymentType.EXTRA_CHARGE
+                        && OVERDUE_LATE_FEE.equals(payment.getNote())) {
+                    replaceFailedLateFee(payment);
+                }
+
                 if (payment.getPaymentType() == PaymentType.DEPOSIT) {
                     paymentRepository.findByTransactionId(transactionId + RENTAL_SUFFIX)
                             .filter(companion -> companion.getStatus() == PaymentStatus.PENDING)
@@ -739,6 +752,21 @@ public class PaymentServiceImpl implements PaymentService {
                     .note(payment.getNote())
                     .build();
         }
+    }
+
+    private Payment replaceFailedLateFee(Payment failed) {
+        failed.setVoidedAt(LocalDateTime.now());
+        paymentRepository.save(failed);
+        return paymentRepository.save(Payment.builder()
+                .transactionId(newTransactionId())
+                .booking(failed.getBooking())
+                .amount(failed.getAmount())
+                .paymentType(PaymentType.EXTRA_CHARGE)
+                .status(PaymentStatus.PENDING)
+                .paymentMethod(failed.getPaymentMethod())
+                .note(OVERDUE_LATE_FEE)
+                .paymentTime(failed.getPaymentTime())
+                .build());
     }
 
     // Số tiền hiển thị/đối chiếu của một giao dịch: với dòng DEPOSIT chính của đợt đặt chỗ thì là
@@ -851,18 +879,13 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public BigDecimal refundDepositOnReturn(Booking booking) {
-        Payment lateFee = paymentRepository
-                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
-                        booking.getId(),
-                        PaymentType.EXTRA_CHARGE,
-                        PaymentStatus.PENDING,
-                        OVERDUE_LATE_FEE
-                )
-                .orElse(null);
-
-        if (lateFee != null
-                && lateFee.getAmount() != null
-                && lateFee.getAmount().signum() > 0) {
+        boolean unpaidLateFee = paymentRepository
+                .findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        booking.getId(), PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
+                        List.of(PaymentStatus.PENDING, PaymentStatus.FAILED))
+                .stream().anyMatch(p -> p.getVoidedAt() == null
+                        && p.getAmount() != null && p.getAmount().signum() > 0);
+        if (unpaidLateFee) {
             throw new AppException(ErrorCode.OVERDUE_FEE_UNPAID_ON_RETURN);
         }
 

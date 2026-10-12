@@ -1,6 +1,7 @@
 package com.storehub.service;
 
 import com.storehub.entity.Payment;
+import com.storehub.entity.Booking;
 import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
 import com.storehub.repository.BookingRepository;
@@ -20,8 +21,15 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import static com.storehub.common.PaymentNotes.OVERDUE_LATE_FEE;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import org.mockito.ArgumentCaptor;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,6 +69,53 @@ class PaymentCallbackStatusTest {
                 service.processVnpayCallback(signedCallback("01")).getStatus());
         assertEquals(PaymentStatus.PENDING, payment.getStatus());
         verify(payments, never()).save(any());
+    }
+
+    @Test
+    void failedLateFeeCreatesPayableReplacementAndVoidsOldReference() {
+        Payment payment = pendingPayment();
+        payment.setNote(OVERDUE_LATE_FEE);
+        payment.setBooking(Booking.builder().build());
+        payment.setPaymentTime(java.time.LocalDateTime.now());
+        ReflectionTestUtils.setField(service, "vnpHashSecret", "test-secret");
+        when(payments.lockByTransactionId("TXN-1")).thenReturn(Optional.of(payment));
+
+        service.processVnpayCallback(signedCallback("02"));
+
+        ArgumentCaptor<Payment> saved = ArgumentCaptor.forClass(Payment.class);
+        verify(payments, times(3)).save(saved.capture());
+        Payment retry = saved.getAllValues().get(2);
+        assertEquals(PaymentStatus.FAILED, payment.getStatus());
+        assertNotNull(payment.getVoidedAt());
+        assertEquals(PaymentStatus.PENDING, retry.getStatus());
+        assertEquals(payment.getAmount(), retry.getAmount());
+        assertEquals(OVERDUE_LATE_FEE, retry.getNote());
+        assertNotEquals(payment.getTransactionId(), retry.getTransactionId());
+    }
+
+    @Test
+    void lateCaptureOfFailedFeeIsRefundedInsteadOfChargingTwice() {
+        UUID bookingId = UUID.randomUUID();
+        Booking booking = Booking.builder().build(); booking.setId(bookingId);
+        Payment payment = pendingPayment();
+        payment.setId(UUID.randomUUID());
+        payment.setBooking(booking);
+        payment.setNote(OVERDUE_LATE_FEE);
+        payment.setPaymentTime(java.time.LocalDateTime.now());
+        payment.setGatewayAmount(new BigDecimal("1000"));
+        payment.setGatewayCreateDate("20261012100000");
+        ReflectionTestUtils.setField(service, "vnpHashSecret", "test-secret");
+        when(payments.lockByTransactionId("TXN-1")).thenReturn(Optional.of(payment));
+        when(payments.findBookingIdByTransactionId("TXN-1"))
+                .thenReturn(Optional.of(bookingId));
+        when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
+        when(payments.save(any(Payment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.processVnpayCallback(signedCallback("02"));
+        assertEquals(PaymentStatus.REFUND_PENDING,
+                service.processVnpayCallback(signedCallback("00")).getStatus());
+        verify(refunds, atLeastOnce()).save(any());
     }
 
     private Payment pendingPayment() {

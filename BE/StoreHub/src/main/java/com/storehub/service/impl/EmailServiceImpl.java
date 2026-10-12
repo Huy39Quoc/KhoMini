@@ -37,7 +37,8 @@ public class EmailServiceImpl implements EmailService {
 @Async
 public void sendPasswordResetEmail(String toEmail, String fullName, String resetToken) {
 
-    String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
+    String resetLink = "storehub://reset-password?token="
+            + java.net.URLEncoder.encode(resetToken, java.nio.charset.StandardCharsets.UTF_8);
 
     String subject = "🔐 Đặt lại mật khẩu – Store Hub";
 
@@ -162,7 +163,8 @@ public void sendPasswordResetEmail(String toEmail, String fullName, String reset
                                 line-height:1.6;
                             ">
                                 Nếu nút phía trên không hoạt động, bạn có thể sao chép
-                                liên kết sau và mở bằng trình duyệt:
+                                Nếu ứng dụng email không mở được liên kết, sao chép mã dưới đây
+                                và chọn "I have a reset link" trong màn hình đăng nhập của app:
                             </p>
 
                             <div style="
@@ -239,7 +241,7 @@ public void sendPasswordResetEmail(String toEmail, String fullName, String reset
             fullName,
             resetLink,
             resetLink,
-            resetLink
+            resetToken
     );
 
     sendHtmlEmail(toEmail, subject, content);

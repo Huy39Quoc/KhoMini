@@ -179,6 +179,29 @@ public class OverdueScheduler {
             long chargeableDays,
             LocalDateTime now
     ) {
+        // Migrate unpaid FAILED attempts from older releases before adding today's fee.
+        // Never change a URL already sent to VNPay: any late capture of the old
+        // reference must go through the existing voided-at refund path.
+        paymentRepository.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        booking.getId(), PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
+                        List.of(PaymentStatus.FAILED))
+                .stream().filter(p -> p.getVoidedAt() == null && p.getAmount() != null
+                        && p.getAmount().signum() > 0)
+                .forEach(failed -> {
+                    failed.setVoidedAt(now);
+                    paymentRepository.save(failed);
+                    paymentRepository.save(Payment.builder()
+                            .transactionId(createTransactionId())
+                            .booking(booking)
+                            .amount(failed.getAmount())
+                            .paymentType(PaymentType.EXTRA_CHARGE)
+                            .status(PaymentStatus.PENDING)
+                            .paymentMethod(failed.getPaymentMethod())
+                            .note(OVERDUE_LATE_FEE)
+                            .paymentTime(failed.getPaymentTime())
+                            .build());
+                });
+
         BigDecimal calculatedTotal = pricingService
                 .calculateLateFee(
                         facilityId,

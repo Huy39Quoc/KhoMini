@@ -454,10 +454,12 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     // Khoản phí trễ hạn đang chờ thanh toán (scheduler tạo), null nếu không có.
     private Payment findPendingLateFee(UUID bookingId) {
         return paymentRepository
-                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
-                        bookingId, PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, OVERDUE_LATE_FEE)
-                .filter(p -> p.getAmount() != null && p.getAmount().signum() > 0)
-                .orElse(null);
+                .findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        bookingId, PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
+                        List.of(PaymentStatus.PENDING, PaymentStatus.FAILED))
+                .stream().filter(p -> p.getVoidedAt() == null
+                        && p.getAmount() != null && p.getAmount().signum() > 0)
+                .findFirst().orElse(null);
     }
 
     private UUID resolveCustomerId(String customerEmail) {
@@ -491,9 +493,11 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         }
 
         BigDecimal lateFees = b.getOverdueDetectedAt() != null
-                ? paymentRepository.findByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeAsc(
-                        b.getId(), PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, OVERDUE_LATE_FEE)
-                        .stream().map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)
+                ? paymentRepository.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        b.getId(), PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
+                        List.of(PaymentStatus.PENDING, PaymentStatus.FAILED))
+                        .stream().filter(p -> p.getVoidedAt() == null && p.getAmount() != null)
+                        .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)
                 : BigDecimal.ZERO;
         response.setOverdueFeeOutstanding(lateFees);
         return response;

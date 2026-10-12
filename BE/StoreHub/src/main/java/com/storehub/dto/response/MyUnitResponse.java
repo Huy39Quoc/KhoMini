@@ -33,6 +33,7 @@ public class MyUnitResponse {
     private boolean activeAccess;
     private boolean hasPendingExtension;
     private Integer pendingExtraMonths;
+    private LocalDate pendingNewEndDate;
     private BigDecimal pendingExtensionFee;
 
     // --- Quá hạn (điền bởi CustomerStorageServiceImpl) ---

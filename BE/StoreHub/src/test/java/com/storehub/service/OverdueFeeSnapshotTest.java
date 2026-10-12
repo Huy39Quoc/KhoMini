@@ -20,12 +20,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
 
 import static com.storehub.common.PaymentNotes.OVERDUE_LATE_FEE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class OverdueFeeSnapshotTest {
@@ -62,6 +65,32 @@ class OverdueFeeSnapshotTest {
         assertEquals(new BigDecimal("50"), saved.getValue().getAmount());
         assertEquals(new BigDecimal("100"), issued.getAmount());
         assertEquals(new BigDecimal("100"), issued.getGatewayAmount());
+        assertEquals(new BigDecimal("150"), booking.getOverdueFeeAccrued());
+    }
+
+    @Test
+    void schedulerRestoresOldFailedDebtAndAccruesOnlyNewDays() {
+        UUID bookingId = UUID.randomUUID(), facilityId = UUID.randomUUID();
+        Booking booking = Booking.builder().overdueFeeAccrued(new BigDecimal("100")).build();
+        booking.setId(bookingId);
+        Payment failed = Payment.builder().booking(booking).transactionId("OD-FAILED")
+                .paymentType(PaymentType.EXTRA_CHARGE).status(PaymentStatus.FAILED)
+                .note(OVERDUE_LATE_FEE).paymentTime(LocalDateTime.now().minusDays(1))
+                .amount(new BigDecimal("100")).build();
+        when(payments.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                bookingId, PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
+                List.of(PaymentStatus.FAILED))).thenReturn(List.of(failed));
+        when(pricing.calculateLateFee(facilityId, 2)).thenReturn(new BigDecimal("150"));
+
+        ReflectionTestUtils.invokeMethod(scheduler, "updateLateFee", booking, facilityId,
+                2L, LocalDateTime.now());
+
+        ArgumentCaptor<Payment> saved = ArgumentCaptor.forClass(Payment.class);
+        verify(payments, times(3)).save(saved.capture());
+        assertNotNull(failed.getVoidedAt());
+        assertEquals(new BigDecimal("100"), saved.getAllValues().get(1).getAmount());
+        assertEquals(PaymentStatus.PENDING, saved.getAllValues().get(1).getStatus());
+        assertEquals(new BigDecimal("50"), saved.getAllValues().get(2).getAmount());
         assertEquals(new BigDecimal("150"), booking.getOverdueFeeAccrued());
     }
 }

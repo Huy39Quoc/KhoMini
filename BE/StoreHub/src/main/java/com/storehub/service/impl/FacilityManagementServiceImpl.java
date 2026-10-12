@@ -29,6 +29,8 @@ import com.storehub.dto.response.FacilityContractResponse;
 import com.storehub.dto.response.AssignableStaffResponse;
 import com.storehub.enums.ActivityAction;
 import com.storehub.service.ActivityLogService;
+import com.storehub.service.WaitlistService;
+import lombok.extern.slf4j.Slf4j;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.SupportTicketRepository;
 import com.storehub.enums.TicketStatus;
@@ -41,6 +43,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FacilityManagementServiceImpl
         implements FacilityManagementService {
 
@@ -53,6 +56,7 @@ public class FacilityManagementServiceImpl
     private final PaymentRepository payments;
     private final SupportTicketRepository tickets;
     private final ActivityLogService activityLogService;
+    private final WaitlistService waitlistService;
 
     @Transactional(readOnly = true)
     public AssignedFacilityResponse myFacility(String email) {
@@ -206,6 +210,16 @@ public class FacilityManagementServiceImpl
         replacement.setStatus(UnitStatus.RESERVED);
         booking.setStorageUnit(replacement);
         oldUnit.setStatus(UnitStatus.AVAILABLE);
+        units.save(oldUnit);
+        units.save(replacement);
+        bookings.save(booking);
+
+        try {
+            waitlistService.notifyNextInWaitlist(facilityId, oldUnit.getUnitType().getId());
+        } catch (Exception e) {
+            log.warn("Failed to notify waitlist after reassigning booking {}: {}",
+                    bookingId, e.getMessage());
+        }
 
         return toUnit(replacement);
     }

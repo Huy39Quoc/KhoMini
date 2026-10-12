@@ -106,6 +106,26 @@ class GatePassServiceTest {
     }
 
     @Test
+    void overdueBookingCanGetQrUntilAccessIsDisabled() {
+        UUID bookingId = UUID.randomUUID(), customerId = UUID.randomUUID();
+        User customer = new User(); customer.setId(customerId);
+        Facility facility = new Facility(); facility.setId(UUID.randomUUID());
+        Booking booking = Booking.builder().status(BookingStatus.ACTIVE)
+                .endDate(LocalDate.now().minusDays(1))
+                .storageUnit(StorageUnit.builder().facility(facility).build()).build();
+        booking.setId(bookingId);
+        when(users.findByEmail("customer@test.com")).thenReturn(Optional.of(customer));
+        when(bookings.lockByIdAndCustomerId(bookingId, customerId))
+                .thenReturn(Optional.of(booking));
+
+        assertNotNull(service.issue(bookingId, "customer@test.com").getToken());
+        booking.setAccessDisabledAt(java.time.LocalDateTime.now());
+        AppException disabled = assertThrows(AppException.class,
+                () -> service.issue(bookingId, "customer@test.com"));
+        assertEquals(ErrorCode.ACCESS_DISABLED_OVERDUE, disabled.getErrorCode());
+    }
+
+    @Test
     void expiredPassCannotBeVerified() {
         UUID bookingId = UUID.randomUUID(), facilityId = UUID.randomUUID();
         Facility facility = new Facility(); facility.setId(facilityId);
