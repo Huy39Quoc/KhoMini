@@ -1,8 +1,9 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:storehub_mobile/main.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:storehub_mobile/main.dart';
+
 void main() {
   testWidgets('App loads smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(StoreHubApp(restoreSession: () async => null));
@@ -39,11 +40,9 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-   links.add(Uri.parse('storehub://reset-password?token=sample-token'));
-await tester.pump();
-await tester.pumpAndSettle();
-
-expect(find.text('Set a new password'), findsOneWidget);
+    links.add(Uri.parse('storehub://reset-password?token=sample-token'));
+    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('Set a new password'), findsOneWidget);
     final field = tester.widget<TextFormField>(

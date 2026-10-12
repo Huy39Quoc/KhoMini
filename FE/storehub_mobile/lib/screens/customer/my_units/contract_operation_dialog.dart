@@ -28,6 +28,8 @@ class ContractOperationDialog extends StatefulWidget {
 }
 
 class _ContractOperationDialogState extends State<ContractOperationDialog> {
+  static const bool _sandboxMode = bool.fromEnvironment('VNPAY_SANDBOX') ||
+      !bool.fromEnvironment('dart.vm.product');
   final StorageApiService _storageService = StorageApiService();
   final TextEditingController _notesController = TextEditingController();
   final _currency = NumberFormat.currency(
@@ -506,29 +508,31 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               style: const TextStyle(
                   fontSize: 12, color: AppColors.onSurfaceVariant),
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade200),
+            if (_sandboxMode) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: const Column(
+                  children: [
+                    Text('VNPAY SANDBOX TEST CARD',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF003087))),
+                    SizedBox(height: 6),
+                    Text('Bank: NCB | Card: 9704198526191432198',
+                        style: TextStyle(fontSize: 11)),
+                    Text('Name: NGUYEN VAN A | Date: 07/15 | OTP: 123456',
+                        style: TextStyle(fontSize: 11)),
+                  ],
+                ),
               ),
-              child: const Column(
-                children: [
-                  Text('VNPAY SANDBOX TEST CARD',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF003087))),
-                  SizedBox(height: 6),
-                  Text('Bank: NCB | Card: 9704198526191432198',
-                      style: TextStyle(fontSize: 11)),
-                  Text('Name: NGUYEN VAN A | Date: 07/15 | OTP: 123456',
-                      style: TextStyle(fontSize: 11)),
-                ],
-              ),
-            ),
+            ],
             const SizedBox(height: 8),
             Text('Transaction code: $transactionId',
                 style: const TextStyle(
