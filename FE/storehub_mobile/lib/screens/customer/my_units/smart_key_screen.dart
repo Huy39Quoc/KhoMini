@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,6 +35,9 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
   bool _loading = true;
   bool _busy = false;
   Timer? _blockTicker;
+  Timer? _gateTicker;
+  Map<String, dynamic>? _gatePass;
+  bool _issuingGatePass = false;
 
   static final _digitsOnly = <TextInputFormatter>[
     FilteringTextInputFormatter.digitsOnly,
@@ -49,6 +53,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
   @override
   void dispose() {
     _blockTicker?.cancel();
+    _gateTicker?.cancel();
     _pinController.dispose();
     super.dispose();
   }
@@ -125,6 +130,75 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
   }
 
   // ---------------------------------------------------------------- actions
+
+  Future<void> _issueGatePass() async {
+    setState(() => _issuingGatePass = true);
+    try {
+      final pass = await _service.issueGatePass(widget.bookingId);
+      if (!mounted) return;
+      setState(() {
+        _gatePass = pass;
+        _issuingGatePass = false;
+      });
+      _gateTicker?.cancel();
+      _gateTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        final expires = DateTime.tryParse(_gatePass?['expiresAt']?.toString() ?? '');
+        if (expires == null || !expires.isAfter(DateTime.now())) {
+          _gateTicker?.cancel();
+        }
+        setState(() {});
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _issuingGatePass = false);
+      _toast(_msg(e), error: true);
+    }
+  }
+
+  Widget _gatePassCard() {
+    final pass = _gatePass;
+    final expiresAt = DateTime.tryParse(pass?['expiresAt']?.toString() ?? '');
+    final remaining = expiresAt?.difference(DateTime.now()) ?? Duration.zero;
+    final valid = pass != null && remaining > Duration.zero;
+    final imageBase64 = valid ? pass['qrPngBase64']?.toString() : null;
+    return _card(
+      child: Column(
+        children: [
+          const Icon(Icons.qr_code_2, size: 40, color: AppColors.primary),
+          const SizedBox(height: 8),
+          const Text('QR ra vào cổng',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 6),
+          const Text('Mã chỉ dùng một lần, có hiệu lực 90 giây. '
+              'Đưa QR cho nhân viên tại đúng cơ sở để xác minh. '
+              'Sau khi quét, hãy tạo mã mới cho lượt tiếp theo.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+          if (valid && imageBase64 != null) ...[
+            const SizedBox(height: 12),
+            Image.memory(base64Decode(imageBase64), width: 220, height: 220,
+                gaplessPlayback: false),
+            const SizedBox(height: 6),
+            Text('Còn ${remaining.inSeconds} giây • ${pass['facilityName'] ?? ''}',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+          ] else if (pass != null) ...[
+            const SizedBox(height: 10),
+            const Text('QR đã hết hạn. Tạo mã mới để vào cổng.'),
+          ],
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: _issuingGatePass ? null : _issueGatePass,
+            icon: _issuingGatePass
+                ? const SizedBox(height: 16, width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.refresh),
+            label: Text(valid ? 'Tạo QR mới' : 'Lấy QR ra vào cổng'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _unlock() async {
     final pin = _pinController.text;
@@ -591,7 +665,11 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
     final a = _access!;
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: [a.pinSet ? _lockView(a) : _noPinView()],
+      children: [
+        _gatePassCard(),
+        const SizedBox(height: 16),
+        a.pinSet ? _lockView(a) : _noPinView(),
+      ],
     );
   }
 

@@ -57,6 +57,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (userMap != null) {
         final user = UserModel.fromJson(userMap);
+        if (!user.hasSupportedRole) {
+          throw Exception('Unsupported account role. Contact support.');
+        }
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(

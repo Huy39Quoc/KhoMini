@@ -16,9 +16,15 @@ public class PaymentResponse {
     private UUID id;
     private String transactionId;
     private UUID bookingId;
+    private String bookingCode;
+    private String customerName;
+    private String customerEmail;
+    private String facilityName;
+    private String unitCode;
     private BigDecimal amount;
     private PaymentType paymentType;
     private PaymentStatus status;
+    private com.storehub.enums.RefundStatus refundStatus;
     private String paymentMethod;
     private String note;
     private String paymentUrl;

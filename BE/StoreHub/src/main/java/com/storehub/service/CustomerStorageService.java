@@ -17,6 +17,8 @@ import java.util.UUID;
 public interface CustomerStorageService {
     List<MyUnitResponse> getMyRentedUnits(String customerEmail);
 
+    List<MyUnitResponse> getAwaitingHandover(String customerEmail);
+
     SmartAccessResponse getSmartAccessInfo(UUID bookingId, String customerEmail);
 
     // Tạo PIN lần đầu: hệ thống cấp (newPin trống) hoặc khách tự đặt.

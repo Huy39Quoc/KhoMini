@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
+import '../models/paged_result.dart';
 
 class AdminApiService {
   final Dio _dio = HttpClient.instance.dio;
@@ -44,9 +45,25 @@ class AdminApiService {
   }
 
   Future<List<dynamic>> getUsers() async {
+    final all = <dynamic>[];
+    var page = 0;
+    while (true) {
+      final batch = await getUsersPage(page: page++);
+      all.addAll(batch.content);
+      if (batch.last) return all;
+    }
+  }
+
+  Future<PagedResult<Map<String, dynamic>>> getUsersPage({int page = 0,
+      String search = '', bool? isActive}) async {
     try {
-      final response = await _dio.get(ApiEndpoints.users);
-      return _extractList(response.data);
+      final response = await _dio.get(ApiEndpoints.users, queryParameters: {
+        'page': page, 'size': 20,
+        if (search.isNotEmpty) 'search': search,
+        if (isActive != null) 'isActive': isActive,
+      });
+      return PagedResult.fromApi(response.data,
+          (item) => Map<String, dynamic>.from(item as Map));
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to load users: $message');
@@ -90,11 +107,16 @@ class AdminApiService {
 
   Future<List<dynamic>> getPermissions() async {
     try {
-      final response = await _dio.get(
-        ApiEndpoints.permissions,
-        queryParameters: {'size': 200},
-      );
-      return _extractList(response.data);
+      final permissions = <dynamic>[];
+      var page = 0;
+      while (true) {
+        final response = await _dio.get(ApiEndpoints.permissions,
+            queryParameters: {'page': page++, 'size': 50});
+        final batch = PagedResult.fromApi(response.data,
+            (item) => Map<String, dynamic>.from(item as Map));
+        permissions.addAll(batch.content);
+        if (batch.last) return permissions;
+      }
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to load permissions: $message');

@@ -32,6 +32,9 @@ public class Booking extends BaseEntity {
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
+    @Column(name = "scheduled_check_in_time")
+    private LocalDateTime scheduledCheckInTime;
+
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
@@ -73,6 +76,17 @@ public class Booking extends BaseEntity {
 
     @Column(name = "return_time")
     private LocalDateTime returnTime;
+
+    @Column(name = "scheduled_return_time")
+    private LocalDateTime scheduledReturnTime;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_check_in_staff_id")
+    private User assignedCheckInStaff;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_check_out_staff_id")
+    private User assignedCheckOutStaff;
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;

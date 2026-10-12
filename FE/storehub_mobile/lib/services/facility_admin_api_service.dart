@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
+import '../models/paged_result.dart';
 
 class FacilityAdminApiService {
   final Dio _dio = HttpClient.instance.dio;
@@ -20,22 +21,28 @@ class FacilityAdminApiService {
   }
 
   Future<List<dynamic>> getFacilities({String? search}) async {
+    final all = <dynamic>[];
+    var page = 0;
+    while (true) {
+      final batch = await getFacilitiesPage(search: search, page: page++);
+      all.addAll(batch.content);
+      if (batch.last) return all;
+    }
+  }
+
+  Future<PagedResult<Map<String, dynamic>>> getFacilitiesPage(
+      {String? search, int page = 0}) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.facilitiesAdmin,
         queryParameters: {
-          'size': 200,
+          'page': page,
+          'size': 20,
           if (search != null && search.isNotEmpty) 'search': search,
         },
       );
-      final data = response.data;
-      if (data is Map &&
-          data['data'] is Map &&
-          data['data']['content'] is List) {
-        return data['data']['content'];
-      }
-      if (data is Map && data['content'] is List) return data['content'];
-      return [];
+      return PagedResult.fromApi(response.data,
+          (item) => Map<String, dynamic>.from(item as Map));
     } on DioException catch (e) {
       throw _err(e, 'load facilities');
     }

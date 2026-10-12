@@ -1,0 +1,89 @@
+diff --git a/FE/storehub_mobile/lib/screens/admin/user_management_screen.dart b/FE/storehub_mobile/lib/screens/admin/user_management_screen.dart
+index 42750b8..64ec749 100644
+--- a/FE/storehub_mobile/lib/screens/admin/user_management_screen.dart
++++ b/FE/storehub_mobile/lib/screens/admin/user_management_screen.dart
+@@ -61,8 +61,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
+         _lastPage = page.last;
+       });
+     } catch (error) {
+-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+-        SnackBar(content: Text(error.toString())));
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(content: Text(error.toString())),
++        );
++      }
+     } finally {
+       if (mounted) setState(() => _loadingMore = false);
+     }
+diff --git a/FE/storehub_mobile/lib/screens/customer/reservation/my_waitlist_screen.dart b/FE/storehub_mobile/lib/screens/customer/reservation/my_waitlist_screen.dart
+index 06383a0..4ed2977 100644
+--- a/FE/storehub_mobile/lib/screens/customer/reservation/my_waitlist_screen.dart
++++ b/FE/storehub_mobile/lib/screens/customer/reservation/my_waitlist_screen.dart
+@@ -29,8 +29,11 @@ class _MyWaitlistScreenState extends State<MyWaitlistScreen> {
+       await _api.leaveWaitlist(id);
+       if (mounted) await _refresh();
+     } catch (error) {
+-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+-        SnackBar(content: Text(error.toString())));
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(content: Text(error.toString())),
++        );
++      }
+     }
+   }
+ 
+@@ -53,10 +56,12 @@ class _MyWaitlistScreenState extends State<MyWaitlistScreen> {
+             physics: const AlwaysScrollableScrollPhysics(),
+             itemCount: entries.isEmpty ? 1 : entries.length,
+             itemBuilder: (context, index) {
+-              if (entries.isEmpty) return const ListTile(
+-                title: Text('No waitlist entries'),
+-                subtitle: Text('Join a waitlist from a facility when a unit type is full.'),
+-              );
++              if (entries.isEmpty) {
++                return const ListTile(
++                  title: Text('No waitlist entries'),
++                  subtitle: Text('Join a waitlist from a facility when a unit type is full.'),
++                );
++              }
+               final entry = entries[index];
+               final status = entry['status']?.toString() ?? 'WAITING';
+               final canLeave = status == 'WAITING' || status == 'NOTIFIED';
+diff --git a/FE/storehub_mobile/lib/screens/customer/tickets/ticket_list_screen.dart b/FE/storehub_mobile/lib/screens/customer/tickets/ticket_list_screen.dart
+index 92cdba9..b271415 100644
+--- a/FE/storehub_mobile/lib/screens/customer/tickets/ticket_list_screen.dart
++++ b/FE/storehub_mobile/lib/screens/customer/tickets/ticket_list_screen.dart
+@@ -49,8 +49,11 @@ class _TicketListScreenState extends State<TicketListScreen> {
+         _lastPage = result.last;
+       });
+     } catch (error) {
+-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+-        SnackBar(content: Text(error.toString())));
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(content: Text(error.toString())),
++        );
++      }
+     } finally {
+       if (mounted) setState(() => _loadingMore = false);
+     }
+diff --git a/FE/storehub_mobile/lib/screens/operations/facility_management_screen.dart b/FE/storehub_mobile/lib/screens/operations/facility_management_screen.dart
+index 1166fbf..0201104 100644
+--- a/FE/storehub_mobile/lib/screens/operations/facility_management_screen.dart
++++ b/FE/storehub_mobile/lib/screens/operations/facility_management_screen.dart
+@@ -52,8 +52,11 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
+         _lastPage = batch.last;
+       });
+     } catch (error) {
+-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+-          SnackBar(content: Text(error.toString())));
++      if (mounted) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          SnackBar(content: Text(error.toString())),
++        );
++      }
+     } finally {
+       if (mounted) setState(() => _loadingMore = false);
+     }

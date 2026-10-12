@@ -1,0 +1,45 @@
+diff --git a/FE/storehub_mobile/lib/screens/auth/session_gate.dart b/FE/storehub_mobile/lib/screens/auth/session_gate.dart
+index cc9a051..742552f 100644
+--- a/FE/storehub_mobile/lib/screens/auth/session_gate.dart
++++ b/FE/storehub_mobile/lib/screens/auth/session_gate.dart
+@@ -42,7 +42,11 @@ class _SessionGateState extends State<SessionGate> {
+                 children: [
+                   const Text('Could not restore your session. Check your connection.'),
+                   TextButton(
+-                    onPressed: () => setState(() => _session = _restore()),
++                    onPressed: () {
++                      setState(() {
++                        _session = _restore();
++                      });
++                    },
+                     child: const Text('Try again'),
+                   ),
+                   TextButton(
+diff --git a/FE/storehub_mobile/lib/screens/customer/reservation/pending_bookings_section.dart b/FE/storehub_mobile/lib/screens/customer/reservation/pending_bookings_section.dart
+index 2388486..c78e766 100644
+--- a/FE/storehub_mobile/lib/screens/customer/reservation/pending_bookings_section.dart
++++ b/FE/storehub_mobile/lib/screens/customer/reservation/pending_bookings_section.dart
+@@ -38,7 +38,11 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
+   }
+ 
+   void _reload() {
+-    if (mounted) setState(() => _bookings = _api.getPayableBookings());
++    if (mounted) {
++      setState(() {
++        _bookings = _api.getPayableBookings();
++      });
++    }
+   }
+ 
+   Future<void> _resume(Map<String, dynamic> booking) async {
+@@ -47,7 +51,9 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
+       final current = await _api.getPayableBookings();
+       if (!mounted) return;
+       final found = current.where((b) => b['id'] == booking['id']).toList();
+-      setState(() => _bookings = Future.value(current));
++      setState(() {
++        _bookings = Future.value(current);
++      });
+       if (found.isEmpty) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('This booking is no longer payable.')),

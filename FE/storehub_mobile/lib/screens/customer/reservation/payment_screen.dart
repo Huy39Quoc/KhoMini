@@ -143,7 +143,9 @@ class _PaymentScreenState extends State<PaymentScreen>
       setState(() {
         _payment = payment;
         _isInitiating = false;
+        _isSuccess = payment['status'] == 'PAID';
       });
+      if (_isSuccess) _successCtrl.forward();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -165,6 +167,10 @@ class _PaymentScreenState extends State<PaymentScreen>
   /// VNPay gọi về server; app chỉ đọc lại trạng thái, không tự xác nhận.
   Future<void> _payWithVnpay() async {
     if (_isExpired || _payment == null) return;
+    // The booking may still be valid after the previous 15-minute VNPay URL expires.
+    // Ask the server to reconcile and return the current attempt before opening it.
+    await _initiatePayment();
+    if (!mounted || _isSuccess || _initError != null || _isExpired) return;
     final transactionId = _payment!['transactionId']?.toString() ?? '';
     final paymentUrl =
         (_payment!['paymentUrl'] ?? _payment!['qrCodeUrl'])?.toString() ?? '';

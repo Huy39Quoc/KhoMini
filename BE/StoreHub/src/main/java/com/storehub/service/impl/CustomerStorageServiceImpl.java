@@ -41,7 +41,6 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -66,14 +65,19 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     public List<MyUnitResponse> getMyRentedUnits(String customerEmail) {
         UUID customerId = resolveCustomerId(customerEmail);
 
-        List<BookingStatus> activeStatuses = Arrays.asList(
-                BookingStatus.CONFIRMED,
-                BookingStatus.ACTIVE
-        );
-
-        List<Booking> bookings = bookingRepository.findActiveBookingsByCustomerId(customerId, activeStatuses);
+        List<Booking> bookings = bookingRepository.findActiveBookingsByCustomerId(
+                customerId, List.of(BookingStatus.ACTIVE));
         bookings.forEach(this::reconcileOverdueState);
         return bookings.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MyUnitResponse> getAwaitingHandover(String customerEmail) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        return bookingRepository.findActiveBookingsByCustomerId(
+                        customerId, List.of(BookingStatus.CONFIRMED))
+                .stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     // ===================== SMART ACCESS (mở/đóng khóa bằng PIN) =====================
@@ -331,11 +335,23 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         }
         UUID facilityId = booking.getStorageUnit().getFacility().getId();
 
+        var facility = booking.getStorageUnit().getFacility();
+        var returnTime = request.getScheduledReturnTime().toLocalTime();
+        if (facility.getOpenTime() == null || facility.getCloseTime() == null
+                || returnTime.isBefore(facility.getOpenTime())
+                || !returnTime.isBefore(facility.getCloseTime())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
         if (!facilityPolicyService.isReturnNoticeSatisfied(facilityId, request.getScheduledReturnTime())) {
             throw new AppException(ErrorCode.RETURN_NOTICE_NOT_SATISFIED);
         }
 
-        booking.setReturnTime(request.getScheduledReturnTime());
+        if (!request.getScheduledReturnTime().equals(booking.getScheduledReturnTime())) {
+            // Lịch cũ đã giao cho nhân viên không tự động chuyển sang giờ mới.
+            booking.setAssignedCheckOutStaff(null);
+        }
+        booking.setScheduledReturnTime(request.getScheduledReturnTime());
         bookingRepository.save(booking);
 
         activityLogService.record(customerId, ActivityAction.CHECKOUT_REQUEST, "BOOKING", booking.getId(),
@@ -348,7 +364,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
                 .status(booking.getStatus())
-                .scheduledReturnTime(booking.getReturnTime())
+                .scheduledReturnTime(booking.getScheduledReturnTime())
                 .message("Checkout request submitted successfully. Staff will contact you for handover inspection.")
                 .build();
     }
@@ -372,10 +388,11 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         int cancelledMonths = booking.getPendingExtraMonths();
 
         // Đóng giao dịch gia hạn đang treo để không còn thanh toán được QR cũ
-        paymentRepository
-                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
-                        booking.getId(), PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, RENTAL_EXTENSION)
-                .ifPresent(payment -> {
+        paymentRepository.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        booking.getId(), PaymentType.EXTRA_CHARGE, RENTAL_EXTENSION,
+                        List.of(PaymentStatus.PENDING, PaymentStatus.FAILED))
+                .forEach(payment -> {
+                    payment.setVoidedAt(LocalDateTime.now());
                     payment.setStatus(PaymentStatus.FAILED);
                     paymentRepository.save(payment);
                 });
@@ -450,7 +467,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     }
 
     private Booking validateActiveBooking(UUID bookingId, UUID customerId) {
-        Booking booking = bookingRepository.findByIdAndCustomerId(bookingId, customerId)
+        Booking booking = bookingRepository.lockByIdAndCustomerId(bookingId, customerId)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         if (booking.getStatus() != BookingStatus.ACTIVE) {
@@ -473,8 +490,12 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
             response.setOverdueDays(ChronoUnit.DAYS.between(b.getEndDate(), LocalDate.now()));
         }
 
-        Payment lateFee = b.getOverdueDetectedAt() != null ? findPendingLateFee(b.getId()) : null;
-        response.setOverdueFeeOutstanding(lateFee != null ? lateFee.getAmount() : BigDecimal.ZERO);
+        BigDecimal lateFees = b.getOverdueDetectedAt() != null
+                ? paymentRepository.findByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeAsc(
+                        b.getId(), PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, OVERDUE_LATE_FEE)
+                        .stream().map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)
+                : BigDecimal.ZERO;
+        response.setOverdueFeeOutstanding(lateFees);
         return response;
     }
 }

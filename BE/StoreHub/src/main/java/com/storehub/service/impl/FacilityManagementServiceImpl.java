@@ -26,9 +26,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.storehub.dto.response.FacilityBookingResponse;
 import com.storehub.dto.response.FacilityContractResponse;
+import com.storehub.dto.response.AssignableStaffResponse;
 import com.storehub.enums.ActivityAction;
 import com.storehub.service.ActivityLogService;
 import com.storehub.repository.PaymentRepository;
+import com.storehub.repository.SupportTicketRepository;
+import com.storehub.enums.TicketStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -48,6 +51,7 @@ public class FacilityManagementServiceImpl
     private final BookingRepository bookings;
     private final UserRepository users;
     private final PaymentRepository payments;
+    private final SupportTicketRepository tickets;
     private final ActivityLogService activityLogService;
 
     @Transactional(readOnly = true)
@@ -270,7 +274,7 @@ public class FacilityManagementServiceImpl
 
         Facility facility = requireFacility(facilityId);
 
-        User user = users.findById(userId)
+        User user = users.findByIdForUpdate(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!Boolean.TRUE.equals(user.getIsActive())
@@ -327,10 +331,33 @@ public class FacilityManagementServiceImpl
 
         return users.findByFacility_IdAndRole_Name(facilityId, "STAFF")
                 .stream()
+                .filter(user -> Boolean.TRUE.equals(user.getIsActive()))
                 .map(user -> new FacilityStaffResponse(
                         user.getId(),
                         user.getFullName(),
                         user.getEmail(),
+                        "STAFF"
+                ))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AssignableStaffResponse> assignableStaff(
+            UUID facilityId,
+            String managerEmail
+    ) {
+        access.require(managerEmail, facilityId);
+        requireFacility(facilityId);
+
+        return users.findByRole_NameAndIsActiveTrueAndFacilityIsNullOrderByFullNameAsc("STAFF")
+                .stream()
+                .map(user -> new AssignableStaffResponse(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getFullName(),
+                        user.getEmail(),
+                        true,
                         "STAFF"
                 ))
                 .toList();
@@ -411,7 +438,7 @@ public class FacilityManagementServiceImpl
                 booking.getStatus(),
                 booking.getDepositPaid(),
                 booking.getTotalRentalFee(),
-                booking.getReturnTime(),
+                booking.getScheduledReturnTime(),
                 overdue,
                 overdueDays,
                 booking.getOverdueFeeAccrued() == null
@@ -503,7 +530,7 @@ public class FacilityManagementServiceImpl
     ) {
         access.require(managerEmail, facilityId);
 
-        User staff = users.findById(userId)
+        User staff = users.findByIdForUpdate(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (staff.getRole() == null
@@ -513,6 +540,12 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
+        if (tickets.existsByAssignedStaff_IdAndStatusNot(userId, TicketStatus.CLOSED)) {
+            throw new AppException(ErrorCode.STAFF_HAS_UNCLOSED_TICKETS);
+        }
+
+        bookings.clearOpenCheckInAssignments(userId);
+        bookings.clearOpenCheckOutAssignments(userId);
         staff.setFacility(null);
     }
 }

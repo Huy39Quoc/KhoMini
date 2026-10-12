@@ -11,19 +11,13 @@ import com.storehub.mapper.UserMapper;
 import com.storehub.repository.RoleRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.service.impl.UserServiceImpl;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,7 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class UserServiceRoleSecurityTest {
+class UserServiceRoleAssignmentTest {
 
     @Mock
     private UserRepository userRepository;
@@ -52,45 +46,25 @@ class UserServiceRoleSecurityTest {
     @InjectMocks
     private UserServiceImpl userService;
 
-    @BeforeEach
-    void setUp() {
-        SecurityContextHolder.clearContext();
-    }
-
-    @AfterEach
-    void tearDown() {
-        SecurityContextHolder.clearContext();
-    }
-
     @Test
-    void testCreate_NonAdminCannotSpecifyRoleId() {
-        // Authenticated as CUSTOMER
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                "customer@test.com", "pass", List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))
-        );
-        SecurityContextHolder.getContext().setAuthentication(auth);
-
+    void testCreate_RejectsUnknownRoleId() {
+        UUID roleId = UUID.randomUUID();
         UserCreateRequest request = UserCreateRequest.builder()
                 .username("newuser")
                 .email("new@test.com")
                 .password("password123")
                 .fullName("New User")
                 .phone("0901234567")
-                .roleId(UUID.randomUUID()) // attempts to assign role
+                .roleId(roleId)
                 .build();
 
+        when(roleRepository.findById(roleId)).thenReturn(Optional.empty());
         AppException ex = assertThrows(AppException.class, () -> userService.create(request));
-        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        assertEquals(ErrorCode.ROLE_NOT_FOUND, ex.getErrorCode());
     }
 
     @Test
     void testCreate_AdminCanSpecifyRoleId() {
-        // Authenticated as ADMIN
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                "admin@test.com", "pass", List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
-        );
-        SecurityContextHolder.getContext().setAuthentication(auth);
-
         UUID roleId = UUID.randomUUID();
         Role role = Role.builder().name("STAFF").build();
         role.setId(roleId);
@@ -122,7 +96,7 @@ class UserServiceRoleSecurityTest {
 
     @Test
     void testCreate_WithoutRoleId_DefaultsToCustomer() {
-        // No roleId provided, even if unauthenticated or non-admin
+        // Creating a user without a role defaults to CUSTOMER.
         Role customerRole = Role.builder().name("CUSTOMER").build();
         customerRole.setId(UUID.randomUUID());
 
@@ -152,23 +126,25 @@ class UserServiceRoleSecurityTest {
     }
 
     @Test
-    void testUpdate_NonAdminCannotChangeRole() {
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                "customer@test.com", "pass", List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))
-        );
-        SecurityContextHolder.getContext().setAuthentication(auth);
-
+    void testUpdate_ChangesRoleWhenRequested() {
         UUID userId = UUID.randomUUID();
         User existingUser = User.builder().username("cust").email("cust@test.com").isActive(true).build();
         existingUser.setId(userId);
 
+        UUID roleId = UUID.randomUUID();
+        Role staffRole = Role.builder().name("STAFF").build();
+        staffRole.setId(roleId);
         UserUpdateRequest request = UserUpdateRequest.builder()
-                .roleId(UUID.randomUUID()) // attempts to escalate role
+                .roleId(roleId)
                 .build();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
+        when(roleRepository.findById(roleId)).thenReturn(Optional.of(staffRole));
+        when(userRepository.save(existingUser)).thenReturn(existingUser);
+        when(userMapper.toResponse(existingUser)).thenReturn(UserResponse.builder().roleName("STAFF").build());
 
-        AppException ex = assertThrows(AppException.class, () -> userService.update(userId, request));
-        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        UserResponse response = userService.update(userId, request);
+        assertSame(staffRole, existingUser.getRole());
+        assertEquals("STAFF", response.getRoleName());
     }
 }

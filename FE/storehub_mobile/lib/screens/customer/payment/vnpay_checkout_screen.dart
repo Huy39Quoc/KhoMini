@@ -9,8 +9,8 @@ import '../../../core/constants/app_colors.dart';
 
 /// Màn hình thanh toán dùng chung (đặt cọc, gia hạn, phí trễ hạn).
 ///
-/// Mở thẳng trang VNPay Sandbox TRONG app, kèm bảng "thẻ test" luôn hiển thị phía trên để
-/// khách chép từng dòng vào form VNPay. Kết quả KHÔNG do app tự quyết định: giao dịch chỉ
+/// Mở trang VNPay trong app; thẻ test chỉ hiển thị ở bản debug hoặc khi
+/// VNPAY_SANDBOX được bật rõ ràng. Kết quả giao dịch chỉ
 /// thành PAID khi VNPay gọi về server. App chỉ đọc trạng thái qua [fetchStatus].
 ///
 /// Pop về: Map trạng thái giao dịch khi PAID, hoặc null nếu khách thoát / thất bại.
@@ -27,7 +27,7 @@ class VnpayCheckoutScreen extends StatefulWidget {
     required this.transactionId,
     required this.amount,
     required this.fetchStatus,
-    this.title = 'VNPay Sandbox',
+    this.title = 'Thanh toán VNPay',
   });
 
   @override
@@ -35,6 +35,8 @@ class VnpayCheckoutScreen extends StatefulWidget {
 }
 
 class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
+  static const bool _sandboxMode =
+      bool.fromEnvironment('VNPAY_SANDBOX') || !bool.fromEnvironment('dart.vm.product');
   late final WebViewController _controller;
   Timer? _pollTimer;
 
@@ -42,6 +44,7 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
   bool _showCard = true;
   bool _checking = false;
   bool _finished = false;
+  bool _isRefundStatus = false;
   String? _failedMessage;
   String? _loadError; // lỗi tải trang VNPay (mạng, SSL, ...)
 
@@ -56,6 +59,9 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    if (!_sandboxMode && Uri.tryParse(widget.paymentUrl)?.host == 'sandbox.vnpayment.vn') {
+      throw StateError('Release payment URL points to VNPay sandbox');
+    }
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       // Một số trang thanh toán không hiển thị với User-Agent mặc định của WebView ("; wv)").
@@ -85,24 +91,13 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
               }
             }
           },
-          // Máy ảo/thiết bị cũ có thể thiếu chứng chỉ gốc của VNPay Sandbox
-          // ("Trust anchor for certification path not found"). Chỉ khi chạy bản debug và
-          // chỉ với đúng host sandbox VNPay mới cho đi tiếp; mọi trường hợp khác đều từ chối.
           onSslAuthError: (error) async {
-            const isRelease = bool.fromEnvironment('dart.vm.product');
-            final host = Uri.tryParse(widget.paymentUrl)?.host ?? '';
-            debugPrint('[VNPay] SSL certificate error for $host');
-            if (!isRelease && host == 'sandbox.vnpayment.vn') {
-              await error.proceed();
-            } else {
-              await error.cancel();
-              if (mounted) {
-                setState(() {
-                  _pageLoading = false;
-                  _loadError =
-                      'Chứng chỉ bảo mật của trang thanh toán không hợp lệ.';
-                });
-              }
+            await error.cancel();
+            if (mounted) {
+              setState(() {
+                _pageLoading = false;
+                _loadError = 'Chứng chỉ bảo mật của trang thanh toán không hợp lệ.';
+              });
             }
           },
           onHttpError: (error) {
@@ -162,6 +157,17 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
           _pollTimer?.cancel();
           setState(() => _failedMessage =
               'Thanh toán không thành công hoặc đã bị hủy. Bạn có thể quay lại và thử thanh toán lại.');
+          return;
+        }
+        if (s == 'REFUND_PENDING' || s == 'REFUNDED') {
+          _finished = true;
+          _pollTimer?.cancel();
+          setState(() {
+            _isRefundStatus = true;
+            _failedMessage = s == 'REFUNDED'
+                ? 'Giao dịch không còn hiệu lực. Khoản tiền đã được hoàn qua VNPay.'
+                : 'Giao dịch không còn hiệu lực. Hệ thống đã ghi nhận và đang xử lý hoàn tiền.';
+          });
           return;
         }
         if (attempt < retries) {
@@ -368,7 +374,9 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 56, color: AppColors.error),
+            Icon(_isRefundStatus ? Icons.info_outline : Icons.error_outline,
+                size: 56,
+                color: _isRefundStatus ? Colors.orange : AppColors.error),
             const SizedBox(height: 12),
             Text(_failedMessage!, textAlign: TextAlign.center),
             const SizedBox(height: 20),
@@ -419,7 +427,7 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
           ? _failedView()
           : Column(
               children: [
-                _cardPanel(),
+                if (_sandboxMode) _cardPanel(),
                 if (_pageLoading) const LinearProgressIndicator(minHeight: 2),
                 Expanded(
                   child: _loadError != null

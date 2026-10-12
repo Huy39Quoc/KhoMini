@@ -8,6 +8,8 @@ import '../../models/user_model.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
+import '../common/transaction_history_screen.dart';
+import '../common/gate_pass_verify_screen.dart';
 
 class StaffDashboardScreen extends StatefulWidget {
   final UserModel user;
@@ -136,6 +138,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     final notesController = TextEditingController();
 
     bool submitting = false;
+    bool inspectionConfirmed = false;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -261,9 +264,22 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                         labelText: 'Notes (optional)',
                       ),
                     ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: inspectionConfirmed,
+                      onChanged: submitting
+                          ? null
+                          : (value) => setSheetState(() {
+                                inspectionConfirmed = value ?? false;
+                              }),
+                      title: Text(isCheckIn
+                          ? 'I verified the customer, unit and lock before handover'
+                          : 'I inspected the returned unit and lock'),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
                     const SizedBox(height: 20),
                     ElevatedButton(
-                      onPressed: submitting
+                      onPressed: submitting || !inspectionConfirmed
                           ? null
                           : () async {
                               setSheetState(() {
@@ -593,6 +609,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                         ),
                       ),
                     ),
+                  if (item.assignedStaffName?.isNotEmpty == true)
+                    Text('Assigned: ${item.assignedStaffName}',
+                        style: const TextStyle(fontSize: 11)),
                 ],
               ),
             ),
@@ -610,7 +629,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   horizontal: 12,
                 ),
               ),
-              onPressed: () {
+              onPressed: item.assignedStaffId != null &&
+                      item.assignedStaffId != widget.user.id
+                  ? null
+                  : () {
                 _openHandoverSheet(item);
               },
               child: Text(
@@ -660,6 +682,16 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         actions: [
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
+              tooltip: 'Verify gate QR',
+              icon: const Icon(Icons.qr_code_scanner),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) =>
+                    GatePassVerifyScreen(facilityId: _facilityId!)),
+              ),
+            ),
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
               tooltip: 'Storage units',
               icon: const Icon(Icons.inventory_2_outlined),
               onPressed: () {
@@ -690,6 +722,22 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                 );
               },
             ),
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Facility Transactions',
+              icon: const Icon(Icons.receipt_long_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TransactionHistoryScreen(
+                      userRole: widget.user.roleName,
+                      facilityId: _facilityId,
+                    ),
+                  ),
+                );
+              },
+            ),
           IconButton(
             tooltip: 'Profile',
             icon: CircleAvatar(
@@ -712,6 +760,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                 MaterialPageRoute(
                   builder: (_) => ProfileScreen(
                     user: widget.user,
+                    facilityId: _facilityId,
                   ),
                 ),
               );

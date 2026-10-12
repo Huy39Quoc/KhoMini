@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/facility_management_models.dart';
@@ -8,7 +9,11 @@ import '../../services/catalog_api_service.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
+import '../common/transaction_history_screen.dart';
+import '../common/gate_pass_verify_screen.dart';
 import 'booking_assignment_screen.dart';
+import 'appointment_assignment_screen.dart';
+import 'refund_review_screen.dart';
 import 'facility_contracts_tab.dart';
 import 'facility_tickets_tab.dart';
 
@@ -475,7 +480,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     List<FacilityStaffModel> currentStaff;
 
     try {
-      users = await _opsService.getAssignableUsers();
+      users = await _opsService.getAssignableUsers(_facilityId!);
 
       currentStaff = await _opsService.getFacilityStaff(
         _facilityId!,
@@ -792,6 +797,40 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
         actions: [
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
+              tooltip: 'Verify gate QR',
+              icon: const Icon(Icons.qr_code_scanner),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) =>
+                    GatePassVerifyScreen(facilityId: _facilityId!)),
+              ),
+            ),
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Refund requests',
+              icon: const Icon(Icons.currency_exchange_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RefundReviewScreen(facilityId: _facilityId!),
+                ),
+              ),
+            ),
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Handover appointments',
+              icon: const Icon(Icons.event_note_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AppointmentAssignmentScreen(
+                    facilityId: _facilityId!,
+                  ),
+                ),
+              ),
+            ),
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
               tooltip: 'Confirmed bookings',
               icon: const Icon(Icons.swap_horiz_outlined),
               onPressed: () {
@@ -808,6 +847,22 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                   _loadUnits();
                   _loadReport();
                 });
+              },
+            ),
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            IconButton(
+              tooltip: 'Facility Transactions',
+              icon: const Icon(Icons.receipt_long_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TransactionHistoryScreen(
+                      userRole: widget.user.roleName,
+                      facilityId: _facilityId,
+                    ),
+                  ),
+                );
               },
             ),
           IconButton(
@@ -832,6 +887,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                 MaterialPageRoute(
                   builder: (_) => ProfileScreen(
                     user: widget.user,
+                    facilityId: _facilityId,
                   ),
                 ),
               );
@@ -1262,7 +1318,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                   ),
                   _statTile(
                     'Revenue (paid)',
-                    '\$${report.revenue.toStringAsFixed(0)}',
+                    NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0)
+                        .format(report.revenue),
                     Icons.attach_money,
                     AppColors.success,
                   ),

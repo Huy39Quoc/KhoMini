@@ -28,7 +28,7 @@ public interface CustomerStorageMapper {
     @Mapping(target = "overdue", expression = "java(booking.getOverdueDetectedAt() != null)")
     @Mapping(target = "overdueDays", ignore = true)
     @Mapping(target = "overdueFeeOutstanding", ignore = true)
-    @Mapping(target = "scheduledReturnTime", source = "returnTime")
+    @Mapping(target = "scheduledReturnTime", source = "scheduledReturnTime")
     @Mapping(target = "hasPendingExtension", expression = "java(booking.getPendingExtraMonths() != null)")
     MyUnitResponse toMyUnitResponse(Booking booking);
 

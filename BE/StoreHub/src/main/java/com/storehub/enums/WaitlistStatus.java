@@ -3,5 +3,7 @@ package com.storehub.enums;
 public enum WaitlistStatus {
     WAITING,
     NOTIFIED,
-    EXPIRED
+    EXPIRED,
+    FULFILLED,
+    CANCELLED
 }

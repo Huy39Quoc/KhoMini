@@ -10,6 +10,19 @@ import '../models/facility_management_models.dart';
 class FacilityOpsApiService {
   final Dio _dio = HttpClient.instance.dio;
 
+  Future<Map<String, dynamic>> verifyGatePass({
+    required String facilityId,
+    required String token,
+  }) async {
+    try {
+      final response = await _dio.post(ApiEndpoints.verifyGatePass,
+          queryParameters: {'facilityId': facilityId}, data: {'token': token});
+      return _unwrap(response.data);
+    } on DioException catch (e) {
+      throw _err(e, 'verify gate pass');
+    }
+  }
+
   Map<String, dynamic> _unwrap(dynamic data) {
     if (data is Map && data['data'] is Map) {
       return Map<String, dynamic>.from(data['data']);
@@ -52,26 +65,6 @@ class FacilityOpsApiService {
     return Exception(
       'Failed to $action: ${message ?? 'Unknown error'}',
     );
-  }
-
-  List<dynamic> _unwrapPageContent(dynamic data) {
-    if (data is Map) {
-      final payload = data['data'];
-
-      if (payload is Map && payload['content'] is List) {
-        return List<dynamic>.from(
-          payload['content'],
-        );
-      }
-
-      if (data['content'] is List) {
-        return List<dynamic>.from(
-          data['content'],
-        );
-      }
-    }
-
-    return _unwrapList(data);
   }
 
   // =========================================================
@@ -211,20 +204,13 @@ class FacilityOpsApiService {
     }
   }
 
-  Future<List<AssignableUserModel>> getAssignableUsers() async {
+  Future<List<AssignableUserModel>> getAssignableUsers(String facilityId) async {
     try {
       final response = await _dio.get(
-        ApiEndpoints.users,
-        queryParameters: {
-          'page': 0,
-          'size': 200,
-          'isActive': true,
-          'sortBy': 'fullName',
-          'sortDir': 'asc',
-        },
+        ApiEndpoints.facilityAssignableStaff(facilityId),
       );
 
-      return _unwrapPageContent(response.data)
+      return _unwrapList(response.data)
           .map(FacilityManagementMapper.asJsonMap)
           .map(
             FacilityManagementMapper.assignableUserFromJson,
@@ -315,7 +301,7 @@ class FacilityOpsApiService {
     }
   }
   /// Hợp đồng đang CONFIRMED / ACTIVE của cơ sở (Facility Manager theo dõi).
-  Future<List<Map<String, dynamic>>> getFacilityContracts(
+  Future<List<FacilityContractModel>> getFacilityContracts(
     String facilityId,
   ) async {
     try {
@@ -325,6 +311,7 @@ class FacilityOpsApiService {
 
       return _unwrapList(response.data)
           .map(FacilityManagementMapper.asJsonMap)
+          .map(FacilityManagementMapper.contractFromJson)
           .toList();
     } on DioException catch (error) {
       throw _err(error, 'load facility contracts');
@@ -397,6 +384,63 @@ class FacilityOpsApiService {
           .toList();
     } on DioException catch (error) {
       throw _err(error, 'load the daily schedule');
+    }
+  }
+
+  Future<void> assignAppointment({
+    required String facilityId,
+    required DailyScheduleModel appointment,
+    String? staffId,
+  }) async {
+    try {
+      await _dio.put(
+        ApiEndpoints.appointmentAssignment(appointment.bookingId),
+        queryParameters: {'facilityId': facilityId},
+        data: {'scheduleType': appointment.scheduleType, 'staffId': staffId},
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'assign appointment');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getFacilityRefunds(String facilityId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.facilityRefunds(facilityId));
+      return _unwrapList(response.data)
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (error) {
+      throw _err(error, 'load refunds');
+    }
+  }
+
+  Future<void> provideRefundDetails(String facilityId, String refundId,
+      String transactionDate, String transactionNo, num originalAmount) async {
+    try {
+      await _dio.put('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/gateway-details',
+          data: {
+            'transactionDate': transactionDate,
+            'transactionNo': transactionNo.isEmpty ? null : transactionNo,
+            'originalAmount': originalAmount,
+          });
+    } on DioException catch (error) {
+      throw _err(error, 'provide original payment details');
+    }
+  }
+
+  Future<void> retryRejectedRefund(String facilityId, String refundId) async {
+    try {
+      await _dio.post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/retry');
+    } on DioException catch (error) {
+      throw _err(error, 'retry rejected refund');
+    }
+  }
+
+  Future<void> reconcileRefund(String facilityId, String refundId) async {
+    try {
+      await _dio.post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/reconcile');
+    } on DioException catch (error) {
+      throw _err(error, 'check refund with VNPay');
     }
   }
 

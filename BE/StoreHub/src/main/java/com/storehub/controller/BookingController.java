@@ -19,6 +19,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/bookings")
@@ -60,5 +61,16 @@ public class BookingController {
     ) {
         bookingService.cancelBooking(id, userDetails.getUsername());
         return ResponseEntity.ok(ApiResponse.success("Booking cancelled successfully", null));
+    }
+
+    @GetMapping("/my-pending")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Các booking còn hạn đang chờ thanh toán của khách hiện tại")
+    public ResponseEntity<ApiResponse<List<BookingResponse>>> getPayableBookings(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Payable bookings retrieved",
+                bookingService.getPayableBookings(userDetails.getUsername())));
     }
 }

@@ -17,7 +17,11 @@ public class BookingResponse {
     private UUID customerId;
     private UUID storageUnitId;
     private String unitCode;
+    private String facilityName;
+    private String unitTypeName;
+    private String unitTypeDimensions;
     private LocalDate startDate;
+    private LocalDateTime scheduledCheckInTime;
     private LocalDate endDate;
     private Integer rentalMonths;
     private BigDecimal totalRentalFee;

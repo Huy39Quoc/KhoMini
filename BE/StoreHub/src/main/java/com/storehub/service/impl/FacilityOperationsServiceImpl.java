@@ -16,6 +16,7 @@ import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.HandoverRecordRepository;
 import com.storehub.repository.StorageUnitRepository;
+import com.storehub.repository.UserRepository;
 import com.storehub.entity.FacilityAccess;
 import com.storehub.service.FacilityOperationsService;
 import com.storehub.service.PaymentService;
@@ -43,11 +44,53 @@ public class FacilityOperationsServiceImpl
     private final BookingRepository bookingRepository;
     private final HandoverRecordRepository handoverRecordRepository;
     private final StorageUnitRepository storageUnitRepository;
+    private final UserRepository userRepository;
     private final FacilityAccess facilityAccess;
     private final PaymentService paymentService;
     private final WaitlistService waitlistService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     private final com.storehub.service.ActivityLogService activityLogService;
+
+    @Override
+    @Transactional
+    public DailyScheduleResponse assignAppointment(UUID bookingId, UUID facilityId,
+                                                   String managerEmail, String scheduleType, UUID staffId) {
+        User manager = facilityAccess.require(managerEmail, facilityId);
+        if (manager.getRole() == null || !"FACILITY_MANAGER".equals(manager.getRole().getName())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+        Booking booking = bookingRepository.lockById(bookingId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+        if (booking.getStorageUnit() == null || booking.getStorageUnit().getFacility() == null
+                || !facilityId.equals(booking.getStorageUnit().getFacility().getId())) {
+            throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
+        }
+        if (!("CHECK_IN".equals(scheduleType) && booking.getStatus() == BookingStatus.CONFIRMED)
+                && !("CHECK_OUT".equals(scheduleType) && booking.getStatus() == BookingStatus.ACTIVE)) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        User staff = null;
+        if (staffId != null) {
+            staff = userRepository.findByIdForUpdate(staffId)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            if (!Boolean.TRUE.equals(staff.getIsActive()) || staff.getRole() == null
+                    || !"STAFF".equals(staff.getRole().getName()) || staff.getFacility() == null
+                    || !facilityId.equals(staff.getFacility().getId())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
+        }
+        if ("CHECK_IN".equals(scheduleType)) {
+            booking.setAssignedCheckInStaff(staff);
+        } else {
+            booking.setAssignedCheckOutStaff(staff);
+        }
+        bookingRepository.save(booking);
+        LocalDateTime scheduled = "CHECK_IN".equals(scheduleType)
+                ? checkInTime(booking)
+                : booking.getScheduledReturnTime() != null
+                    ? booking.getScheduledReturnTime() : booking.getEndDate().atTime(9, 0);
+        return toScheduleResponse(booking, scheduleType, scheduled);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -60,7 +103,7 @@ public class FacilityOperationsServiceImpl
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
-        facilityAccess.require(staffEmail, facilityId);
+        User viewer = facilityAccess.require(staffEmail, facilityId);
 
         List<DailyScheduleResponse> result = new ArrayList<>();
 
@@ -72,14 +115,14 @@ public class FacilityOperationsServiceImpl
                 );
 
         for (Booking booking : checkInBookings) {
+            if (!visibleToStaff(viewer, booking.getAssignedCheckInStaff())) continue;
             result.add(toScheduleResponse(
                     booking,
                     "CHECK_IN",
-                    booking.getStartDate().atStartOfDay()
+                    checkInTime(booking)
             ));
         }
 
-        LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
 
         List<Booking> checkOutBookings =
@@ -91,11 +134,12 @@ public class FacilityOperationsServiceImpl
                 );
 
         for (Booking booking : checkOutBookings) {
+            if (!visibleToStaff(viewer, booking.getAssignedCheckOutStaff())) continue;
             // Khách đã hẹn trả kho: theo giờ hẹn. Khách chưa hẹn nhưng hợp đồng
             // đã đến/quá hạn: theo ngày hết hạn.
-            LocalDateTime scheduled = booking.getReturnTime() != null
-                    ? booking.getReturnTime()
-                    : booking.getEndDate().atStartOfDay();
+            LocalDateTime scheduled = booking.getScheduledReturnTime() != null
+                    ? booking.getScheduledReturnTime()
+                    : booking.getEndDate().atTime(9, 0);
 
             result.add(toScheduleResponse(
                     booking,
@@ -241,10 +285,19 @@ public class FacilityOperationsServiceImpl
             );
         }
 
+        if (booking.getAssignedCheckInStaff() != null
+                && !staff.getId().equals(booking.getAssignedCheckInStaff().getId())) {
+            throw new AppException(ErrorCode.HANDOVER_ASSIGNED_TO_ANOTHER_STAFF);
+        }
+
         // Chỉ bàn giao kho từ ngày bắt đầu thuê trở đi
         if (booking.getStartDate() != null
                 && booking.getStartDate().isAfter(java.time.LocalDate.now())) {
             throw new AppException(ErrorCode.CHECKIN_TOO_EARLY);
+        }
+        if (booking.getEndDate() != null
+                && !booking.getEndDate().isAfter(LocalDate.now())) {
+            throw new AppException(ErrorCode.CHECKIN_RENTAL_ENDED);
         }
 
         StorageUnit storageUnit = storageUnitRepository
@@ -333,6 +386,11 @@ public class FacilityOperationsServiceImpl
             );
         }
 
+        if (booking.getAssignedCheckOutStaff() != null
+                && !staff.getId().equals(booking.getAssignedCheckOutStaff().getId())) {
+            throw new AppException(ErrorCode.HANDOVER_ASSIGNED_TO_ANOTHER_STAFF);
+        }
+
         StorageUnit storageUnit = storageUnitRepository
                 .lockById(booking.getStorageUnit().getId())
                 .orElseThrow(() -> new AppException(
@@ -345,8 +403,8 @@ public class FacilityOperationsServiceImpl
             );
         }
 
-        // Nghiệm thu trả kho -> hoàn cọc. Bị chặn nếu khách còn nợ phí trễ hạn.
-        BigDecimal refundedDeposit = paymentService.refundDepositOnReturn(booking);
+        // Nghiệm thu trả kho -> tạo yêu cầu hoàn cọc. Bị chặn nếu còn nợ phí trễ hạn.
+        BigDecimal requestedRefund = paymentService.refundDepositOnReturn(booking);
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -375,9 +433,9 @@ public class FacilityOperationsServiceImpl
                 record,
                 request.getLockCondition(),
                 staff,
-                refundedDeposit.signum() > 0
-                        ? "Check-out completed successfully. Deposit refunded: "
-                        + refundedDeposit.toPlainString()
+                requestedRefund.signum() > 0
+                        ? "Check-out completed. Deposit refund requested: "
+                        + requestedRefund.toPlainString()
                         : "Check-out completed successfully"
         );
     }
@@ -460,6 +518,21 @@ public class FacilityOperationsServiceImpl
                 + request.getLockCondition();
     }
 
+    private LocalDateTime checkInTime(Booking booking) {
+        if (booking.getScheduledCheckInTime() != null) {
+            return booking.getScheduledCheckInTime();
+        }
+        return booking.getStartDate().atTime(
+                booking.getStorageUnit().getFacility().getOpenTime() != null
+                        ? booking.getStorageUnit().getFacility().getOpenTime()
+                        : java.time.LocalTime.of(8, 0));
+    }
+
+    private boolean visibleToStaff(User viewer, User assigned) {
+        return viewer.getRole() == null || !"STAFF".equals(viewer.getRole().getName())
+                || assigned == null || viewer.getId().equals(assigned.getId());
+    }
+
     private DailyScheduleResponse toScheduleResponse(
             Booking booking,
             String scheduleType,
@@ -493,6 +566,8 @@ public class FacilityOperationsServiceImpl
             unitType = storageUnit.getUnitType().getTypeName();
         }
 
+        User assigned = "CHECK_IN".equals(scheduleType)
+                ? booking.getAssignedCheckInStaff() : booking.getAssignedCheckOutStaff();
         return DailyScheduleResponse.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
@@ -519,6 +594,8 @@ public class FacilityOperationsServiceImpl
                 .type(unitType)
                 .scheduledTime(scheduledTime)
                 .scheduleType(scheduleType)
+                .assignedStaffId(assigned != null ? assigned.getId() : null)
+                .assignedStaffName(assigned != null ? assigned.getFullName() : null)
                 .bookingStatus(booking.getStatus())
                 .build();
     }

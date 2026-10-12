@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
+import '../../services/facility_admin_api_service.dart';
 import '../admin/role_permission_screen.dart';
 import '../common/profile_screen.dart';
+import '../common/transaction_history_screen.dart';
 import 'facility_management_screen.dart';
 import 'reports_screen.dart';
+import 'revenue_chart_card.dart';
 import 'unit_price_screen.dart';
 
 class OperationsDashboardScreen extends StatefulWidget {
@@ -19,6 +22,10 @@ class OperationsDashboardScreen extends StatefulWidget {
 
 class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
   final _adminApiService = AdminApiService();
+  final _reportsApi = FacilityAdminApiService();
+  late Future<Map<String, dynamic>> _revenueFuture;
+  late DateTime _revenueFrom;
+  late DateTime _revenueTo;
   bool _isLoading = true;
   int _userCount = 0;
   int _activeUsers = 0;
@@ -30,6 +37,17 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
   void initState() {
     super.initState();
     _fetchLiveMetrics();
+    _loadRevenue();
+  }
+
+  void _loadRevenue() {
+    final now = DateTime.now();
+    setState(() {
+      _revenueFrom = DateTime(now.year, now.month);
+      _revenueTo = now;
+      _revenueFuture = _reportsApi.getRevenueReport(
+          fromDate: _revenueFrom, toDate: _revenueTo);
+    });
   }
 
   Future<void> _fetchLiveMetrics() async {
@@ -103,7 +121,10 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _fetchLiveMetrics,
+              onRefresh: () async {
+                _loadRevenue();
+                await _fetchLiveMetrics();
+              },
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -148,6 +169,24 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                       _statCard('Permissions', '$_totalPermissions',
                           Icons.lock_outline, AppColors.secondary),
                     ],
+                  ),
+                  const SizedBox(height: 20),
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: _revenueFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState != ConnectionState.done) {
+                        return const LinearProgressIndicator();
+                      }
+                      if (snapshot.hasError) {
+                        return ListTile(
+                          title: const Text('Could not load revenue chart'),
+                          trailing: TextButton(onPressed: _loadRevenue,
+                              child: const Text('Retry')),
+                        );
+                      }
+                      return RevenueChartCard(report: snapshot.data ?? {},
+                          fromDate: _revenueFrom, toDate: _revenueTo);
+                    },
                   ),
                   const SizedBox(height: 20),
                   const Text('Management',
@@ -239,6 +278,38 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                           context,
                           MaterialPageRoute(
                               builder: (_) => const UnitPriceScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.receipt_long_outlined,
+                            color: AppColors.primaryContainer),
+                      ),
+                      title: const Text('Transaction History',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text(
+                          'View all payment transactions across the system',
+                          style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => TransactionHistoryScreen(
+                                    userRole: widget.user.roleName,
+                                  )),
                         );
                       },
                     ),

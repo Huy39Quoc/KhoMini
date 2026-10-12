@@ -35,20 +35,20 @@ public class CustomUserDetailsService implements UserDetailsService {
             throw new AppException(ErrorCode.USER_INACTIVE);
         }
 
+        if (user.getRole() == null || !Boolean.TRUE.equals(user.getRole().getIsActive())) {
+            throw new AppException(ErrorCode.ROLE_INACTIVE);
+        }
+
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
-        if (user.getRole() != null) {
-            authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().getName()));
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().getName()));
 
-            if (Boolean.TRUE.equals(user.getRole().getIsActive())) {
-                List<RolePermission> rolePermissions = rolePermissionRepository
-                        .findAllByRole_IdAndIsActiveTrueAndPermission_IsActiveTrue(user.getRole().getId());
+        List<RolePermission> rolePermissions = rolePermissionRepository
+                .findAllByRole_IdAndIsActiveTrueAndPermission_IsActiveTrue(user.getRole().getId());
 
-                for (RolePermission rp : rolePermissions) {
-                    if (rp.getPermission() != null && rp.getPermission().getName() != null) {
-                        authorities.add(new SimpleGrantedAuthority(rp.getPermission().getName()));
-                    }
-                }
+        for (RolePermission rp : rolePermissions) {
+            if (rp.getPermission() != null && rp.getPermission().getName() != null) {
+                authorities.add(new SimpleGrantedAuthority(rp.getPermission().getName()));
             }
         }
 

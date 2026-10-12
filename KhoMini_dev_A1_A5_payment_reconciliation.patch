@@ -1,0 +1,981 @@
+diff --git a/BE/StoreHub/src/main/java/com/storehub/controller/PaymentController.java b/BE/StoreHub/src/main/java/com/storehub/controller/PaymentController.java
+index e8ec213..b55a1d6 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/controller/PaymentController.java
++++ b/BE/StoreHub/src/main/java/com/storehub/controller/PaymentController.java
+@@ -163,7 +163,9 @@ public class PaymentController {
+         try {
+             PaymentResponse response = paymentService.processVnpayCallback(queryParams);
+             boolean isPaid = response.getStatus() == PaymentStatus.PAID;
+-            boolean isPending = response.getStatus() == PaymentStatus.PENDING;
++            boolean refunding = response.getStatus() == PaymentStatus.REFUND_PENDING
++                    || response.getStatus() == PaymentStatus.REFUNDED;
++            boolean isPending = response.getStatus() == PaymentStatus.PENDING || refunding;
+             String html = """
+                 <!DOCTYPE html>
+                 <html lang="vi">
+@@ -200,8 +202,9 @@ public class PaymentController {
+                 """.formatted(
+                     isPaid ? "" : isPending ? "pending" : "error",
+                     isPaid ? "✓" : isPending ? "…" : "✕",
+-                    isPaid ? "Thanh Toán Thành Công!" : isPending ? "Đang Xử Lý Thanh Toán" : "Thanh Toán Thất Bại",
++                    isPaid ? "Thanh Toán Thành Công!" : refunding ? "Đang Hoàn Tiền" : isPending ? "Đang Xử Lý Thanh Toán" : "Thanh Toán Thất Bại",
+                     isPaid ? "Giao dịch qua VNPAY đã hoàn tất thành công."
++                            : refunding ? "VNPay đã thu tiền sau khi đơn đặt chỗ không còn hiệu lực. Hệ thống đang xử lý hoàn tiền."
+                             : isPending ? "Giao dịch chưa hoàn tất. Vui lòng kiểm tra lại trong ứng dụng."
+                             : "Giao dịch không thành công hoặc đã bị hủy.",
+                     response.getTransactionId() != null ? response.getTransactionId() : "—",
+diff --git a/BE/StoreHub/src/main/java/com/storehub/entity/Payment.java b/BE/StoreHub/src/main/java/com/storehub/entity/Payment.java
+index 8f58fa2..88d8771 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/entity/Payment.java
++++ b/BE/StoreHub/src/main/java/com/storehub/entity/Payment.java
+@@ -53,4 +53,7 @@ public class Payment extends BaseEntity {
+ 
+     @Column(name = "gateway_amount", precision = 12, scale = 2)
+     private BigDecimal gatewayAmount;
++
++    @Column(name = "last_gateway_query_at")
++    private LocalDateTime lastGatewayQueryAt;
+ }
+diff --git a/BE/StoreHub/src/main/java/com/storehub/entity/RefundRequest.java b/BE/StoreHub/src/main/java/com/storehub/entity/RefundRequest.java
+index 2551c88..56e92bd 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/entity/RefundRequest.java
++++ b/BE/StoreHub/src/main/java/com/storehub/entity/RefundRequest.java
+@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
+ @Table(name = "refund_requests")
+ @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+ public class RefundRequest extends BaseEntity {
+-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+-    @JoinColumn(name = "booking_id", nullable = false, unique = true)
++    @ManyToOne(fetch = FetchType.LAZY, optional = false)
++    @JoinColumn(name = "booking_id", nullable = false)
+     private Booking booking;
+ 
+     @ManyToOne(fetch = FetchType.LAZY, optional = false)
+diff --git a/BE/StoreHub/src/main/java/com/storehub/repository/PaymentRepository.java b/BE/StoreHub/src/main/java/com/storehub/repository/PaymentRepository.java
+index 9d166af..dbf08f8 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/repository/PaymentRepository.java
++++ b/BE/StoreHub/src/main/java/com/storehub/repository/PaymentRepository.java
+@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
+ import org.springframework.data.jpa.repository.Lock;
+ import org.springframework.data.jpa.repository.Query;
+ import org.springframework.data.repository.query.Param;
++import org.springframework.data.domain.Pageable;
+ import org.springframework.stereotype.Repository;
+ 
+ import java.time.LocalDateTime;
+@@ -23,6 +24,26 @@ public interface PaymentRepository
+ 
+     Optional<Payment> findByTransactionId(String transactionId);
+ 
++    @Query("select p.booking.id from Payment p where p.transactionId = :transactionId")
++    Optional<UUID> findBookingIdByTransactionId(@Param("transactionId") String transactionId);
++
++    @Query("""
++            select p.id from Payment p
++            where p.status in (com.storehub.enums.PaymentStatus.PENDING,
++                               com.storehub.enums.PaymentStatus.FAILED)
++            and p.gatewayCreateDate is not null
++            and p.paymentTime < :createdBefore
++            and (p.lastGatewayQueryAt is null or p.lastGatewayQueryAt < :queriedBefore)
++            order by p.paymentTime asc
++            """)
++    List<UUID> findChargeIdsToReconcile(@Param("createdBefore") LocalDateTime createdBefore,
++                                        @Param("queriedBefore") LocalDateTime queriedBefore,
++                                        Pageable pageable);
++
++    @Lock(LockModeType.PESSIMISTIC_WRITE)
++    @Query("select p from Payment p where p.id = :id")
++    Optional<Payment> lockById(@Param("id") UUID id);
++
+     List<Payment> findByBooking_IdAndStatusAndPaymentTypeIn(
+             UUID bookingId, PaymentStatus status, java.util.Collection<PaymentType> paymentTypes);
+ 
+diff --git a/BE/StoreHub/src/main/java/com/storehub/repository/RefundRequestRepository.java b/BE/StoreHub/src/main/java/com/storehub/repository/RefundRequestRepository.java
+index 903b627..b999793 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/repository/RefundRequestRepository.java
++++ b/BE/StoreHub/src/main/java/com/storehub/repository/RefundRequestRepository.java
+@@ -15,8 +15,10 @@ import java.time.LocalDateTime;
+ 
+ public interface RefundRequestRepository extends JpaRepository<RefundRequest, UUID> {
+     boolean existsByBooking_Id(UUID bookingId);
++    boolean existsByOriginalPayment_Id(UUID paymentId);
+     boolean existsByIdAndBooking_StorageUnit_Facility_Id(UUID id, UUID facilityId);
+     Optional<RefundRequest> findByRefundPayment_Id(UUID refundPaymentId);
++    Optional<RefundRequest> findByOriginalPayment_Id(UUID originalPaymentId);
+     List<RefundRequest> findTop50ByBooking_StorageUnit_Facility_IdOrderByCreatedAtDesc(UUID facilityId);
+ 
+     List<RefundRequest> findTop20ByStatusOrderByCreatedAtAsc(RefundStatus status);
+diff --git a/BE/StoreHub/src/main/java/com/storehub/scheduler/BookingExpiryScheduler.java b/BE/StoreHub/src/main/java/com/storehub/scheduler/BookingExpiryScheduler.java
+index ed2b20f..91b6af1 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/scheduler/BookingExpiryScheduler.java
++++ b/BE/StoreHub/src/main/java/com/storehub/scheduler/BookingExpiryScheduler.java
+@@ -9,13 +9,14 @@ import com.storehub.repository.StorageUnitRepository;
+ import com.storehub.service.WaitlistService;
+ import lombok.RequiredArgsConstructor;
+ import lombok.extern.slf4j.Slf4j;
+-import org.springframework.data.jpa.repository.Query;
+ import org.springframework.scheduling.annotation.Scheduled;
+ import org.springframework.stereotype.Component;
+-import org.springframework.transaction.annotation.Transactional;
++import org.springframework.transaction.PlatformTransactionManager;
++import org.springframework.transaction.support.TransactionTemplate;
+ 
+ import java.time.LocalDateTime;
+ import java.util.List;
++import java.util.UUID;
+ 
+ /**
+  * Scheduler chạy mỗi 60 giây để tự động hủy các booking PENDING_PAYMENT
+@@ -30,9 +31,9 @@ public class BookingExpiryScheduler {
+     private final BookingRepository bookingRepository;
+     private final StorageUnitRepository storageUnitRepository;
+     private final WaitlistService waitlistService;
++    private final PlatformTransactionManager transactionManager;
+ 
+     @Scheduled(fixedRate = 60_000)
+-    @Transactional
+     public void expireStaleBookings() {
+         LocalDateTime now = LocalDateTime.now();
+ 
+@@ -43,31 +44,43 @@ public class BookingExpiryScheduler {
+ 
+         log.info("BookingExpiryScheduler: found {} expired booking(s) to cancel", expired.size());
+ 
+-        for (Booking booking : expired) {
+-            booking.setStatus(BookingStatus.CANCELLED);
+-            bookingRepository.save(booking);
+-
+-            StorageUnit unit = booking.getStorageUnit();
+-            if (unit != null && unit.getStatus() == UnitStatus.RESERVED) {
+-                unit.setStatus(UnitStatus.AVAILABLE);
+-                storageUnitRepository.save(unit);
+-
+-                try {
+-                    java.util.UUID facilityId = unit.getFacility() != null
+-                            ? unit.getFacility().getId() : null;
+-                    java.util.UUID unitTypeId = unit.getUnitType() != null
+-                            ? unit.getUnitType().getId() : null;
+-                    if (facilityId != null && unitTypeId != null) {
+-                        waitlistService.notifyNextInWaitlist(facilityId, unitTypeId);
+-                    }
+-                } catch (Exception e) {
+-                    log.warn("Waitlist notification failed for booking {}: {}",
+-                            booking.getId(), e.getMessage());
++        for (Booking candidate : expired) {
++            ReleasedUnit released = new TransactionTemplate(transactionManager).execute(status -> {
++                // Re-read under lock: callback and cancellation use the same booking lock.
++                Booking booking = bookingRepository.lockById(candidate.getId()).orElse(null);
++                if (booking == null || booking.getStatus() != BookingStatus.PENDING_PAYMENT
++                        || booking.getExpiresAt() == null
++                        || !booking.getExpiresAt().isBefore(LocalDateTime.now())) {
++                    return null;
+                 }
++                booking.setStatus(BookingStatus.CANCELLED);
++                bookingRepository.save(booking);
+ 
++                StorageUnit unit = booking.getStorageUnit();
++                if (unit != null && unit.getStatus() == UnitStatus.RESERVED) {
++                    unit.setStatus(UnitStatus.AVAILABLE);
++                    storageUnitRepository.save(unit);
++                    return new ReleasedUnit(booking.getId(), booking.getBookingCode(), unit.getUnitCode(),
++                            unit.getFacility() != null ? unit.getFacility().getId() : null,
++                            unit.getUnitType() != null ? unit.getUnitType().getId() : null);
++                }
++                return null;
++            });
++            if (released != null) {
+                 log.info("Expired booking {} cancelled, unit {} returned to AVAILABLE",
+-                        booking.getBookingCode(), unit.getUnitCode());
++                        released.bookingCode(), released.unitCode());
++                if (released.facilityId() != null && released.unitTypeId() != null) {
++                    try {
++                        waitlistService.notifyNextInWaitlist(released.facilityId(), released.unitTypeId());
++                    } catch (Exception e) {
++                        log.warn("Waitlist notification failed for booking {}: {}",
++                                released.bookingId(), e.getMessage());
++                    }
++                }
+             }
+         }
+     }
++
++    private record ReleasedUnit(UUID bookingId, String bookingCode, String unitCode,
++                                UUID facilityId, UUID unitTypeId) {}
+ }
+diff --git a/BE/StoreHub/src/main/java/com/storehub/scheduler/PaymentReconciliationScheduler.java b/BE/StoreHub/src/main/java/com/storehub/scheduler/PaymentReconciliationScheduler.java
+new file mode 100644
+index 0000000..7ee1267
+--- /dev/null
++++ b/BE/StoreHub/src/main/java/com/storehub/scheduler/PaymentReconciliationScheduler.java
+@@ -0,0 +1,81 @@
++package com.storehub.scheduler;
++
++import com.storehub.entity.Payment;
++import com.storehub.enums.PaymentStatus;
++import com.storehub.repository.PaymentRepository;
++import com.storehub.service.impl.PaymentServiceImpl;
++import com.storehub.service.impl.VnpayRefundClient;
++import lombok.RequiredArgsConstructor;
++import lombok.extern.slf4j.Slf4j;
++import org.springframework.data.domain.PageRequest;
++import org.springframework.scheduling.annotation.Scheduled;
++import org.springframework.stereotype.Component;
++import org.springframework.transaction.PlatformTransactionManager;
++import org.springframework.transaction.TransactionDefinition;
++import org.springframework.transaction.support.TransactionTemplate;
++
++import java.time.LocalDateTime;
++import java.util.UUID;
++import java.util.function.Supplier;
++
++/** Queries VNPay for charges whose IPN/return was lost. No network I/O holds a DB lock. */
++@Component
++@RequiredArgsConstructor
++@Slf4j
++public class PaymentReconciliationScheduler {
++    private final PaymentRepository payments;
++    private final VnpayRefundClient gateway;
++    private final PaymentServiceImpl paymentService;
++    private final PlatformTransactionManager transactionManager;
++
++    @Scheduled(fixedDelay = 60_000)
++    public void reconcile() {
++        LocalDateTime now = LocalDateTime.now();
++        for (UUID id : payments.findChargeIdsToReconcile(now.minusMinutes(2),
++                now.minusMinutes(5), PageRequest.of(0, 50))) {
++            Charge charge = inTransaction(() -> claim(id));
++            if (charge == null) continue;
++            try {
++                VnpayRefundClient.GatewayResult result = gateway.query(
++                        charge.transactionId(), charge.gatewayCreateDate());
++                if (result.confirmedCharge(charge.amount())) {
++                    inTransaction(() -> {
++                        paymentService.reconcileConfirmedCharge(charge.transactionId(), result);
++                        return null;
++                    });
++                } else {
++                    // 91 (not found), 94 (rate limited), a pending gateway status,
++                    // and other inconclusive results must not mark the charge failed.
++                    log.info("Charge {} still awaiting gateway reconciliation (response {}, status {})",
++                            charge.transactionId(), result.responseCode(), result.transactionStatus());
++                }
++            } catch (Exception ex) {
++                log.warn("Charge {} reconciliation deferred: {}", charge.transactionId(), ex.toString());
++            }
++        }
++    }
++
++    private Charge claim(UUID id) {
++        Payment payment = payments.lockById(id).orElse(null);
++        if (payment == null || (payment.getStatus() != PaymentStatus.PENDING
++                && payment.getStatus() != PaymentStatus.FAILED)
++                || payment.getGatewayCreateDate() == null
++                || payment.getGatewayAmount() == null
++                || (payment.getLastGatewayQueryAt() != null
++                && !payment.getLastGatewayQueryAt().isBefore(LocalDateTime.now().minusMinutes(5)))) {
++            return null;
++        }
++        payment.setLastGatewayQueryAt(LocalDateTime.now());
++        return new Charge(payment.getTransactionId(), payment.getGatewayCreateDate(),
++                payment.getGatewayAmount());
++    }
++
++    private <T> T inTransaction(Supplier<T> work) {
++        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
++        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
++        return transaction.execute(status -> work.get());
++    }
++
++    private record Charge(String transactionId, String gatewayCreateDate,
++                          java.math.BigDecimal amount) {}
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/scheduler/RefundDispatcher.java b/BE/StoreHub/src/main/java/com/storehub/scheduler/RefundDispatcher.java
+index 04bba93..769966c 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/scheduler/RefundDispatcher.java
++++ b/BE/StoreHub/src/main/java/com/storehub/scheduler/RefundDispatcher.java
+@@ -152,10 +152,14 @@ public class RefundDispatcher {
+         BigDecimal depositRemaining = booking.getDepositPaid().subtract(request.getDepositAmount());
+         if (depositRemaining.signum() < 0) throw new IllegalStateException("Refund exceeds deposit");
+         booking.setDepositPaid(depositRemaining);
+-        if (depositRemaining.signum() == 0) {
++        // The booking may contain deposits from several captured attempts.
++        // Settle this original transaction independently of the booking total.
++        BigDecimal originalRemaining = original.getAmount().subtract(request.getDepositAmount());
++        if (originalRemaining.signum() < 0) throw new IllegalStateException("Refund exceeds original deposit");
++        if (originalRemaining.signum() == 0) {
+             original.setStatus(PaymentStatus.REFUNDED);
+         } else {
+-            original.setAmount(depositRemaining);
++            original.setAmount(originalRemaining);
+         }
+         if (request.getRentalAmount().signum() > 0) {
+             Payment rent = payments.findByTransactionId(original.getTransactionId() + "-R")
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/PaymentService.java b/BE/StoreHub/src/main/java/com/storehub/service/PaymentService.java
+index 98410f0..36c927a 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/PaymentService.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/PaymentService.java
+@@ -25,10 +25,6 @@ public interface PaymentService {
+             PaymentConfirmationRequest request
+     );
+ 
+-    PaymentResponse confirmPayment(
+-            PaymentConfirmationRequest request
+-    );
+-
+     PaymentResponse getPendingExtensionPayment(
+             String customerEmail,
+             UUID bookingId
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java
+index 8bad50c..5da4dc6 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java
+@@ -148,7 +148,7 @@ public class BookingServiceImpl implements BookingService {
+         User customer = userRepository.findByEmail(customerEmail)
+                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+ 
+-        Booking booking = bookingRepository.findByIdAndCustomerId(bookingId, customer.getId())
++        Booking booking = bookingRepository.lockByIdAndCustomerId(bookingId, customer.getId())
+                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+ 
+         BookingStatus previousStatus = booking.getStatus();
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/PaymentServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/PaymentServiceImpl.java
+index a8048c7..e8c0b63 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/PaymentServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/PaymentServiceImpl.java
+@@ -316,26 +316,51 @@ public class PaymentServiceImpl implements PaymentService {
+         return getPaymentStatus(customerEmail, request.getTransactionId());
+     }
+ 
+-    @Override
+     @Transactional
+-    public PaymentResponse confirmPayment(PaymentConfirmationRequest request) {
+-        Payment payment = paymentRepository
+-                .lockByTransactionId(request.getTransactionId())
++    public PaymentResponse reconcileConfirmedCharge(String transactionId,
++                                                     VnpayRefundClient.GatewayResult result) {
++        Payment payment = paymentRepository.findByTransactionId(transactionId)
+                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
++        if (payment.getGatewayAmount() == null
++                || !result.confirmedCharge(payment.getGatewayAmount())) {
++            throw new AppException(ErrorCode.INVALID_REQUEST);
++        }
++        return settleVerifiedCharge(transactionId, result.transactionNo(), result.amount());
++    }
+ 
+-        if (payment.getStatus() == PaymentStatus.PAID) {
++    private PaymentResponse settleVerifiedCharge(String transactionId, String gatewayTxnNo,
++                                                 String gatewayAmount) {
++        UUID bookingId = paymentRepository.findBookingIdByTransactionId(transactionId)
++                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
++        // All booking status transitions (callback, cancel, expiry) take this lock first.
++        Booking booking = bookingRepository.lockById(bookingId)
++                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
++        Payment payment = paymentRepository.lockByTransactionId(transactionId)
++                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
++
++        if (gatewayAmount != null) {
++            BigDecimal expected = payment.getGatewayAmount() != null
++                    ? payment.getGatewayAmount() : groupAmount(payment);
++            try {
++                if (gatewayAmount.isBlank()
++                        || new BigDecimal(gatewayAmount).compareTo(expected.movePointRight(2)) != 0) {
++                    throw new AppException(ErrorCode.INVALID_REQUEST);
++                }
++            } catch (NumberFormatException e) {
++                throw new AppException(ErrorCode.INVALID_REQUEST);
++            }
++        }
++        if (payment.getStatus() == PaymentStatus.PAID
++                || payment.getStatus() == PaymentStatus.REFUND_PENDING
++                || payment.getStatus() == PaymentStatus.REFUNDED) {
+             return toPaymentResponse(payment);
+         }
+-        if (payment.getStatus() != PaymentStatus.PENDING) {
++        if (payment.getStatus() != PaymentStatus.PENDING && payment.getStatus() != PaymentStatus.FAILED) {
+             throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+         }
+-
+-        Booking booking = payment.getBooking();
+-
+-        if (booking == null) {
+-            throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
++        if (gatewayTxnNo != null && !gatewayTxnNo.isBlank()) {
++            payment.setGatewayTransactionNo(gatewayTxnNo);
+         }
+-
+         return processPaymentConfirmation(payment, booking);
+     }
+ 
+@@ -360,7 +385,9 @@ public class PaymentServiceImpl implements PaymentService {
+                 .refundStatus(payment.getTransactionId() != null
+                         && payment.getTransactionId().startsWith("RF-")
+                         ? refundRequests.findByRefundPayment_Id(payment.getId())
+-                            .map(RefundRequest::getStatus).orElse(null) : null)
++                            .map(RefundRequest::getStatus).orElse(null)
++                        : refundRequests.findByOriginalPayment_Id(payment.getId())
++                            .map(RefundRequest::getStatus).orElse(null))
+                 .paymentMethod(payment.getPaymentMethod())
+                 .paymentTime(payment.getPaymentTime())
+                 .note(payment.getNote())
+@@ -368,18 +395,13 @@ public class PaymentServiceImpl implements PaymentService {
+     }
+ 
+     private PaymentResponse processPaymentConfirmation(Payment payment, Booking booking) {
+-        if (booking.getExpiresAt() != null
+-                && booking.getExpiresAt().isBefore(LocalDateTime.now())
+-                && booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
+-            throw new AppException(ErrorCode.BOOKING_EXPIRED);
+-        }
+-
++        boolean expired = booking.getExpiresAt() != null
++                && booking.getExpiresAt().isBefore(LocalDateTime.now());
++        boolean lateDeposit = false;
+         if (payment.getPaymentType() == PaymentType.DEPOSIT) {
+-            if (booking.getStatus() != BookingStatus.PENDING_PAYMENT
++            lateDeposit = expired || booking.getStatus() != BookingStatus.PENDING_PAYMENT
+                     || booking.getStorageUnit() == null
+-                    || booking.getStorageUnit().getStatus() != UnitStatus.RESERVED) {
+-                throw new AppException(ErrorCode.UNIT_UNAVAILABLE);
+-            }
++                    || booking.getStorageUnit().getStatus() != UnitStatus.RESERVED;
+         }
+ 
+         payment.setStatus(PaymentStatus.PAID);
+@@ -387,19 +409,45 @@ public class PaymentServiceImpl implements PaymentService {
+         paymentRepository.save(payment);
+ 
+         if (payment.getPaymentType() == PaymentType.DEPOSIT) {
+-            booking.setDepositPaid(
+-                    booking.getDepositPaid().add(payment.getAmount())
+-            );
+-            booking.setStatus(BookingStatus.CONFIRMED);
+-
++            booking.setDepositPaid(booking.getDepositPaid().add(payment.getAmount()));
+             // Dòng tiền thuê + phí quản lý đi kèm trong cùng giao dịch VNPay
+-            paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX)
+-                    .filter(p -> p.getStatus() == PaymentStatus.PENDING)
+-                    .ifPresent(p -> {
+-                        p.setStatus(PaymentStatus.PAID);
+-                        p.setPaymentTime(LocalDateTime.now());
+-                        paymentRepository.save(p);
+-                    });
++            Payment rental = paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX)
++                    .orElse(null);
++            BigDecimal rentalAmount = rental != null ? rental.getAmount() : BigDecimal.ZERO;
++            if (payment.getGatewayAmount() == null) {
++                // Older attempts did not persist the gateway amount. A signed
++                // callback has already been compared to these two ledger rows.
++                payment.setGatewayAmount(payment.getAmount().add(rentalAmount));
++            }
++            if ((payment.getGatewayAmount() != null
++                    && payment.getGatewayAmount().compareTo(payment.getAmount().add(rentalAmount)) != 0)
++                    || (rental != null && rental.getStatus() != PaymentStatus.PENDING
++                        && rental.getStatus() != PaymentStatus.FAILED)) {
++                throw new AppException(ErrorCode.INVALID_REQUEST);
++            }
++            if (rental != null) {
++                rental.setStatus(PaymentStatus.PAID);
++                rental.setPaymentTime(payment.getPaymentTime());
++                paymentRepository.save(rental);
++            }
++
++            if (lateDeposit) {
++                if (booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
++                    booking.setStatus(BookingStatus.CANCELLED);
++                    if (booking.getStorageUnit() != null
++                            && booking.getStorageUnit().getStatus() == UnitStatus.RESERVED) {
++                        booking.getStorageUnit().setStatus(UnitStatus.AVAILABLE);
++                    }
++                }
++                // The gateway captured money even though this booking cannot be
++                // handed over. Refund the FULL original charge, not just the deposit.
++                queueRefund(booking, payment, payment.getAmount(), rentalAmount);
++                payment.setStatus(PaymentStatus.REFUND_PENDING);
++                if (rental != null) rental.setStatus(PaymentStatus.REFUND_PENDING);
++                bookingRepository.save(booking);
++                return toPaymentResponse(payment);
++            }
++            booking.setStatus(BookingStatus.CONFIRMED);
+         }
+ 
+         if (payment.getPaymentType() == PaymentType.EXTRA_CHARGE
+@@ -575,30 +623,12 @@ public class PaymentServiceImpl implements PaymentService {
+         }
+ 
+         if ("00".equals(responseCode) && "00".equals(transactionStatus)) {
+-            // Đối chiếu số tiền VNPay báo về với số tiền của giao dịch (chỉ khi còn PENDING,
+-            // để IPN/return gọi lặp lại vẫn idempotent).
+-            Payment pending = paymentRepository.findByTransactionId(transactionId)
+-                    .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+-            if (pending.getStatus() == PaymentStatus.PENDING) {
+-                pending.setGatewayTransactionNo(queryParams.get("vnp_TransactionNo"));
+-            }
+-            if (pending.getStatus() == PaymentStatus.PENDING) {
+-                long expected = groupAmount(pending).multiply(new BigDecimal(100)).longValue();
+-                long actual;
+-                try {
+-                    actual = Long.parseLong(queryParams.get("vnp_Amount"));
+-                } catch (NumberFormatException e) {
+-                    log.error("VNPay callback has invalid vnp_Amount for {}", transactionId);
+-                    throw new AppException(ErrorCode.INVALID_REQUEST);
+-                }
+-                if (actual != expected) {
+-                    log.error("VNPay amount mismatch for {}: expected {}, got {}", transactionId, expected, actual);
+-                    throw new AppException(ErrorCode.INVALID_REQUEST);
+-                }
++            if (queryParams.get("vnp_Amount") == null) {
++                throw new AppException(ErrorCode.INVALID_REQUEST);
+             }
+-            PaymentConfirmationRequest confirmationRequest = new PaymentConfirmationRequest();
+-            confirmationRequest.setTransactionId(transactionId);
+-            return confirmPayment(confirmationRequest);
++            // Verify amount under the same booking/payment locks used to settle.
++            return settleVerifiedCharge(transactionId,
++                    queryParams.get("vnp_TransactionNo"), queryParams.get("vnp_Amount"));
+         } else {
+             log.warn("VNPay payment failed or cancelled with response code: {}, transaction status: {} for transactionId: {}",
+                     responseCode, transactionStatus, transactionId);
+@@ -642,7 +672,9 @@ public class PaymentServiceImpl implements PaymentService {
+                 && payment.getTransactionId().startsWith("TXN-")
+                 && (payment.getStatus() == PaymentStatus.PENDING
+                 || payment.getStatus() == PaymentStatus.PAID
+-                || payment.getStatus() == PaymentStatus.FAILED)) {
++                || payment.getStatus() == PaymentStatus.FAILED
++                || payment.getStatus() == PaymentStatus.REFUND_PENDING
++                || payment.getStatus() == PaymentStatus.REFUNDED)) {
+             return paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX)
+                     .filter(p -> p.getStatus() == payment.getStatus())
+                     .map(p -> payment.getAmount().add(p.getAmount()))
+@@ -704,6 +736,18 @@ public class PaymentServiceImpl implements PaymentService {
+                 .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                         booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
+                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
++        return queueRefund(booking, original, depositPart, rentalPart);
++    }
++
++    // Multiple captured payment attempts can belong to the same cancelled
++    // booking. Each original gateway transaction is refunded at most once.
++    private BigDecimal queueRefund(Booking booking, Payment original,
++                                   BigDecimal depositPart, BigDecimal rentalPart) {
++        BigDecimal total = depositPart.add(rentalPart);
++        if (total.signum() <= 0) return BigDecimal.ZERO;
++        if (refundRequests.existsByOriginalPayment_Id(original.getId())) {
++            throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
++        }
+         String requestId = UUID.randomUUID().toString().replace("-", "").toUpperCase();
+         Payment refundPayment = paymentRepository.save(Payment.builder()
+                 .transactionId("RF-" + requestId)
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/VnpayRefundClient.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/VnpayRefundClient.java
+index 6c2d1f9..959f31b 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/VnpayRefundClient.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/VnpayRefundClient.java
+@@ -115,11 +115,28 @@ public class VnpayRefundClient {
+         return new GatewayResult(json.path("vnp_ResponseCode").asText(),
+                 json.path("vnp_TransactionStatus").asText(),
+                 json.path("vnp_TransactionType").asText(),
+-                json.path("vnp_Amount").asText());
++                json.path("vnp_Amount").asText(),
++                json.path("vnp_TransactionNo").asText());
+     }
+ 
+     public record GatewayResult(String responseCode, String transactionStatus,
+-                                String transactionType, String amount) {
++                                String transactionType, String amount, String transactionNo) {
++        public GatewayResult(String responseCode, String transactionStatus,
++                             String transactionType, String amount) {
++            this(responseCode, transactionStatus, transactionType, amount, "");
++        }
++
++        public boolean confirmedCharge(BigDecimal expectedAmount) {
++            try {
++                return "00".equals(responseCode) && "00".equals(transactionStatus)
++                        && "01".equals(transactionType)
++                        && expectedAmount != null && amount != null
++                        && new BigDecimal(amount).compareTo(expectedAmount.movePointRight(2)) == 0;
++            } catch (NumberFormatException e) {
++                return false;
++            }
++        }
++
+         public boolean confirmed(BigDecimal requestedAmount) {
+             boolean matches;
+             try {
+diff --git a/BE/StoreHub/src/main/resources/db/migration/V15__reconcile_gateway_charges.sql b/BE/StoreHub/src/main/resources/db/migration/V15__reconcile_gateway_charges.sql
+new file mode 100644
+index 0000000..49864ef
+--- /dev/null
++++ b/BE/StoreHub/src/main/resources/db/migration/V15__reconcile_gateway_charges.sql
+@@ -0,0 +1,10 @@
++ALTER TABLE payments ADD COLUMN last_gateway_query_at TIMESTAMP;
++CREATE INDEX idx_payments_charge_reconciliation
++    ON payments(status, payment_time, last_gateway_query_at)
++    WHERE gateway_create_date IS NOT NULL;
++
++-- A booking can have several gateway attempts. Each captured attempt needs its
++-- own refund if its booking was already cancelled or another attempt succeeded.
++ALTER TABLE refund_requests DROP CONSTRAINT refund_requests_booking_id_key;
++CREATE INDEX idx_refund_requests_booking ON refund_requests(booking_id);
++CREATE UNIQUE INDEX ux_refund_requests_original_payment ON refund_requests(original_payment_id);
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/LateCapturedBookingPaymentTest.java b/BE/StoreHub/src/test/java/com/storehub/service/LateCapturedBookingPaymentTest.java
+new file mode 100644
+index 0000000..e965426
+--- /dev/null
++++ b/BE/StoreHub/src/test/java/com/storehub/service/LateCapturedBookingPaymentTest.java
+@@ -0,0 +1,161 @@
++package com.storehub.service;
++
++import com.storehub.entity.Booking;
++import com.storehub.entity.Payment;
++import com.storehub.entity.RefundRequest;
++import com.storehub.entity.StorageUnit;
++import com.storehub.enums.BookingStatus;
++import com.storehub.enums.PaymentStatus;
++import com.storehub.enums.PaymentType;
++import com.storehub.enums.RefundStatus;
++import com.storehub.enums.UnitStatus;
++import com.storehub.repository.BookingRepository;
++import com.storehub.repository.PaymentRepository;
++import com.storehub.repository.RefundRequestRepository;
++import com.storehub.repository.UserRepository;
++import com.storehub.service.impl.PaymentServiceImpl;
++import com.storehub.service.impl.VnpayRefundClient;
++import com.storehub.util.VNPayUtil;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.ArgumentCaptor;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.springframework.test.util.ReflectionTestUtils;
++
++import java.math.BigDecimal;
++import java.time.LocalDateTime;
++import java.util.HashMap;
++import java.util.Map;
++import java.util.Optional;
++import java.util.UUID;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertNotNull;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++@ExtendWith(MockitoExtension.class)
++class LateCapturedBookingPaymentTest {
++    @Mock PaymentRepository payments;
++    @Mock BookingRepository bookings;
++    @Mock RefundRequestRepository refunds;
++    @Mock UserRepository users;
++    @Mock EmailService email;
++    @Mock ActivityLogService log;
++    @Mock PricingService pricing;
++    @InjectMocks PaymentServiceImpl service;
++
++    @Test
++    void successfulIpnAfterCancellationQueuesFullRefundExactlyOnce() {
++        Booking booking = booking(BookingStatus.CANCELLED, UnitStatus.AVAILABLE);
++        Payment deposit = deposit(booking);
++        Payment rent = rent(booking);
++        setup(booking, deposit, rent);
++
++        assertEquals(PaymentStatus.REFUND_PENDING,
++                service.processVnpayCallback(signedSuccess()).getStatus());
++        assertEquals(PaymentStatus.REFUND_PENDING,
++                service.processVnpayCallback(signedSuccess()).getStatus());
++
++        assertEquals(BookingStatus.CANCELLED, booking.getStatus());
++        assertEquals(UnitStatus.AVAILABLE, booking.getStorageUnit().getStatus());
++        assertEquals(new BigDecimal("200"), booking.getDepositPaid());
++        assertEquals(PaymentStatus.REFUND_PENDING, rent.getStatus());
++        assertEquals("12345678", deposit.getGatewayTransactionNo());
++
++        ArgumentCaptor<RefundRequest> request = ArgumentCaptor.forClass(RefundRequest.class);
++        verify(refunds, times(1)).save(request.capture());
++        assertEquals(new BigDecimal("1000"), request.getValue().getAmount());
++        assertEquals(new BigDecimal("200"), request.getValue().getDepositAmount());
++        assertEquals(new BigDecimal("800"), request.getValue().getRentalAmount());
++        assertEquals(RefundStatus.QUEUED, request.getValue().getStatus());
++        assertNotNull(request.getValue().getRefundPayment());
++    }
++
++    @Test
++    void successfulIpnAfterExpiryCancelsHeldBookingAndQueuesFullRefund() {
++        Booking booking = booking(BookingStatus.PENDING_PAYMENT, UnitStatus.RESERVED);
++        booking.setExpiresAt(LocalDateTime.now().minusSeconds(1));
++        Payment deposit = deposit(booking);
++        setup(booking, deposit, rent(booking));
++
++        assertEquals(PaymentStatus.REFUND_PENDING,
++                service.processVnpayCallback(signedSuccess()).getStatus());
++        assertEquals(BookingStatus.CANCELLED, booking.getStatus());
++        assertEquals(UnitStatus.AVAILABLE, booking.getStorageUnit().getStatus());
++        verify(refunds, times(1)).save(any(RefundRequest.class));
++    }
++
++    @Test
++    void gatewayQueryRecoversChargeAfterFailedReturnAndCancelledBooking() {
++        Booking booking = booking(BookingStatus.CANCELLED, UnitStatus.AVAILABLE);
++        Payment deposit = deposit(booking);
++        Payment rent = rent(booking);
++        deposit.setStatus(PaymentStatus.FAILED);
++        rent.setStatus(PaymentStatus.FAILED);
++        setup(booking, deposit, rent);
++        when(payments.findByTransactionId("TXN-1")).thenReturn(Optional.of(deposit));
++
++        assertEquals(PaymentStatus.REFUND_PENDING,
++                service.reconcileConfirmedCharge("TXN-1",
++                        new VnpayRefundClient.GatewayResult("00", "00", "01", "100000", "12345678"))
++                        .getStatus());
++        assertEquals(PaymentStatus.REFUND_PENDING, rent.getStatus());
++        verify(refunds, times(1)).save(any(RefundRequest.class));
++    }
++
++    private Booking booking(BookingStatus status, UnitStatus unitStatus) {
++        Booking booking = Booking.builder().bookingCode("BK-1").status(status)
++                .depositPaid(BigDecimal.ZERO)
++                .storageUnit(StorageUnit.builder().status(unitStatus).build())
++                .build();
++        booking.setId(UUID.randomUUID());
++        return booking;
++    }
++
++    private Payment deposit(Booking booking) {
++        Payment payment = Payment.builder().booking(booking).transactionId("TXN-1")
++                .paymentType(PaymentType.DEPOSIT).amount(new BigDecimal("200"))
++                .gatewayAmount(new BigDecimal("1000"))
++                .gatewayCreateDate("20261009230000")
++                .status(PaymentStatus.PENDING).build();
++        payment.setId(UUID.randomUUID());
++        return payment;
++    }
++
++    private Payment rent(Booking booking) {
++        Payment payment = Payment.builder().booking(booking).transactionId("TXN-1-R")
++                .paymentType(PaymentType.RENTAL_FEE).amount(new BigDecimal("800"))
++                .status(PaymentStatus.PENDING).build();
++        payment.setId(UUID.randomUUID());
++        return payment;
++    }
++
++    private void setup(Booking booking, Payment deposit, Payment rent) {
++        ReflectionTestUtils.setField(service, "vnpHashSecret", "test-secret");
++        when(payments.findBookingIdByTransactionId("TXN-1"))
++                .thenReturn(Optional.of(booking.getId()));
++        when(bookings.lockById(booking.getId())).thenReturn(Optional.of(booking));
++        when(payments.lockByTransactionId("TXN-1")).thenReturn(Optional.of(deposit));
++        when(payments.findByTransactionId("TXN-1-R")).thenReturn(Optional.of(rent));
++        when(payments.save(any(Payment.class)))
++                .thenAnswer(invocation -> invocation.getArgument(0));
++    }
++
++    private Map<String, String> signedSuccess() {
++        Map<String, String> params = new HashMap<>();
++        params.put("vnp_Amount", "100000");
++        params.put("vnp_ResponseCode", "00");
++        params.put("vnp_TransactionNo", "12345678");
++        params.put("vnp_TransactionStatus", "00");
++        params.put("vnp_TxnRef", "TXN-1");
++        params.put("vnp_SecureHash", VNPayUtil.hmacSHA512("test-secret",
++                "vnp_Amount=100000&vnp_ResponseCode=00&vnp_TransactionNo=12345678"
++                        + "&vnp_TransactionStatus=00&vnp_TxnRef=TXN-1"));
++        return params;
++    }
++}
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/PaymentReconciliationSchedulerTest.java b/BE/StoreHub/src/test/java/com/storehub/service/PaymentReconciliationSchedulerTest.java
+new file mode 100644
+index 0000000..e8f2327
+--- /dev/null
++++ b/BE/StoreHub/src/test/java/com/storehub/service/PaymentReconciliationSchedulerTest.java
+@@ -0,0 +1,71 @@
++package com.storehub.service;
++
++import com.storehub.entity.Payment;
++import com.storehub.enums.PaymentStatus;
++import com.storehub.repository.PaymentRepository;
++import com.storehub.scheduler.PaymentReconciliationScheduler;
++import com.storehub.service.impl.PaymentServiceImpl;
++import com.storehub.service.impl.VnpayRefundClient;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.springframework.transaction.PlatformTransactionManager;
++import org.springframework.transaction.support.SimpleTransactionStatus;
++
++import java.math.BigDecimal;
++import java.util.List;
++import java.util.Optional;
++import java.util.UUID;
++
++import static org.junit.jupiter.api.Assertions.assertNotNull;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++@ExtendWith(MockitoExtension.class)
++class PaymentReconciliationSchedulerTest {
++    @Mock PaymentRepository payments;
++    @Mock VnpayRefundClient gateway;
++    @Mock PaymentServiceImpl paymentService;
++    @Mock PlatformTransactionManager manager;
++
++    @Test
++    void missingIpnIsRecoveredOnlyWhenSignedGatewayQueryConfirmsOriginalCharge() throws Exception {
++        UUID id = UUID.randomUUID();
++        Payment payment = Payment.builder().transactionId("TXN-1")
++                .gatewayCreateDate("20261009230000")
++                .gatewayAmount(new BigDecimal("1000"))
++                .status(PaymentStatus.PENDING).build();
++        when(payments.findChargeIdsToReconcile(any(), any(), any())).thenReturn(List.of(id));
++        when(payments.lockById(id)).thenReturn(Optional.of(payment));
++        when(manager.getTransaction(any())).thenAnswer(call -> new SimpleTransactionStatus());
++        VnpayRefundClient.GatewayResult confirmed =
++                new VnpayRefundClient.GatewayResult("00", "00", "01", "100000", "123456");
++        when(gateway.query("TXN-1", "20261009230000")).thenReturn(confirmed);
++
++        new PaymentReconciliationScheduler(payments, gateway, paymentService, manager).reconcile();
++
++        assertNotNull(payment.getLastGatewayQueryAt());
++        verify(paymentService).reconcileConfirmedCharge("TXN-1", confirmed);
++    }
++
++    @Test
++    void ambiguousGatewayResponseNeverConfirmsCharge() throws Exception {
++        UUID id = UUID.randomUUID();
++        Payment payment = Payment.builder().transactionId("TXN-1")
++                .gatewayCreateDate("20261009230000")
++                .gatewayAmount(new BigDecimal("1000"))
++                .status(PaymentStatus.PENDING).build();
++        when(payments.findChargeIdsToReconcile(any(), any(), any())).thenReturn(List.of(id));
++        when(payments.lockById(id)).thenReturn(Optional.of(payment));
++        when(manager.getTransaction(any())).thenAnswer(call -> new SimpleTransactionStatus());
++        when(gateway.query("TXN-1", "20261009230000"))
++                .thenReturn(new VnpayRefundClient.GatewayResult("00", "01", "01", "100000"));
++
++        new PaymentReconciliationScheduler(payments, gateway, paymentService, manager).reconcile();
++
++        verify(paymentService, never()).reconcileConfirmedCharge(any(), any());
++    }
++}
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/RefundDispatcherRecoveryTest.java b/BE/StoreHub/src/test/java/com/storehub/service/RefundDispatcherRecoveryTest.java
+index fe55395..48b4a9f 100644
+--- a/BE/StoreHub/src/test/java/com/storehub/service/RefundDispatcherRecoveryTest.java
++++ b/BE/StoreHub/src/test/java/com/storehub/service/RefundDispatcherRecoveryTest.java
+@@ -4,6 +4,7 @@ import com.storehub.entity.Booking;
+ import com.storehub.entity.Payment;
+ import com.storehub.entity.RefundRequest;
+ import com.storehub.enums.RefundStatus;
++import com.storehub.enums.PaymentStatus;
+ import com.storehub.repository.BookingRepository;
+ import com.storehub.repository.PaymentRepository;
+ import com.storehub.repository.RefundRequestRepository;
+@@ -64,4 +65,47 @@ class RefundDispatcherRecoveryTest {
+         assertEquals(RefundStatus.AWAITING_CONFIRMATION, request.getStatus());
+         verify(gateway, never()).refund(any(), any(), any(), any(), any(), any(), any());
+     }
++
++    @Test
++    void fullRefundSettlesItsOriginalEvenWhenBookingHasAnotherDeposit() throws Exception {
++        UUID id = UUID.randomUUID();
++        Booking booking = Booking.builder().bookingCode("BK-1")
++                .depositPaid(new BigDecimal("400")).build();
++        booking.setId(UUID.randomUUID());
++        Payment original = Payment.builder().transactionId("TXN-2")
++                .amount(new BigDecimal("200"))
++                .gatewayCreateDate("20261009230000")
++                .gatewayAmount(new BigDecimal("1000"))
++                .status(PaymentStatus.REFUND_PENDING).build();
++        Payment rent = Payment.builder().transactionId("TXN-2-R")
++                .amount(new BigDecimal("800"))
++                .status(PaymentStatus.REFUND_PENDING).build();
++        Payment refundPayment = Payment.builder().amount(new BigDecimal("1000"))
++                .status(PaymentStatus.REFUND_PENDING).build();
++        RefundRequest request = RefundRequest.builder().booking(booking)
++                .originalPayment(original).refundPayment(refundPayment)
++                .requestId("REFUND2").amount(new BigDecimal("1000"))
++                .depositAmount(new BigDecimal("200"))
++                .rentalAmount(new BigDecimal("800"))
++                .status(RefundStatus.SENDING)
++                .updatedStatusAt(LocalDateTime.now().minusMinutes(10)).build();
++        request.setId(id);
++        when(refunds.findById(id)).thenReturn(Optional.of(request));
++        when(refunds.lockById(id)).thenReturn(Optional.of(request));
++        when(bookings.lockById(booking.getId())).thenReturn(Optional.of(booking));
++        when(payments.findByTransactionId("TXN-2-R")).thenReturn(Optional.of(rent));
++        when(transactionManager.getTransaction(any()))
++                .thenAnswer(invocation -> new SimpleTransactionStatus());
++        when(gateway.query("TXN-2", "20261009230000"))
++                .thenReturn(new VnpayRefundClient.GatewayResult("00", "00", "02", "100000"));
++
++        new RefundDispatcher(refunds, payments, bookings, activityLog, gateway, transactionManager)
++                .reconcile(id);
++
++        assertEquals(RefundStatus.COMPLETED, request.getStatus());
++        assertEquals(PaymentStatus.REFUNDED, original.getStatus());
++        assertEquals(PaymentStatus.REFUNDED, rent.getStatus());
++        assertEquals(PaymentStatus.REFUNDED, refundPayment.getStatus());
++        assertEquals(new BigDecimal("200"), booking.getDepositPaid());
++    }
+ }
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/VnpayRefundResultTest.java b/BE/StoreHub/src/test/java/com/storehub/service/VnpayRefundResultTest.java
+index 5946983..f505745 100644
+--- a/BE/StoreHub/src/test/java/com/storehub/service/VnpayRefundResultTest.java
++++ b/BE/StoreHub/src/test/java/com/storehub/service/VnpayRefundResultTest.java
+@@ -17,4 +17,13 @@ class VnpayRefundResultTest {
+         assertFalse(new GatewayResult("00", "00", "01", "10000000").confirmed(requested));
+         assertTrue(new GatewayResult("00", "00", "03", "10000000").confirmed(requested));
+     }
++
++    @Test
++    void queryDrChargeRequiresSuccessfulPaymentTypeAndExactAmount() {
++        BigDecimal charged = new BigDecimal("1000");
++        assertFalse(new GatewayResult("00", "01", "01", "100000").confirmedCharge(charged));
++        assertFalse(new GatewayResult("00", "00", "02", "100000").confirmedCharge(charged));
++        assertFalse(new GatewayResult("00", "00", "01", "90000").confirmedCharge(charged));
++        assertTrue(new GatewayResult("00", "00", "01", "100000").confirmedCharge(charged));
++    }
+ }
+diff --git a/FE/storehub_mobile/lib/screens/customer/payment/vnpay_checkout_screen.dart b/FE/storehub_mobile/lib/screens/customer/payment/vnpay_checkout_screen.dart
+index 5dad53d..f2e296e 100644
+--- a/FE/storehub_mobile/lib/screens/customer/payment/vnpay_checkout_screen.dart
++++ b/FE/storehub_mobile/lib/screens/customer/payment/vnpay_checkout_screen.dart
+@@ -42,6 +42,7 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
+   bool _showCard = true;
+   bool _checking = false;
+   bool _finished = false;
++  bool _isRefundStatus = false;
+   String? _failedMessage;
+   String? _loadError; // lỗi tải trang VNPay (mạng, SSL, ...)
+ 
+@@ -164,6 +165,17 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
+               'Thanh toán không thành công hoặc đã bị hủy. Bạn có thể quay lại và thử thanh toán lại.');
+           return;
+         }
++        if (s == 'REFUND_PENDING' || s == 'REFUNDED') {
++          _finished = true;
++          _pollTimer?.cancel();
++          setState(() {
++            _isRefundStatus = true;
++            _failedMessage = s == 'REFUNDED'
++                ? 'Thanh toán đến sau khi đơn hết hiệu lực. Khoản tiền đã được hoàn qua VNPay.'
++                : 'Thanh toán đến sau khi đơn hết hiệu lực. Hệ thống đã ghi nhận và đang xử lý hoàn tiền.';
++          });
++          return;
++        }
+         if (attempt < retries) {
+           await Future.delayed(const Duration(seconds: 1));
+         }
+@@ -368,7 +380,9 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
+         child: Column(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+-            const Icon(Icons.error_outline, size: 56, color: AppColors.error),
++            Icon(_isRefundStatus ? Icons.info_outline : Icons.error_outline,
++                size: 56,
++                color: _isRefundStatus ? Colors.orange : AppColors.error),
+             const SizedBox(height: 12),
+             Text(_failedMessage!, textAlign: TextAlign.center),
+             const SizedBox(height: 20),

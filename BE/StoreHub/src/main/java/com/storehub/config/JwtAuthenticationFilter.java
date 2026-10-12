@@ -55,7 +55,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Only authenticate if not already authenticated
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                if (jwtService.isTokenValid(jwt)) {
+                if (jwtService.isAccessToken(jwt)) {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
@@ -78,6 +78,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private boolean isPublicPath(String path) {
         return path.equals("/api/v1/auth/register") ||
                 path.equals("/api/v1/auth/login") ||
+                path.equals("/api/v1/auth/logout") ||
                 path.equals("/api/v1/auth/forgot-password") ||
                 path.equals("/api/v1/auth/reset-password") ||
                 path.equals("/api/v1/auth/refresh-token") ||

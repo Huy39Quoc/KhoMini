@@ -1,0 +1,916 @@
+diff --git a/BE/StoreHub/src/main/java/com/storehub/config/JwtAuthenticationFilter.java b/BE/StoreHub/src/main/java/com/storehub/config/JwtAuthenticationFilter.java
+index 264fd51..6839c2b 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/config/JwtAuthenticationFilter.java
++++ b/BE/StoreHub/src/main/java/com/storehub/config/JwtAuthenticationFilter.java
+@@ -78,6 +78,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
+     private boolean isPublicPath(String path) {
+         return path.equals("/api/v1/auth/register") ||
+                 path.equals("/api/v1/auth/login") ||
++                path.equals("/api/v1/auth/logout") ||
+                 path.equals("/api/v1/auth/forgot-password") ||
+                 path.equals("/api/v1/auth/reset-password") ||
+                 path.equals("/api/v1/auth/refresh-token") ||
+diff --git a/BE/StoreHub/src/main/java/com/storehub/config/SecurityConfig.java b/BE/StoreHub/src/main/java/com/storehub/config/SecurityConfig.java
+index 21e4df7..2b29877 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/config/SecurityConfig.java
++++ b/BE/StoreHub/src/main/java/com/storehub/config/SecurityConfig.java
+@@ -17,6 +17,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+ import org.springframework.security.crypto.password.PasswordEncoder;
+ import org.springframework.security.web.SecurityFilterChain;
+ import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
++import org.springframework.security.web.authentication.HttpStatusEntryPoint;
++import org.springframework.http.HttpStatus;
+ 
+ @Configuration
+ @EnableWebSecurity
+@@ -28,7 +30,12 @@ public class SecurityConfig {
+     private final UserDetailsService userDetailsService;
+ 
+     private static final String[] PUBLIC_URLS = {
+-            "/api/v1/auth/**",
++            "/api/v1/auth/register",
++            "/api/v1/auth/login",
++            "/api/v1/auth/logout",
++            "/api/v1/auth/refresh-token",
++            "/api/v1/auth/forgot-password",
++            "/api/v1/auth/reset-password",
+             "/swagger-ui/**",
+             "/swagger-ui.html",
+             "/api-docs/**",
+@@ -45,6 +52,8 @@ public class SecurityConfig {
+                 .authorizeHttpRequests(auth -> auth
+                         .requestMatchers(PUBLIC_URLS).permitAll()
+                         .anyRequest().authenticated()
++                ).exceptionHandling(ex -> ex.authenticationEntryPoint(
++                        new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                 ).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                 ).authenticationProvider(authenticationProvider())
+                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+@@ -70,4 +79,4 @@ public class SecurityConfig {
+     public PasswordEncoder passwordEncoder() {
+         return new BCryptPasswordEncoder();
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/controller/AuthController.java b/BE/StoreHub/src/main/java/com/storehub/controller/AuthController.java
+index 07ddf01..f84366d 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/controller/AuthController.java
++++ b/BE/StoreHub/src/main/java/com/storehub/controller/AuthController.java
+@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
+ import org.springframework.security.core.annotation.AuthenticationPrincipal;
+ import org.springframework.security.core.userdetails.UserDetails;
++import org.springframework.security.access.prepost.PreAuthorize;
+ import org.springframework.web.bind.annotation.*;
+ 
+ @RestController
+@@ -75,6 +76,7 @@ public class AuthController {
+     }
+ 
+     @PutMapping("/change-password")
++    @PreAuthorize("isAuthenticated()")
+     public ResponseEntity<ApiResponse<Void>> changePassword(
+             @AuthenticationPrincipal UserDetails userDetails,
+             @Valid @RequestBody ChangePasswordRequest request
+@@ -82,4 +84,4 @@ public class AuthController {
+         authService.changePassword(userDetails.getUsername(), request);
+         return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/controller/BookingController.java b/BE/StoreHub/src/main/java/com/storehub/controller/BookingController.java
+index e65f2ad..57afd51 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/controller/BookingController.java
++++ b/BE/StoreHub/src/main/java/com/storehub/controller/BookingController.java
+@@ -19,6 +19,7 @@ import org.springframework.security.core.userdetails.UserDetails;
+ import org.springframework.web.bind.annotation.*;
+ 
+ import java.util.UUID;
++import java.util.List;
+ 
+ @RestController
+ @RequestMapping("/api/v1/bookings")
+@@ -61,4 +62,15 @@ public class BookingController {
+         bookingService.cancelBooking(id, userDetails.getUsername());
+         return ResponseEntity.ok(ApiResponse.success("Booking cancelled successfully", null));
+     }
++
++    @GetMapping("/my-pending")
++    @PreAuthorize("hasRole('CUSTOMER')")
++    @SecurityRequirement(name = "bearerAuth")
++    @Operation(summary = "Các booking còn hạn đang chờ thanh toán của khách hiện tại")
++    public ResponseEntity<ApiResponse<List<BookingResponse>>> getPayableBookings(
++            @AuthenticationPrincipal UserDetails userDetails
++    ) {
++        return ResponseEntity.ok(ApiResponse.success("Payable bookings retrieved",
++                bookingService.getPayableBookings(userDetails.getUsername())));
++    }
+ }
+diff --git a/BE/StoreHub/src/main/java/com/storehub/dto/response/BookingResponse.java b/BE/StoreHub/src/main/java/com/storehub/dto/response/BookingResponse.java
+index 00e9c89..9d483c2 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/dto/response/BookingResponse.java
++++ b/BE/StoreHub/src/main/java/com/storehub/dto/response/BookingResponse.java
+@@ -17,6 +17,9 @@ public class BookingResponse {
+     private UUID customerId;
+     private UUID storageUnitId;
+     private String unitCode;
++    private String facilityName;
++    private String unitTypeName;
++    private String unitTypeDimensions;
+     private LocalDate startDate;
+     private LocalDate endDate;
+     private Integer rentalMonths;
+diff --git a/BE/StoreHub/src/main/java/com/storehub/repository/BookingRepository.java b/BE/StoreHub/src/main/java/com/storehub/repository/BookingRepository.java
+index 77ccac3..a49ef4f 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/repository/BookingRepository.java
++++ b/BE/StoreHub/src/main/java/com/storehub/repository/BookingRepository.java
+@@ -18,6 +18,22 @@ import java.util.UUID;
+ @Repository
+ public interface BookingRepository extends JpaRepository<Booking, UUID> {
+ 
++    @Query("""
++            SELECT b FROM Booking b
++            JOIN FETCH b.storageUnit su
++            JOIN FETCH su.facility
++            JOIN FETCH su.unitType
++            WHERE b.customer.id = :customerId
++            AND b.status = :status
++            AND b.expiresAt > :now
++            ORDER BY b.createdAt DESC
++            """)
++    List<Booking> findPayableBookingsByCustomerId(
++            @Param("customerId") UUID customerId,
++            @Param("status") BookingStatus status,
++            @Param("now") LocalDateTime now
++    );
++
+     @Modifying
+     @Query(value = """
+             UPDATE bookings SET assigned_check_in_staff_id = NULL
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/BookingService.java b/BE/StoreHub/src/main/java/com/storehub/service/BookingService.java
+index 12e68b5..12be9f9 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/BookingService.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/BookingService.java
+@@ -6,6 +6,7 @@ import com.storehub.dto.response.BookingResponse;
+ import com.storehub.dto.response.RentalQuoteResponse;
+ 
+ import java.util.UUID;
++import java.util.List;
+ 
+ public interface BookingService {
+ 
+@@ -30,4 +31,6 @@ public interface BookingService {
+     RentalQuoteResponse getRentalQuote(RentalQuoteRequest request);
+ 
+     void cancelBooking(UUID bookingId, String customerEmail);
++
++    List<BookingResponse> getPayableBookings(String customerEmail);
+ }
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java
+index 5da4dc6..8f010ed 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/BookingServiceImpl.java
+@@ -6,14 +6,18 @@ import com.storehub.dto.response.BookingResponse;
+ import com.storehub.dto.response.RentalQuoteResponse;
+ import com.storehub.entity.Booking;
+ import com.storehub.entity.Facility;
++import com.storehub.entity.Payment;
+ import com.storehub.entity.StorageUnit;
+ import com.storehub.entity.User;
+ import com.storehub.enums.BookingStatus;
+ import com.storehub.enums.FacilityStatus;
++import com.storehub.enums.PaymentStatus;
++import com.storehub.enums.PaymentType;
+ import com.storehub.enums.UnitStatus;
+ import com.storehub.exception.AppException;
+ import com.storehub.exception.ErrorCode;
+ import com.storehub.repository.BookingRepository;
++import com.storehub.repository.PaymentRepository;
+ import com.storehub.repository.FacilityRepository;
+ import com.storehub.repository.StorageUnitRepository;
+ import com.storehub.repository.UserRepository;
+@@ -30,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
+ import java.math.BigDecimal;
+ import java.time.LocalDateTime;
+ import java.util.UUID;
++import java.util.List;
+ 
+ @Service
+ @RequiredArgsConstructor
+@@ -39,6 +44,7 @@ public class BookingServiceImpl implements BookingService {
+     private static final int BOOKING_EXPIRY_MINUTES = 30;
+ 
+     private final BookingRepository bookingRepository;
++    private final PaymentRepository paymentRepository;
+     private final FacilityRepository facilityRepository;
+     private final StorageUnitRepository storageUnitRepository;
+     private final UserRepository userRepository;
+@@ -120,6 +126,9 @@ public class BookingServiceImpl implements BookingService {
+                 .customerId(customer.getId())
+                 .storageUnitId(selectedUnit.getId())
+                 .unitCode(selectedUnit.getUnitCode())
++                .facilityName(facility.getName())
++                .unitTypeName(selectedUnit.getUnitType().getTypeName())
++                .unitTypeDimensions(selectedUnit.getUnitType().getDimensions())
+                 .startDate(savedBooking.getStartDate())
+                 .endDate(savedBooking.getEndDate())
+                 .rentalMonths(savedBooking.getRentalMonths())
+@@ -134,6 +143,59 @@ public class BookingServiceImpl implements BookingService {
+                 .build();
+     }
+ 
++    @Override
++    @Transactional(readOnly = true)
++    public List<BookingResponse> getPayableBookings(String customerEmail) {
++        User customer = userRepository.findByEmail(customerEmail)
++                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
++        return bookingRepository.findPayableBookingsByCustomerId(
++                        customer.getId(), BookingStatus.PENDING_PAYMENT, LocalDateTime.now())
++                .stream().map(booking -> {
++                    StorageUnit unit = booking.getStorageUnit();
++                    Facility facility = unit.getFacility();
++                    BigDecimal deposit = pricingService.calculateDepositAmount(
++                            facility.getId(), booking.getTotalRentalFee(),
++                            unit.getUnitType().getDepositAmount());
++                    BigDecimal fees = pricingService.calculateManagementFee(
++                            facility.getId(), booking.getRentalMonths());
++                    // Existing VNPay attempts retain their original amounts even if policy changes.
++                    List<Payment> pending = paymentRepository.findByBooking_IdAndStatusAndPaymentTypeIn(
++                            booking.getId(), PaymentStatus.PENDING,
++                            List.of(PaymentType.DEPOSIT, PaymentType.RENTAL_FEE));
++                    if (pending.size() == 2) {
++                        Payment primary = pending.stream()
++                                .filter(p -> p.getPaymentType() == PaymentType.DEPOSIT)
++                                .findFirst().orElse(null);
++                        if (primary != null && primary.getGatewayAmount() != null) {
++                            deposit = primary.getAmount();
++                            fees = primary.getGatewayAmount()
++                                    .subtract(deposit).subtract(booking.getTotalRentalFee());
++                        }
++                    }
++                    return BookingResponse.builder()
++                            .id(booking.getId())
++                            .bookingCode(booking.getBookingCode())
++                            .customerId(customer.getId())
++                            .storageUnitId(unit.getId())
++                            .unitCode(unit.getUnitCode())
++                            .facilityName(facility.getName())
++                            .unitTypeName(unit.getUnitType().getTypeName())
++                            .unitTypeDimensions(unit.getUnitType().getDimensions())
++                            .startDate(booking.getStartDate())
++                            .endDate(booking.getEndDate())
++                            .rentalMonths(booking.getRentalMonths())
++                            .totalRentalFee(booking.getTotalRentalFee())
++                            .depositAmount(deposit)
++                            .totalExtraFees(fees)
++                            .initialPaymentAmount(deposit.add(booking.getTotalRentalFee()).add(fees))
++                            .depositPaid(booking.getDepositPaid())
++                            .status(booking.getStatus())
++                            .createdAt(booking.getCreatedAt())
++                            .expiresAt(booking.getExpiresAt())
++                            .build();
++                }).toList();
++    }
++
+     @Override
+     @Transactional(readOnly = true)
+     public RentalQuoteResponse getRentalQuote(
+diff --git a/BE/StoreHub/src/test/java/com/storehub/controller/AuthRoutesSecurityTest.java b/BE/StoreHub/src/test/java/com/storehub/controller/AuthRoutesSecurityTest.java
+new file mode 100644
+index 0000000..abbff36
+--- /dev/null
++++ b/BE/StoreHub/src/test/java/com/storehub/controller/AuthRoutesSecurityTest.java
+@@ -0,0 +1,68 @@
++package com.storehub.controller;
++
++import com.storehub.config.JwtAuthenticationFilter;
++import com.storehub.config.SecurityConfig;
++import com.storehub.service.AuthService;
++import com.storehub.service.BookingService;
++import com.storehub.service.impl.JwtServiceImpl;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
++import org.springframework.boot.test.mock.mockito.MockBean;
++import org.springframework.context.annotation.Import;
++import org.springframework.security.core.userdetails.UserDetailsService;
++import org.springframework.test.web.servlet.MockMvc;
++
++import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
++import static org.mockito.Mockito.verify;
++
++@WebMvcTest({AuthController.class, BookingController.class})
++@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
++class AuthRoutesSecurityTest {
++    @Autowired MockMvc mvc;
++    @MockBean AuthService authService;
++    @MockBean BookingService bookingService;
++    @MockBean JwtServiceImpl jwtService;
++    @MockBean UserDetailsService userDetailsService;
++
++    @Test
++    void changePasswordRequiresAuthenticationWhileLoginAndRefreshRemainPublic() throws Exception {
++        mvc.perform(put("/api/v1/auth/change-password")
++                        .contentType("application/json")
++                        .content("{\"oldPassword\":\"oldpass\",\"newPassword\":\"newpass\",\"confirmPassword\":\"newpass\"}"))
++                .andExpect(status().isUnauthorized());
++
++        mvc.perform(put("/api/v1/auth/change-password")
++                        .with(user("owner@example.com").roles("CUSTOMER"))
++                        .contentType("application/json")
++                        .content("{\"oldPassword\":\"oldpass\",\"newPassword\":\"newpass\",\"confirmPassword\":\"newpass\"}"))
++                .andExpect(status().isOk());
++
++        mvc.perform(post("/api/v1/auth/login")
++                        .contentType("application/json")
++                        .content("{\"email\":\"owner@example.com\",\"password\":\"password\"}"))
++                .andExpect(status().isOk());
++
++        mvc.perform(post("/api/v1/auth/refresh-token")
++                        .contentType("application/json")
++                        .content("{\"refreshToken\":\"token\"}"))
++                .andExpect(status().isOk());
++    }
++
++    @Test
++    void pendingBookingsRequireCustomerIdentity() throws Exception {
++        mvc.perform(get("/api/v1/bookings/my-pending"))
++                .andExpect(status().isUnauthorized());
++        mvc.perform(get("/api/v1/bookings/my-pending")
++                        .with(user("staff@example.com").roles("FACILITY_STAFF")))
++                .andExpect(status().isForbidden());
++        mvc.perform(get("/api/v1/bookings/my-pending")
++                        .with(user("owner@example.com").roles("CUSTOMER")))
++                .andExpect(status().isOk());
++        verify(bookingService).getPayableBookings("owner@example.com");
++    }
++}
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/PendingBookingRecoveryTest.java b/BE/StoreHub/src/test/java/com/storehub/service/PendingBookingRecoveryTest.java
+new file mode 100644
+index 0000000..56e1358
+--- /dev/null
++++ b/BE/StoreHub/src/test/java/com/storehub/service/PendingBookingRecoveryTest.java
+@@ -0,0 +1,99 @@
++package com.storehub.service;
++
++import com.storehub.entity.Booking;
++import com.storehub.entity.Facility;
++import com.storehub.entity.Payment;
++import com.storehub.entity.StorageUnit;
++import com.storehub.entity.UnitType;
++import com.storehub.entity.User;
++import com.storehub.enums.BookingStatus;
++import com.storehub.enums.PaymentStatus;
++import com.storehub.enums.PaymentType;
++import com.storehub.repository.BookingRepository;
++import com.storehub.repository.PaymentRepository;
++import com.storehub.repository.FacilityRepository;
++import com.storehub.repository.StorageUnitRepository;
++import com.storehub.repository.UserRepository;
++import com.storehub.service.impl.BookingServiceImpl;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++
++import java.math.BigDecimal;
++import java.time.LocalDate;
++import java.time.LocalDateTime;
++import java.util.List;
++import java.util.Optional;
++import java.util.UUID;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.eq;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++@ExtendWith(MockitoExtension.class)
++class PendingBookingRecoveryTest {
++    @Mock BookingRepository bookings;
++    @Mock PaymentRepository paymentRepository;
++    @Mock FacilityRepository facilities;
++    @Mock StorageUnitRepository units;
++    @Mock UserRepository users;
++    @Mock PricingService pricing;
++    @Mock WaitlistService waitlist;
++    @Mock FacilityPolicyService policies;
++    @Mock PaymentService payments;
++    @InjectMocks BookingServiceImpl service;
++
++    @Test
++    void loadsOnlyTheAuthenticatedCustomersStillPayableBookingsAndUsesChargeSnapshot() {
++        UUID customerId = UUID.randomUUID();
++        UUID facilityId = UUID.randomUUID();
++        User customer = new User();
++        customer.setId(customerId);
++        Facility facility = Facility.builder().name("Central").build();
++        facility.setId(facilityId);
++        UnitType type = UnitType.builder()
++                .typeName("Small").dimensions("2x2")
++                .depositAmount(new BigDecimal("100000"))
++                .build();
++        StorageUnit unit = StorageUnit.builder()
++                .unitCode("A-01").facility(facility).unitType(type).build();
++        Booking booking = Booking.builder().bookingCode("BK-1")
++                .storageUnit(unit).status(BookingStatus.PENDING_PAYMENT)
++                .startDate(LocalDate.now().plusDays(1)).rentalMonths(2)
++                .totalRentalFee(new BigDecimal("500000"))
++                .expiresAt(LocalDateTime.now().plusMinutes(15)).build();
++        booking.setId(UUID.randomUUID());
++        when(users.findByEmail("owner@example.com")).thenReturn(Optional.of(customer));
++        when(bookings.findPayableBookingsByCustomerId(eq(customerId),
++                eq(BookingStatus.PENDING_PAYMENT), any(LocalDateTime.class)))
++                .thenReturn(List.of(booking));
++        when(pricing.calculateDepositAmount(facilityId,
++                new BigDecimal("500000"), new BigDecimal("100000")))
++                .thenReturn(new BigDecimal("200000"));
++        when(pricing.calculateManagementFee(facilityId, 2))
++                .thenReturn(new BigDecimal("20000"));
++        when(paymentRepository.findByBooking_IdAndStatusAndPaymentTypeIn(
++                eq(booking.getId()), eq(PaymentStatus.PENDING), any()))
++                .thenReturn(List.of(
++                        Payment.builder().paymentType(PaymentType.DEPOSIT)
++                                .amount(new BigDecimal("300000"))
++                                .gatewayAmount(new BigDecimal("850000")).build(),
++                        Payment.builder().paymentType(PaymentType.RENTAL_FEE)
++                                .amount(new BigDecimal("550000")).build()));
++
++        var result = service.getPayableBookings("owner@example.com");
++
++        assertEquals(1, result.size());
++        assertEquals("Central", result.get(0).getFacilityName());
++        assertEquals("Small", result.get(0).getUnitTypeName());
++        assertEquals(new BigDecimal("300000"), result.get(0).getDepositAmount());
++        assertEquals(new BigDecimal("50000"), result.get(0).getTotalExtraFees());
++        assertEquals(new BigDecimal("850000"), result.get(0).getInitialPaymentAmount());
++        verify(bookings).findPayableBookingsByCustomerId(eq(customerId),
++                eq(BookingStatus.PENDING_PAYMENT), any(LocalDateTime.class));
++    }
++}
+diff --git a/FE/storehub_mobile/lib/core/constants/api_endpoints.dart b/FE/storehub_mobile/lib/core/constants/api_endpoints.dart
+index 875c5b7..be0e3a6 100644
+--- a/FE/storehub_mobile/lib/core/constants/api_endpoints.dart
++++ b/FE/storehub_mobile/lib/core/constants/api_endpoints.dart
+@@ -86,6 +86,7 @@ class ApiEndpoints {
+ 
+   // ---- Bookings (BookingController) ----
+   static const String bookings = '/bookings';
++  static const String myPendingBookings = '/bookings/my-pending';
+   static String bookingDetail(String id) => '/bookings/$id';
+ 
+   // ---- Waitlist (WaitlistController) ----
+diff --git a/FE/storehub_mobile/lib/core/network/http_client.dart b/FE/storehub_mobile/lib/core/network/http_client.dart
+index 208ec79..59feb11 100644
+--- a/FE/storehub_mobile/lib/core/network/http_client.dart
++++ b/FE/storehub_mobile/lib/core/network/http_client.dart
+@@ -56,7 +56,6 @@ class HttpClient {
+ 
+           final newToken = await _refreshAccessToken();
+           if (newToken == null) {
+-            await TokenStore.instance.clear();
+             return handler.next(error);
+           }
+ 
+@@ -84,6 +83,7 @@ class HttpClient {
+     try {
+       final refreshToken = await TokenStore.instance.readRefreshToken();
+       if (refreshToken == null || refreshToken.isEmpty) {
++        await TokenStore.instance.clear();
+         _notifyPending(null);
+         return null;
+       }
+@@ -106,6 +106,13 @@ class HttpClient {
+ 
+       _notifyPending(newAccessToken);
+       return newAccessToken;
++    } on DioException catch (e) {
++      final status = e.response?.statusCode;
++      if (status == 400 || status == 401 || status == 403) {
++        await TokenStore.instance.clear();
++      }
++      _notifyPending(null);
++      return null;
+     } catch (_) {
+       _notifyPending(null);
+       return null;
+diff --git a/FE/storehub_mobile/lib/main.dart b/FE/storehub_mobile/lib/main.dart
+index 7312aee..82f1abc 100644
+--- a/FE/storehub_mobile/lib/main.dart
++++ b/FE/storehub_mobile/lib/main.dart
+@@ -1,13 +1,17 @@
+ import 'package:flutter/material.dart';
+ import 'core/theme/app_theme.dart';
+ import 'screens/auth/login_screen.dart';
++import 'screens/auth/session_gate.dart';
++import 'models/user_model.dart';
+ 
+ void main() {
+   runApp(const StoreHubApp());
+ }
+ 
+ class StoreHubApp extends StatelessWidget {
+-  const StoreHubApp({super.key});
++  final Future<UserModel?> Function()? restoreSession;
++
++  const StoreHubApp({super.key, this.restoreSession});
+ 
+   @override
+   Widget build(BuildContext context) {
+@@ -15,7 +19,7 @@ class StoreHubApp extends StatelessWidget {
+       title: 'StoreHub',
+       debugShowCheckedModeBanner: false,
+       theme: AppTheme.lightTheme,
+-      home: const LoginScreen(),
++      home: SessionGate(restoreSession: restoreSession),
+       routes: {
+         '/login': (context) => const LoginScreen(),
+       },
+diff --git a/FE/storehub_mobile/lib/models/user_model.dart b/FE/storehub_mobile/lib/models/user_model.dart
+index bb75d91..a7f8513 100644
+--- a/FE/storehub_mobile/lib/models/user_model.dart
++++ b/FE/storehub_mobile/lib/models/user_model.dart
+@@ -17,6 +17,12 @@ class UserModel {
+ 
+   String get role => roleName;
+ 
++  bool get hasSupportedRole => const {
++        'ADMIN', 'SYSTEM_ADMIN', 'BUSINESS_MANAGER',
++        'BUSINESS_OPERATIONS_MANAGER', 'OPERATIONS_MANAGER',
++        'FACILITY_MANAGER', 'FACILITY_STAFF', 'STAFF', 'CUSTOMER'
++      }.contains(roleName.toUpperCase().replaceAll('ROLE_', ''));
++
+   factory UserModel.fromJson(Map<String, dynamic> json) {
+     return UserModel(
+       id: json['id']?.toString() ?? '',
+diff --git a/FE/storehub_mobile/lib/screens/auth/login_screen.dart b/FE/storehub_mobile/lib/screens/auth/login_screen.dart
+index ffb0684..206c77d 100644
+--- a/FE/storehub_mobile/lib/screens/auth/login_screen.dart
++++ b/FE/storehub_mobile/lib/screens/auth/login_screen.dart
+@@ -57,6 +57,9 @@ class _LoginScreenState extends State<LoginScreen> {
+ 
+       if (userMap != null) {
+         final user = UserModel.fromJson(userMap);
++        if (!user.hasSupportedRole) {
++          throw Exception('Unsupported account role. Contact support.');
++        }
+         Navigator.pushReplacement(
+           context,
+           MaterialPageRoute(
+diff --git a/FE/storehub_mobile/lib/screens/auth/session_gate.dart b/FE/storehub_mobile/lib/screens/auth/session_gate.dart
+new file mode 100644
+index 0000000..cc9a051
+--- /dev/null
++++ b/FE/storehub_mobile/lib/screens/auth/session_gate.dart
+@@ -0,0 +1,67 @@
++import 'package:flutter/material.dart';
++
++import '../../models/user_model.dart';
++import '../../services/auth_api_service.dart';
++import '../common/role_dispatch_screen.dart';
++import 'login_screen.dart';
++
++class SessionGate extends StatefulWidget {
++  final Future<UserModel?> Function()? restoreSession;
++
++  const SessionGate({super.key, this.restoreSession});
++
++  @override
++  State<SessionGate> createState() => _SessionGateState();
++}
++
++class _SessionGateState extends State<SessionGate> {
++  late Future<UserModel?> _session;
++
++  @override
++  void initState() {
++    super.initState();
++    _session = _restore();
++  }
++
++  Future<UserModel?> _restore() =>
++      (widget.restoreSession ?? AuthApiService().restoreSession)();
++
++  @override
++  Widget build(BuildContext context) {
++    return FutureBuilder<UserModel?>(
++      future: _session,
++      builder: (context, snapshot) {
++        if (snapshot.connectionState != ConnectionState.done) {
++          return const Scaffold(body: Center(child: CircularProgressIndicator()));
++        }
++        if (snapshot.hasError) {
++          return Scaffold(
++            body: Center(
++              child: Column(
++                mainAxisSize: MainAxisSize.min,
++                children: [
++                  const Text('Could not restore your session. Check your connection.'),
++                  TextButton(
++                    onPressed: () => setState(() => _session = _restore()),
++                    child: const Text('Try again'),
++                  ),
++                  TextButton(
++                    onPressed: () => Navigator.pushReplacement(
++                      context,
++                      MaterialPageRoute(builder: (_) => const LoginScreen()),
++                    ),
++                    child: const Text('Sign in with another account'),
++                  ),
++                ],
++              ),
++            ),
++          );
++        }
++        final user = snapshot.data;
++        return user == null
++            ? const LoginScreen()
++            : RoleDispatchScreen(user: user);
++      },
++    );
++  }
++}
+diff --git a/FE/storehub_mobile/lib/screens/customer/customer_home_screen.dart b/FE/storehub_mobile/lib/screens/customer/customer_home_screen.dart
+index 95881ed..f2ad28e 100644
+--- a/FE/storehub_mobile/lib/screens/customer/customer_home_screen.dart
++++ b/FE/storehub_mobile/lib/screens/customer/customer_home_screen.dart
+@@ -7,6 +7,7 @@ import '../common/profile_screen.dart';
+ import '../common/transaction_history_screen.dart';
+ import 'my_units/my_rented_units_screen.dart';
+ import 'reservation/explore_screen.dart';
++import 'reservation/pending_bookings_section.dart';
+ import 'tickets/ticket_list_screen.dart';
+ 
+ class CustomerHomeScreen extends StatefulWidget {
+@@ -167,6 +168,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
+             ),
+           ),
+           const SizedBox(height: 24),
++          const PendingBookingsSection(),
++          const SizedBox(height: 16),
+           const Text('Quick Actions',
+               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+           const SizedBox(height: 12),
+diff --git a/FE/storehub_mobile/lib/screens/customer/reservation/pending_bookings_section.dart b/FE/storehub_mobile/lib/screens/customer/reservation/pending_bookings_section.dart
+new file mode 100644
+index 0000000..2388486
+--- /dev/null
++++ b/FE/storehub_mobile/lib/screens/customer/reservation/pending_bookings_section.dart
+@@ -0,0 +1,127 @@
++import 'package:flutter/material.dart';
++
++import '../../../services/booking_api_service.dart';
++import 'payment_screen.dart';
++
++/// The server is the source of truth: a booking may expire or be confirmed
++/// while the app is closed. Do not persist payment URLs or booking snapshots.
++class PendingBookingsSection extends StatefulWidget {
++  const PendingBookingsSection({super.key});
++
++  @override
++  State<PendingBookingsSection> createState() => _PendingBookingsSectionState();
++}
++
++class _PendingBookingsSectionState extends State<PendingBookingsSection>
++    with WidgetsBindingObserver {
++  final _api = BookingApiService();
++  late Future<List<Map<String, dynamic>>> _bookings;
++
++  @override
++  void initState() {
++    super.initState();
++    WidgetsBinding.instance.addObserver(this);
++    _bookings = _api.getPayableBookings();
++  }
++
++  @override
++  void dispose() {
++    WidgetsBinding.instance.removeObserver(this);
++    super.dispose();
++  }
++
++  @override
++  void didChangeAppLifecycleState(AppLifecycleState state) {
++    if (state == AppLifecycleState.resumed) {
++      _reload();
++    }
++  }
++
++  void _reload() {
++    if (mounted) setState(() => _bookings = _api.getPayableBookings());
++  }
++
++  Future<void> _resume(Map<String, dynamic> booking) async {
++    // Re-check the booking before opening payment; the list can be stale.
++    try {
++      final current = await _api.getPayableBookings();
++      if (!mounted) return;
++      final found = current.where((b) => b['id'] == booking['id']).toList();
++      setState(() => _bookings = Future.value(current));
++      if (found.isEmpty) {
++        ScaffoldMessenger.of(context).showSnackBar(
++          const SnackBar(content: Text('This booking is no longer payable.')),
++        );
++        return;
++      }
++      final item = found.first;
++      final startDate = DateTime.tryParse(item['startDate']?.toString() ?? '');
++      final id = item['id']?.toString() ?? '';
++      if (startDate == null || id.isEmpty) {
++        throw const FormatException('Incomplete booking details');
++      }
++      await Navigator.push<void>(
++        context,
++        MaterialPageRoute(
++          builder: (_) => PaymentScreen(
++            bookingId: id,
++            bookingCode: item['bookingCode']?.toString() ?? '',
++            facilityName: item['facilityName']?.toString() ?? '',
++            unitTypeName: item['unitTypeName']?.toString() ?? '',
++            unitTypeDimensions: item['unitTypeDimensions']?.toString() ?? '',
++            startDate: startDate,
++            rentalMonths: (item['rentalMonths'] as num?)?.toInt() ?? 0,
++            totalRentalFee: (item['totalRentalFee'] as num?)?.toDouble() ?? 0,
++            depositAmount: (item['depositAmount'] as num?)?.toDouble() ?? 0,
++            expiresAt: DateTime.tryParse(item['expiresAt']?.toString() ?? ''),
++          ),
++        ),
++      );
++      _reload();
++    } catch (error) {
++      if (!mounted) return;
++      ScaffoldMessenger.of(context).showSnackBar(
++        SnackBar(content: Text(error.toString().replaceAll('Exception: ', ''))),
++      );
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    return FutureBuilder<List<Map<String, dynamic>>>(
++      future: _bookings,
++      builder: (context, snapshot) {
++        if (snapshot.connectionState != ConnectionState.done) {
++          return const LinearProgressIndicator();
++        }
++        if (snapshot.hasError) {
++          return ListTile(
++            title: const Text('Could not load pending bookings'),
++            trailing: TextButton(onPressed: _reload, child: const Text('Retry')),
++          );
++        }
++        final bookings = snapshot.data ?? [];
++        if (bookings.isEmpty) return const SizedBox.shrink();
++        return Column(
++          crossAxisAlignment: CrossAxisAlignment.start,
++          children: [
++            const Text('Pending reservations',
++                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
++            for (final booking in bookings)
++              Card(
++                child: ListTile(
++                  title: Text(booking['unitTypeName']?.toString() ??
++                      booking['bookingCode']?.toString() ?? 'Reservation'),
++                  subtitle: Text(
++                    '${booking['facilityName'] ?? ''} • ${booking['bookingCode'] ?? ''}',
++                  ),
++                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
++                  onTap: () => _resume(booking),
++                ),
++              ),
++          ],
++        );
++      },
++    );
++  }
++}
+diff --git a/FE/storehub_mobile/lib/services/auth_api_service.dart b/FE/storehub_mobile/lib/services/auth_api_service.dart
+index 16ab733..dbbf891 100644
+--- a/FE/storehub_mobile/lib/services/auth_api_service.dart
++++ b/FE/storehub_mobile/lib/services/auth_api_service.dart
+@@ -5,10 +5,59 @@ import 'package:dio/dio.dart';
+ import '../core/constants/api_endpoints.dart';
+ import '../core/network/http_client.dart';
+ import '../core/network/token_store.dart';
++import '../models/user_model.dart';
+ 
+ class AuthApiService {
+   final Dio _dio = HttpClient.instance.dio;
+ 
++  /// Confirm the stored refresh token with the server on a cold start. The
++  /// response supplies the current user and role, including account changes.
++  Future<UserModel?> restoreSession() async {
++    final refreshToken = await TokenStore.instance.readRefreshToken();
++    if (refreshToken == null || refreshToken.isEmpty) return null;
++    try {
++      final response = await _dio.post(
++        ApiEndpoints.refreshToken,
++        data: {'refreshToken': refreshToken},
++      );
++      final body = Map<String, dynamic>.from(response.data as Map);
++      final data = body['data'] is Map
++          ? Map<String, dynamic>.from(body['data'] as Map)
++          : body;
++      final accessToken = data['accessToken'];
++      final userData = data['user'];
++      if (accessToken is! String || accessToken.isEmpty || userData is! Map) {
++        throw const FormatException('Invalid session response');
++      }
++      final userMap = Map<String, dynamic>.from(userData);
++      final role = _decodeJwtPayload(accessToken)?['role'];
++      if (role is! String || role.isEmpty ||
++          (userMap['id']?.toString().isEmpty ?? true)) {
++        throw const FormatException('Invalid user session');
++      }
++      userMap['roleName'] = role;
++      final user = UserModel.fromJson(userMap);
++      if (!user.hasSupportedRole) {
++        throw const FormatException('Unsupported account role');
++      }
++      await TokenStore.instance.saveRefresh(
++        accessToken,
++        data['refreshToken'] is String ? data['refreshToken'] as String : null,
++      );
++      return user;
++    } on DioException catch (e) {
++      final status = e.response?.statusCode;
++      if (status == 400 || status == 401 || status == 403) {
++        await TokenStore.instance.clear();
++        return null;
++      }
++      rethrow; // An offline server must not silently sign out the customer.
++    } on FormatException {
++      await TokenStore.instance.clear();
++      return null;
++    }
++  }
++
+   Future<Map<String, dynamic>> login(String email, String password) async {
+     try {
+       final response = await _dio.post(
+diff --git a/FE/storehub_mobile/lib/services/booking_api_service.dart b/FE/storehub_mobile/lib/services/booking_api_service.dart
+index e3836b9..414b6c7 100644
+--- a/FE/storehub_mobile/lib/services/booking_api_service.dart
++++ b/FE/storehub_mobile/lib/services/booking_api_service.dart
+@@ -9,6 +9,20 @@ import '../core/network/http_client.dart';
+ class BookingApiService {
+   final Dio _dio = HttpClient.instance.dio;
+ 
++  Future<List<Map<String, dynamic>>> getPayableBookings() async {
++    try {
++      final response = await _dio.get(ApiEndpoints.myPendingBookings);
++      final body = response.data;
++      final list = body is Map ? body['data'] : null;
++      if (list is! List) throw const FormatException('Invalid booking list');
++      return list.map((item) => Map<String, dynamic>.from(item as Map)).toList();
++    } on DioException catch (e) {
++      final body = e.response?.data;
++      final message = body is Map ? body['message'] : e.message;
++      throw Exception('Failed to load pending bookings: $message');
++    }
++  }
++
+   /// POST /bookings - creates a real booking (status PENDING_PAYMENT).
+   /// The BE recalculates the price itself from unitTypeId/startDate/
+   /// rentalMonths (same PricingService used by /pricing/quote), and picks
+diff --git a/FE/storehub_mobile/test/widget_test.dart b/FE/storehub_mobile/test/widget_test.dart
+index 7dbed44..0a29462 100644
+--- a/FE/storehub_mobile/test/widget_test.dart
++++ b/FE/storehub_mobile/test/widget_test.dart
+@@ -3,8 +3,27 @@ import 'package:storehub_mobile/main.dart';
+ 
+ void main() {
+   testWidgets('App loads smoke test', (WidgetTester tester) async {
+-    await tester.pumpWidget(const StoreHubApp());
++    await tester.pumpWidget(StoreHubApp(restoreSession: () async => null));
++    await tester.pumpAndSettle();
+ 
+     expect(find.text('StoreHub'), findsWidgets);
+   });
++
++  testWidgets('Session recovery offers retry when the server is unavailable',
++      (WidgetTester tester) async {
++    var attempts = 0;
++    await tester.pumpWidget(StoreHubApp(restoreSession: () async {
++      attempts++;
++      if (attempts == 1) throw Exception('offline');
++      return null;
++    }));
++    await tester.pumpAndSettle();
++
++    expect(find.text('Try again'), findsOneWidget);
++    await tester.tap(find.text('Try again'));
++    await tester.pumpAndSettle();
++
++    expect(attempts, 2);
++    expect(find.text('StoreHub'), findsWidgets);
++  });
+ }

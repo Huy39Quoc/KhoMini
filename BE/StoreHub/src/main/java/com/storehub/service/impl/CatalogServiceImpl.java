@@ -5,6 +5,7 @@ import com.storehub.dto.response.FacilityResponse;
 import com.storehub.dto.response.UnitTypeCatalogResponse;
 import com.storehub.entity.Facility;
 import com.storehub.entity.UnitType;
+import com.storehub.enums.FacilityStatus;
 import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.UnitTypeRepository;
 import com.storehub.service.CatalogService;
@@ -35,7 +36,7 @@ public class CatalogServiceImpl implements CatalogService {
     @Override
     @Transactional(readOnly = true)
     public List<FacilityResponse> getAllFacilities() {
-        return facilityRepository.findAllByOrderByCreatedAtAsc()
+        return facilityRepository.findByStatusOrderByCreatedAtAsc(FacilityStatus.ACTIVE)
                 .stream()
                 .map(this::mapToFacilityResponse)
                 .collect(Collectors.toList());

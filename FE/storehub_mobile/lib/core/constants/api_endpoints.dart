@@ -1,5 +1,23 @@
 class ApiEndpoints {
-  static const String baseUrl = 'http://10.0.2.2:8080/api/v1';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://10.0.2.2:8080/api/v1',
+  );
+
+  static void validateReleaseConfiguration() {
+    const isRelease = bool.fromEnvironment('dart.vm.product');
+    if (!isRelease) {
+      return;
+    }
+    final uri = Uri.tryParse(baseUrl);
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty ||
+        uri.host == '10.0.2.2' || uri.host == 'localhost' ||
+        uri.host.startsWith('127.') ||
+        !uri.path.endsWith('/api/v1')) {
+      throw StateError(
+          'Release build requires an HTTPS API_BASE_URL ending in /api/v1');
+    }
+  }
 
   // ---- Auth (AuthController) ----
   static const String login = '/auth/login';
@@ -12,6 +30,10 @@ class ApiEndpoints {
 
   // ---- Customer Storage (CustomerStorageController) ----
   static const String myUnits = '/customer/storage/my-units';
+  static const String awaitingHandover = '/customer/storage/awaiting-handover';
+  static String gatePass(String bookingId) =>
+      '/customer/storage/$bookingId/gate-pass';
+  static const String verifyGatePass = '/facility/operations/gate-pass/verify';
   static String smartAccess(String bookingId) =>
       '/customer/storage/$bookingId/access';
   static String setupPin(String bookingId) =>
@@ -83,6 +105,7 @@ class ApiEndpoints {
 
   // ---- Bookings (BookingController) ----
   static const String bookings = '/bookings';
+  static const String myPendingBookings = '/bookings/my-pending';
   static String bookingDetail(String id) => '/bookings/$id';
 
   // ---- Waitlist (WaitlistController) ----
@@ -93,6 +116,12 @@ class ApiEndpoints {
   static const String paymentConfirm = '/payments/confirm'; // deprecated: chỉ trả trạng thái
   static String paymentStatus(String transactionId) =>
       '/payments/$transactionId/status';
+  static const String paymentMyHistory = '/payments/my-history';
+  static String paymentFacilityHistory(String facilityId) =>
+      '/payments/facility/$facilityId';
+  static const String paymentAllHistory = '/payments/all';
+  static String paymentDetail(String paymentId) =>
+      '/payments/detail/$paymentId';
 
   // ---- Facilities (FacilityController) ----
   static const String facilitiesAdmin = '/facilities';
@@ -131,6 +160,8 @@ class ApiEndpoints {
       '/facility/management/$facilityId/report';
   static String facilityStaffList(String facilityId) =>
       '/facility/management/$facilityId/staff';
+  static String facilityAssignableStaff(String facilityId) =>
+      '/facility/management/$facilityId/staff/assignable';
   static String facilityAssignStaff(String facilityId, String userId) =>
       '/facility/management/$facilityId/staff/$userId';
   static String facilityAssignManager(String facilityId, String userId) =>
@@ -145,6 +176,10 @@ class ApiEndpoints {
       '/facility/operations/$bookingId/reset-pin';
   // ---- Facility Operations (FacilityOperationsController) - Facility Staff ----
   static const String dailySchedule = '/facility/operations/daily-schedule';
+  static String appointmentAssignment(String bookingId) =>
+      '/facility/operations/$bookingId/appointment-assignment';
+  static String facilityRefunds(String facilityId) =>
+      '/facility/$facilityId/refunds';
   static String checkIn(String bookingId) =>
       '/facility/operations/$bookingId/check-in';
 

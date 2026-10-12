@@ -16,7 +16,8 @@ class _ReportsScreenState extends State<ReportsScreen>
     with SingleTickerProviderStateMixin {
   final FacilityAdminApiService _service = FacilityAdminApiService();
   late final TabController _tabController;
-  final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
+  final _currency = NumberFormat.currency(
+      locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('MMM d, yyyy');
 
   DateTime? _fromDate = DateTime.now().subtract(const Duration(days: 365));

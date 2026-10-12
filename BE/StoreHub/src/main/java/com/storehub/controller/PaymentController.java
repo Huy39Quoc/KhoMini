@@ -17,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -112,12 +113,59 @@ public class PaymentController {
         );
     }
 
+    @GetMapping("/my-history")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Lấy lịch sử giao dịch cá nhân của khách hàng đang đăng nhập")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getMyPaymentHistory(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        List<PaymentResponse> responses = paymentService.getMyPaymentHistory(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success("Payment history retrieved successfully", responses));
+    }
+
+    @GetMapping("/facility/{facilityId}")
+    @PreAuthorize("hasAnyRole('FACILITY_MANAGER', 'STAFF', 'ADMIN', 'BUSINESS_MANAGER')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Lấy lịch sử giao dịch thuộc một cơ sở cụ thể")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getFacilityPaymentHistory(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID facilityId
+    ) {
+        List<PaymentResponse> responses = paymentService.getFacilityPaymentHistory(userDetails.getUsername(), facilityId);
+        return ResponseEntity.ok(ApiResponse.success("Facility payment history retrieved successfully", responses));
+    }
+
+    @GetMapping("/all")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Lấy toàn bộ lịch sử giao dịch thanh toán trong hệ thống")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getAllPaymentHistory() {
+        List<PaymentResponse> responses = paymentService.getAllPaymentHistory();
+        return ResponseEntity.ok(ApiResponse.success("All system payment history retrieved successfully", responses));
+    }
+
+    @GetMapping("/detail/{paymentId}")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF', 'FACILITY_MANAGER', 'BUSINESS_MANAGER', 'ADMIN')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Xem chi tiết thông tin một giao dịch thanh toán theo ID")
+    public ResponseEntity<ApiResponse<PaymentResponse>> getPaymentDetail(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable UUID paymentId
+    ) {
+        PaymentResponse response = paymentService.getPaymentDetail(paymentId, userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success("Payment detail retrieved successfully", response));
+    }
+
     @GetMapping("/vnpay-return")
     @Operation(summary = "VNPay callback URL nhận kết quả thanh toán từ VNPay")
     public ResponseEntity<String> vnpayReturn(@RequestParam Map<String, String> queryParams) {
         try {
             PaymentResponse response = paymentService.processVnpayCallback(queryParams);
             boolean isPaid = response.getStatus() == PaymentStatus.PAID;
+            boolean refunding = response.getStatus() == PaymentStatus.REFUND_PENDING
+                    || response.getStatus() == PaymentStatus.REFUNDED;
+            boolean isPending = response.getStatus() == PaymentStatus.PENDING || refunding;
             String html = """
                 <!DOCTYPE html>
                 <html lang="vi">
@@ -130,6 +178,7 @@ public class PaymentController {
                         .card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; max-width: 420px; width: 90%%; }
                         .icon { width: 80px; height: 80px; background: #4caf50; color: white; border-radius: 50%%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 20px; }
                         .icon.error { background: #f44336; }
+                        .icon.pending { background: #ff9800; }
                         h2 { margin: 0 0 10px; color: #1e3c72; }
                         p { color: #666; font-size: 14px; margin: 5px 0; }
                         .txn { font-weight: bold; color: #333; font-size: 16px; margin-top: 15px; }
@@ -151,10 +200,13 @@ public class PaymentController {
                 </body>
                 </html>
                 """.formatted(
-                    isPaid ? "" : "error",
-                    isPaid ? "✓" : "✕",
-                    isPaid ? "Thanh Toán Thành Công!" : "Thanh Toán Thất Bại",
-                    isPaid ? "Giao dịch qua VNPAY đã hoàn tất thành công." : "Giao dịch không thành công hoặc đã bị hủy.",
+                    isPaid ? "" : isPending ? "pending" : "error",
+                    isPaid ? "✓" : isPending ? "…" : "✕",
+                    isPaid ? "Thanh Toán Thành Công!" : refunding ? "Đang Hoàn Tiền" : isPending ? "Đang Xử Lý Thanh Toán" : "Thanh Toán Thất Bại",
+                    isPaid ? "Giao dịch qua VNPAY đã hoàn tất thành công."
+                            : refunding ? "VNPay đã thu tiền sau khi đơn hoặc yêu cầu thanh toán không còn hiệu lực. Hệ thống đang xử lý hoàn tiền."
+                            : isPending ? "Giao dịch chưa hoàn tất. Vui lòng kiểm tra lại trong ứng dụng."
+                            : "Giao dịch không thành công hoặc đã bị hủy.",
                     response.getTransactionId() != null ? response.getTransactionId() : "—",
                     response.getStatus() != null ? response.getStatus().name() : "FAILED"
             );

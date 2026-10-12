@@ -30,7 +30,8 @@ class ContractOperationDialog extends StatefulWidget {
 class _ContractOperationDialogState extends State<ContractOperationDialog> {
   final StorageApiService _storageService = StorageApiService();
   final TextEditingController _notesController = TextEditingController();
-  final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
+  final _currency = NumberFormat.currency(
+      locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('MMM d, yyyy');
   final _dateTimeFmt = DateFormat('MMM d, yyyy • h:mm a');
 
@@ -69,6 +70,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         });
         return;
       }
+      if (payment['status'] == 'PAID') {
+        setState(() {
+          _isResuming = false;
+          _paymentConfirmed = payment;
+          _result = {'paymentRequired': false};
+        });
+        return;
+      }
       setState(() {
         _isResuming = false;
         _result = {
@@ -94,8 +103,9 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel extension request?'),
         content: const Text(
-          'The pending extension and its payment code will be cancelled. '
-          'You can request a new extension at any time.',
+          'The extension request will be cancelled. If VNPay later collects '
+          'payment from the old link, a refund will be requested. '
+          'You can request a new extension afterward.',
           style: TextStyle(fontSize: 13),
         ),
         actions: [
@@ -149,6 +159,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           _isResuming = false;
           _resumeError =
               'No pending extension payment was found for this unit anymore.';
+        });
+        return;
+      }
+      if (payment['status'] == 'PAID') {
+        setState(() {
+          _isResuming = false;
+          _paymentConfirmed = payment;
+          _result = {'paymentRequired': false};
         });
         return;
       }
@@ -266,6 +284,17 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   /// Mở VNPay Sandbox trong app. Giao dịch chỉ thành PAID khi VNPay gọi về server;
   /// khách không thể tự bấm "đã trả".
   Future<void> _payWithVnpay() async {
+    // Re-read the attempt: a previously displayed URL can have expired.
+    try {
+      if (widget.payOverdue) {
+        await _loadOverduePayment();
+      } else {
+        await _loadPendingExtensionPayment();
+      }
+    } catch (_) {
+      return;
+    }
+    if (!mounted || _paymentConfirmed != null || _resumeError != null) return;
     final result = _result;
     if (result == null) return;
     final transactionId = result['transactionId']?.toString() ?? '';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/staff_ticket_model.dart';
+import '../../models/paged_result.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../services/staff_ticket_api_service.dart';
 import '../../widgets/state_views.dart';
@@ -24,7 +25,11 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
   final StaffTicketApiService _ticketService = StaffTicketApiService();
   final FacilityOpsApiService _opsService = FacilityOpsApiService();
 
-  Future<List<StaffTicketModel>>? _ticketsFuture;
+  Future<PagedResult<StaffTicketModel>>? _ticketsFuture;
+  final List<StaffTicketModel> _additional = [];
+  int _nextPage = 1;
+  bool _lastPage = false;
+  bool _loadingMore = false;
 
   @override
   void initState() {
@@ -34,10 +39,33 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
 
   void _loadTickets() {
     setState(() {
+      _additional.clear();
+      _nextPage = 1;
+      _lastPage = false;
       _ticketsFuture = _ticketService.getFacilityTickets(
         widget.facilityId,
       );
     });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _lastPage) return;
+    final currentLoad = _ticketsFuture;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await _ticketService.getFacilityTickets(widget.facilityId,
+          page: _nextPage);
+      if (!mounted || !identical(currentLoad, _ticketsFuture)) return;
+      setState(() {
+        _additional.addAll(page.content);
+        _nextPage++;
+        _lastPage = page.last;
+      });
+    } catch (error) {
+      if (mounted) _showError(_errorMessage(error));
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
   }
 
   Future<void> _refreshTickets() async {
@@ -346,7 +374,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
       appBar: AppBar(
         title: const Text('Support Tickets'),
       ),
-      body: FutureBuilder<List<StaffTicketModel>>(
+      body: FutureBuilder<PagedResult<StaffTicketModel>>(
         future: _ticketsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -362,7 +390,8 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
             );
           }
 
-          final tickets = snapshot.data ?? <StaffTicketModel>[];
+          final tickets = [...?snapshot.data?.content, ..._additional];
+          final hasMore = snapshot.data != null && !snapshot.data!.last && !_lastPage;
 
           if (tickets.isEmpty) {
             return RefreshIndicator(
@@ -386,9 +415,15 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
             child: ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
-              itemCount: tickets.length,
+              itemCount: tickets.length + (hasMore ? 1 : 0),
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
+                if (index == tickets.length) {
+                  return Center(child: TextButton(
+                    onPressed: _loadingMore ? null : _loadMore,
+                    child: Text(_loadingMore ? 'Loading...' : 'Load more tickets'),
+                  ));
+                }
                 final ticket = tickets[index];
                 final statusColor = _statusColor(ticket.status);
 

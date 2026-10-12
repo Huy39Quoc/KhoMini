@@ -127,6 +127,17 @@ public class FacilityManagementController {
         );
     }
 
+    @GetMapping("/{facilityId}/staff/assignable")
+    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    public ApiResponse<List<AssignableStaffResponse>> assignableStaff(
+            @PathVariable UUID facilityId,
+            @AuthenticationPrincipal UserDetails principal
+    ) {
+        return ApiResponse.success(
+                service.assignableStaff(facilityId, principal.getUsername())
+        );
+    }
+
     @PutMapping("/{facilityId}/staff/{userId}")
     @PreAuthorize("hasRole('FACILITY_MANAGER')")
     public ApiResponse<FacilityStaffResponse> assignStaff(

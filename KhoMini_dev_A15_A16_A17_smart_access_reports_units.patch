@@ -1,0 +1,1419 @@
+diff --git a/BE/StoreHub/pom.xml b/BE/StoreHub/pom.xml
+index 3e469c0..d66008a 100644
+--- a/BE/StoreHub/pom.xml
++++ b/BE/StoreHub/pom.xml
+@@ -116,6 +116,11 @@
+             <groupId>org.apache.commons</groupId>
+             <artifactId>commons-lang3</artifactId>
+         </dependency>
++        <dependency>
++            <groupId>com.google.zxing</groupId>
++            <artifactId>core</artifactId>
++            <version>3.5.4</version>
++        </dependency>
+         <!-- ─── Testing ──────────────────────────────────────── -->
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+@@ -173,4 +178,4 @@
+             </plugin>
+         </plugins>
+     </build>
+-</project>
+\ No newline at end of file
++</project>
+diff --git a/BE/StoreHub/src/main/java/com/storehub/controller/CustomerStorageController.java b/BE/StoreHub/src/main/java/com/storehub/controller/CustomerStorageController.java
+index 623ffbb..4fbc67b 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/controller/CustomerStorageController.java
++++ b/BE/StoreHub/src/main/java/com/storehub/controller/CustomerStorageController.java
+@@ -11,7 +11,9 @@ import com.storehub.dto.response.ContractOperationResponse;
+ import com.storehub.dto.response.MyUnitResponse;
+ import com.storehub.dto.response.PaymentResponse;
+ import com.storehub.dto.response.SmartAccessResponse;
++import com.storehub.dto.response.GatePassResponse;
+ import com.storehub.service.CustomerStorageService;
++import com.storehub.service.GatePassService;
+ import io.swagger.v3.oas.annotations.Operation;
+ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+ import io.swagger.v3.oas.annotations.tags.Tag;
+@@ -34,9 +36,22 @@ import java.util.List;
+ public class CustomerStorageController {
+ 
+     private final CustomerStorageService customerStorageService;
++    private final GatePassService gatePassService;
++
++    @PostMapping("/{bookingId}/gate-pass")
++    @Operation(summary = "Cấp QR ra cổng có hạn dùng cho kho ACTIVE của khách")
++    public ResponseEntity<ApiResponse<GatePassResponse>> issueGatePass(
++            @PathVariable UUID bookingId,
++            @AuthenticationPrincipal UserDetails userDetails
++    ) {
++        return ResponseEntity.ok()
++                .header("Cache-Control", "no-store")
++                .body(ApiResponse.success("Gate pass issued",
++                        gatePassService.issue(bookingId, userDetails.getUsername())));
++    }
+ 
+     @GetMapping("/my-units")
+-    @Operation(summary = "Lấy danh sách các ngăn kho đang thuê của khách hàng hiện tại")
++    @Operation(summary = "Chỉ lấy ngăn kho đã bàn giao và đang thuê (ACTIVE)")
+     public ResponseEntity<ApiResponse<List<MyUnitResponse>>> getMyRentedUnits(
+             @AuthenticationPrincipal UserDetails userDetails
+     ) {
+@@ -49,6 +64,15 @@ public class CustomerStorageController {
+                 .build());
+     }
+ 
++    @GetMapping("/awaiting-handover")
++    @Operation(summary = "Lấy booking đã đặt cọc, đang chờ nhận kho (CONFIRMED)")
++    public ResponseEntity<ApiResponse<List<MyUnitResponse>>> getAwaitingHandover(
++            @AuthenticationPrincipal UserDetails userDetails
++    ) {
++        return ResponseEntity.ok(ApiResponse.success("Bookings awaiting handover retrieved",
++                customerStorageService.getAwaitingHandover(userDetails.getUsername())));
++    }
++
+     @GetMapping("/{bookingId}/access")
+     @Operation(summary = "Xem trạng thái khóa thông minh (đã có PIN chưa, đang khóa/mở). Không trả PIN đã lưu")
+     public ResponseEntity<ApiResponse<SmartAccessResponse>> getSmartAccess(
+@@ -193,4 +217,4 @@ public class CustomerStorageController {
+                 .data(response)
+                 .build());
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/controller/FacilityOperationsController.java b/BE/StoreHub/src/main/java/com/storehub/controller/FacilityOperationsController.java
+index 0ecbd02..8388415 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/controller/FacilityOperationsController.java
++++ b/BE/StoreHub/src/main/java/com/storehub/controller/FacilityOperationsController.java
+@@ -7,6 +7,9 @@ import com.storehub.dto.response.DailyScheduleResponse;
+ import com.storehub.dto.response.HandoverRecordResponse;
+ import com.storehub.dto.response.HandoverResponse;
+ import com.storehub.service.FacilityOperationsService;
++import com.storehub.service.GatePassService;
++import com.storehub.dto.request.GatePassVerificationRequest;
++import com.storehub.dto.response.GatePassVerificationResponse;
+ import com.storehub.dto.request.AppointmentAssignmentRequest;
+ import io.swagger.v3.oas.annotations.Operation;
+ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+@@ -34,6 +37,19 @@ import java.util.UUID;
+ public class FacilityOperationsController {
+ 
+     private final FacilityOperationsService facilityOperationsService;
++    private final GatePassService gatePassService;
++
++    @PostMapping("/gate-pass/verify")
++    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
++    @Operation(summary = "Kiểm tra và sử dụng một lần QR ra cổng tại cơ sở được phân công")
++    public ResponseEntity<ApiResponse<GatePassVerificationResponse>> verifyGatePass(
++            @RequestParam UUID facilityId,
++            @RequestBody @Valid GatePassVerificationRequest request,
++            @AuthenticationPrincipal UserDetails userDetails
++    ) {
++        return ResponseEntity.ok(ApiResponse.success("Gate pass accepted",
++                gatePassService.verify(userDetails.getUsername(), facilityId, request.getToken())));
++    }
+ 
+     @PutMapping("/{bookingId}/appointment-assignment")
+     @PreAuthorize("hasRole('FACILITY_MANAGER')")
+diff --git a/BE/StoreHub/src/main/java/com/storehub/dto/request/GatePassVerificationRequest.java b/BE/StoreHub/src/main/java/com/storehub/dto/request/GatePassVerificationRequest.java
+new file mode 100644
+index 0000000..344694f
+--- /dev/null
++++ b/BE/StoreHub/src/main/java/com/storehub/dto/request/GatePassVerificationRequest.java
+@@ -0,0 +1,12 @@
++package com.storehub.dto.request;
++
++import jakarta.validation.constraints.NotBlank;
++import jakarta.validation.constraints.Size;
++import lombok.Data;
++
++@Data
++public class GatePassVerificationRequest {
++    @NotBlank
++    @Size(max = 100)
++    private String token;
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/dto/response/GatePassResponse.java b/BE/StoreHub/src/main/java/com/storehub/dto/response/GatePassResponse.java
+new file mode 100644
+index 0000000..ab69a1e
+--- /dev/null
++++ b/BE/StoreHub/src/main/java/com/storehub/dto/response/GatePassResponse.java
+@@ -0,0 +1,18 @@
++package com.storehub.dto.response;
++
++import lombok.Builder;
++import lombok.Data;
++
++import java.time.Instant;
++import java.util.UUID;
++
++@Data
++@Builder
++public class GatePassResponse {
++    private UUID bookingId;
++    private String facilityName;
++    // A short-lived bearer secret; never store or log it in plaintext.
++    private String token;
++    private String qrPngBase64;
++    private Instant expiresAt;
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/dto/response/GatePassVerificationResponse.java b/BE/StoreHub/src/main/java/com/storehub/dto/response/GatePassVerificationResponse.java
+new file mode 100644
+index 0000000..d728bfd
+--- /dev/null
++++ b/BE/StoreHub/src/main/java/com/storehub/dto/response/GatePassVerificationResponse.java
+@@ -0,0 +1,15 @@
++package com.storehub.dto.response;
++
++import lombok.Builder;
++import lombok.Data;
++
++import java.util.UUID;
++
++@Data
++@Builder
++public class GatePassVerificationResponse {
++    private UUID bookingId;
++    private String bookingCode;
++    private String unitCode;
++    private String facilityName;
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/entity/GatePass.java b/BE/StoreHub/src/main/java/com/storehub/entity/GatePass.java
+new file mode 100644
+index 0000000..ee8c2ca
+--- /dev/null
++++ b/BE/StoreHub/src/main/java/com/storehub/entity/GatePass.java
+@@ -0,0 +1,44 @@
++package com.storehub.entity;
++
++import jakarta.persistence.Column;
++import jakarta.persistence.Entity;
++import jakarta.persistence.FetchType;
++import jakarta.persistence.JoinColumn;
++import jakarta.persistence.ManyToOne;
++import jakarta.persistence.Table;
++import lombok.AllArgsConstructor;
++import lombok.Builder;
++import lombok.Getter;
++import lombok.NoArgsConstructor;
++import lombok.Setter;
++
++import java.time.Instant;
++import java.util.UUID;
++
++@Entity
++@Table(name = "gate_passes")
++@Getter
++@Setter
++@NoArgsConstructor
++@AllArgsConstructor
++@Builder
++public class GatePass extends BaseEntity {
++    @ManyToOne(fetch = FetchType.LAZY)
++    @JoinColumn(name = "booking_id", nullable = false)
++    private Booking booking;
++
++    @Column(name = "facility_id", nullable = false)
++    private UUID facilityId;
++
++    @Column(name = "token_hash", nullable = false, unique = true, length = 64)
++    private String tokenHash;
++
++    @Column(name = "expires_at", nullable = false)
++    private Instant expiresAt;
++
++    @Column(name = "used_at")
++    private Instant usedAt;
++
++    @Column(name = "revoked_at")
++    private Instant revokedAt;
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/enums/ActivityAction.java b/BE/StoreHub/src/main/java/com/storehub/enums/ActivityAction.java
+index 85bdf0d..725e341 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/enums/ActivityAction.java
++++ b/BE/StoreHub/src/main/java/com/storehub/enums/ActivityAction.java
+@@ -39,6 +39,7 @@ public enum ActivityAction {
+     ACCESS_CREDENTIAL_ISSUE(true), ACCESS_CREDENTIAL_UPDATE(false), ACCESS_CREDENTIAL_REVOKE(true),
+     MASTER_KEY_OVERRIDE(true),
+     UNIT_UNLOCKED(false), UNIT_LOCKED(false),
++    GATE_PASS_ISSUED(false), GATE_PASS_VERIFIED(true),
+ 
+     // Renewal & Overdue
+     RENEWAL_REQUEST(false), RENEWAL_PAID(false), CONTRACT_EXTENDED(false),
+@@ -80,4 +81,4 @@ public enum ActivityAction {
+     public static List<ActivityAction> criticalActions() {
+         return Arrays.stream(values()).filter(ActivityAction::isCritical).toList();
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/exception/ErrorCode.java b/BE/StoreHub/src/main/java/com/storehub/exception/ErrorCode.java
+index 0b12c89..f14c318 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/exception/ErrorCode.java
++++ b/BE/StoreHub/src/main/java/com/storehub/exception/ErrorCode.java
+@@ -70,6 +70,9 @@ public enum ErrorCode {
+     OVERDUE_FEE_UNPAID_ON_RETURN(727, "Outstanding late fee must be paid by the customer before the unit return can be completed", HttpStatus.CONFLICT),
+     CHECKIN_RENTAL_ENDED(728, "The rental period has ended. The customer must make a new booking before check-in", HttpStatus.CONFLICT),
+     HANDOVER_ASSIGNED_TO_ANOTHER_STAFF(729, "This appointment is assigned to another staff member", HttpStatus.FORBIDDEN),
++    GATE_PASS_INVALID(730, "Gate pass is invalid or belongs to a different facility", HttpStatus.FORBIDDEN),
++    GATE_PASS_EXPIRED(731, "Gate pass has expired. Please generate a new one.", HttpStatus.GONE),
++    GATE_PASS_USED(732, "Gate pass has already been used or replaced", HttpStatus.CONFLICT),
+ 
+ 
+     UNIT_UNAVAILABLE(
+diff --git a/BE/StoreHub/src/main/java/com/storehub/repository/GatePassRepository.java b/BE/StoreHub/src/main/java/com/storehub/repository/GatePassRepository.java
+new file mode 100644
+index 0000000..3d33da3
+--- /dev/null
++++ b/BE/StoreHub/src/main/java/com/storehub/repository/GatePassRepository.java
+@@ -0,0 +1,26 @@
++package com.storehub.repository;
++
++import com.storehub.entity.GatePass;
++import jakarta.persistence.LockModeType;
++import org.springframework.data.jpa.repository.JpaRepository;
++import org.springframework.data.jpa.repository.Lock;
++import org.springframework.data.jpa.repository.Modifying;
++import org.springframework.data.jpa.repository.Query;
++import org.springframework.data.repository.query.Param;
++
++import java.time.Instant;
++import java.util.Optional;
++import java.util.UUID;
++
++public interface GatePassRepository extends JpaRepository<GatePass, UUID> {
++    @Query("select p.booking.id from GatePass p where p.tokenHash = :hash")
++    Optional<UUID> findBookingIdByTokenHash(@Param("hash") String hash);
++
++    @Lock(LockModeType.PESSIMISTIC_WRITE)
++    @Query("select p from GatePass p join fetch p.booking where p.tokenHash = :hash")
++    Optional<GatePass> lockByTokenHash(@Param("hash") String hash);
++
++    @Modifying
++    @Query("update GatePass p set p.revokedAt = :now where p.booking.id = :bookingId and p.usedAt is null and p.revokedAt is null")
++    int revokeUnusedForBooking(@Param("bookingId") UUID bookingId, @Param("now") Instant now);
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/CustomerStorageService.java b/BE/StoreHub/src/main/java/com/storehub/service/CustomerStorageService.java
+index 09be1b2..eecbb93 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/CustomerStorageService.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/CustomerStorageService.java
+@@ -17,6 +17,8 @@ import java.util.UUID;
+ public interface CustomerStorageService {
+     List<MyUnitResponse> getMyRentedUnits(String customerEmail);
+ 
++    List<MyUnitResponse> getAwaitingHandover(String customerEmail);
++
+     SmartAccessResponse getSmartAccessInfo(UUID bookingId, String customerEmail);
+ 
+     // Tạo PIN lần đầu: hệ thống cấp (newPin trống) hoặc khách tự đặt.
+@@ -41,4 +43,4 @@ public interface CustomerStorageService {
+     ContractOperationResponse cancelPendingExtension(UUID bookingId, String customerEmail);
+ 
+     PaymentResponse getPendingExtensionPayment(UUID bookingId, String customerEmail);
+-}
+\ No newline at end of file
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/GatePassService.java b/BE/StoreHub/src/main/java/com/storehub/service/GatePassService.java
+new file mode 100644
+index 0000000..768cf75
+--- /dev/null
++++ b/BE/StoreHub/src/main/java/com/storehub/service/GatePassService.java
+@@ -0,0 +1,156 @@
++package com.storehub.service;
++
++import com.google.zxing.BarcodeFormat;
++import com.google.zxing.qrcode.QRCodeWriter;
++import com.storehub.dto.response.GatePassResponse;
++import com.storehub.dto.response.GatePassVerificationResponse;
++import com.storehub.entity.Booking;
++import com.storehub.entity.FacilityAccess;
++import com.storehub.entity.GatePass;
++import com.storehub.entity.User;
++import com.storehub.enums.ActivityAction;
++import com.storehub.enums.BookingStatus;
++import com.storehub.exception.AppException;
++import com.storehub.exception.ErrorCode;
++import com.storehub.repository.BookingRepository;
++import com.storehub.repository.GatePassRepository;
++import com.storehub.repository.UserRepository;
++import lombok.RequiredArgsConstructor;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++
++import javax.imageio.ImageIO;
++import java.awt.image.BufferedImage;
++import java.io.ByteArrayOutputStream;
++import java.nio.charset.StandardCharsets;
++import java.security.MessageDigest;
++import java.security.NoSuchAlgorithmException;
++import java.security.SecureRandom;
++import java.time.Instant;
++import java.time.LocalDate;
++import java.util.Base64;
++import java.util.HexFormat;
++import java.util.UUID;
++
++@Service
++@RequiredArgsConstructor
++public class GatePassService {
++    private static final int PASS_LIFETIME_SECONDS = 90;
++    private static final SecureRandom RANDOM = new SecureRandom();
++
++    private final GatePassRepository passes;
++    private final BookingRepository bookings;
++    private final UserRepository users;
++    private final FacilityAccess facilityAccess;
++    private final ActivityLogService activityLog;
++
++    @Transactional
++    public GatePassResponse issue(UUID bookingId, String customerEmail) {
++        User customer = users.findByEmail(customerEmail)
++                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
++        Booking booking = bookings.lockByIdAndCustomerId(bookingId, customer.getId())
++                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
++        requireGateAccess(booking);
++
++        byte[] secret = new byte[32];
++        RANDOM.nextBytes(secret);
++        String token = "KMG1." + Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
++        Instant now = Instant.now();
++        Instant expiresAt = now.plusSeconds(PASS_LIFETIME_SECONDS);
++        UUID facilityId = booking.getStorageUnit().getFacility().getId();
++
++        // The booking row lock serializes issuance with verification and revocation.
++        passes.revokeUnusedForBooking(bookingId, now);
++        passes.save(GatePass.builder()
++                .booking(booking).facilityId(facilityId)
++                .tokenHash(hash(token)).expiresAt(expiresAt).build());
++        activityLog.record(customer.getId(), ActivityAction.GATE_PASS_ISSUED,
++                "BOOKING", bookingId, "Issued short-lived gate pass", null, null);
++
++        return GatePassResponse.builder()
++                .bookingId(bookingId)
++                .facilityName(booking.getStorageUnit().getFacility().getName())
++                .token(token)
++                .qrPngBase64(renderQr(token))
++                .expiresAt(expiresAt)
++                .build();
++    }
++
++    @Transactional
++    public GatePassVerificationResponse verify(String staffEmail, UUID facilityId, String token) {
++        User staff = facilityAccess.requireForUpdate(staffEmail, facilityId);
++        if (token == null || !token.matches("KMG1\\.[A-Za-z0-9_-]{43}")) {
++            throw new AppException(ErrorCode.GATE_PASS_INVALID);
++        }
++        String tokenHash = hash(token);
++        UUID bookingId = passes.findBookingIdByTokenHash(tokenHash)
++                .orElseThrow(() -> new AppException(ErrorCode.GATE_PASS_INVALID));
++        Booking booking = bookings.lockById(bookingId)
++                .orElseThrow(() -> new AppException(ErrorCode.GATE_PASS_INVALID));
++        GatePass pass = passes.lockByTokenHash(tokenHash)
++                .orElseThrow(() -> new AppException(ErrorCode.GATE_PASS_INVALID));
++
++        if (booking.getStorageUnit() == null || booking.getStorageUnit().getFacility() == null
++                || !facilityId.equals(pass.getFacilityId())
++                || !facilityId.equals(booking.getStorageUnit().getFacility().getId())) {
++            throw new AppException(ErrorCode.GATE_PASS_INVALID);
++        }
++        if (pass.getUsedAt() != null || pass.getRevokedAt() != null) {
++            throw new AppException(ErrorCode.GATE_PASS_USED);
++        }
++        if (!Instant.now().isBefore(pass.getExpiresAt())) {
++            throw new AppException(ErrorCode.GATE_PASS_EXPIRED);
++        }
++        requireGateAccess(booking);
++        pass.setUsedAt(Instant.now());
++        passes.save(pass);
++        activityLog.record(staff.getId(), ActivityAction.GATE_PASS_VERIFIED,
++                "BOOKING", bookingId, "Verified gate pass for " + booking.getBookingCode(), null, null);
++
++        return GatePassVerificationResponse.builder()
++                .bookingId(bookingId)
++                .bookingCode(booking.getBookingCode())
++                .unitCode(booking.getStorageUnit().getUnitCode())
++                .facilityName(booking.getStorageUnit().getFacility().getName())
++                .build();
++    }
++
++    private void requireGateAccess(Booking booking) {
++        if (booking.getStatus() != BookingStatus.ACTIVE) {
++            throw new AppException(ErrorCode.BOOKING_NOT_CHECKED_IN);
++        }
++        if (booking.getStorageUnit() == null
++                || booking.getStorageUnit().getFacility() == null
++                || booking.getEndDate() == null
++                || booking.getEndDate().isBefore(LocalDate.now())
++                || booking.getAccessDisabledAt() != null) {
++            throw new AppException(ErrorCode.ACCESS_DISABLED_OVERDUE);
++        }
++    }
++
++    private static String hash(String token) {
++        try {
++            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
++                    .digest(token.getBytes(StandardCharsets.US_ASCII)));
++        } catch (NoSuchAlgorithmException e) {
++            throw new IllegalStateException("SHA-256 unavailable", e);
++        }
++    }
++
++    private static String renderQr(String token) {
++        try {
++            var matrix = new QRCodeWriter().encode(token, BarcodeFormat.QR_CODE, 256, 256);
++            var image = new BufferedImage(matrix.getWidth(), matrix.getHeight(), BufferedImage.TYPE_INT_RGB);
++            for (int y = 0; y < matrix.getHeight(); y++) {
++                for (int x = 0; x < matrix.getWidth(); x++) {
++                    image.setRGB(x, y, matrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF);
++                }
++            }
++            var output = new ByteArrayOutputStream();
++            ImageIO.write(image, "png", output);
++            return Base64.getEncoder().encodeToString(output.toByteArray());
++        } catch (Exception e) {
++            throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR);
++        }
++    }
++}
+diff --git a/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerStorageServiceImpl.java b/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerStorageServiceImpl.java
+index a7794ea..0ad2184 100644
+--- a/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerStorageServiceImpl.java
++++ b/BE/StoreHub/src/main/java/com/storehub/service/impl/CustomerStorageServiceImpl.java
+@@ -41,7 +41,6 @@ import java.math.BigDecimal;
+ import java.security.SecureRandom;
+ import java.time.LocalDate;
+ import java.time.LocalDateTime;
+-import java.util.Arrays;
+ import java.util.List;
+ import java.util.UUID;
+ import java.util.stream.Collectors;
+@@ -66,16 +65,21 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
+     public List<MyUnitResponse> getMyRentedUnits(String customerEmail) {
+         UUID customerId = resolveCustomerId(customerEmail);
+ 
+-        List<BookingStatus> activeStatuses = Arrays.asList(
+-                BookingStatus.CONFIRMED,
+-                BookingStatus.ACTIVE
+-        );
+-
+-        List<Booking> bookings = bookingRepository.findActiveBookingsByCustomerId(customerId, activeStatuses);
++        List<Booking> bookings = bookingRepository.findActiveBookingsByCustomerId(
++                customerId, List.of(BookingStatus.ACTIVE));
+         bookings.forEach(this::reconcileOverdueState);
+         return bookings.stream().map(this::mapToResponse).collect(Collectors.toList());
+     }
+ 
++    @Override
++    @Transactional(readOnly = true)
++    public List<MyUnitResponse> getAwaitingHandover(String customerEmail) {
++        UUID customerId = resolveCustomerId(customerEmail);
++        return bookingRepository.findActiveBookingsByCustomerId(
++                        customerId, List.of(BookingStatus.CONFIRMED))
++                .stream().map(this::mapToResponse).collect(Collectors.toList());
++    }
++
+     // ===================== SMART ACCESS (mở/đóng khóa bằng PIN) =====================
+     // Quy ước:
+     //  - PIN 6 số do HỆ THỐNG CẤP hoặc KHÁCH TỰ ĐẶT; server chỉ lưu bản băm BCrypt.
+diff --git a/BE/StoreHub/src/main/resources/db/migration/V17__gate_passes.sql b/BE/StoreHub/src/main/resources/db/migration/V17__gate_passes.sql
+new file mode 100644
+index 0000000..b4318fc
+--- /dev/null
++++ b/BE/StoreHub/src/main/resources/db/migration/V17__gate_passes.sql
+@@ -0,0 +1,13 @@
++CREATE TABLE gate_passes (
++    id UUID PRIMARY KEY,
++    created_at TIMESTAMP NOT NULL,
++    updated_at TIMESTAMP NOT NULL,
++    booking_id UUID NOT NULL REFERENCES bookings(id),
++    facility_id UUID NOT NULL REFERENCES facilities(id),
++    token_hash VARCHAR(64) NOT NULL UNIQUE,
++    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
++    used_at TIMESTAMP WITH TIME ZONE,
++    revoked_at TIMESTAMP WITH TIME ZONE
++);
++
++CREATE INDEX idx_gate_passes_booking ON gate_passes(booking_id);
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/GatePassServiceTest.java b/BE/StoreHub/src/test/java/com/storehub/service/GatePassServiceTest.java
+new file mode 100644
+index 0000000..b5aade2
+--- /dev/null
++++ b/BE/StoreHub/src/test/java/com/storehub/service/GatePassServiceTest.java
+@@ -0,0 +1,126 @@
++package com.storehub.service;
++
++import com.google.zxing.BinaryBitmap;
++import com.google.zxing.RGBLuminanceSource;
++import com.google.zxing.common.HybridBinarizer;
++import com.google.zxing.qrcode.QRCodeReader;
++import com.storehub.entity.Booking;
++import com.storehub.entity.Facility;
++import com.storehub.entity.FacilityAccess;
++import com.storehub.entity.GatePass;
++import com.storehub.entity.StorageUnit;
++import com.storehub.entity.User;
++import com.storehub.enums.BookingStatus;
++import com.storehub.exception.AppException;
++import com.storehub.exception.ErrorCode;
++import com.storehub.repository.BookingRepository;
++import com.storehub.repository.GatePassRepository;
++import com.storehub.repository.UserRepository;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.ArgumentCaptor;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++
++import javax.imageio.ImageIO;
++import java.io.ByteArrayInputStream;
++import java.time.Instant;
++import java.time.LocalDate;
++import java.util.Base64;
++import java.util.Optional;
++import java.util.UUID;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++@ExtendWith(MockitoExtension.class)
++class GatePassServiceTest {
++    @Mock GatePassRepository passes;
++    @Mock BookingRepository bookings;
++    @Mock UserRepository users;
++    @Mock FacilityAccess facilityAccess;
++    @Mock ActivityLogService activityLog;
++    @InjectMocks GatePassService service;
++
++    @Test
++    void activeCustomerQrIsScannableAndCanBeUsedOnlyOnce() throws Exception {
++        UUID bookingId = UUID.randomUUID(), customerId = UUID.randomUUID();
++        UUID facilityId = UUID.randomUUID();
++        User customer = new User(); customer.setId(customerId);
++        User staff = new User(); staff.setId(UUID.randomUUID());
++        Facility facility = Facility.builder().name("Central").build();
++        facility.setId(facilityId);
++        Booking booking = Booking.builder().bookingCode("BK-123")
++                .status(BookingStatus.ACTIVE).endDate(LocalDate.now().plusDays(30))
++                .storageUnit(StorageUnit.builder().unitCode("A-01").facility(facility).build())
++                .build();
++        booking.setId(bookingId);
++        when(users.findByEmail("customer@test.com")).thenReturn(Optional.of(customer));
++        when(bookings.lockByIdAndCustomerId(bookingId, customerId))
++                .thenReturn(Optional.of(booking));
++
++        var issued = service.issue(bookingId, "customer@test.com");
++        verify(passes).revokeUnusedForBooking(bookingId, any(Instant.class));
++        ArgumentCaptor<GatePass> captor = ArgumentCaptor.forClass(GatePass.class);
++        verify(passes).save(captor.capture());
++        GatePass stored = captor.getValue();
++        assertEquals(64, stored.getTokenHash().length());
++        assertNotEquals(issued.getToken(), stored.getTokenHash());
++        assertTrue(issued.getExpiresAt().isAfter(Instant.now()));
++
++        var image = ImageIO.read(new ByteArrayInputStream(
++                Base64.getDecoder().decode(issued.getQrPngBase64())));
++        int[] pixels = image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0, image.getWidth());
++        var bitmap = new BinaryBitmap(new HybridBinarizer(
++                new RGBLuminanceSource(image.getWidth(), image.getHeight(), pixels)));
++        assertEquals(issued.getToken(), new QRCodeReader().decode(bitmap).getText());
++
++        when(facilityAccess.requireForUpdate("staff@test.com", facilityId)).thenReturn(staff);
++        when(passes.findBookingIdByTokenHash(stored.getTokenHash())).thenReturn(Optional.of(bookingId));
++        when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
++        when(passes.lockByTokenHash(stored.getTokenHash())).thenReturn(Optional.of(stored));
++
++        var verified = service.verify("staff@test.com", facilityId, issued.getToken());
++        assertEquals("A-01", verified.getUnitCode());
++        assertNotNull(stored.getUsedAt());
++        AppException repeat = assertThrows(AppException.class,
++                () -> service.verify("staff@test.com", facilityId, issued.getToken()));
++        assertEquals(ErrorCode.GATE_PASS_USED, repeat.getErrorCode());
++    }
++
++    @Test
++    void confirmedBookingCannotIssueGateQr() {
++        UUID bookingId = UUID.randomUUID(), customerId = UUID.randomUUID();
++        User customer = new User(); customer.setId(customerId);
++        when(users.findByEmail("customer@test.com")).thenReturn(Optional.of(customer));
++        when(bookings.lockByIdAndCustomerId(bookingId, customerId))
++                .thenReturn(Optional.of(Booking.builder().status(BookingStatus.CONFIRMED).build()));
++        AppException error = assertThrows(AppException.class,
++                () -> service.issue(bookingId, "customer@test.com"));
++        assertEquals(ErrorCode.BOOKING_NOT_CHECKED_IN, error.getErrorCode());
++    }
++
++    @Test
++    void expiredPassCannotBeVerified() {
++        UUID bookingId = UUID.randomUUID(), facilityId = UUID.randomUUID();
++        Facility facility = new Facility(); facility.setId(facilityId);
++        Booking booking = Booking.builder().status(BookingStatus.ACTIVE)
++                .endDate(LocalDate.now().plusDays(2))
++                .storageUnit(StorageUnit.builder().facility(facility).build()).build();
++        GatePass pass = GatePass.builder().facilityId(facilityId)
++                .expiresAt(Instant.now().minusSeconds(1)).build();
++        User staff = new User(); staff.setId(UUID.randomUUID());
++        when(facilityAccess.requireForUpdate("staff@test.com", facilityId)).thenReturn(staff);
++        when(passes.findBookingIdByTokenHash(anyString())).thenReturn(Optional.of(bookingId));
++        when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
++        when(passes.lockByTokenHash(anyString())).thenReturn(Optional.of(pass));
++        String token = "KMG1." + "a".repeat(43);
++        AppException error = assertThrows(AppException.class,
++                () -> service.verify("staff@test.com", facilityId, token));
++        assertEquals(ErrorCode.GATE_PASS_EXPIRED, error.getErrorCode());
++    }
++}
+diff --git a/BE/StoreHub/src/test/java/com/storehub/service/MyRentedUnitsStatusTest.java b/BE/StoreHub/src/test/java/com/storehub/service/MyRentedUnitsStatusTest.java
+new file mode 100644
+index 0000000..eb873d9
+--- /dev/null
++++ b/BE/StoreHub/src/test/java/com/storehub/service/MyRentedUnitsStatusTest.java
+@@ -0,0 +1,58 @@
++package com.storehub.service;
++
++import com.storehub.entity.Booking;
++import com.storehub.entity.User;
++import com.storehub.dto.response.MyUnitResponse;
++import com.storehub.enums.BookingStatus;
++import com.storehub.mapper.CustomerStorageMapper;
++import com.storehub.repository.BookingRepository;
++import com.storehub.repository.PaymentRepository;
++import com.storehub.repository.UserRepository;
++import com.storehub.service.impl.CustomerStorageServiceImpl;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.springframework.security.crypto.password.PasswordEncoder;
++
++import java.util.List;
++import java.util.Optional;
++import java.util.UUID;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++import static org.mockito.ArgumentMatchers.any;
++
++@ExtendWith(MockitoExtension.class)
++class MyRentedUnitsStatusTest {
++    @Mock BookingRepository bookings;
++    @Mock UserRepository users;
++    @Mock PaymentRepository payments;
++    @Mock ActivityLogService logs;
++    @Mock PricingService pricing;
++    @Mock FacilityPolicyService policies;
++    @Mock PaymentService paymentService;
++    @Mock CustomerStorageMapper mapper;
++    @Mock PasswordEncoder encoder;
++    @InjectMocks CustomerStorageServiceImpl storage;
++
++    @Test
++    void rentedUnitsAndAwaitingHandoverUseSeparateStatuses() {
++        UUID customerId = UUID.randomUUID();
++        User customer = new User(); customer.setId(customerId);
++        when(users.findByEmail("customer@test.com")).thenReturn(Optional.of(customer));
++        when(bookings.findActiveBookingsByCustomerId(customerId, List.of(BookingStatus.ACTIVE)))
++                .thenReturn(List.of(new Booking()));
++        when(bookings.findActiveBookingsByCustomerId(customerId, List.of(BookingStatus.CONFIRMED)))
++                .thenReturn(List.of(new Booking()));
++        when(mapper.toMyUnitResponse(any(Booking.class)))
++                .thenReturn(MyUnitResponse.builder().build());
++
++        assertEquals(1, storage.getMyRentedUnits("customer@test.com").size());
++        assertEquals(1, storage.getAwaitingHandover("customer@test.com").size());
++        verify(bookings).findActiveBookingsByCustomerId(customerId, List.of(BookingStatus.ACTIVE));
++        verify(bookings).findActiveBookingsByCustomerId(customerId, List.of(BookingStatus.CONFIRMED));
++    }
++}
+diff --git a/FE/storehub_mobile/lib/core/constants/api_endpoints.dart b/FE/storehub_mobile/lib/core/constants/api_endpoints.dart
+index be0e3a6..fc28f7a 100644
+--- a/FE/storehub_mobile/lib/core/constants/api_endpoints.dart
++++ b/FE/storehub_mobile/lib/core/constants/api_endpoints.dart
+@@ -15,6 +15,10 @@ class ApiEndpoints {
+ 
+   // ---- Customer Storage (CustomerStorageController) ----
+   static const String myUnits = '/customer/storage/my-units';
++  static const String awaitingHandover = '/customer/storage/awaiting-handover';
++  static String gatePass(String bookingId) =>
++      '/customer/storage/$bookingId/gate-pass';
++  static const String verifyGatePass = '/facility/operations/gate-pass/verify';
+   static String smartAccess(String bookingId) =>
+       '/customer/storage/$bookingId/access';
+   static String setupPin(String bookingId) =>
+diff --git a/FE/storehub_mobile/lib/screens/common/gate_pass_verify_screen.dart b/FE/storehub_mobile/lib/screens/common/gate_pass_verify_screen.dart
+new file mode 100644
+index 0000000..2284df3
+--- /dev/null
++++ b/FE/storehub_mobile/lib/screens/common/gate_pass_verify_screen.dart
+@@ -0,0 +1,111 @@
++import 'package:flutter/material.dart';
++import 'package:flutter/services.dart';
++
++import '../../core/constants/app_colors.dart';
++import '../../services/facility_ops_api_service.dart';
++
++/// Scanner keyboards can enter a decoded QR token directly in this field.
++/// A camera scanner may call the same API after decoding the QR.
++class GatePassVerifyScreen extends StatefulWidget {
++  final String facilityId;
++
++  const GatePassVerifyScreen({super.key, required this.facilityId});
++
++  @override
++  State<GatePassVerifyScreen> createState() => _GatePassVerifyScreenState();
++}
++
++class _GatePassVerifyScreenState extends State<GatePassVerifyScreen> {
++  final _controller = TextEditingController();
++  final _service = FacilityOpsApiService();
++  bool _busy = false;
++  String? _message;
++  Map<String, dynamic>? _verified;
++
++  @override
++  void dispose() {
++    _controller.dispose();
++    super.dispose();
++  }
++
++  Future<void> _verify() async {
++    final token = _controller.text.trim();
++    if (token.isEmpty || _busy) return;
++    setState(() {
++      _busy = true;
++      _message = null;
++      _verified = null;
++    });
++    try {
++      final result = await _service.verifyGatePass(
++          facilityId: widget.facilityId, token: token);
++      if (!mounted) return;
++      setState(() {
++        _verified = result;
++        _busy = false;
++        _controller.clear();
++      });
++    } catch (error) {
++      if (!mounted) return;
++      setState(() {
++        _message = error.toString().replaceAll('Exception: ', '');
++        _busy = false;
++      });
++    }
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    return Scaffold(
++      appBar: AppBar(title: const Text('Gate QR verification')),
++      body: ListView(
++        padding: const EdgeInsets.all(20),
++        children: [
++          const Text('Quét QR của khách bằng máy quét, hoặc dán mã đã giải mã '
++              'vào ô bên dưới. Mỗi mã chỉ xác minh được một lần.'),
++          const SizedBox(height: 16),
++          TextField(
++            controller: _controller,
++            autofocus: true,
++            decoration: InputDecoration(
++              labelText: 'Mã QR ra cổng',
++              suffixIcon: IconButton(
++                tooltip: 'Dán mã',
++                icon: const Icon(Icons.paste),
++                onPressed: () async {
++                  final data = await Clipboard.getData(Clipboard.kTextPlain);
++                  if (mounted && data?.text != null) {
++                    _controller.text = data!.text!;
++                  }
++                },
++              ),
++            ),
++            onSubmitted: (_) => _verify(),
++          ),
++          const SizedBox(height: 12),
++          ElevatedButton.icon(
++            onPressed: _busy ? null : _verify,
++            icon: const Icon(Icons.verified_outlined),
++            label: Text(_busy ? 'Đang xác minh...' : 'Xác minh tại cổng'),
++          ),
++          if (_message != null) ...[
++            const SizedBox(height: 16),
++            Text(_message!, style: const TextStyle(color: AppColors.error)),
++          ],
++          if (_verified != null) ...[
++            const SizedBox(height: 16),
++            Card(
++              child: ListTile(
++                leading: const Icon(Icons.check_circle, color: AppColors.success),
++                title: const Text('QR hợp lệ - cho khách vào cổng'),
++                subtitle: Text('${_verified!['facilityName'] ?? ''} • '
++                    'Kho ${_verified!['unitCode'] ?? ''} • '
++                    'Đơn ${_verified!['bookingCode'] ?? ''}'),
++              ),
++            ),
++          ],
++        ],
++      ),
++    );
++  }
++}
+diff --git a/FE/storehub_mobile/lib/screens/customer/my_units/my_rented_units_screen.dart b/FE/storehub_mobile/lib/screens/customer/my_units/my_rented_units_screen.dart
+index a30de12..dc0364a 100644
+--- a/FE/storehub_mobile/lib/screens/customer/my_units/my_rented_units_screen.dart
++++ b/FE/storehub_mobile/lib/screens/customer/my_units/my_rented_units_screen.dart
+@@ -20,7 +20,8 @@ class MyRentedUnitsScreen extends StatefulWidget {
+ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
+   final StorageApiService _storageService = StorageApiService();
+   final BookingApiService _bookingService = BookingApiService();
+-  late Future<List<MyUnitModel>> _unitsFuture;
++  late Future<({List<MyUnitModel> active, List<MyUnitModel> awaiting})> _unitsFuture;
++  bool _showAwaiting = false;
+   final _currency = NumberFormat.currency(
+       locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+   final _dateFmt = DateFormat('MMM d, yyyy');
+@@ -39,15 +40,21 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
+ 
+   void _loadUnits() {
+     setState(() {
+-      _unitsFuture = _storageService.getMyRentedUnits().then((response) {
+-        return response.map((item) {
+-          if (item is MyUnitModel) return item;
+-          return MyUnitModel.fromJson(item as Map<String, dynamic>);
+-        }).toList();
+-      });
++      _unitsFuture = _fetchUnits();
+     });
+   }
+ 
++  Future<({List<MyUnitModel> active, List<MyUnitModel> awaiting})> _fetchUnits() async {
++    final results = await Future.wait([
++      _storageService.getMyRentedUnits(),
++      _storageService.getAwaitingHandover(),
++    ]);
++    List<MyUnitModel> parse(List<dynamic> items) => items
++        .map((item) => MyUnitModel.fromJson(Map<String, dynamic>.from(item as Map)))
++        .toList();
++    return (active: parse(results[0]), awaiting: parse(results[1]));
++  }
++
+   void _showUnitActions(MyUnitModel unit) {
+     showModalBottomSheet(
+       context: context,
+@@ -81,7 +88,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
+                   child:
+                       const Icon(Icons.key, color: AppColors.primaryContainer),
+                 ),
+-                title: const Text('Smart Access (PIN)'),
++                title: const Text('Smart Access (PIN & Gate QR)'),
+                 enabled: unit.hasActiveAccess,
+                 subtitle: unit.hasActiveAccess
+                     ? null
+@@ -346,7 +353,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
+       ),
+       body: RefreshIndicator(
+         onRefresh: () async => _loadUnits(),
+-        child: FutureBuilder<List<MyUnitModel>>(
++        child: FutureBuilder<({List<MyUnitModel> active, List<MyUnitModel> awaiting})>(
+           future: _unitsFuture,
+           builder: (context, snapshot) {
+             if (snapshot.connectionState == ConnectionState.waiting) {
+@@ -361,20 +368,11 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
+                   ),
+                 ],
+               );
+-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+-              return ListView(
+-                children: const [
+-                  AppEmptyState(
+-                    icon: Icons.inventory_2_outlined,
+-                    title: 'No rented storage units yet',
+-                    message: 'Units you rent will show up here.',
+-                  ),
+-                ],
+-              );
+             }
+ 
+-            final units = snapshot.data!;
+-            final activeCount = units.where((u) => u.status == 'ACTIVE').length;
++            final active = snapshot.data?.active ?? <MyUnitModel>[];
++            final awaiting = snapshot.data?.awaiting ?? <MyUnitModel>[];
++            final units = _showAwaiting ? awaiting : active;
+ 
+             return ListView(
+               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+@@ -402,15 +400,17 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
+                           crossAxisAlignment: CrossAxisAlignment.start,
+                           children: [
+                             Text(
+-                              '$activeCount active of ${units.length} unit${units.length == 1 ? '' : 's'}',
++                              '${active.length} active • ${awaiting.length} awaiting handover',
+                               style: const TextStyle(
+                                   color: Colors.white,
+                                   fontWeight: FontWeight.bold,
+                                   fontSize: 14),
+                             ),
+-                            const Text(
+-                              'Tap a unit to access its smart key, extend, or report an issue',
+-                              style: TextStyle(
++                            Text(
++                              _showAwaiting
++                                  ? 'These bookings are waiting for staff check-in and handover.'
++                                  : 'Tap a unit for its smart key, gate QR, rental and support.',
++                              style: const TextStyle(
+                                   color: Colors.white70, fontSize: 11),
+                             ),
+                           ],
+@@ -420,6 +420,30 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
+                   ),
+                 ),
+                 const SizedBox(height: 16),
++                Wrap(
++                  spacing: 8,
++                  children: [
++                    ChoiceChip(
++                      label: Text('Currently renting (${active.length})'),
++                      selected: !_showAwaiting,
++                      onSelected: (_) => setState(() => _showAwaiting = false),
++                    ),
++                    ChoiceChip(
++                      label: Text('Awaiting handover (${awaiting.length})'),
++                      selected: _showAwaiting,
++                      onSelected: (_) => setState(() => _showAwaiting = true),
++                    ),
++                  ],
++                ),
++                const SizedBox(height: 12),
++                if (units.isEmpty)
++                  AppEmptyState(
++                    icon: Icons.inventory_2_outlined,
++                    title: _showAwaiting ? 'No upcoming handovers' : 'No active rentals',
++                    message: _showAwaiting
++                        ? 'Confirmed bookings will appear here until check-in.'
++                        : 'Units appear here after staff complete the handover.',
++                  ),
+                 ...units.map((unit) => Padding(
+                       padding: const EdgeInsets.only(bottom: 12),
+                       child: _buildUnitCard(unit),
+diff --git a/FE/storehub_mobile/lib/screens/customer/my_units/smart_key_screen.dart b/FE/storehub_mobile/lib/screens/customer/my_units/smart_key_screen.dart
+index 7a83bdf..68dea17 100644
+--- a/FE/storehub_mobile/lib/screens/customer/my_units/smart_key_screen.dart
++++ b/FE/storehub_mobile/lib/screens/customer/my_units/smart_key_screen.dart
+@@ -1,4 +1,5 @@
+ import 'dart:async';
++import 'dart:convert';
+ 
+ import 'package:flutter/material.dart';
+ import 'package:flutter/services.dart';
+@@ -34,6 +35,9 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
+   bool _loading = true;
+   bool _busy = false;
+   Timer? _blockTicker;
++  Timer? _gateTicker;
++  Map<String, dynamic>? _gatePass;
++  bool _issuingGatePass = false;
+ 
+   static final _digitsOnly = <TextInputFormatter>[
+     FilteringTextInputFormatter.digitsOnly,
+@@ -49,6 +53,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
+   @override
+   void dispose() {
+     _blockTicker?.cancel();
++    _gateTicker?.cancel();
+     _pinController.dispose();
+     super.dispose();
+   }
+@@ -126,6 +131,75 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
+ 
+   // ---------------------------------------------------------------- actions
+ 
++  Future<void> _issueGatePass() async {
++    setState(() => _issuingGatePass = true);
++    try {
++      final pass = await _service.issueGatePass(widget.bookingId);
++      if (!mounted) return;
++      setState(() {
++        _gatePass = pass;
++        _issuingGatePass = false;
++      });
++      _gateTicker?.cancel();
++      _gateTicker = Timer.periodic(const Duration(seconds: 1), (_) {
++        if (!mounted) return;
++        final expires = DateTime.tryParse(_gatePass?['expiresAt']?.toString() ?? '');
++        if (expires == null || !expires.isAfter(DateTime.now())) {
++          _gateTicker?.cancel();
++        }
++        setState(() {});
++      });
++    } catch (e) {
++      if (!mounted) return;
++      setState(() => _issuingGatePass = false);
++      _toast(_msg(e), error: true);
++    }
++  }
++
++  Widget _gatePassCard() {
++    final pass = _gatePass;
++    final expiresAt = DateTime.tryParse(pass?['expiresAt']?.toString() ?? '');
++    final remaining = expiresAt?.difference(DateTime.now()) ?? Duration.zero;
++    final valid = pass != null && remaining > Duration.zero;
++    final imageBase64 = valid ? pass['qrPngBase64']?.toString() : null;
++    return _card(
++      child: Column(
++        children: [
++          const Icon(Icons.qr_code_2, size: 40, color: AppColors.primary),
++          const SizedBox(height: 8),
++          const Text('QR ra vào cổng',
++              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
++          const SizedBox(height: 6),
++          const Text('Mã chỉ dùng một lần, có hiệu lực 90 giây. '
++              'Đưa QR cho nhân viên tại đúng cơ sở để xác minh. '
++              'Sau khi quét, hãy tạo mã mới cho lượt tiếp theo.',
++              textAlign: TextAlign.center,
++              style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
++          if (valid && imageBase64 != null) ...[
++            const SizedBox(height: 12),
++            Image.memory(base64Decode(imageBase64), width: 220, height: 220,
++                gaplessPlayback: false),
++            const SizedBox(height: 6),
++            Text('Còn ${remaining.inSeconds} giây • ${pass['facilityName'] ?? ''}',
++                style: const TextStyle(fontWeight: FontWeight.bold)),
++          ] else if (pass != null) ...[
++            const SizedBox(height: 10),
++            const Text('QR đã hết hạn. Tạo mã mới để vào cổng.'),
++          ],
++          const SizedBox(height: 12),
++          ElevatedButton.icon(
++            onPressed: _issuingGatePass ? null : _issueGatePass,
++            icon: _issuingGatePass
++                ? const SizedBox(height: 16, width: 16,
++                    child: CircularProgressIndicator(strokeWidth: 2))
++                : const Icon(Icons.refresh),
++            label: Text(valid ? 'Tạo QR mới' : 'Lấy QR ra vào cổng'),
++          ),
++        ],
++      ),
++    );
++  }
++
+   Future<void> _unlock() async {
+     final pin = _pinController.text;
+     if (pin.length != 6) {
+@@ -591,7 +665,11 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
+     final a = _access!;
+     return ListView(
+       padding: const EdgeInsets.all(16),
+-      children: [a.pinSet ? _lockView(a) : _noPinView()],
++      children: [
++        _gatePassCard(),
++        const SizedBox(height: 16),
++        a.pinSet ? _lockView(a) : _noPinView(),
++      ],
+     );
+   }
+ 
+diff --git a/FE/storehub_mobile/lib/screens/manager/manager_dashboard_screen.dart b/FE/storehub_mobile/lib/screens/manager/manager_dashboard_screen.dart
+index d5858be..3aac9b5 100644
+--- a/FE/storehub_mobile/lib/screens/manager/manager_dashboard_screen.dart
++++ b/FE/storehub_mobile/lib/screens/manager/manager_dashboard_screen.dart
+@@ -10,6 +10,7 @@ import '../../services/facility_ops_api_service.dart';
+ import '../../widgets/state_views.dart';
+ import '../common/profile_screen.dart';
+ import '../common/transaction_history_screen.dart';
++import '../common/gate_pass_verify_screen.dart';
+ import 'booking_assignment_screen.dart';
+ import 'appointment_assignment_screen.dart';
+ import 'refund_review_screen.dart';
+@@ -794,6 +795,16 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
+               : _facilityName!,
+         ),
+         actions: [
++          if (_facilityId != null && _facilityId!.isNotEmpty)
++            IconButton(
++              tooltip: 'Verify gate QR',
++              icon: const Icon(Icons.qr_code_scanner),
++              onPressed: () => Navigator.push(
++                context,
++                MaterialPageRoute(builder: (_) =>
++                    GatePassVerifyScreen(facilityId: _facilityId!)),
++              ),
++            ),
+           if (_facilityId != null && _facilityId!.isNotEmpty)
+             IconButton(
+               tooltip: 'Refund requests',
+diff --git a/FE/storehub_mobile/lib/screens/operations/operations_dashboard_screen.dart b/FE/storehub_mobile/lib/screens/operations/operations_dashboard_screen.dart
+index 981af13..f13e651 100644
+--- a/FE/storehub_mobile/lib/screens/operations/operations_dashboard_screen.dart
++++ b/FE/storehub_mobile/lib/screens/operations/operations_dashboard_screen.dart
+@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
+ import '../../core/constants/app_colors.dart';
+ import '../../models/user_model.dart';
+ import '../../services/admin_api_service.dart';
++import '../../services/facility_admin_api_service.dart';
+ import '../admin/role_permission_screen.dart';
+ import '../common/profile_screen.dart';
+ import '../common/transaction_history_screen.dart';
+ import 'facility_management_screen.dart';
+ import 'reports_screen.dart';
++import 'revenue_chart_card.dart';
+ import 'unit_price_screen.dart';
+ 
+ class OperationsDashboardScreen extends StatefulWidget {
+@@ -20,6 +22,10 @@ class OperationsDashboardScreen extends StatefulWidget {
+ 
+ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
+   final _adminApiService = AdminApiService();
++  final _reportsApi = FacilityAdminApiService();
++  late Future<Map<String, dynamic>> _revenueFuture;
++  late DateTime _revenueFrom;
++  late DateTime _revenueTo;
+   bool _isLoading = true;
+   int _userCount = 0;
+   int _activeUsers = 0;
+@@ -31,6 +37,17 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
+   void initState() {
+     super.initState();
+     _fetchLiveMetrics();
++    _loadRevenue();
++  }
++
++  void _loadRevenue() {
++    final now = DateTime.now();
++    setState(() {
++      _revenueFrom = DateTime(now.year, now.month);
++      _revenueTo = now;
++      _revenueFuture = _reportsApi.getRevenueReport(
++          fromDate: _revenueFrom, toDate: _revenueTo);
++    });
+   }
+ 
+   Future<void> _fetchLiveMetrics() async {
+@@ -104,7 +121,10 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
+       body: _isLoading
+           ? const Center(child: CircularProgressIndicator())
+           : RefreshIndicator(
+-              onRefresh: _fetchLiveMetrics,
++              onRefresh: () async {
++                _loadRevenue();
++                await _fetchLiveMetrics();
++              },
+               child: ListView(
+                 padding: const EdgeInsets.all(16),
+                 children: [
+@@ -151,6 +171,24 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
+                     ],
+                   ),
+                   const SizedBox(height: 20),
++                  FutureBuilder<Map<String, dynamic>>(
++                    future: _revenueFuture,
++                    builder: (context, snapshot) {
++                      if (snapshot.connectionState != ConnectionState.done) {
++                        return const LinearProgressIndicator();
++                      }
++                      if (snapshot.hasError) {
++                        return ListTile(
++                          title: const Text('Could not load revenue chart'),
++                          trailing: TextButton(onPressed: _loadRevenue,
++                              child: const Text('Retry')),
++                        );
++                      }
++                      return RevenueChartCard(report: snapshot.data ?? {},
++                          fromDate: _revenueFrom, toDate: _revenueTo);
++                    },
++                  ),
++                  const SizedBox(height: 20),
+                   const Text('Management',
+                       style:
+                           TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+diff --git a/FE/storehub_mobile/lib/screens/operations/revenue_chart_card.dart b/FE/storehub_mobile/lib/screens/operations/revenue_chart_card.dart
+new file mode 100644
+index 0000000..28207c6
+--- /dev/null
++++ b/FE/storehub_mobile/lib/screens/operations/revenue_chart_card.dart
+@@ -0,0 +1,92 @@
++import 'package:flutter/material.dart';
++import 'package:intl/intl.dart';
++
++import '../../core/constants/app_colors.dart';
++
++/// Plots the system revenue by facility from /reports/revenue.
++/// Deposits are shown separately because they are refundable, not revenue.
++class RevenueChartCard extends StatelessWidget {
++  final Map<String, dynamic> report;
++  final DateTime fromDate;
++  final DateTime toDate;
++
++  const RevenueChartCard({
++    super.key,
++    required this.report,
++    required this.fromDate,
++    required this.toDate,
++  });
++
++  @override
++  Widget build(BuildContext context) {
++    final summary = report['systemSummary'] is Map
++        ? report['systemSummary'] as Map
++        : <String, dynamic>{};
++    final rows = report['byFacility'] is List
++        ? (report['byFacility'] as List).whereType<Map>().toList()
++        : <Map>[];
++    final currency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
++    final compact = NumberFormat.compact(locale: 'vi_VN');
++    final total = (summary['totalRevenue'] as num?)?.toDouble() ?? 0;
++    final deposit = (summary['depositRevenue'] as num?)?.toDouble() ?? 0;
++    final maxRevenue = rows.fold<double>(0, (max, row) {
++      final value = (row['totalRevenue'] as num?)?.toDouble() ?? 0;
++      return value > max ? value : max;
++    });
++
++    return Card(
++      child: Padding(
++        padding: const EdgeInsets.all(16),
++        child: Column(
++          crossAxisAlignment: CrossAxisAlignment.start,
++          children: [
++            Text('Revenue by facility • ${DateFormat('MMM d').format(fromDate)}–${DateFormat('MMM d, yyyy').format(toDate)}',
++                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
++            const SizedBox(height: 8),
++            Text(currency.format(total),
++                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
++                    color: AppColors.primaryContainer)),
++            Text('Refundable deposits held: ${currency.format(deposit)}',
++                style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
++            const SizedBox(height: 16),
++            if (rows.isEmpty || maxRevenue <= 0)
++              const Text('No paid rental revenue in this period.',
++                  style: TextStyle(color: AppColors.onSurfaceVariant))
++            else
++              for (final row in rows) ...[
++                Row(
++                  children: [
++                    Expanded(child: Text(row['facilityName']?.toString() ?? 'Facility',
++                        maxLines: 1, overflow: TextOverflow.ellipsis)),
++                    Text('${compact.format((row['totalRevenue'] as num?) ?? 0)} ₫',
++                        style: const TextStyle(fontWeight: FontWeight.w600)),
++                  ],
++                ),
++                const SizedBox(height: 5),
++                SizedBox(
++                  height: 12,
++                  child: LayoutBuilder(
++                    builder: (context, constraints) {
++                      final amount = (row['totalRevenue'] as num?)?.toDouble() ?? 0;
++                      final fraction = (amount / maxRevenue).clamp(0.0, 1.0);
++                      return Align(
++                        alignment: Alignment.centerLeft,
++                        child: Container(
++                          width: constraints.maxWidth * fraction,
++                          decoration: BoxDecoration(
++                            color: AppColors.secondaryContainer,
++                            borderRadius: BorderRadius.circular(6),
++                          ),
++                        ),
++                      );
++                    },
++                  ),
++                ),
++                const SizedBox(height: 12),
++              ],
++          ],
++        ),
++      ),
++    );
++  }
++}
+diff --git a/FE/storehub_mobile/lib/screens/staff/staff_dashboard_screen.dart b/FE/storehub_mobile/lib/screens/staff/staff_dashboard_screen.dart
+index e2db2c4..4f4f950 100644
+--- a/FE/storehub_mobile/lib/screens/staff/staff_dashboard_screen.dart
++++ b/FE/storehub_mobile/lib/screens/staff/staff_dashboard_screen.dart
+@@ -9,6 +9,7 @@ import '../../services/facility_ops_api_service.dart';
+ import '../../widgets/state_views.dart';
+ import '../common/profile_screen.dart';
+ import '../common/transaction_history_screen.dart';
++import '../common/gate_pass_verify_screen.dart';
+ 
+ class StaffDashboardScreen extends StatefulWidget {
+   final UserModel user;
+@@ -679,6 +680,16 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
+       appBar: AppBar(
+         title: const Text('Staff Operations'),
+         actions: [
++          if (_facilityId != null && _facilityId!.isNotEmpty)
++            IconButton(
++              tooltip: 'Verify gate QR',
++              icon: const Icon(Icons.qr_code_scanner),
++              onPressed: () => Navigator.push(
++                context,
++                MaterialPageRoute(builder: (_) =>
++                    GatePassVerifyScreen(facilityId: _facilityId!)),
++              ),
++            ),
+           if (_facilityId != null && _facilityId!.isNotEmpty)
+             IconButton(
+               tooltip: 'Storage units',
+diff --git a/FE/storehub_mobile/lib/services/facility_ops_api_service.dart b/FE/storehub_mobile/lib/services/facility_ops_api_service.dart
+index 8045cdf..438af10 100644
+--- a/FE/storehub_mobile/lib/services/facility_ops_api_service.dart
++++ b/FE/storehub_mobile/lib/services/facility_ops_api_service.dart
+@@ -10,6 +10,19 @@ import '../models/facility_management_models.dart';
+ class FacilityOpsApiService {
+   final Dio _dio = HttpClient.instance.dio;
+ 
++  Future<Map<String, dynamic>> verifyGatePass({
++    required String facilityId,
++    required String token,
++  }) async {
++    try {
++      final response = await _dio.post(ApiEndpoints.verifyGatePass,
++          queryParameters: {'facilityId': facilityId}, data: {'token': token});
++      return _unwrap(response.data);
++    } on DioException catch (e) {
++      throw _err(e, 'verify gate pass');
++    }
++  }
++
+   Map<String, dynamic> _unwrap(dynamic data) {
+     if (data is Map && data['data'] is Map) {
+       return Map<String, dynamic>.from(data['data']);
+diff --git a/FE/storehub_mobile/lib/services/storage_api_service.dart b/FE/storehub_mobile/lib/services/storage_api_service.dart
+index 33470fa..c10e429 100644
+--- a/FE/storehub_mobile/lib/services/storage_api_service.dart
++++ b/FE/storehub_mobile/lib/services/storage_api_service.dart
+@@ -24,6 +24,31 @@ class StorageApiService {
+     }
+   }
+ 
++  Future<List<dynamic>> getAwaitingHandover() async {
++    try {
++      final response = await _dio.get(ApiEndpoints.awaitingHandover);
++      final body = response.data;
++      return body is Map && body['data'] is List
++          ? List<dynamic>.from(body['data'])
++          : <dynamic>[];
++    } on DioException catch (e) {
++      final body = e.response?.data;
++      throw Exception('Failed to load bookings awaiting handover: '
++          '${body is Map ? body['message'] : e.message}');
++    }
++  }
++
++  Future<Map<String, dynamic>> issueGatePass(String bookingId) async {
++    try {
++      final response = await _dio.post(ApiEndpoints.gatePass(bookingId));
++      return _unwrapMap(response.data);
++    } on DioException catch (e) {
++      final body = e.response?.data;
++      throw Exception('Could not issue gate QR: '
++          '${body is Map ? body['message'] : e.message}');
++    }
++  }
++
+   // Lấy trạng thái smart access (đã có PIN chưa, đang khóa/mở). Server không trả PIN đã lưu.
+   Future<Map<String, dynamic>> getSmartAccess(String bookingId) async {
+     try {
