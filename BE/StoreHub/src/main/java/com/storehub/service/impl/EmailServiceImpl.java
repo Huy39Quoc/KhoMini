@@ -34,53 +34,527 @@ public class EmailServiceImpl implements EmailService {
 
 
     @Override
-    public void sendPasswordResetEmail(String toEmail, String fullName, String resetToken) {
-        String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
-        String subject = "Reset Your Password";
-        String content = """
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2>Password Reset Request</h2>
-                    <p>Hi <strong>%s</strong>,</p>
-                    <p>We received a request to reset your password.</p>
-                    <p>This link will expire in <strong>15 minutes</strong>.</p>
-                    <a href="%s"
-                       style="display: inline-block; padding: 12px 24px; margin: 16px 0;
-                              background-color: #4F46E5; color: white;
-                              text-decoration: none; border-radius: 6px;">
-                        Reset Password
-                    </a>
-                    <p>If you did not request this, please ignore this email.</p>
-                    <hr/>
-                    <p style="color: #999; font-size: 12px;">Store Hub Platform</p>
-                </div>
-                """.formatted(fullName, resetLink);
+@Async
+public void sendPasswordResetEmail(String toEmail, String fullName, String resetToken) {
 
-        sendHtmlEmail(toEmail, subject, content);
-    }
+    String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
+
+    String subject = "🔐 Đặt lại mật khẩu – Store Hub";
+
+    String content = """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Đặt lại mật khẩu - Store Hub</title>
+            </head>
+
+            <body style="margin:0; padding:0; background-color:#f3f6fb; font-family:Arial, Helvetica, sans-serif; color:#1f2937;">
+
+                <div style="width:100%%; padding:40px 16px; box-sizing:border-box;">
+
+                    <div style="max-width:600px; margin:0 auto;">
+
+                        <!-- Header -->
+                        <div style="
+                            background:linear-gradient(135deg, #1E3C72, #2A5298);
+                            border-radius:16px 16px 0 0;
+                            padding:32px 24px;
+                            text-align:center;
+                        ">
+                            <div style="
+                                display:inline-block;
+                                background:rgba(255,255,255,0.15);
+                                border-radius:14px;
+                                padding:12px 16px;
+                                margin-bottom:16px;
+                            ">
+                                <span style="font-size:28px;">🔐</span>
+                            </div>
+
+                            <h1 style="
+                                margin:0;
+                                color:#ffffff;
+                                font-size:24px;
+                                font-weight:700;
+                            ">
+                                Đặt lại mật khẩu
+                            </h1>
+
+                            <p style="
+                                margin:10px 0 0;
+                                color:rgba(255,255,255,0.85);
+                                font-size:14px;
+                            ">
+                                Store Hub – Kho lưu trữ thông minh
+                            </p>
+                        </div>
+
+
+                        <!-- Main Content -->
+                        <div style="
+                            background:#ffffff;
+                            padding:36px 32px;
+                            border-left:1px solid #e5e7eb;
+                            border-right:1px solid #e5e7eb;
+                        ">
+
+                            <p style="
+                                margin:0 0 18px;
+                                font-size:16px;
+                                line-height:1.6;
+                            ">
+                                Xin chào <strong>%s</strong>,
+                            </p>
+
+                            <p style="
+                                margin:0 0 20px;
+                                font-size:15px;
+                                line-height:1.7;
+                                color:#4b5563;
+                            ">
+                                Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản
+                                <strong>Store Hub</strong> của bạn.
+                            </p>
+
+                            <div style="
+                                background:#f0f5ff;
+                                border:1px solid #dbe7ff;
+                                border-radius:12px;
+                                padding:18px;
+                                margin:24px 0;
+                            ">
+                                <p style="
+                                    margin:0;
+                                    color:#374151;
+                                    font-size:14px;
+                                    line-height:1.6;
+                                ">
+                                    ⏱️ Liên kết đặt lại mật khẩu này sẽ
+                                    <strong>hết hạn sau 15 phút</strong>.
+                                    Vì lý do bảo mật, vui lòng không chia sẻ liên kết này
+                                    với người khác.
+                                </p>
+                            </div>
+
+                            <!-- CTA -->
+                            <div style="text-align:center; margin:30px 0;">
+                                <a href="%s"
+                                   style="
+                                       display:inline-block;
+                                       background:linear-gradient(135deg, #1E3C72, #2A5298);
+                                       color:#ffffff;
+                                       text-decoration:none;
+                                       padding:14px 30px;
+                                       border-radius:8px;
+                                       font-size:15px;
+                                       font-weight:bold;
+                                   ">
+                                    🔑 Đặt lại mật khẩu
+                                </a>
+                            </div>
+
+                            <p style="
+                                margin:24px 0 8px;
+                                font-size:13px;
+                                color:#6b7280;
+                                line-height:1.6;
+                            ">
+                                Nếu nút phía trên không hoạt động, bạn có thể sao chép
+                                liên kết sau và mở bằng trình duyệt:
+                            </p>
+
+                            <div style="
+                                background:#f9fafb;
+                                border:1px solid #e5e7eb;
+                                border-radius:8px;
+                                padding:12px;
+                                word-break:break-all;
+                            ">
+                                <a href="%s"
+                                   style="
+                                       color:#2563eb;
+                                       font-size:12px;
+                                       text-decoration:none;
+                                   ">
+                                    %s
+                                </a>
+                            </div>
+
+                            <div style="
+                                margin-top:28px;
+                                padding-top:22px;
+                                border-top:1px solid #e5e7eb;
+                            ">
+                                <p style="
+                                    margin:0;
+                                    font-size:13px;
+                                    color:#6b7280;
+                                    line-height:1.6;
+                                ">
+                                    🔒 Nếu bạn không yêu cầu đặt lại mật khẩu,
+                                    bạn có thể bỏ qua email này. Tài khoản của bạn
+                                    vẫn an toàn.
+                                </p>
+                            </div>
+
+                        </div>
+
+
+                        <!-- Footer -->
+                        <div style="
+                            background:#f9fafb;
+                            border:1px solid #e5e7eb;
+                            border-top:none;
+                            border-radius:0 0 16px 16px;
+                            padding:22px 24px;
+                            text-align:center;
+                        ">
+                            <p style="
+                                margin:0 0 6px;
+                                color:#374151;
+                                font-size:13px;
+                                font-weight:bold;
+                            ">
+                                Store Hub Platform
+                            </p>
+
+                            <p style="
+                                margin:0;
+                                color:#9ca3af;
+                                font-size:12px;
+                            ">
+                                Kho lưu trữ thông minh · © Store Hub
+                            </p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </body>
+            </html>
+            """.formatted(
+            fullName,
+            resetLink,
+            resetLink,
+            resetLink
+    );
+
+    sendHtmlEmail(toEmail, subject, content);
+}
 
 
     @Override
-    public void sendWelcomeEmail(String toEmail, String fullName) {
-        String loginLink = frontendUrl + "/login";
-        String subject = "Welcome to Store Hub!";
-        String content = """
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2>Welcome to Store Hub!</h2>
-                    <p>Hi <strong>%s</strong>,</p>
-                    <p>Your account has been created successfully.</p>
-                    <a href="%s"
-                       style="display: inline-block; padding: 12px 24px; margin: 16px 0;
-                              background-color: #4F46E5; color: white;
-                              text-decoration: none; border-radius: 6px;">
-                        Go to StoreHub platform
-                    </a>
-                    <hr/>
-                    <p style="color: #999; font-size: 12px;">Store Hub Platform</p>
-                </div>
-                """.formatted(fullName, loginLink);
+@Async
+public void sendWelcomeEmail(String toEmail, String fullName) {
 
-        sendHtmlEmail(toEmail, subject, content);
-    }
+    String loginLink = frontendUrl + "/login";
+
+    String subject = "🎉 Chào mừng bạn đến với Store Hub!";
+
+    String content = """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Chào mừng đến với Store Hub</title>
+            </head>
+
+            <body style="margin:0; padding:0; background-color:#f3f6fb; font-family:Arial, Helvetica, sans-serif; color:#1f2937;">
+
+                <div style="width:100%%; padding:40px 16px; box-sizing:border-box;">
+
+                    <div style="max-width:600px; margin:0 auto;">
+
+                        <!-- Header -->
+                        <div style="
+                            background:linear-gradient(135deg, #1E3C72, #2A5298);
+                            border-radius:16px 16px 0 0;
+                            padding:38px 24px;
+                            text-align:center;
+                        ">
+
+                            <div style="
+                                display:inline-block;
+                                background:rgba(255,255,255,0.15);
+                                border-radius:50%%;
+                                width:70px;
+                                height:70px;
+                                line-height:70px;
+                                margin-bottom:18px;
+                            ">
+                                <span style="font-size:34px;">📦</span>
+                            </div>
+
+                            <h1 style="
+                                margin:0;
+                                color:#ffffff;
+                                font-size:26px;
+                                font-weight:700;
+                            ">
+                                Chào mừng đến với Store Hub!
+                            </h1>
+
+                            <p style="
+                                margin:10px 0 0;
+                                color:rgba(255,255,255,0.85);
+                                font-size:14px;
+                            ">
+                                Kho lưu trữ thông minh dành cho bạn
+                            </p>
+
+                        </div>
+
+
+                        <!-- Main Content -->
+                        <div style="
+                            background:#ffffff;
+                            padding:36px 32px;
+                            border-left:1px solid #e5e7eb;
+                            border-right:1px solid #e5e7eb;
+                        ">
+
+                            <p style="
+                                margin:0 0 18px;
+                                font-size:16px;
+                                line-height:1.6;
+                            ">
+                                Xin chào <strong>%s</strong> 👋
+                            </p>
+
+                            <p style="
+                                margin:0 0 20px;
+                                font-size:15px;
+                                line-height:1.7;
+                                color:#4b5563;
+                            ">
+                                Chúc mừng! Tài khoản <strong>Store Hub</strong> của bạn
+                                đã được tạo thành công.
+                            </p>
+
+
+                            <!-- Success Box -->
+                            <div style="
+                                background:#ecfdf5;
+                                border:1px solid #bbf7d0;
+                                border-radius:12px;
+                                padding:18px;
+                                margin:24px 0;
+                            ">
+                                <p style="
+                                    margin:0;
+                                    color:#166534;
+                                    font-size:14px;
+                                    line-height:1.6;
+                                ">
+                                    ✅ Tài khoản của bạn đã sẵn sàng.
+                                    Bạn có thể đăng nhập và bắt đầu tìm kiếm
+                                    không gian lưu trữ phù hợp.
+                                </p>
+                            </div>
+
+
+                            <!-- Features -->
+                            <div style="margin:28px 0;">
+
+                                <div style="
+                                    display:flex;
+                                    margin-bottom:18px;
+                                ">
+                                    <div style="
+                                        width:42px;
+                                        height:42px;
+                                        background:#eef4ff;
+                                        border-radius:10px;
+                                        text-align:center;
+                                        line-height:42px;
+                                        margin-right:12px;
+                                        flex-shrink:0;
+                                    ">
+                                        📦
+                                    </div>
+
+                                    <div>
+                                        <p style="
+                                            margin:0 0 4px;
+                                            font-size:14px;
+                                            font-weight:bold;
+                                            color:#1f2937;
+                                        ">
+                                            Tìm kho phù hợp
+                                        </p>
+
+                                        <p style="
+                                            margin:0;
+                                            font-size:13px;
+                                            color:#6b7280;
+                                            line-height:1.5;
+                                        ">
+                                            Khám phá các cơ sở và lựa chọn kho
+                                            phù hợp với nhu cầu của bạn.
+                                        </p>
+                                    </div>
+                                </div>
+
+
+                                <div style="
+                                    display:flex;
+                                    margin-bottom:18px;
+                                ">
+                                    <div style="
+                                        width:42px;
+                                        height:42px;
+                                        background:#eef4ff;
+                                        border-radius:10px;
+                                        text-align:center;
+                                        line-height:42px;
+                                        margin-right:12px;
+                                        flex-shrink:0;
+                                    ">
+                                        🔒
+                                    </div>
+
+                                    <div>
+                                        <p style="
+                                            margin:0 0 4px;
+                                            font-size:14px;
+                                            font-weight:bold;
+                                            color:#1f2937;
+                                        ">
+                                            Quản lý kho an toàn
+                                        </p>
+
+                                        <p style="
+                                            margin:0;
+                                            font-size:13px;
+                                            color:#6b7280;
+                                            line-height:1.5;
+                                        ">
+                                            Theo dõi thông tin đặt chỗ và
+                                            kho đang thuê của bạn.
+                                        </p>
+                                    </div>
+                                </div>
+
+
+                                <div style="
+                                    display:flex;
+                                ">
+                                    <div style="
+                                        width:42px;
+                                        height:42px;
+                                        background:#eef4ff;
+                                        border-radius:10px;
+                                        text-align:center;
+                                        line-height:42px;
+                                        margin-right:12px;
+                                        flex-shrink:0;
+                                    ">
+                                        💳
+                                    </div>
+
+                                    <div>
+                                        <p style="
+                                            margin:0 0 4px;
+                                            font-size:14px;
+                                            font-weight:bold;
+                                            color:#1f2937;
+                                        ">
+                                            Thanh toán thuận tiện
+                                        </p>
+
+                                        <p style="
+                                            margin:0;
+                                            font-size:13px;
+                                            color:#6b7280;
+                                            line-height:1.5;
+                                        ">
+                                            Quản lý các khoản thanh toán
+                                            và giao dịch trực tiếp trên hệ thống.
+                                        </p>
+                                    </div>
+                                </div>
+
+                            </div>
+
+
+                            <!-- CTA -->
+                            <div style="text-align:center; margin:32px 0 24px;">
+
+                                <a href="%s"
+                                   style="
+                                       display:inline-block;
+                                       background:linear-gradient(135deg, #1E3C72, #2A5298);
+                                       color:#ffffff;
+                                       text-decoration:none;
+                                       padding:14px 32px;
+                                       border-radius:8px;
+                                       font-size:15px;
+                                       font-weight:bold;
+                                   ">
+                                    🚀 Đăng nhập Store Hub
+                                </a>
+
+                            </div>
+
+
+                            <p style="
+                                margin:0;
+                                text-align:center;
+                                font-size:13px;
+                                color:#9ca3af;
+                            ">
+                                Bắt đầu trải nghiệm Store Hub ngay hôm nay.
+                            </p>
+
+                        </div>
+
+
+                        <!-- Footer -->
+                        <div style="
+                            background:#f9fafb;
+                            border:1px solid #e5e7eb;
+                            border-top:none;
+                            border-radius:0 0 16px 16px;
+                            padding:22px 24px;
+                            text-align:center;
+                        ">
+
+                            <p style="
+                                margin:0 0 6px;
+                                color:#374151;
+                                font-size:13px;
+                                font-weight:bold;
+                            ">
+                                Store Hub Platform
+                            </p>
+
+                            <p style="
+                                margin:0;
+                                color:#9ca3af;
+                                font-size:12px;
+                            ">
+                                Kho lưu trữ thông minh · © Store Hub
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </body>
+            </html>
+            """.formatted(
+            fullName,
+            loginLink
+    );
+
+    sendHtmlEmail(toEmail, subject, content);
+}
 
     @Override
     @Async
@@ -195,8 +669,9 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
             mailSender.send(message);
             log.info("Email sent to: {}", to);
-        } catch (Exception e) {
-            log.warn("Failed to send email to {}: {}", to, e.getMessage());
+        } catch (MessagingException e) {
+            log.error("Failed to send email to: {}", to, e);
+            throw new RuntimeException("Failed to send email", e);
         }
     }
 }
