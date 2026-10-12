@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:storehub_mobile/main.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
 void main() {
   testWidgets('App loads smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(StoreHubApp(restoreSession: () async => null));
@@ -26,4 +28,27 @@ void main() {
     expect(attempts, 2);
     expect(find.text('StoreHub'), findsWidgets);
   });
+
+  testWidgets('Reset link opens the app password dialog with its token',
+      (WidgetTester tester) async {
+    final links = StreamController<Uri>();
+    addTearDown(links.close);
+    await tester.pumpWidget(StoreHubApp(
+      restoreSession: () async => null,
+      incomingLinks: links.stream,
+    ));
+    await tester.pumpAndSettle();
+
+   links.add(Uri.parse('storehub://reset-password?token=sample-token'));
+await tester.pump();
+await tester.pumpAndSettle();
+
+expect(find.text('Set a new password'), findsOneWidget);
+
+    expect(find.text('Set a new password'), findsOneWidget);
+    final field = tester.widget<TextFormField>(
+        find.widgetWithText(TextFormField, 'Reset link or code'));
+    expect(field.controller?.text, 'sample-token');
+  });
 }
+

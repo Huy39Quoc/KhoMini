@@ -177,14 +177,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           'transactionId': payment['transactionId'],
           'qrCodeUrl': payment['qrCodeUrl'],
           'additionalFee': payment['amount'],
-          'newEndDate': widget.unit.endDate != null &&
-                  widget.unit.pendingExtraMonths != null
-              ? DateTime(
-                  widget.unit.endDate!.year,
-                  widget.unit.endDate!.month + widget.unit.pendingExtraMonths!,
-                  widget.unit.endDate!.day,
-                ).toIso8601String()
-              : null,
+          'newEndDate': widget.unit.pendingNewEndDate
+              ?.toIso8601String().substring(0, 10),
           'updatedTotalFee': widget.unit.totalRentalFee +
               (widget.unit.pendingExtensionFee ?? 0),
         };

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../services/facility_ops_api_service.dart';
 
-/// Scanner keyboards can enter a decoded QR token directly in this field.
-/// A camera scanner may call the same API after decoding the QR.
+/// Staff can scan the customer's QR with the phone camera or enter a token.
 class GatePassVerifyScreen extends StatefulWidget {
   final String facilityId;
 
@@ -19,6 +19,7 @@ class _GatePassVerifyScreenState extends State<GatePassVerifyScreen> {
   final _controller = TextEditingController();
   final _service = FacilityOpsApiService();
   bool _busy = false;
+  bool _scanning = false;
   String? _message;
   Map<String, dynamic>? _verified;
 
@@ -28,11 +29,12 @@ class _GatePassVerifyScreenState extends State<GatePassVerifyScreen> {
     super.dispose();
   }
 
-  Future<void> _verify() async {
-    final token = _controller.text.trim();
+  Future<void> _verify([String? scannedToken]) async {
+    final token = (scannedToken ?? _controller.text).trim();
     if (token.isEmpty || _busy) return;
     setState(() {
       _busy = true;
+      _scanning = false;
       _message = null;
       _verified = null;
     });
@@ -54,6 +56,17 @@ class _GatePassVerifyScreenState extends State<GatePassVerifyScreen> {
     }
   }
 
+  void _onDetected(BarcodeCapture capture) {
+    if (_busy || !_scanning) return;
+    for (final barcode in capture.barcodes) {
+      final token = barcode.rawValue?.trim();
+      if (token != null && RegExp(r'^KMG1\.[A-Za-z0-9_-]{43}$').hasMatch(token)) {
+        _verify(token);
+        return;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,8 +74,26 @@ class _GatePassVerifyScreenState extends State<GatePassVerifyScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text('Quét QR của khách bằng máy quét, hoặc dán mã đã giải mã '
-              'vào ô bên dưới. Mỗi mã chỉ xác minh được một lần.'),
+          const Text('Quét QR trên điện thoại khách hoặc nhập mã bên dưới. '
+              'Mỗi mã chỉ xác minh được một lần.'),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => setState(() => _scanning = !_scanning),
+            icon: Icon(_scanning ? Icons.close : Icons.qr_code_scanner),
+            label: Text(_scanning ? 'Đóng camera' : 'Quét bằng camera'),
+          ),
+          if (_scanning) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 280,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: MobileScanner(
+                  onDetect: _onDetected,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           TextField(
             controller: _controller,

@@ -6,7 +6,9 @@ import '../common/role_dispatch_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String? initialResetToken;
+
+  const LoginScreen({super.key, this.initialResetToken});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -21,6 +23,16 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialResetToken != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showResetPasswordDialog(widget.initialResetToken);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -187,8 +199,8 @@ class _LoginScreenState extends State<LoginScreen> {
     return match != null ? Uri.decodeComponent(match.group(1)!) : text;
   }
 
-  void _showResetPasswordDialog() {
-    final tokenController = TextEditingController();
+  void _showResetPasswordDialog([String? initialToken]) {
+    final tokenController = TextEditingController(text: initialToken ?? '');
     final passwordController = TextEditingController();
     final confirmController = TextEditingController();
     final formKey = GlobalKey<FormState>();

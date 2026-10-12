@@ -16,6 +16,7 @@ class MyUnitModel {
   final double? depositPaid;
   final bool hasPendingExtension;
   final int? pendingExtraMonths;
+  final DateTime? pendingNewEndDate;
   final double? pendingExtensionFee;
   final bool overdue;
   final int overdueDays;
@@ -41,6 +42,7 @@ class MyUnitModel {
     this.depositPaid,
     this.hasPendingExtension = false,
     this.pendingExtraMonths,
+    this.pendingNewEndDate,
     this.pendingExtensionFee,
     this.overdue = false,
     this.overdueDays = 0,
@@ -89,6 +91,9 @@ class MyUnitModel {
       depositPaid: (json['depositPaid'] as num?)?.toDouble(),
       hasPendingExtension: json['hasPendingExtension'] == true,
       pendingExtraMonths: (json['pendingExtraMonths'] as num?)?.toInt(),
+      pendingNewEndDate: json['pendingNewEndDate'] != null
+          ? DateTime.tryParse(json['pendingNewEndDate'].toString())
+          : null,
       pendingExtensionFee: (json['pendingExtensionFee'] as num?)?.toDouble(),
       overdue: json['overdue'] == true,
       overdueDays: (json['overdueDays'] as num?)?.toInt() ?? 0,
