@@ -19,6 +19,7 @@ import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.repository.BookingRepository;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
 import com.storehub.repository.UserRepository;
@@ -59,6 +60,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final ActivityLogService activityLogService;
     private final PricingService pricingService;
     private final RefundRequestRepository refundRequests;
+    private final FacilityPolicyRepository facilityPolicies;
     private final VnpayRefundClient gateway;
     private final WaitlistService waitlistService;
 
@@ -804,7 +806,9 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal refundTotal = pricingService.calculateCancellationRefund(
                 booking.getStorageUnit().getFacility().getId(),
                 depositPaid.add(rentPaid),
-                booking.getStartDate().atStartOfDay(),
+                booking.getScheduledCheckInTime() != null
+                        ? booking.getScheduledCheckInTime()
+                        : booking.getStartDate().atStartOfDay(),
                 LocalDateTime.now());
         if (refundTotal.signum() <= 0) {
             return BigDecimal.ZERO;
@@ -854,6 +858,13 @@ public class PaymentServiceImpl implements PaymentService {
             throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
         String requestId = UUID.randomUUID().toString().replace("-", "").toUpperCase();
+        LocalDateTime requestedAt = LocalDateTime.now();
+        Integer slaDays = booking.getStorageUnit() != null
+                && booking.getStorageUnit().getFacility() != null
+                ? facilityPolicies.findByFacility_Id(booking.getStorageUnit().getFacility().getId())
+                    .map(policy -> policy.getDepositRefundSlaDays()).orElse(5)
+                : 5;
+        if (slaDays == null || slaDays < 0) slaDays = 5;
         Payment refundPayment = paymentRepository.save(Payment.builder()
                 .transactionId("RF-" + requestId)
                 .booking(booking)
@@ -863,7 +874,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentMethod(original.getPaymentMethod())
                 .note(original.getPaymentType() == PaymentType.EXTRA_CHARGE
                         ? EXTRA_CHARGE_REFUND : DEPOSIT_REFUND)
-                .paymentTime(LocalDateTime.now())
+                .paymentTime(requestedAt)
                 .build());
         refundRequests.save(RefundRequest.builder()
                 .booking(booking).originalPayment(original).refundPayment(refundPayment)
@@ -871,7 +882,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .rentalAmount(rentalPart)
                 .status(original.getGatewayCreateDate() == null
                         ? RefundStatus.MISSING_METADATA : RefundStatus.QUEUED)
-                .updatedStatusAt(LocalDateTime.now())
+                .updatedStatusAt(requestedAt)
+                .dueAt(requestedAt.plusDays(slaDays))
                 .build());
         return total;
     }

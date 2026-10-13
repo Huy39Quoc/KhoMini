@@ -9,6 +9,7 @@ import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.UserRepository;
@@ -36,6 +37,7 @@ class UnpaidFailedLateFeeTest {
     @Mock PaymentRepository payments;
     @Mock UserRepository users;
     @InjectMocks CustomerStorageServiceImpl storage;
+    @Mock FacilityPolicyRepository facilityPolicies;
     @InjectMocks PaymentServiceImpl paymentService;
 
     @Test

@@ -1,13 +1,17 @@
 package com.storehub.service;
 
 import com.storehub.entity.Booking;
+import com.storehub.entity.Facility;
+import com.storehub.entity.FacilityPolicy;
 import com.storehub.entity.Payment;
 import com.storehub.entity.RefundRequest;
+import com.storehub.entity.StorageUnit;
 import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
 import com.storehub.enums.RefundStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
@@ -21,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,6 +47,7 @@ class RefundRequestTest {
     @Mock ActivityLogService logs;
     @Mock PricingService pricing;
     @Mock WaitlistService waitlist;
+    @Mock FacilityPolicyRepository facilityPolicies;
     @InjectMocks PaymentServiceImpl service;
 
     @Test
@@ -67,6 +73,35 @@ class RefundRequestTest {
         assertEquals(RefundStatus.QUEUED, captor.getValue().getStatus());
         assertEquals(PaymentStatus.REFUND_PENDING,
                 captor.getValue().getRefundPayment().getStatus());
+        assertEquals(5, java.time.Duration.between(
+                captor.getValue().getUpdatedStatusAt(), captor.getValue().getDueAt()).toDays());
+    }
+
+    @Test
+    void snapshotsFacilityRefundDeadlineAtRequestCreation() {
+        Facility facility = Facility.builder().build();
+        facility.setId(UUID.randomUUID());
+        Booking booking = Booking.builder().bookingCode("BK-SLA")
+                .storageUnit(StorageUnit.builder().facility(facility).build())
+                .depositPaid(new BigDecimal("100")).build();
+        booking.setId(UUID.randomUUID());
+        Payment original = Payment.builder().booking(booking)
+                .paymentType(PaymentType.DEPOSIT).status(PaymentStatus.PAID)
+                .transactionId("TXN-SLA").amount(new BigDecimal("100"))
+                .gatewayCreateDate("20261009123456").build();
+        when(facilityPolicies.findByFacility_Id(facility.getId()))
+                .thenReturn(Optional.of(FacilityPolicy.builder().depositRefundSlaDays(2).build()));
+        when(payments.findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID))
+                .thenReturn(Optional.of(original));
+        when(payments.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.refundDeposit(booking, new BigDecimal("100"));
+
+        ArgumentCaptor<RefundRequest> captured = ArgumentCaptor.forClass(RefundRequest.class);
+        verify(refunds).save(captured.capture());
+        LocalDateTime due = captured.getValue().getDueAt();
+        assertEquals(captured.getValue().getUpdatedStatusAt().plusDays(2), due);
     }
 
     @Test

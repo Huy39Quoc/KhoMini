@@ -9,6 +9,7 @@ import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
 import com.storehub.enums.RefundStatus;
 import com.storehub.enums.UnitStatus;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
@@ -48,6 +49,7 @@ class LateCapturedBookingPaymentTest {
     @Mock ActivityLogService log;
     @Mock PricingService pricing;
     @Mock WaitlistService waitlist;
+    @Mock FacilityPolicyRepository facilityPolicies;
     @InjectMocks PaymentServiceImpl service;
 
     @Test

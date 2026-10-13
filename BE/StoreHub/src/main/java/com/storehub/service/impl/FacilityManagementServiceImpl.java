@@ -192,6 +192,9 @@ public class FacilityManagementServiceImpl
         }
 
         if (oldUnit.getId().equals(unitId)) {
+            // Manager accepts the provisional inventory hold as the final unit.
+            booking.setUnitAssignmentConfirmed(true);
+            bookings.save(booking);
             return toUnit(oldUnit);
         }
 
@@ -211,6 +214,7 @@ public class FacilityManagementServiceImpl
 
         replacement.setStatus(UnitStatus.RESERVED);
         booking.setStorageUnit(replacement);
+        booking.setUnitAssignmentConfirmed(true);
         oldUnit.setStatus(UnitStatus.AVAILABLE);
         units.save(oldUnit);
         units.save(replacement);
@@ -536,7 +540,8 @@ public class FacilityManagementServiceImpl
                 unit.getUnitCode(),
                 unitType.getId(),
                 unitType.getTypeName(),
-                booking.getStatus()
+                booking.getStatus(),
+                Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())
         );
     }
 

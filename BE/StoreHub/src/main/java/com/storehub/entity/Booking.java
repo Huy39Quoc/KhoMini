@@ -29,6 +29,12 @@ public class Booking extends BaseEntity {
     @JoinColumn(name = "storage_unit_id", nullable = false)
     private StorageUnit storageUnit;
 
+    // A unit is held for capacity, but the manager must confirm the physical
+    // assignment (or choose another unit) before staff may check the customer in.
+    @Column(name = "unit_assignment_confirmed", nullable = false)
+    @Builder.Default
+    private Boolean unitAssignmentConfirmed = false;
+
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 

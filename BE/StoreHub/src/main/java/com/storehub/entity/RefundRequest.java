@@ -48,6 +48,10 @@ public class RefundRequest extends BaseEntity {
     @Column(name = "updated_status_at")
     private LocalDateTime updatedStatusAt;
 
+    // Snapshot of the facility's refund SLA at request creation.
+    @Column(name = "due_at", nullable = false)
+    private LocalDateTime dueAt;
+
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 }

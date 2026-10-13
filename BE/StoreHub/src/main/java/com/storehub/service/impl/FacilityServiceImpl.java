@@ -57,6 +57,8 @@ public class FacilityServiceImpl implements FacilityService {
 
         Facility facility = facilityMapper.toEntity(request);
 
+        facility.setAirConditioned24h(Boolean.TRUE.equals(request.getAirConditioned24h()));
+
         // MapStruct dựng entity qua builder và gán null khi request không có
         // openTime/closeTime, làm mất giá trị mặc định (cột DB là NOT NULL).
         if (facility.getOpenTime() == null) {

@@ -4,6 +4,7 @@ import com.storehub.entity.Payment;
 import com.storehub.entity.Booking;
 import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
@@ -45,6 +46,7 @@ class PaymentCallbackStatusTest {
     @Mock PricingService pricing;
     @Mock RefundRequestRepository refunds;
     @Mock WaitlistService waitlist;
+    @Mock FacilityPolicyRepository facilityPolicies;
     @InjectMocks PaymentServiceImpl service;
 
     @Test

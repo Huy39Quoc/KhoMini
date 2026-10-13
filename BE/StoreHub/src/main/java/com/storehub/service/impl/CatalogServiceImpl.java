@@ -68,6 +68,7 @@ public class CatalogServiceImpl implements CatalogService {
                 .address(f.getAddress())
                 .city(f.getCity())
                 .contactPhone(f.getContactPhone())
+                .airConditioned24h(Boolean.TRUE.equals(f.getAirConditioned24h()))
                 .createdAt(f.getCreatedAt())
                 .build();
     }

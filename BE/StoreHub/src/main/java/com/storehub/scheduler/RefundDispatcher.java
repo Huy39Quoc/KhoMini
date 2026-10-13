@@ -37,7 +37,8 @@ public class RefundDispatcher {
 
     @Scheduled(fixedDelay = 60_000)
     public void dispatch() {
-        for (RefundRequest pending : refunds.findTop20ByStatusOrderByCreatedAtAsc(RefundStatus.QUEUED)) {
+        // Process requests with the nearest promised refund deadline first.
+        for (RefundRequest pending : refunds.findTop20ByStatusOrderByDueAtAsc(RefundStatus.QUEUED)) {
             Payload payload = inTransaction(() -> claim(pending.getId()));
             if (payload == null) continue;
             try {

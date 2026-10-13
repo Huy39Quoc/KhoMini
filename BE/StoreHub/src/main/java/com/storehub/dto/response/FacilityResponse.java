@@ -27,6 +27,8 @@ public class FacilityResponse {
     private LocalTime closeTime;
     private String description;
 
+    private Boolean airConditioned24h;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

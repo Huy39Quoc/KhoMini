@@ -6,6 +6,7 @@ import com.storehub.entity.RefundRequest;
 import com.storehub.enums.BookingStatus;
 import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
@@ -44,6 +45,7 @@ class VoidedExtensionPaymentTest {
     @Mock ActivityLogService logs;
     @Mock PricingService pricing;
     @Mock WaitlistService waitlist;
+    @Mock FacilityPolicyRepository facilityPolicies;
     @InjectMocks PaymentServiceImpl service;
 
     @Test

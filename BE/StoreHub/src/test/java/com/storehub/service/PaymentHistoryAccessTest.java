@@ -7,6 +7,7 @@ import com.storehub.entity.Role;
 import com.storehub.entity.StorageUnit;
 import com.storehub.entity.User;
 import com.storehub.exception.AppException;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.UserRepository;
@@ -34,6 +35,7 @@ class PaymentHistoryAccessTest {
     @Mock EmailService emailService;
     @Mock ActivityLogService activityLogService;
     @Mock PricingService pricingService;
+    @Mock FacilityPolicyRepository facilityPolicies;
     @InjectMocks PaymentServiceImpl paymentService;
 
     @Test

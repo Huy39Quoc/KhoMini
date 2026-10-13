@@ -105,9 +105,12 @@ public class RefundReviewService {
     }
 
     private RefundRequestResponse response(RefundRequest refund) {
+        boolean unresolved = refund.getStatus() != RefundStatus.COMPLETED;
         return new RefundRequestResponse(refund.getId(), refund.getBooking().getId(),
                 refund.getBooking().getBookingCode(), refund.getOriginalPayment().getTransactionId(),
                 refund.getRequestId(), refund.getAmount(), refund.getStatus(),
-                refund.getGatewayResponseCode(), refund.getGatewayTransactionStatus());
+                refund.getGatewayResponseCode(), refund.getGatewayTransactionStatus(),
+                refund.getDueAt(), unresolved && refund.getDueAt() != null
+                        && refund.getDueAt().isBefore(LocalDateTime.now()));
     }
 }

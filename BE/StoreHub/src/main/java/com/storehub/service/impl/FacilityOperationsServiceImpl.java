@@ -299,6 +299,9 @@ public class FacilityOperationsServiceImpl
                 && !booking.getEndDate().isAfter(LocalDate.now())) {
             throw new AppException(ErrorCode.CHECKIN_RENTAL_ENDED);
         }
+        if (!Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())) {
+            throw new AppException(ErrorCode.UNIT_ASSIGNMENT_REQUIRED);
+        }
 
         StorageUnit storageUnit = storageUnitRepository
                 .lockById(booking.getStorageUnit().getId())

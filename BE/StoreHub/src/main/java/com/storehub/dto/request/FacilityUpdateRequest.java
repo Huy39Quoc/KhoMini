@@ -39,4 +39,6 @@ public class FacilityUpdateRequest {
     private LocalTime closeTime;
 
     private String description;
+
+    private Boolean airConditioned24h;
 }

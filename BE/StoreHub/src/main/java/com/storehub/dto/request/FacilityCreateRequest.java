@@ -41,4 +41,6 @@ public class FacilityCreateRequest {
     private LocalTime closeTime;
 
     private String description;
+
+    private Boolean airConditioned24h;
 }

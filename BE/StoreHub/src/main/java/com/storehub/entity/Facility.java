@@ -52,4 +52,10 @@ public class Facility extends BaseEntity {
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+
+    // Applies to every storage unit in this facility. Existing facilities default to false
+    // until an administrator confirms that cooling is available around the clock.
+    @Column(name = "air_conditioned_24h", nullable = false)
+    @Builder.Default
+    private Boolean airConditioned24h = false;
 }

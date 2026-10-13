@@ -101,4 +101,26 @@ class FacilityOperationsReturnScheduleTest {
         assertEquals(ErrorCode.CHECKIN_RENTAL_ENDED, exception.getErrorCode());
         verify(records, never()).save(any());
     }
+
+    @Test
+    void staffCannotCheckInBeforeManagerConfirmsPhysicalUnit() {
+        UUID facilityId = UUID.randomUUID();
+        UUID bookingId = UUID.randomUUID();
+        Facility facility = new Facility(); facility.setId(facilityId);
+        StorageUnit held = StorageUnit.builder().facility(facility)
+                .status(UnitStatus.RESERVED).build();
+        Booking booking = Booking.builder().storageUnit(held)
+                .unitAssignmentConfirmed(false).status(BookingStatus.CONFIRMED)
+                .startDate(LocalDate.now()).endDate(LocalDate.now().plusMonths(1)).build();
+        when(access.require("staff@test.com", facilityId)).thenReturn(new User());
+        when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
+
+        AppException error = assertThrows(AppException.class,
+                () -> operations.checkIn(bookingId, facilityId, "staff@test.com",
+                        HandoverRequest.builder().unitCondition("Good")
+                                .lockCondition("Working").build()));
+
+        assertEquals(ErrorCode.UNIT_ASSIGNMENT_REQUIRED, error.getErrorCode());
+        verify(records, never()).save(any());
+    }
 }

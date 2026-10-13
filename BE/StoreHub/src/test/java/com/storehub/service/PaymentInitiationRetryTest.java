@@ -12,6 +12,7 @@ import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
@@ -53,6 +54,7 @@ class PaymentInitiationRetryTest {
     @Mock RefundRequestRepository refunds;
     @Mock VnpayRefundClient gateway;
     @Mock WaitlistService waitlist;
+    @Mock FacilityPolicyRepository facilityPolicies;
     @InjectMocks PaymentServiceImpl service;
 
     @Test

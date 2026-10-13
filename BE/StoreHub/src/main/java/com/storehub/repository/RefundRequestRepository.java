@@ -24,7 +24,7 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, UU
     Optional<RefundRequest> findByOriginalPayment_Id(UUID originalPaymentId);
     List<RefundRequest> findTop50ByBooking_StorageUnit_Facility_IdOrderByCreatedAtDesc(UUID facilityId);
 
-    List<RefundRequest> findTop20ByStatusOrderByCreatedAtAsc(RefundStatus status);
+    List<RefundRequest> findTop20ByStatusOrderByDueAtAsc(RefundStatus status);
 
     List<RefundRequest> findTop20ByStatusInAndUpdatedStatusAtBeforeOrderByUpdatedStatusAtAsc(
             List<RefundStatus> statuses, LocalDateTime before);

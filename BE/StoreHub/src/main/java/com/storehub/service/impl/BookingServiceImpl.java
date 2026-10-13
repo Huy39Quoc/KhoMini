@@ -120,6 +120,7 @@ public class BookingServiceImpl implements BookingService {
                 .bookingCode(bookingCode)
                 .customer(customer)
                 .storageUnit(selectedUnit)
+                .unitAssignmentConfirmed(false)
                 .startDate(request.getStartDate())
                 .scheduledCheckInTime(request.getStartDate().atTime(checkInTime))
                 .endDate(quote.getEndDate())

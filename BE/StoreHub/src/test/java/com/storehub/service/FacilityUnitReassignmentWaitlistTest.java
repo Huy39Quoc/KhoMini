@@ -51,6 +51,27 @@ class FacilityUnitReassignmentWaitlistTest {
         assertEquals(UnitStatus.AVAILABLE, oldUnit.getStatus());
         assertEquals(UnitStatus.RESERVED, replacement.getStatus());
         assertEquals(replacement, booking.getStorageUnit());
+        assertEquals(true, booking.getUnitAssignmentConfirmed());
         verify(waitlist).notifyNextInWaitlist(facilityId, typeId);
+    }
+
+    @Test
+    void managerCanConfirmProvisionallyHeldUnitWithoutReleasingCapacity() {
+        UUID facilityId = UUID.randomUUID(), typeId = UUID.randomUUID();
+        UUID bookingId = UUID.randomUUID(), unitId = UUID.randomUUID();
+        Facility facility = new Facility(); facility.setId(facilityId);
+        UnitType type = UnitType.builder().typeName("Small").build(); type.setId(typeId);
+        StorageUnit held = StorageUnit.builder().facility(facility).unitType(type)
+                .unitCode("A-1").status(UnitStatus.RESERVED).build(); held.setId(unitId);
+        Booking booking = Booking.builder().status(BookingStatus.CONFIRMED)
+                .storageUnit(held).unitAssignmentConfirmed(false).build(); booking.setId(bookingId);
+        when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
+
+        service.assignUnit(facilityId, bookingId, unitId, "manager@test.com");
+
+        assertEquals(true, booking.getUnitAssignmentConfirmed());
+        assertEquals(UnitStatus.RESERVED, held.getStatus());
+        verify(bookings).save(booking);
+        org.mockito.Mockito.verifyNoInteractions(waitlist);
     }
 }
