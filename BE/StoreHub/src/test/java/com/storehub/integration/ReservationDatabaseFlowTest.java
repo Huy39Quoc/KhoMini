@@ -153,6 +153,9 @@ class ReservationDatabaseFlowTest {
         // from the month in which the gateway captured it.
         LocalDate chargeDate = LocalDate.of(2010, 1, 15);
         LocalDate refundDate = LocalDate.of(2010, 2, 10);
+        UUID facilityId = UUID.fromString(available.get("facility_id"));
+        RevenueReportResponse chargeBaseline = reports.getRevenueReport(chargeDate, chargeDate);
+        RevenueReportResponse refundBaseline = reports.getRevenueReport(refundDate, refundDate);
         BigDecimal deposit = jdbc.queryForObject(
                 "select amount from payments where transaction_id = ?", BigDecimal.class, txn);
         BigDecimal rental = jdbc.queryForObject(
@@ -161,8 +164,10 @@ class ReservationDatabaseFlowTest {
                 Timestamp.valueOf(chargeDate.atTime(12, 0)), txn, txn + "-R");
 
         RevenueReportResponse before = reports.getRevenueReport(chargeDate, chargeDate);
-        assertEquals(0, rental.compareTo(before.getSystemSummary().getTotalRevenue()));
-        assertEquals(0, deposit.compareTo(before.getSystemSummary().getDepositRevenue()));
+        assertEquals(0, rental.compareTo(before.getSystemSummary().getTotalRevenue()
+                .subtract(chargeBaseline.getSystemSummary().getTotalRevenue())));
+        assertEquals(0, deposit.compareTo(before.getSystemSummary().getDepositRevenue()
+                .subtract(chargeBaseline.getSystemSummary().getDepositRevenue())));
 
         jdbc.update("update payments set status = 'REFUNDED' where transaction_id in (?, ?)",
                 txn, txn + "-R");
@@ -171,10 +176,23 @@ class ReservationDatabaseFlowTest {
 
         RevenueReportResponse originalPeriod = reports.getRevenueReport(chargeDate, chargeDate);
         RevenueReportResponse refundPeriod = reports.getRevenueReport(refundDate, refundDate);
-        assertEquals(0, rental.compareTo(originalPeriod.getSystemSummary().getTotalRevenue()));
-        assertEquals(0, deposit.compareTo(originalPeriod.getSystemSummary().getDepositRevenue()));
-        assertEquals(0, rental.negate().compareTo(refundPeriod.getSystemSummary().getTotalRevenue()));
-        assertEquals(0, deposit.negate().compareTo(refundPeriod.getSystemSummary().getDepositRevenue()));
-        assertEquals(0, rental.negate().compareTo(refundPeriod.getByFacility().get(0).getTotalRevenue()));
+        assertEquals(0, before.getSystemSummary().getTotalRevenue()
+                .compareTo(originalPeriod.getSystemSummary().getTotalRevenue()));
+        assertEquals(0, before.getSystemSummary().getDepositRevenue()
+                .compareTo(originalPeriod.getSystemSummary().getDepositRevenue()));
+        assertEquals(0, rental.negate().compareTo(refundPeriod.getSystemSummary().getTotalRevenue()
+                .subtract(refundBaseline.getSystemSummary().getTotalRevenue())));
+        assertEquals(0, deposit.negate().compareTo(refundPeriod.getSystemSummary().getDepositRevenue()
+                .subtract(refundBaseline.getSystemSummary().getDepositRevenue())));
+        assertEquals(0, rental.negate().compareTo(facilityRevenue(refundPeriod, facilityId)
+                .subtract(facilityRevenue(refundBaseline, facilityId))));
+    }
+
+    private BigDecimal facilityRevenue(RevenueReportResponse report, UUID facilityId) {
+        return report.getByFacility().stream()
+                .filter(facility -> facilityId.equals(facility.getFacilityId()))
+                .findFirst()
+                .map(facility -> facility.getTotalRevenue())
+                .orElse(BigDecimal.ZERO);
     }
 }

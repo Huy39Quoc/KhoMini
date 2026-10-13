@@ -14,8 +14,14 @@ khác. Có thể dùng Docker trên máy cá nhân:
 docker run --name storehub-it-db -e POSTGRES_DB=storehub_it_local -e POSTGRES_PASSWORD=local-only-test -p 5433:5432 -d postgres:16
 ```
 
-Mở PowerShell ở `BE\StoreHub`; thiết lập biến môi trường trong phiên này. Đặt
-`VNPAY_TMN_CODE` và `VNPAY_HASH_SECRET` theo **tài khoản sandbox riêng của nhóm**.
+Nếu container đã tồn tại, dùng `docker start storehub-it-db` và kiểm tra
+`docker exec storehub-it-db pg_isready -U postgres -d storehub_it_local`.
+Không chạy bài test trên DB demo hay DB production: test tạo tài khoản,
+booking và cập nhật giao dịch.
+
+Mở PowerShell ở `BE\StoreHub`; thiết lập biến môi trường trong phiên này.
+Bài integration test tự ký IPN giả lập, nên có thể dùng TMN và secret giả
+chỉ trong bài test. Khi kiểm chứng G1, dùng **tài khoản sandbox của nhóm**.
 Không commit giá trị thật, `.env`, hay URL thanh toán có chữ ký.
 
 ```powershell
@@ -33,20 +39,30 @@ $env:SEED_FACILITY_MANAGER_PASSWORD = "local-manager-test"
 $env:SEED_BUSINESS_MANAGER_PASSWORD = "local-business-test"
 $env:SEED_STAFF_PASSWORD = "local-staff-test"
 $env:SEED_CUSTOMER_PASSWORD = "local-customer-test"
-$env:VNPAY_TMN_CODE = Read-Host "VNPay sandbox TMN code"
-$env:VNPAY_HASH_SECRET = Read-Host "VNPay sandbox hash secret"
+$env:VNPAY_TMN_CODE = "TESTONLY"
+$env:VNPAY_HASH_SECRET = "integration-test-vnpay-secret"
 $env:STOREHUB_INTEGRATION_TEST = "true"
 $env:SPRING_FLYWAY_VALIDATE_ON_MIGRATE = "true"
+$env:JAVA_TOOL_OPTIONS = "-Duser.timezone=Asia/Ho_Chi_Minh"
 .\mvnw.cmd test
 ```
 
-Test xác nhận Flyway V18 thành công; HTTP đăng ký, đăng nhập JWT, catalog,
+Test xác nhận Flyway V19 và V20 thành công; HTTP đăng ký, đăng nhập JWT, catalog,
 đặt chỗ, khởi tạo một payment attempt, hủy đơn, trả unit về `AVAILABLE`, IPN
 đến muộn có chữ ký và gửi trùng: booking không sống lại, chỉ có một yêu cầu
-hoàn đủ khoản đã thu trên PostgreSQL. IPN này là giả lập trong test, **không**
+hoàn đủ khoản đã thu trên PostgreSQL. Test cũng xác nhận khoản thu vẫn ở kỳ
+gốc sau khi hoàn, còn số tiền hoàn xuất hiện âm ở kỳ xác nhận hoàn. IPN này
+là giả lập trong test, **không**
 chứng minh VNPay sandbox đã xử lý giao dịch. Email được mock. Các test còn lại trong
 suite kiểm tra callback, IPN muộn, refund và phân công. Nếu Docker chưa sẵn
 sàng, tạo DB rỗng có cùng tiền tố trong PostgreSQL của bạn rồi đổi `DB_URL`.
+
+Báo cáo `/reports/revenue` là **dòng tiền ròng theo kỳ**: phí thuê/phụ thu đã
+thu trừ khoản hoàn đã xác nhận trong kỳ; tiền cọc được thống kê riêng dưới dạng
+dòng tiền cọc ròng, không phải số dư cọc đang giữ. `paymentCount` đếm dòng thu,
+không đếm lượt hoàn. Migration V19 khôi phục số tiền gốc của các giao dịch
+hoàn một phần trước đây; khi triển khai trên DB có dữ liệu cần sao lưu DB trước
+khi chạy Flyway.
 
 Trong `FE\storehub_mobile`:
 
@@ -55,10 +71,25 @@ flutter analyze
 flutter test
 ```
 
-Chạy trên Android emulator với `flutter run`. Với thiết bị thật, dùng URL HTTPS
-của BE thay cho `10.0.2.2` và kiểm tra lại các vai trò: customer, staff,
-facility manager, business manager, admin. Đặc biệt thử đăng nhập lại sau khi
-đóng ứng dụng, booking đang chờ, trang 2 của danh sách, nhận/trả kho và ticket.
+Chạy trên Android emulator với `flutter run`. Với Android thật trong cùng mạng
+Wi-Fi với máy chạy BE, bản debug có thể dùng địa chỉ LAN của máy, ví dụ
+`flutter run --dart-define=API_BASE_URL=http://192.168.1.10:8080/api/v1`.
+Thay IP ví dụ bằng IP thực tế và kiểm tra tường lửa cho cổng 8080. Bản release
+yêu cầu API HTTPS public, không chấp nhận URL LAN dạng HTTP.
+
+Kiểm tra lần lượt trên thiết bị:
+
+| Flow | Thao tác và kết quả cần đối chiếu |
+| --- | --- |
+| 1 | Customer tìm kho, đặt chỗ, thanh toán sandbox; booking chuyển CONFIRMED sau IPN. |
+| 2 | Manager gán ngăn, staff nhận lịch và check-in; trả kho tạo biên bản và yêu cầu hoàn cọc. |
+| 3 | Customer xem kho đang thuê, PIN và QR; staff quét QR bằng điện thoại thứ hai, mã dùng một lần. |
+| 4 | Business manager xem doanh thu từng kỳ; khoản hoàn trừ trong kỳ hoàn tất, tiền cọc tách riêng. |
+| 5 | Manager xem sơ đồ ngăn, phân công staff/ticket và lịch hẹn, đổi ngăn rồi kiểm tra waitlist. |
+
+Đóng và mở lại app để kiểm tra khôi phục phiên và booking; kiểm tra trang 2
+của các danh sách. Ghi lại mã booking/transaction và ảnh màn hình khi có lỗi,
+không ghi secret hay thông tin thẻ.
 
 ## G1: kịch bản VNPay sandbox cần kiểm chứng thủ công
 
@@ -100,7 +131,8 @@ bản thử nghiệm với `--dart-define=VNPAY_SANDBOX=true`.
 flutter build apk --release --dart-define=API_BASE_URL=https://api.example.com/api/v1
 ```
 
-Thay domain ví dụ bằng domain đang chạy thật. Trước khi chốt G3, kiểm tra
-email reset mật khẩu dùng `APP_FRONTEND_URL` dẫn tới màn hình hoạt động, SSL
-của API và VNPay hợp lệ trên thiết bị, IPN public nhận được, và đối chiếu số
-liệu thanh toán/hoàn với portal. Không đưa bản build thử sandbox cho khách thật.
+Thay domain ví dụ bằng domain đang chạy thật. Trước khi chốt G3, mở liên kết
+`storehub://reset-password?token=...` trong email trên thiết bị Android/iOS
+(kể cả khi app đã đóng) và xác nhận màn đặt lại mật khẩu nhận đúng token.
+Kiểm tra SSL của API và VNPay trên thiết bị, IPN public nhận được, và đối chiếu
+số liệu thanh toán/hoàn với portal. Không đưa bản build thử sandbox cho khách thật.
