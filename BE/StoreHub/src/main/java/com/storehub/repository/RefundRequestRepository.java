@@ -8,6 +8,8 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
@@ -22,7 +24,21 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, UU
     boolean existsByIdAndBooking_StorageUnit_Facility_Id(UUID id, UUID facilityId);
     Optional<RefundRequest> findByRefundPayment_Id(UUID refundPaymentId);
     Optional<RefundRequest> findByOriginalPayment_Id(UUID originalPaymentId);
-    List<RefundRequest> findTop50ByBooking_StorageUnit_Facility_IdOrderByCreatedAtDesc(UUID facilityId);
+    @Query(value = """
+            SELECT r FROM RefundRequest r
+            WHERE r.booking.storageUnit.facility.id = :facilityId
+            ORDER BY CASE WHEN r.status = :completed THEN 1 ELSE 0 END,
+                     CASE WHEN r.dueAt < :now AND r.status <> :completed THEN 0 ELSE 1 END,
+                     CASE WHEN r.status <> :completed THEN r.dueAt END ASC,
+                     CASE WHEN r.status = :completed THEN r.createdAt END DESC,
+                     r.id ASC
+            """, countQuery = """
+            SELECT COUNT(r) FROM RefundRequest r
+            WHERE r.booking.storageUnit.facility.id = :facilityId
+            """)
+    Page<RefundRequest> findForManager(@Param("facilityId") UUID facilityId,
+            @Param("completed") RefundStatus completed, @Param("now") LocalDateTime now,
+            Pageable pageable);
 
     List<RefundRequest> findTop20ByStatusOrderByDueAtAsc(RefundStatus status);
 

@@ -21,6 +21,7 @@ public class MyUnitResponse {
     private String facilityName;
     private String facilityAddress;
     private String unitCode;
+    private boolean unitAssignmentConfirmed;
     private String unitTypeName;
     private String dimensions;
     private Double areaSqm;

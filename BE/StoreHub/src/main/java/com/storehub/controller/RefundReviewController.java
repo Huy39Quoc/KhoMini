@@ -1,6 +1,7 @@
 package com.storehub.controller;
 
 import com.storehub.common.ApiResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.RefundGatewayMetadataRequest;
 import com.storehub.dto.response.RefundRequestResponse;
 import com.storehub.service.impl.RefundReviewService;
@@ -11,7 +12,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,9 +22,12 @@ public class RefundReviewController {
     private final RefundReviewService service;
 
     @GetMapping
-    public ApiResponse<List<RefundRequestResponse>> list(@PathVariable UUID facilityId,
-                                                         @AuthenticationPrincipal UserDetails principal) {
-        return ApiResponse.success("Refund requests", service.list(facilityId, principal.getUsername()));
+    public ApiResponse<PageResponse<RefundRequestResponse>> list(@PathVariable UUID facilityId,
+            @AuthenticationPrincipal UserDetails principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success("Refund requests",
+                service.list(facilityId, principal.getUsername(), page, size));
     }
 
     @PutMapping("/{refundId}/gateway-details")

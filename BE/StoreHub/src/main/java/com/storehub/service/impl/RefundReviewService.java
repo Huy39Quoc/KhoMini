@@ -1,6 +1,7 @@
 package com.storehub.service.impl;
 
 import com.storehub.dto.request.RefundGatewayMetadataRequest;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.response.RefundRequestResponse;
 import com.storehub.entity.Payment;
 import com.storehub.entity.RefundRequest;
@@ -12,10 +13,10 @@ import com.storehub.repository.UserRepository;
 import com.storehub.scheduler.RefundDispatcher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -39,10 +40,14 @@ public class RefundReviewService {
     }
 
     @Transactional(readOnly = true)
-    public List<RefundRequestResponse> list(UUID facilityId, String managerEmail) {
+    public PageResponse<RefundRequestResponse> list(UUID facilityId, String managerEmail,
+                                                     int page, int size) {
         requireManager(facilityId, managerEmail);
-        return refunds.findTop50ByBooking_StorageUnit_Facility_IdOrderByCreatedAtDesc(facilityId)
-                .stream().map(this::response).toList();
+        if (page < 0 || size < 1 || size > 100) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        return PageResponse.from(refunds.findForManager(facilityId, RefundStatus.COMPLETED,
+                LocalDateTime.now(), PageRequest.of(page, size)).map(this::response));
     }
 
     @Transactional

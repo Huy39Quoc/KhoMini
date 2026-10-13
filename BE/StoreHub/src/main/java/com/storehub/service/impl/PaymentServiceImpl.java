@@ -443,7 +443,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .customerName(customer != null ? customer.getFullName() : null)
                 .customerEmail(customer != null ? customer.getEmail() : null)
                 .facilityName(facility != null ? facility.getName() : null)
-                .unitCode(unit != null ? unit.getUnitCode() : null)
+                .unitCode(unit != null && booking != null
+                        && Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())
+                        ? unit.getUnitCode() : null)
                 .amount(groupAmount(payment))
                 .paymentType(payment.getPaymentType())
                 .status(payment.getStatus())

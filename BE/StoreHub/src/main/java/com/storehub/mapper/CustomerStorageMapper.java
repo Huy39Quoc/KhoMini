@@ -20,6 +20,7 @@ public interface CustomerStorageMapper {
     @Mapping(target = "facilityName", source = "storageUnit.facility.name", defaultValue = "Unassigned Facility")
     @Mapping(target = "facilityAddress", source = "storageUnit.facility.address", defaultValue = "")
     @Mapping(target = "unitCode", source = "storageUnit.unitCode", defaultValue = "Unassigned")
+    @Mapping(target = "unitAssignmentConfirmed", expression = "java(Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()))")
     @Mapping(target = "unitTypeName", source = "storageUnit.unitType.typeName", defaultValue = "")
     @Mapping(target = "dimensions", source = "storageUnit.unitType.dimensions", defaultValue = "")
     @Mapping(target = "areaSqm", source = "storageUnit.unitType.areaSqm")

@@ -10,6 +10,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -593,7 +594,7 @@ public void sendWelcomeEmail(String toEmail, String fullName) {
                         <td style="padding:10px 14px;">%s</td>
                       </tr>
                       <tr style="background:#f9fafb;">
-                        <td style="padding:10px 14px; font-weight:bold;">Mã kho được cấp</td>
+                        <td style="padding:10px 14px; font-weight:bold;">Mã ngăn dự kiến</td>
                         <td style="padding:10px 14px;">%s</td>
                       </tr>
                       <tr>
@@ -609,6 +610,7 @@ public void sendWelcomeEmail(String toEmail, String fullName) {
                         <td style="padding:10px 14px; color:#1E3C72; font-size:17px;"><strong>%s</strong></td>
                       </tr>
                     </table>
+                    <p style="color:#92400e; font-size:13px;">Mã ngăn này chỉ là dự kiến để giữ chỗ. Quản lý cơ sở sẽ xác nhận hoặc đổi ngăn và chúng tôi sẽ gửi email mã ngăn chính thức trước khi nhận kho.</p>
                     <div style="background:#f0f4ff; border-radius:8px; padding:16px; margin-top:20px;">
                       <p style="margin:0; font-size:13px; color:#374151;">
                         📌 Vui lòng mang theo <strong>mã đơn đặt chỗ</strong> và CMND/CCCD khi đến nhận kho.<br/>
@@ -621,13 +623,32 @@ public void sendWelcomeEmail(String toEmail, String fullName) {
                   </div>
                 </div>
                 """.formatted(
-                fullName, bookingCode, facilityName, unitCode,
+                HtmlUtils.htmlEscape(fullName != null ? fullName : "Quý khách"),
+                HtmlUtils.htmlEscape(bookingCode),
+                HtmlUtils.htmlEscape(facilityName), HtmlUtils.htmlEscape(unitCode),
                 startDate != null ? startDate.format(DATE_FMT) : "–",
                 endDate != null ? endDate.format(DATE_FMT) : "–",
                 amountStr
         );
 
         sendHtmlEmail(toEmail, subject, content);
+    }
+
+    @Override
+    @Async
+    public void sendUnitAssignmentConfirmedEmail(
+            String toEmail, String bookingCode, String facilityName, String unitCode
+    ) {
+        String content = """
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
+                  <h2>Thông báo ngăn kho chính thức</h2>
+                  <p>Đơn đặt chỗ <strong>%s</strong> tại <strong>%s</strong> đã được quản lý xác nhận hoặc cập nhật ngăn kho.</p>
+                  <p>Mã ngăn chính thức hiện tại: <strong>%s</strong>.</p>
+                  <p>Vui lòng dùng mã này khi đến nhận kho. Nếu bạn đã nhận thông báo trước đó, hãy dùng thông báo mới nhất.</p>
+                </div>
+                """.formatted(HtmlUtils.htmlEscape(bookingCode),
+                HtmlUtils.htmlEscape(facilityName), HtmlUtils.htmlEscape(unitCode));
+        sendHtmlEmail(toEmail, "Mã ngăn kho chính thức – " + bookingCode, content);
     }
 
     @Override

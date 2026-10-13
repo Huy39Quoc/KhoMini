@@ -17,6 +17,7 @@ public class BookingResponse {
     private UUID customerId;
     private UUID storageUnitId;
     private String unitCode;
+    private boolean unitAssignmentConfirmed;
     private String facilityName;
     private String unitTypeName;
     private String unitTypeDimensions;

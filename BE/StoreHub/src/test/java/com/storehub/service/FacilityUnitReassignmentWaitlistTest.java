@@ -5,6 +5,7 @@ import com.storehub.entity.Facility;
 import com.storehub.entity.FacilityAccess;
 import com.storehub.entity.StorageUnit;
 import com.storehub.entity.UnitType;
+import com.storehub.entity.User;
 import com.storehub.enums.BookingStatus;
 import com.storehub.enums.UnitStatus;
 import com.storehub.repository.BookingRepository;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +24,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class FacilityUnitReassignmentWaitlistTest {
@@ -29,19 +33,22 @@ class FacilityUnitReassignmentWaitlistTest {
     @Mock BookingRepository bookings;
     @Mock StorageUnitRepository units;
     @Mock WaitlistService waitlist;
+    @Mock EmailService email;
     @InjectMocks FacilityManagementServiceImpl service;
 
     @Test
     void reassignmentImmediatelyOffersReleasedUnitToWaitlist() {
         UUID facilityId = UUID.randomUUID(), typeId = UUID.randomUUID();
         UUID bookingId = UUID.randomUUID(), oldId = UUID.randomUUID(), newId = UUID.randomUUID();
-        Facility facility = new Facility(); facility.setId(facilityId);
+        Facility facility = new Facility(); facility.setId(facilityId); facility.setName("North");
         UnitType type = UnitType.builder().typeName("Small").build(); type.setId(typeId);
         StorageUnit oldUnit = StorageUnit.builder().facility(facility).unitType(type)
                 .unitCode("A-1").status(UnitStatus.RESERVED).build(); oldUnit.setId(oldId);
         StorageUnit replacement = StorageUnit.builder().facility(facility).unitType(type)
                 .unitCode("A-2").status(UnitStatus.AVAILABLE).build(); replacement.setId(newId);
         Booking booking = Booking.builder().status(BookingStatus.CONFIRMED)
+                .bookingCode("BK-1")
+                .customer(User.builder().email("customer@test.com").build())
                 .storageUnit(oldUnit).build(); booking.setId(bookingId);
         when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
         when(units.lockById(newId)).thenReturn(Optional.of(replacement));
@@ -53,17 +60,20 @@ class FacilityUnitReassignmentWaitlistTest {
         assertEquals(replacement, booking.getStorageUnit());
         assertEquals(true, booking.getUnitAssignmentConfirmed());
         verify(waitlist).notifyNextInWaitlist(facilityId, typeId);
+        verify(email).sendUnitAssignmentConfirmedEmail("customer@test.com", "BK-1", "North", "A-2");
     }
 
     @Test
     void managerCanConfirmProvisionallyHeldUnitWithoutReleasingCapacity() {
         UUID facilityId = UUID.randomUUID(), typeId = UUID.randomUUID();
         UUID bookingId = UUID.randomUUID(), unitId = UUID.randomUUID();
-        Facility facility = new Facility(); facility.setId(facilityId);
+        Facility facility = new Facility(); facility.setId(facilityId); facility.setName("North");
         UnitType type = UnitType.builder().typeName("Small").build(); type.setId(typeId);
         StorageUnit held = StorageUnit.builder().facility(facility).unitType(type)
                 .unitCode("A-1").status(UnitStatus.RESERVED).build(); held.setId(unitId);
         Booking booking = Booking.builder().status(BookingStatus.CONFIRMED)
+                .bookingCode("BK-2")
+                .customer(User.builder().email("customer@test.com").build())
                 .storageUnit(held).unitAssignmentConfirmed(false).build(); booking.setId(bookingId);
         when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
 
@@ -72,6 +82,33 @@ class FacilityUnitReassignmentWaitlistTest {
         assertEquals(true, booking.getUnitAssignmentConfirmed());
         assertEquals(UnitStatus.RESERVED, held.getStatus());
         verify(bookings).save(booking);
+        verify(email).sendUnitAssignmentConfirmedEmail("customer@test.com", "BK-2", "North", "A-1");
+        service.assignUnit(facilityId, bookingId, unitId, "manager@test.com");
+        verify(email, times(1)).sendUnitAssignmentConfirmedEmail("customer@test.com", "BK-2", "North", "A-1");
         org.mockito.Mockito.verifyNoInteractions(waitlist);
+    }
+
+    @Test
+    void assignmentEmailIsSentOnlyAfterTransactionCommits() {
+        UUID facilityId = UUID.randomUUID(), bookingId = UUID.randomUUID(), unitId = UUID.randomUUID();
+        Facility facility = new Facility(); facility.setId(facilityId); facility.setName("North");
+        UnitType type = UnitType.builder().typeName("Small").build(); type.setId(UUID.randomUUID());
+        StorageUnit held = StorageUnit.builder().facility(facility).unitType(type).unitCode("A-3")
+                .status(UnitStatus.RESERVED).build(); held.setId(unitId);
+        Booking booking = Booking.builder().status(BookingStatus.CONFIRMED)
+                .bookingCode("BK-3").customer(User.builder().email("customer@test.com").build())
+                .storageUnit(held).unitAssignmentConfirmed(false).build(); booking.setId(bookingId);
+        when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.assignUnit(facilityId, bookingId, unitId, "manager@test.com");
+            verifyNoInteractions(email);
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(synchronization -> synchronization.afterCommit());
+            verify(email).sendUnitAssignmentConfirmedEmail("customer@test.com", "BK-3", "North", "A-3");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 }

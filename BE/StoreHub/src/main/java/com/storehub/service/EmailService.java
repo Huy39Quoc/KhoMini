@@ -18,6 +18,10 @@ public interface EmailService {
             BigDecimal initialPaymentAmount
     );
 
+    void sendUnitAssignmentConfirmedEmail(
+            String toEmail, String bookingCode, String facilityName, String unitCode
+    );
+
     void sendWaitlistNotificationEmail(
             String toEmail,
             String fullName,

@@ -30,6 +30,9 @@ import com.storehub.dto.response.AssignableStaffResponse;
 import com.storehub.enums.ActivityAction;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.WaitlistService;
+import com.storehub.service.EmailService;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import lombok.extern.slf4j.Slf4j;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
@@ -59,6 +62,7 @@ public class FacilityManagementServiceImpl
     private final SupportTicketRepository tickets;
     private final ActivityLogService activityLogService;
     private final WaitlistService waitlistService;
+    private final EmailService emailService;
 
     @Transactional(readOnly = true)
     public AssignedFacilityResponse myFacility(String email) {
@@ -193,8 +197,11 @@ public class FacilityManagementServiceImpl
 
         if (oldUnit.getId().equals(unitId)) {
             // Manager accepts the provisional inventory hold as the final unit.
-            booking.setUnitAssignmentConfirmed(true);
-            bookings.save(booking);
+            if (!Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())) {
+                booking.setUnitAssignmentConfirmed(true);
+                bookings.save(booking);
+                notifyUnitAssignmentAfterCommit(booking, oldUnit);
+            }
             return toUnit(oldUnit);
         }
 
@@ -219,6 +226,7 @@ public class FacilityManagementServiceImpl
         units.save(oldUnit);
         units.save(replacement);
         bookings.save(booking);
+        notifyUnitAssignmentAfterCommit(booking, replacement);
 
         try {
             waitlistService.notifyNextInWaitlist(facilityId, oldUnit.getUnitType().getId());
@@ -228,6 +236,37 @@ public class FacilityManagementServiceImpl
         }
 
         return toUnit(replacement);
+    }
+
+    private void notifyUnitAssignmentAfterCommit(Booking booking, StorageUnit unit) {
+        User customer = booking.getCustomer();
+        if (customer == null || customer.getEmail() == null || customer.getEmail().isBlank()) {
+            log.warn("Cannot notify customer about unit assignment for booking {}: no email", booking.getId());
+            return;
+        }
+        // Capture values now; do not dereference JPA entities in the after-commit callback.
+        String email = customer.getEmail();
+        String code = booking.getBookingCode();
+        String facility = unit.getFacility().getName();
+        String unitCode = unit.getUnitCode();
+        Runnable send = () -> {
+            try {
+                emailService.sendUnitAssignmentConfirmedEmail(email, code, facility, unitCode);
+            } catch (Exception e) {
+                log.warn("Failed to queue unit assignment email for booking {}: {}",
+                        booking.getId(), e.getMessage());
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    send.run();
+                }
+            });
+        } else {
+            send.run();
+        }
     }
 
     @Transactional(readOnly = true)
