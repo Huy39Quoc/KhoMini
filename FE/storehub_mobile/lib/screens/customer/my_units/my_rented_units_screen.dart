@@ -72,7 +72,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Unit ${unit.unitCode}',
+                    unit.displayUnit,
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.bold),
                   ),
@@ -224,7 +224,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       builder: (_) => CreateTicketScreen(
                         preselectedBookingId: unit.bookingId,
                         preselectedUnitLabel:
-                            '${unit.unitCode} • ${unit.facilityName}',
+                            '${unit.displayUnit} • ${unit.facilityName}',
                       ),
                     ),
                   );
@@ -244,7 +244,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Cancel booking?'),
         content: Text(
-          'Booking ${unit.bookingCode} (unit ${unit.unitCode}) will be '
+          'Booking ${unit.bookingCode} (${unit.displayUnit}) will be '
           'cancelled and the unit released. Your deposit is refunded '
           'according to the facility cancellation policy.',
         ),
@@ -474,7 +474,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Unit ${unit.unitCode}',
+                        Text(unit.displayUnit,
                             style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
                         Text(

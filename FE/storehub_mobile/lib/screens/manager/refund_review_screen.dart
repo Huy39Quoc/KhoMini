@@ -13,7 +13,8 @@ class RefundReviewScreen extends StatefulWidget {
 
 class _RefundReviewScreenState extends State<RefundReviewScreen> {
   final _api = FacilityOpsApiService();
-  late Future<List<Map<String, dynamic>>> _requests;
+  late Future<Map<String, dynamic>> _requests;
+  int _page = 0;
   final _money = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
   @override
@@ -22,8 +23,11 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
     _reload();
   }
 
-  void _reload() => setState(() {
-        _requests = _api.getFacilityRefunds(widget.facilityId);
+  void _reload({bool resetPage = false}) => setState(() {
+        if (resetPage) {
+          _page = 0;
+        }
+        _requests = _api.getFacilityRefunds(widget.facilityId, page: _page);
       });
 
   Future<void> _provideDetails(Map<String, dynamic> refund) async {
@@ -64,7 +68,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
       }
       await _api.provideRefundDetails(widget.facilityId, '${refund['id']}',
           date.text.trim(), transactionNo.text.trim(), value);
-      if (mounted) _reload();
+      if (mounted) _reload(resetPage: true);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -81,7 +85,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
   Future<void> _retry(Map<String, dynamic> refund) async {
     try {
       await _api.retryRejectedRefund(widget.facilityId, '${refund['id']}');
-      if (mounted) _reload();
+      if (mounted) _reload(resetPage: true);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -94,7 +98,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
   Future<void> _reconcile(Map<String, dynamic> refund) async {
     try {
       await _api.reconcileRefund(widget.facilityId, '${refund['id']}');
-      if (mounted) _reload();
+      if (mounted) _reload(resetPage: true);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -107,17 +111,59 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Refund requests'),
-            actions: [IconButton(onPressed: _reload, icon: const Icon(Icons.refresh))]),
-        body: FutureBuilder<List<Map<String, dynamic>>>(
+            actions: [IconButton(onPressed: () => _reload(resetPage: true),
+                icon: const Icon(Icons.refresh))]),
+        body: FutureBuilder<Map<String, dynamic>>(
           future: _requests,
           builder: (context, snapshot) {
             if (snapshot.hasError) return Center(child: Text('${snapshot.error}'));
             if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-            final requests = snapshot.data!;
-            if (requests.isEmpty) return const Center(child: Text('No refunds yet.'));
+            final result = snapshot.data!;
+            final requests = (result['content'] as List? ?? const [])
+                .map((item) => Map<String, dynamic>.from(item as Map)).toList();
+            final totalPages = (result['totalPages'] as num?)?.toInt() ?? 0;
+            final total = (result['totalElements'] as num?)?.toInt() ?? 0;
+            if (requests.isEmpty && total == 0) {
+              return const Center(child: Text('No refunds yet.'));
+            }
+            if (requests.isEmpty && _page > 0) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _reload(resetPage: true);
+              });
+              return const Center(child: CircularProgressIndicator());
+            }
             return ListView.builder(
-              itemCount: requests.length,
+              itemCount: requests.length + 1,
               itemBuilder: (context, index) {
+                if (index == requests.length) {
+                  return Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(children: [
+                      IconButton(
+                        tooltip: 'Previous page',
+                        onPressed: _page > 0 ? () {
+                          setState(() {
+                            _page--;
+                            _requests = _api.getFacilityRefunds(widget.facilityId, page: _page);
+                          });
+                        } : null,
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                      Expanded(child: Text('Page ${_page + 1} / $totalPages • $total requests',
+                          textAlign: TextAlign.center)),
+                      IconButton(
+                        tooltip: 'Next page',
+                        onPressed: _page + 1 < totalPages ? () {
+                          setState(() {
+                            _page++;
+                            _requests = _api.getFacilityRefunds(widget.facilityId, page: _page);
+                          });
+                        } : null,
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                    ]),
+                  );
+                }
                 final refund = requests[index];
                 final status = '${refund['status']}';
                 return Card(

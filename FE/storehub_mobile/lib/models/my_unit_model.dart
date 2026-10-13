@@ -2,6 +2,7 @@ class MyUnitModel {
   final String bookingId;
   final String bookingCode;
   final String unitCode;
+  final bool unitAssignmentConfirmed;
   final String facilityName;
   final String facilityAddress;
   final String typeName;
@@ -28,6 +29,7 @@ class MyUnitModel {
     required this.bookingId,
     required this.bookingCode,
     required this.unitCode,
+    this.unitAssignmentConfirmed = false,
     required this.facilityName,
     required this.facilityAddress,
     required this.typeName,
@@ -52,6 +54,9 @@ class MyUnitModel {
   });
 
   bool get isActive => status == 'ACTIVE';
+  String get displayUnit => (isActive || unitAssignmentConfirmed)
+      ? 'Unit $unitCode'
+      : 'Unit assignment pending manager confirmation';
   bool get hasLateFeeDue => overdueFeeOutstanding > 0;
 
   double? get monthlyRate {
@@ -66,6 +71,7 @@ class MyUnitModel {
       bookingId: json['bookingId']?.toString() ?? json['id']?.toString() ?? '',
       bookingCode: json['bookingCode']?.toString() ?? '',
       unitCode: json['unitCode']?.toString() ?? '',
+      unitAssignmentConfirmed: json['unitAssignmentConfirmed'] == true,
       facilityName: json['facilityName']?.toString() ?? '',
       facilityAddress: json['facilityAddress']?.toString() ??
           json['address']?.toString() ??

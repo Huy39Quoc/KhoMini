@@ -403,12 +403,12 @@ class FacilityOpsApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getFacilityRefunds(String facilityId) async {
+  Future<Map<String, dynamic>> getFacilityRefunds(String facilityId,
+      {int page = 0, int size = 20}) async {
     try {
-      final response = await _dio.get(ApiEndpoints.facilityRefunds(facilityId));
-      return _unwrapList(response.data)
-          .map((item) => Map<String, dynamic>.from(item as Map))
-          .toList();
+      final response = await _dio.get(ApiEndpoints.facilityRefunds(facilityId),
+          queryParameters: {'page': page, 'size': size});
+      return _unwrap(response.data);
     } on DioException catch (error) {
       throw _err(error, 'load refunds');
     }
