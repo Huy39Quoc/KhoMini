@@ -5,6 +5,7 @@ class FacilityModel {
   final String city;
   final String contactPhone;
   final String status;
+  final bool airConditioned24h;
 
   final double? minAreaSqm;
   final double? maxAreaSqm;
@@ -19,6 +20,7 @@ class FacilityModel {
     required this.city,
     this.contactPhone = '',
     this.status = 'ACTIVE',
+    this.airConditioned24h = false,
     this.minAreaSqm,
     this.maxAreaSqm,
     this.minPricePerMonth,
@@ -34,6 +36,7 @@ class FacilityModel {
       city: json['city']?.toString() ?? '',
       contactPhone: json['contactPhone']?.toString() ?? '',
       status: json['status']?.toString() ?? 'ACTIVE',
+      airConditioned24h: json['airConditioned24h'] == true,
     );
   }
 
@@ -51,6 +54,7 @@ class FacilityModel {
         city: city,
         contactPhone: contactPhone,
         status: status,
+        airConditioned24h: airConditioned24h,
         unitTypeCount: 0,
         availableUnits: 0,
       );
@@ -83,6 +87,7 @@ class FacilityModel {
       city: city,
       contactPhone: contactPhone,
       status: status,
+      airConditioned24h: airConditioned24h,
       minAreaSqm: minArea,
       maxAreaSqm: maxArea,
       minPricePerMonth: minPrice,

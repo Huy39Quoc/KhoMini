@@ -67,7 +67,9 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
     }
 
     final availableUnits = units.where((unit) {
-      return unit.isAvailable && unit.unitTypeId == booking.unitTypeId;
+      return unit.unitTypeId == booking.unitTypeId &&
+          (unit.isAvailable ||
+              (!booking.unitAssignmentConfirmed && unit.id == booking.storageUnitId));
     }).toList();
 
     if (availableUnits.isEmpty) {
@@ -105,7 +107,8 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Choose replacement unit',
+                  booking.unitAssignmentConfirmed
+                      ? 'Change assigned unit' : 'Assign physical unit',
                   style: Theme.of(sheetContext).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
@@ -156,9 +159,7 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                               return;
                             }
 
-                            _showSuccess(
-                              'Booking moved to ${unit.unitCode}.',
-                            );
+                            _showSuccess('Assigned ${unit.unitCode} to booking.');
                             _loadBookings();
                           } catch (error) {
                             if (!sheetContext.mounted) {
@@ -302,8 +303,10 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Current unit: ${booking.unitCode} '
-                          '(${booking.unitType})',
+                          booking.unitAssignmentConfirmed
+                              ? 'Assigned unit: ${booking.unitCode} (${booking.unitType})'
+                              : 'Reserved capacity: ${booking.unitType}. '
+                                  'Suggested unit ${booking.unitCode} needs manager confirmation.',
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -320,10 +323,12 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                             onPressed: () {
                               _openUnitSelector(booking);
                             },
-                            icon: const Icon(
-                              Icons.swap_horiz,
+                            icon:  Icon(
+                              booking.unitAssignmentConfirmed
+                                  ? Icons.swap_horiz : Icons.assignment_turned_in_outlined,
                             ),
-                            label: const Text('Change Unit'),
+                            label: Text(booking.unitAssignmentConfirmed
+                                ? 'Change Unit' : 'Assign Unit'),
                           ),
                         ),
                       ],

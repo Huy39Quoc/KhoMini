@@ -29,6 +29,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _descriptionController;
   String _status = 'ACTIVE';
+  bool _airConditioned24h = false;
 
   bool get _isEditing => widget.facility != null;
   bool _isSaving = false;
@@ -73,6 +74,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     _descriptionController =
         TextEditingController(text: f?['description']?.toString() ?? '');
     _status = f?['status']?.toString() ?? 'ACTIVE';
+    _airConditioned24h = f?['airConditioned24h'] == true;
     _managerId = f?['managerId']?.toString();
     _managerName = f?['managerName']?.toString();
 
@@ -168,6 +170,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       if (_descriptionController.text.trim().isNotEmpty)
         'description': _descriptionController.text.trim(),
       if (_isEditing) 'status': _status,
+      'airConditioned24h': _airConditioned24h,
     };
 
     try {
@@ -634,6 +637,13 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                     onChanged: (v) => setState(() => _status = v ?? _status),
                   ),
                 ],
+                SwitchListTile(
+                  title: const Text('Máy lạnh 24/7'),
+                  subtitle: const Text('Bật khi toàn bộ ngăn tại cơ sở đều có máy lạnh 24/7.'),
+                  value: _airConditioned24h,
+                  onChanged: (value) =>
+                      setState(() => _airConditioned24h = value),
+                ),
               ],
             ),
             _section(

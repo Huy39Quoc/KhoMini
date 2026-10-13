@@ -104,6 +104,7 @@ class FacilityBookingModel {
   final String unitTypeId;
   final String unitType;
   final String status;
+  final bool unitAssignmentConfirmed;
 
   const FacilityBookingModel({
     required this.id,
@@ -117,6 +118,7 @@ class FacilityBookingModel {
     required this.unitTypeId,
     required this.unitType,
     required this.status,
+    required this.unitAssignmentConfirmed,
   });
 }
 

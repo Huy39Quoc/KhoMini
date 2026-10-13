@@ -123,6 +123,7 @@ class FacilityManagementMapper {
       unitTypeId: _text(json['unitTypeId']),
       unitType: _text(json['unitType']),
       status: _text(json['status']),
+      unitAssignmentConfirmed: json['unitAssignmentConfirmed'] == true,
     );
   }
 

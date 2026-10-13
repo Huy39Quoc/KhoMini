@@ -22,6 +22,7 @@ class _ExploreScreenState extends State<ExploreScreen>
   String? _error;
 
   RangeValues _areaRange = const RangeValues(0, 50);
+  bool _airConditioned24hOnly = false;
 
   late final AnimationController _fadeCtrl;
   late final Animation<double> _fadeAnim;
@@ -77,19 +78,22 @@ class _ExploreScreenState extends State<ExploreScreen>
           f.maxAreaSqm == null ||
           (f.minAreaSqm! <= _areaRange.end &&
               f.maxAreaSqm! >= _areaRange.start);
-      return matchQ && matchArea;
+      return matchQ && matchArea &&
+          (!_airConditioned24hOnly || f.airConditioned24h);
     }).toList();
   }
 
   int get _activeFilterCount {
     int c = 0;
     if (_areaRange.start > 0 || _areaRange.end < 50) c++;
+    if (_airConditioned24hOnly) c++;
     return c;
   }
 
   void _showFilterSheet() {
     double tempMin = _areaRange.start;
     double tempMax = _areaRange.end;
+    bool tempAirConditioned = _airConditioned24hOnly;
 
     showModalBottomSheet(
       context: context,
@@ -129,6 +133,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                         setModal(() {
                           tempMin = 0;
                           tempMax = 50;
+                          tempAirConditioned = false;
                         });
                       },
                       child: const Text('Clear all',
@@ -161,6 +166,12 @@ class _ExploreScreenState extends State<ExploreScreen>
                     tempMax = v.end;
                   }),
                 ),
+                SwitchListTile(
+                  title: const Text('Máy lạnh 24/7'),
+                  value: tempAirConditioned,
+                  onChanged: (value) =>
+                      setModal(() => tempAirConditioned = value),
+                ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -176,6 +187,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                       Navigator.pop(ctx);
                       setState(() {
                         _areaRange = RangeValues(tempMin, tempMax);
+                        _airConditioned24hOnly = tempAirConditioned;
                         _applyFilter();
                       });
                       _fadeCtrl.forward(from: 0);
@@ -309,6 +321,11 @@ class _ExploreScreenState extends State<ExploreScreen>
                                 _areaRange = const RangeValues(0, 50);
                                 _applyFilter();
                               })),
+                    if (_airConditioned24hOnly)
+                      _filterChip('Máy lạnh 24/7', () => setState(() {
+                        _airConditioned24hOnly = false;
+                        _applyFilter();
+                      })),
                   ],
                 ),
               ),
@@ -388,6 +405,7 @@ class _ExploreScreenState extends State<ExploreScreen>
               onPressed: () => setState(() {
                 _searchCtrl.clear();
                 _areaRange = const RangeValues(0, 50);
+                _airConditioned24hOnly = false;
                 _applyFilter();
               }),
               child: const Text('Clear filters'),
@@ -414,6 +432,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                   facilityId: _filtered[i].id,
                   facilityName: _filtered[i].name,
                   facilityAddress: _filtered[i].fullAddress,
+                  airConditioned24h: _filtered[i].airConditioned24h,
                 ),
               ),
             ),

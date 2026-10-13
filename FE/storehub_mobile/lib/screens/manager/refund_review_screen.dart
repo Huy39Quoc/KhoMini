@@ -130,6 +130,17 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
                           style: const TextStyle(fontWeight: FontWeight.bold)),
                       Text('Original transaction: ${refund['originalTransactionId']}'),
                       Text('Status: ${status.replaceAll('_', ' ')}'),
+                      if (refund['dueAt'] != null) ...[
+                        Text('Hạn hoàn tiền: ${refund['dueAt'].toString().replaceFirst('T', ' ')}',
+                            style: TextStyle(
+                              color: refund['overdue'] == true ? Colors.red : null,
+                              fontWeight: refund['overdue'] == true
+                                  ? FontWeight.bold : FontWeight.normal,
+                            )),
+                        if (refund['overdue'] == true)
+                          const Text('Đã quá hạn cam kết: cần xử lý/đối soát ngay.',
+                              style: TextStyle(color: Colors.red)),
+                      ],
                       if (refund['gatewayResponseCode'] != null)
                         Text('VNPay response: ${refund['gatewayResponseCode']}'),
                       if (status == 'MISSING_METADATA' || status == 'REJECTED')

@@ -10,12 +10,14 @@ class FacilityDetailScreen extends StatefulWidget {
   final String facilityId;
   final String facilityName;
   final String facilityAddress;
+  final bool airConditioned24h;
 
   const FacilityDetailScreen({
     super.key,
     required this.facilityId,
     required this.facilityName,
     this.facilityAddress = '',
+    this.airConditioned24h = false,
   });
 
   @override
@@ -185,12 +187,11 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                               ),
                             ],
                             const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                _badgeChip(Icons.access_time, '🔑 24/7 Access',
+                            if (widget.airConditioned24h)
+                              Row(children: [
+                                _badgeChip(Icons.ac_unit, 'Máy lạnh 24/7',
                                     Colors.green.shade700),
-                              ],
-                            ),
+                              ]),
                           ],
                         ),
                       ),
