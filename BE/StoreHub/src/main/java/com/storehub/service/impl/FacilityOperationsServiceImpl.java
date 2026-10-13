@@ -13,6 +13,7 @@ import com.storehub.enums.BookingStatus;
 import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
+import com.storehub.exception.OutstandingOverdueFeeException;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.HandoverRecordRepository;
 import com.storehub.repository.StorageUnitRepository;
@@ -21,6 +22,7 @@ import com.storehub.entity.FacilityAccess;
 import com.storehub.service.FacilityOperationsService;
 import com.storehub.service.PaymentService;
 import com.storehub.service.WaitlistService;
+import com.storehub.scheduler.OverdueScheduler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +50,7 @@ public class FacilityOperationsServiceImpl
     private final FacilityAccess facilityAccess;
     private final PaymentService paymentService;
     private final WaitlistService waitlistService;
+    private final OverdueScheduler overdueScheduler;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     private final com.storehub.service.ActivityLogService activityLogService;
 
@@ -348,7 +351,7 @@ public class FacilityOperationsServiceImpl
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = OutstandingOverdueFeeException.class)
     public HandoverResponse checkOut(
             UUID bookingId,
             UUID facilityId,
@@ -404,6 +407,12 @@ public class FacilityOperationsServiceImpl
             throw new AppException(
                     ErrorCode.UNIT_UNAVAILABLE
             );
+        }
+
+        // Reconcile a missed nightly accrual under the booking lock. Commit the
+        // new debt even when the return is rejected, so the customer can pay it.
+        if (overdueScheduler.accrueOutstandingForCheckout(booking, LocalDateTime.now())) {
+            throw new OutstandingOverdueFeeException();
         }
 
         // Nghiệm thu trả kho -> tạo yêu cầu hoàn cọc. Bị chặn nếu còn nợ phí trễ hạn.

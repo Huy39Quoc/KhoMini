@@ -10,15 +10,18 @@ import com.storehub.enums.BookingStatus;
 import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
+import com.storehub.exception.OutstandingOverdueFeeException;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.HandoverRecordRepository;
 import com.storehub.repository.StorageUnitRepository;
 import com.storehub.service.impl.FacilityOperationsServiceImpl;
+import com.storehub.scheduler.OverdueScheduler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,6 +32,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -42,9 +47,48 @@ class FacilityOperationsReturnScheduleTest {
     @Mock FacilityAccess access;
     @Mock PaymentService payments;
     @Mock WaitlistService waitlist;
+    @Mock OverdueScheduler overdueScheduler;
     @Mock org.springframework.security.crypto.password.PasswordEncoder encoder;
     @Mock ActivityLogService logs;
     @InjectMocks FacilityOperationsServiceImpl operations;
+
+    @Test
+    void unpaidFeeRejectsCheckoutWithoutRollingBackTheNewDebt() throws Exception {
+        var method = FacilityOperationsServiceImpl.class.getMethod("checkOut",
+                UUID.class, UUID.class, String.class, HandoverRequest.class);
+        var transaction = new AnnotationTransactionAttributeSource()
+                .getTransactionAttribute(method, FacilityOperationsServiceImpl.class);
+        assertNotNull(transaction);
+        assertFalse(transaction.rollbackOn(new OutstandingOverdueFeeException()));
+        assertTrue(transaction.rollbackOn(new AppException(ErrorCode.INVALID_REQUEST)));
+    }
+
+    @Test
+    void missedOverdueChargeBlocksHandoverBeforeRefundOrCompletion() {
+        UUID facilityId = UUID.randomUUID(), bookingId = UUID.randomUUID(), unitId = UUID.randomUUID();
+        Facility facility = new Facility(); facility.setId(facilityId);
+        StorageUnit unit = StorageUnit.builder().facility(facility)
+                .status(UnitStatus.OCCUPIED).build(); unit.setId(unitId);
+        Booking booking = Booking.builder().storageUnit(unit)
+                .status(BookingStatus.ACTIVE).endDate(LocalDate.now().minusDays(3)).build();
+        booking.setId(bookingId);
+        User staff = User.builder().fullName("Staff").build(); staff.setId(UUID.randomUUID());
+        when(access.require("staff@test.com", facilityId)).thenReturn(staff);
+        when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
+        when(units.lockById(unitId)).thenReturn(Optional.of(unit));
+        when(overdueScheduler.accrueOutstandingForCheckout(org.mockito.ArgumentMatchers.eq(booking), any()))
+                .thenReturn(true);
+
+        AppException error = assertThrows(AppException.class,
+                () -> operations.checkOut(bookingId, facilityId, "staff@test.com",
+                        HandoverRequest.builder().unitCondition("Good")
+                                .lockCondition("Working").build()));
+        assertEquals(ErrorCode.OVERDUE_FEE_UNPAID_ON_RETURN, error.getErrorCode());
+        assertEquals(BookingStatus.ACTIVE, booking.getStatus());
+        assertEquals(UnitStatus.OCCUPIED, unit.getStatus());
+        verify(payments, never()).refundDepositOnReturn(booking);
+        verify(records, never()).save(any());
+    }
 
     @Test
     void completedCheckoutPreservesTheOriginalAppointment() {
