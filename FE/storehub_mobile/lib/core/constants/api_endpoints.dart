@@ -1,8 +1,21 @@
 class ApiEndpoints {
-  static const String baseUrl = String.fromEnvironment(
+  static String _baseUrl = const String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://10.0.2.2:8080/api/v1',
   );
+
+  static String get baseUrl => _baseUrl;
+
+  static void setBaseUrl(String url) {
+    var formatted = url.trim();
+    if (formatted.endsWith('/')) {
+      formatted = formatted.substring(0, formatted.length - 1);
+    }
+    if (!formatted.endsWith('/api/v1')) {
+      formatted = '$formatted/api/v1';
+    }
+    _baseUrl = formatted;
+  }
 
   static void validateReleaseConfiguration() {
     const isRelease = bool.fromEnvironment('dart.vm.product');

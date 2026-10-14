@@ -69,6 +69,57 @@ class FacilityAdminApiService {
     }
   }
 
+  Future<String> uploadFacilityImage(String filePath, {String? facilityId}) async {
+    try {
+      final fileName = filePath.split(RegExp(r'[/\\]')).last;
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      });
+
+      final url = (facilityId != null && facilityId.isNotEmpty)
+          ? '${ApiEndpoints.facilitiesAdmin}/$facilityId/image'
+          : '${ApiEndpoints.facilitiesAdmin}/upload-image';
+
+      final response = await _dio.post(url, data: formData);
+      if (response.data is Map && response.data['data'] != null) {
+        return response.data['data'].toString();
+      }
+      return '';
+    } on DioException catch (e) {
+      throw _err(e, 'upload image');
+    }
+  }
+
+  Future<List<String>> uploadFacilityImages(List<String> filePaths) async {
+    if (filePaths.isEmpty) return [];
+    try {
+      final multipartFiles = <MultipartFile>[];
+      for (final path in filePaths) {
+        final fileName = path.split(RegExp(r'[/\\]')).last;
+        multipartFiles.add(await MultipartFile.fromFile(path, filename: fileName));
+      }
+      final formData = FormData();
+      for (final mf in multipartFiles) {
+        formData.files.add(MapEntry('files', mf));
+      }
+      final response = await _dio.post(
+        '${ApiEndpoints.facilitiesAdmin}/upload-images',
+        data: formData,
+      );
+      if (response.data is Map && response.data['data'] is List) {
+        return (response.data['data'] as List).map((e) => e.toString()).toList();
+      }
+      return [];
+    } catch (_) {
+      final results = <String>[];
+      for (final p in filePaths) {
+        final url = await uploadFacilityImage(p);
+        if (url.isNotEmpty) results.add(url);
+      }
+      return results;
+    }
+  }
+
   Future<void> deleteFacility(String id) async {
     try {
       await _dio.delete(ApiEndpoints.facilityDetail(id));

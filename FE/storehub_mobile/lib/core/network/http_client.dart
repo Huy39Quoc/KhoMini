@@ -16,6 +16,12 @@ class HttpClient {
     return _instance;
   }
 
+  void updateBaseUrl(String newUrl) {
+    ApiEndpoints.setBaseUrl(newUrl);
+    dio.options.baseUrl = ApiEndpoints.baseUrl;
+    _plainDio.options.baseUrl = ApiEndpoints.baseUrl;
+  }
+
   HttpClient._internal() {
     dio = Dio(
       BaseOptions(

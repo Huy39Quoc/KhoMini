@@ -71,6 +71,37 @@ public class FacilityController {
         ));
     }
 
+    @PostMapping(value = "{id}/image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER', 'FACILITY_MANAGER')")
+    @Operation(summary = "Upload facility image to Cloudinary")
+    public ResponseEntity<ApiResponse<String>> uploadImage(
+            @PathVariable UUID id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file
+    ) {
+        String imageUrl = facilityService.uploadImage(id, file);
+        return ResponseEntity.ok(ApiResponse.success("Uploaded image successfully", imageUrl));
+    }
+
+    @PostMapping(value = "upload-image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER', 'FACILITY_MANAGER')")
+    @Operation(summary = "Upload image and return URL")
+    public ResponseEntity<ApiResponse<String>> uploadImageOnly(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file
+    ) {
+        String imageUrl = facilityService.uploadImageOnly(file);
+        return ResponseEntity.ok(ApiResponse.success("Uploaded image successfully", imageUrl));
+    }
+
+    @PostMapping(value = "upload-images", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER', 'FACILITY_MANAGER')")
+    @Operation(summary = "Upload multiple images and return list of URLs")
+    public ResponseEntity<ApiResponse<java.util.List<String>>> uploadImagesOnly(
+            @RequestParam("files") org.springframework.web.multipart.MultipartFile[] files
+    ) {
+        java.util.List<String> imageUrls = facilityService.uploadImagesOnly(files);
+        return ResponseEntity.ok(ApiResponse.success("Uploaded images successfully", imageUrls));
+    }
+
     @DeleteMapping("{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
     @Operation(summary = "Delete a facility")

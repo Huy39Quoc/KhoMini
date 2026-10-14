@@ -6,6 +6,7 @@ class UnitTypeModel {
   final double pricePerMonth;
   final String? description;
   final int availableUnits;
+  final String? imageUrl;
 
   UnitTypeModel({
     required this.id,
@@ -15,6 +16,7 @@ class UnitTypeModel {
     required this.pricePerMonth,
     this.description,
     required this.availableUnits,
+    this.imageUrl,
   });
 
   factory UnitTypeModel.fromJson(Map<String, dynamic> json) {
@@ -30,6 +32,7 @@ class UnitTypeModel {
       availableUnits: (json['availableUnitsCount'] as num?)?.toInt() ??
           (json['availableUnits'] as num?)?.toInt() ??
           0,
+      imageUrl: json['imageUrl']?.toString(),
     );
   }
 }

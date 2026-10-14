@@ -28,6 +28,8 @@ public class FacilityResponse {
     private String description;
 
     private Boolean airConditioned24h;
+    private String imageUrl;
+    private java.util.List<String> images;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

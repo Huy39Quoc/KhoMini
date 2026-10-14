@@ -57,6 +57,7 @@ public class UnitTypeManagementServiceImpl implements UnitTypeManagementService 
                 .areaSqm(saved.getAreaSqm())
                 .basePricePerMonth(saved.getBasePricePerMonth())
                 .depositAmount(saved.getDepositAmount())
+                .imageUrl(saved.getImageUrl())
                 .build();
     }
 }

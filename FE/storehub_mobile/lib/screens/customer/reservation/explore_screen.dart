@@ -433,6 +433,8 @@ class _ExploreScreenState extends State<ExploreScreen>
                   facilityName: _filtered[i].name,
                   facilityAddress: _filtered[i].fullAddress,
                   airConditioned24h: _filtered[i].airConditioned24h,
+                  imageUrl: _filtered[i].imageUrl,
+                  images: _filtered[i].allImages,
                 ),
               ),
             ),
@@ -501,15 +503,26 @@ class _FacilityCard extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 child: Row(
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 48,
+                        height: 48,
                         color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
+                        child: (facility.imageUrl != null &&
+                                facility.imageUrl!.isNotEmpty)
+                            ? Image.network(
+                                facility.imageUrl!,
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.warehouse_outlined,
+                                        color: Colors.white, size: 26),
+                              )
+                            : const Icon(Icons.warehouse_outlined,
+                                color: Colors.white, size: 26),
                       ),
-                      child: const Icon(Icons.warehouse_outlined,
-                          color: Colors.white, size: 26),
                     ),
                     const SizedBox(width: 12),
                     Expanded(

@@ -41,4 +41,7 @@ public class FacilityUpdateRequest {
     private String description;
 
     private Boolean airConditioned24h;
+
+    private String imageUrl;
+    private java.util.List<String> images;
 }

@@ -57,6 +57,7 @@ public class CatalogServiceImpl implements CatalogService {
                     .basePricePerMonth(ut.getBasePricePerMonth())
                     .depositAmount(ut.getDepositAmount())
                     .availableUnitsCount(count)
+                    .imageUrl(ut.getImageUrl())
                     .build();
         }).collect(Collectors.toList());
     }
@@ -69,6 +70,7 @@ public class CatalogServiceImpl implements CatalogService {
                 .city(f.getCity())
                 .contactPhone(f.getContactPhone())
                 .airConditioned24h(Boolean.TRUE.equals(f.getAirConditioned24h()))
+                .imageUrl(f.getImageUrl())
                 .createdAt(f.getCreatedAt())
                 .build();
     }

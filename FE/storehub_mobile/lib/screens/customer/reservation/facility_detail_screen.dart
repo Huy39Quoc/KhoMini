@@ -11,6 +11,8 @@ class FacilityDetailScreen extends StatefulWidget {
   final String facilityName;
   final String facilityAddress;
   final bool airConditioned24h;
+  final String? imageUrl;
+  final List<String>? images;
 
   const FacilityDetailScreen({
     super.key,
@@ -18,6 +20,8 @@ class FacilityDetailScreen extends StatefulWidget {
     required this.facilityName,
     this.facilityAddress = '',
     this.airConditioned24h = false,
+    this.imageUrl,
+    this.images,
   });
 
   @override
@@ -40,6 +44,10 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   bool _isQuoting = false;
   String? _quoteError;
   bool _isBooking = false;
+  String? _facilityImageUrl;
+  List<String> _facilityImages = [];
+  int _currentImageIndex = 0;
+  late final PageController _pageController;
 
   // Rental period presets
   static const _presets = [1, 3, 6, 12];
@@ -47,8 +55,21 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
+    _facilityImageUrl = widget.imageUrl;
+    if (widget.images != null && widget.images!.isNotEmpty) {
+      _facilityImages = List<String>.from(widget.images!);
+    } else if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
+      _facilityImages = [widget.imageUrl!];
+    }
     _loadUnitTypes();
     _loadFacilityHours();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   TimeOfDay? _parseHour(dynamic value) {
@@ -65,14 +86,34 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       final facility = await _catalogService.getFacility(widget.facilityId);
       final open = _parseHour(facility['openTime']);
       final close = _parseHour(facility['closeTime']);
-      if (!mounted || open == null || close == null) return;
+      if (!mounted) return;
       setState(() {
-        _opensAt = open;
-        _closesAt = close;
-        final chosen = _checkInTime.hour * 60 + _checkInTime.minute;
-        final opens = open.hour * 60 + open.minute;
-        final closes = close.hour * 60 + close.minute;
-        if (chosen < opens || chosen >= closes) _checkInTime = open;
+        if (facility['images'] is List) {
+          final loaded = (facility['images'] as List)
+              .map((e) => e?.toString() ?? '')
+              .where((s) => s.isNotEmpty)
+              .toList();
+          if (loaded.isNotEmpty) {
+            _facilityImages = loaded;
+          }
+        }
+        if (_facilityImages.isEmpty &&
+            facility['imageUrl'] != null &&
+            facility['imageUrl'].toString().isNotEmpty) {
+          _facilityImages = [facility['imageUrl'].toString()];
+        }
+        if ((_facilityImageUrl == null || _facilityImageUrl!.isEmpty) &&
+            _facilityImages.isNotEmpty) {
+          _facilityImageUrl = _facilityImages.first;
+        }
+        if (open != null && close != null) {
+          _opensAt = open;
+          _closesAt = close;
+          final chosen = _checkInTime.hour * 60 + _checkInTime.minute;
+          final opens = open.hour * 60 + open.minute;
+          final closes = close.hour * 60 + close.minute;
+          if (chosen < opens || chosen >= closes) _checkInTime = open;
+        }
       });
     } catch (_) {
       // Backend validates the time even if opening hours cannot be loaded.
@@ -126,6 +167,82 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     return '${s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} ₫';
   }
 
+  void _openImageViewer(int initialIndex) {
+    if (_facilityImages.isEmpty) return;
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) {
+        int active = initialIndex;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: EdgeInsets.zero,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  PageView.builder(
+                    itemCount: _facilityImages.length,
+                    controller: PageController(initialPage: initialIndex),
+                    onPageChanged: (i) => setDialogState(() => active = i),
+                    itemBuilder: (context, i) {
+                      return InteractiveViewer(
+                        minScale: 0.8,
+                        maxScale: 3.5,
+                        child: Center(
+                          child: Image.network(
+                            _facilityImages[i],
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white,
+                              size: 60,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  Positioned(
+                    top: 40,
+                    right: 20,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ),
+                  if (_facilityImages.length > 1)
+                    Positioned(
+                      bottom: 30,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${active + 1} / ${_facilityImages.length}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,9 +252,9 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         builder: (context, snapshot) {
           return CustomScrollView(
             slivers: [
-              // ── SliverAppBar with gradient ────────────────────────────
+              // ── SliverAppBar with photo carousel and gradient ─────────
               SliverAppBar(
-                expandedHeight: 160,
+                expandedHeight: 220,
                 pinned: true,
                 backgroundColor: const Color(0xFF1E3C72),
                 foregroundColor: Colors.white,
@@ -148,54 +265,120 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                   icon: const Icon(Icons.notifications_active_outlined),
                 )],
                 flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (_facilityImages.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => _openImageViewer(_currentImageIndex),
+                          child: PageView.builder(
+                            controller: _pageController,
+                            itemCount: _facilityImages.length,
+                            onPageChanged: (idx) {
+                              setState(() => _currentImageIndex = idx);
+                            },
+                            itemBuilder: (context, idx) {
+                              return Image.network(
+                                _facilityImages[idx],
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                              );
+                            },
+                          ),
+                        )
+                      else if (_facilityImageUrl != null &&
+                          _facilityImageUrl!.isNotEmpty)
+                        Image.network(
+                          _facilityImageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      IgnorePointer(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                const Color(0xFF1E3C72).withValues(
+                                    alpha: _facilityImages.isNotEmpty || _facilityImageUrl != null ? 0.45 : 0.95),
+                                const Color(0xFF2A5298).withValues(
+                                    alpha: _facilityImages.isNotEmpty || _facilityImageUrl != null ? 0.88 : 0.95),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    child: SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(56, 16, 16, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Text(widget.facilityName,
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold)),
-                            if (widget.facilityAddress.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Row(
+                      if (_facilityImages.length > 1)
+                        Positioned(
+                          top: 50,
+                          right: 60,
+                          child: GestureDetector(
+                            onTap: () => _openImageViewer(_currentImageIndex),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.location_on,
-                                      color: Colors.white70, size: 13),
-                                  const SizedBox(width: 3),
-                                  Expanded(
-                                    child: Text(widget.facilityAddress,
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis),
+                                  const Icon(Icons.photo_library, size: 13, color: Colors.white),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    '${_currentImageIndex + 1}/${_facilityImages.length}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),
+                            ),
+                          ),
+                        ),
+                      SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(56, 16, 16, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text(widget.facilityName,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold)),
+                              if (widget.facilityAddress.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.location_on,
+                                        color: Colors.white70, size: 13),
+                                    const SizedBox(width: 3),
+                                    Expanded(
+                                      child: Text(widget.facilityAddress,
+                                          style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              if (widget.airConditioned24h)
+                                Row(children: [
+                                  _badgeChip(Icons.ac_unit, 'Máy lạnh 24/7',
+                                      Colors.green.shade700),
+                                ]),
                             ],
-                            const SizedBox(height: 8),
-                            if (widget.airConditioned24h)
-                              Row(children: [
-                                _badgeChip(Icons.ac_unit, 'Máy lạnh 24/7',
-                                    Colors.green.shade700),
-                              ]),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -293,6 +476,52 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_facilityImages.length > 1) ...[
+          _sectionHeader('📸 Warehouse Photos',
+              subtitle: '${_facilityImages.length} photos available • Tap to view full size'),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 90,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _facilityImages.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, idx) {
+                return GestureDetector(
+                  onTap: () => _openImageViewer(idx),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 110,
+                      height: 90,
+                      color: Colors.black12,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.network(
+                            _facilityImages[idx],
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(Icons.broken_image_outlined, color: Colors.grey),
+                            ),
+                          ),
+                          if (idx == _currentImageIndex)
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppColors.primaryContainer, width: 2.5),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 18),
+        ],
         // ── Unit type selection ─────────────────────────────────────
         _sectionHeader('📦 Choose a Unit Type',
             subtitle: 'Pick the size that fits'),
@@ -950,18 +1179,35 @@ class _UnitTypeCard extends StatelessWidget {
           child: Row(
             children: [
               // Size icon
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: (type.imageUrl != null && type.imageUrl!.isNotEmpty)
+                      ? Image.network(
+                          type.imageUrl!,
+                          width: 52,
+                          height: 52,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            Icons.warehouse,
+                            color: isSelected ? Colors.white : AppColors.primary,
+                            size: 28,
+                          ),
+                        )
+                      : Icon(
+                          Icons.warehouse,
+                          color: isSelected ? Colors.white : AppColors.primary,
+                          size: 28,
+                        ),
                 ),
-                child: Icon(Icons.warehouse,
-                    color: isSelected ? Colors.white : AppColors.primary,
-                    size: 28),
               ),
               const SizedBox(width: 12),
               Expanded(

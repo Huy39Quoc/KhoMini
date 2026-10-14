@@ -28,4 +28,7 @@ public class UnitType extends BaseEntity {
 
     @Column(name = "deposit_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal depositAmount;
+
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
 }

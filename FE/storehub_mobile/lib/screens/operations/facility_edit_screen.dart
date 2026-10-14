@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/admin_api_service.dart';
 import '../../services/facility_admin_api_service.dart';
@@ -28,11 +29,14 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
   late final TextEditingController _descriptionController;
+  late final TextEditingController _imageUrlController;
   String _status = 'ACTIVE';
   bool _airConditioned24h = false;
 
   bool get _isEditing => widget.facility != null;
   bool _isSaving = false;
+  List<String> _imageUrls = [];
+  bool _isUploadingImage = false;
 
   // Manager hiện tại của cơ sở (cập nhật ngay sau khi gán)
   String? _managerId;
@@ -73,6 +77,25 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
         TextEditingController(text: f?['email']?.toString() ?? '');
     _descriptionController =
         TextEditingController(text: f?['description']?.toString() ?? '');
+    _imageUrlController =
+        TextEditingController(text: f?['imageUrl']?.toString() ?? '');
+
+    if (f != null && f['images'] is List) {
+      _imageUrls = (f['images'] as List)
+          .map((e) => e?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } else if (f != null && f['images'] is String && (f['images'] as String).isNotEmpty) {
+      _imageUrls = (f['images'] as String)
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+    if (_imageUrls.isEmpty && _imageUrlController.text.trim().isNotEmpty) {
+      _imageUrls.add(_imageUrlController.text.trim());
+    }
+
     _status = f?['status']?.toString() ?? 'ACTIVE';
     _airConditioned24h = f?['airConditioned24h'] == true;
     _managerId = f?['managerId']?.toString();
@@ -90,6 +113,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     _phoneController.dispose();
     _emailController.dispose();
     _descriptionController.dispose();
+    _imageUrlController.dispose();
     _depositController.dispose();
     _lateFeeController.dispose();
     _minMonthsController.dispose();
@@ -154,7 +178,160 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     }
   }
 
+  Future<void> _pickAndUploadMultipleImages() async {
+    try {
+      final picker = ImagePicker();
+      final pickedList = await picker.pickMultiImage(imageQuality: 85);
+      if (pickedList.isEmpty) return;
+
+      setState(() {
+        _isUploadingImage = true;
+      });
+
+      final paths = pickedList.map((x) => x.path).toList();
+      final uploadedUrls = await _service.uploadFacilityImages(paths);
+
+      if (!mounted) return;
+      setState(() {
+        for (final url in uploadedUrls) {
+          if (url.isNotEmpty && !_imageUrls.contains(url)) {
+            _imageUrls.add(url);
+          }
+        }
+        if (_imageUrls.isNotEmpty) {
+          _imageUrlController.text = _imageUrls.first;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã tải ảnh lên thành công!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Tải ảnh thất bại: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingImage = false);
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadFromCamera() async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+      if (picked == null) return;
+
+      setState(() {
+        _isUploadingImage = true;
+      });
+
+      final uploadedUrl = await _service.uploadFacilityImage(
+        picked.path,
+        facilityId: widget.facility?['id']?.toString(),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        if (uploadedUrl.isNotEmpty && !_imageUrls.contains(uploadedUrl)) {
+          _imageUrls.add(uploadedUrl);
+        }
+        if (_imageUrls.isNotEmpty) {
+          _imageUrlController.text = _imageUrls.first;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã tải ảnh lên thành công!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Tải ảnh thất bại: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingImage = false);
+      }
+    }
+  }
+
+  void _removeImageAt(int index) {
+    setState(() {
+      _imageUrls.removeAt(index);
+      if (_imageUrls.isNotEmpty) {
+        _imageUrlController.text = _imageUrls.first;
+      } else {
+        _imageUrlController.clear();
+      }
+    });
+  }
+
+  void _showImageSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Thêm ảnh cơ sở kho',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primaryContainer),
+                title: const Text('Chọn nhiều ảnh từ thư viện'),
+                subtitle: const Text('Có thể chọn cùng lúc nhiều ảnh từ thiết bị'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadMultipleImages();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primaryContainer),
+                title: const Text('Chụp ảnh mới bằng camera'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadFromCamera();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveFacility() async {
+    if (_isUploadingImage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng đợi ảnh tải lên hoàn tất...'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
     final body = {
@@ -169,6 +346,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
         'email': _emailController.text.trim(),
       if (_descriptionController.text.trim().isNotEmpty)
         'description': _descriptionController.text.trim(),
+      'imageUrl': _imageUrls.isNotEmpty ? _imageUrls.first : _imageUrlController.text.trim(),
+      'images': _imageUrls,
       if (_isEditing) 'status': _status,
       'airConditioned24h': _airConditioned24h,
     };
@@ -644,6 +823,200 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                   onChanged: (value) =>
                       setState(() => _airConditioned24h = value),
                 ),
+                _gap,
+                const Text(
+                  'Hình ảnh cơ sở kho',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                if (_imageUrls.isEmpty)
+                  GestureDetector(
+                    onTap: _isUploadingImage ? null : _showImageSourceSheet,
+                    child: Container(
+                      height: 150,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerHigh.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.border,
+                          style: BorderStyle.solid,
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_photo_alternate_outlined,
+                                    size: 44,
+                                    color: AppColors.primaryContainer
+                                        .withValues(alpha: 0.8)),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Bấm để chọn nhiều ảnh từ máy hoặc chụp ảnh',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_isUploadingImage)
+                            Container(
+                              color: Colors.black54,
+                              child: const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(color: Colors.white),
+                                    SizedBox(height: 10),
+                                    Text(
+                                      'Đang tải ảnh lên...',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Đã tải lên ${_imageUrls.length} ảnh',
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryContainer),
+                          ),
+                          TextButton.icon(
+                            onPressed: _isUploadingImage ? null : _showImageSourceSheet,
+                            icon: const Icon(Icons.add_photo_alternate, size: 16),
+                            label: const Text('Thêm ảnh', style: TextStyle(fontSize: 12)),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        height: 120,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _imageUrls.length + 1,
+                          separatorBuilder: (_, __) => const SizedBox(width: 10),
+                          itemBuilder: (context, idx) {
+                            if (idx == _imageUrls.length) {
+                              return GestureDetector(
+                                onTap: _isUploadingImage ? null : _showImageSourceSheet,
+                                child: Container(
+                                  width: 100,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceContainerHigh.withValues(alpha: 0.3),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AppColors.border,
+                                      style: BorderStyle.solid,
+                                    ),
+                                  ),
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.add_a_photo_outlined, size: 28, color: AppColors.primaryContainer),
+                                      SizedBox(height: 6),
+                                      Text(
+                                        '+ Thêm',
+                                        style: TextStyle(fontSize: 12, color: AppColors.primaryContainer, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final url = _imageUrls[idx];
+                            return Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    width: 120,
+                                    height: 120,
+                                    color: Colors.black12,
+                                    child: Image.network(
+                                      url,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Center(
+                                        child: Icon(Icons.broken_image_outlined, color: Colors.grey),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (idx == 0)
+                                  Positioned(
+                                    top: 6,
+                                    left: 6,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.7),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'Ảnh chính',
+                                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ),
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: GestureDetector(
+                                    onTap: () => _removeImageAt(idx),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.shade700.withValues(alpha: 0.9),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                      if (_isUploadingImage) ...[
+                        const SizedBox(height: 10),
+                        const Row(
+                          children: [
+                            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                            SizedBox(width: 8),
+                            Text('Đang tải ảnh lên...', style: TextStyle(fontSize: 12, color: AppColors.primaryContainer)),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
               ],
             ),
             _section(

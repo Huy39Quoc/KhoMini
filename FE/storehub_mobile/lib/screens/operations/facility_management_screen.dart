@@ -153,17 +153,24 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                               horizontal: 14, vertical: 8),
                           leading: CircleAvatar(
                             backgroundColor: AppColors.primaryContainer,
-                            child: Text(
-                              (f['code']?.toString().isNotEmpty ?? false)
-                                  ? f['code']
-                                      .toString()
-                                      .substring(0, 1)
-                                      .toUpperCase()
-                                  : 'F',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold),
-                            ),
+                            backgroundImage: (f['imageUrl'] != null &&
+                                    f['imageUrl'].toString().isNotEmpty)
+                                ? NetworkImage(f['imageUrl'].toString())
+                                : null,
+                            child: (f['imageUrl'] != null &&
+                                    f['imageUrl'].toString().isNotEmpty)
+                                ? null
+                                : Text(
+                                    (f['code']?.toString().isNotEmpty ?? false)
+                                        ? f['code']
+                                            .toString()
+                                            .substring(0, 1)
+                                            .toUpperCase()
+                                        : 'F',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold),
+                                  ),
                           ),
                           title: Text(f['name']?.toString() ?? '',
                               style: const TextStyle(

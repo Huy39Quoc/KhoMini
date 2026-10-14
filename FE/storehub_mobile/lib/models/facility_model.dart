@@ -6,6 +6,8 @@ class FacilityModel {
   final String contactPhone;
   final String status;
   final bool airConditioned24h;
+  final String? imageUrl;
+  final List<String> images;
 
   final double? minAreaSqm;
   final double? maxAreaSqm;
@@ -21,6 +23,8 @@ class FacilityModel {
     this.contactPhone = '',
     this.status = 'ACTIVE',
     this.airConditioned24h = false,
+    this.imageUrl,
+    this.images = const [],
     this.minAreaSqm,
     this.maxAreaSqm,
     this.minPricePerMonth,
@@ -29,6 +33,25 @@ class FacilityModel {
   });
 
   factory FacilityModel.fromJson(Map<String, dynamic> json) {
+    List<String> parsedImages = [];
+    if (json['images'] is List) {
+      parsedImages = (json['images'] as List)
+          .map((e) => e?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } else if (json['images'] is String && (json['images'] as String).isNotEmpty) {
+      parsedImages = (json['images'] as String)
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+
+    final imgUrl = json['imageUrl']?.toString();
+    if (parsedImages.isEmpty && imgUrl != null && imgUrl.isNotEmpty) {
+      parsedImages = [imgUrl];
+    }
+
     return FacilityModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
@@ -37,8 +60,14 @@ class FacilityModel {
       contactPhone: json['contactPhone']?.toString() ?? '',
       status: json['status']?.toString() ?? 'ACTIVE',
       airConditioned24h: json['airConditioned24h'] == true,
+      imageUrl: imgUrl,
+      images: parsedImages,
     );
   }
+
+  List<String> get allImages => images.isNotEmpty
+      ? images
+      : (imageUrl != null && imageUrl!.isNotEmpty ? [imageUrl!] : const []);
 
   bool get isBookable => status == 'ACTIVE';
 
@@ -55,6 +84,8 @@ class FacilityModel {
         contactPhone: contactPhone,
         status: status,
         airConditioned24h: airConditioned24h,
+        imageUrl: imageUrl,
+        images: images,
         unitTypeCount: 0,
         availableUnits: 0,
       );
@@ -88,6 +119,8 @@ class FacilityModel {
       contactPhone: contactPhone,
       status: status,
       airConditioned24h: airConditioned24h,
+      imageUrl: imageUrl,
+      images: images,
       minAreaSqm: minArea,
       maxAreaSqm: maxArea,
       minPricePerMonth: minPrice,

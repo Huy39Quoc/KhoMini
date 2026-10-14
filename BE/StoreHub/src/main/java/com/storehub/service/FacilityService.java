@@ -14,4 +14,7 @@ public interface FacilityService {
     FacilityResponse update(UUID id, FacilityUpdateRequest request);
     void delete(UUID id);
     PageResponse<FacilityResponse> getAll(String search, FacilityStatus status, int page, int size, String sortBy, String sortDir);
+    String uploadImage(UUID id, org.springframework.web.multipart.MultipartFile file);
+    String uploadImageOnly(org.springframework.web.multipart.MultipartFile file);
+    java.util.List<String> uploadImagesOnly(org.springframework.web.multipart.MultipartFile[] files);
 }

@@ -58,4 +58,31 @@ public class Facility extends BaseEntity {
     @Column(name = "air_conditioned_24h", nullable = false)
     @Builder.Default
     private Boolean airConditioned24h = false;
+
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    @Column(name = "images", columnDefinition = "TEXT")
+    private String images;
+
+    public java.util.List<String> getImageList() {
+        if (images != null && !images.trim().isEmpty()) {
+            return java.util.Arrays.stream(images.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+            return java.util.List.of(imageUrl);
+        }
+        return java.util.Collections.emptyList();
+    }
+
+    public void assignImages(java.util.List<String> list) {
+        if (list == null || list.isEmpty()) {
+            this.images = null;
+        } else {
+            this.images = String.join(",", list);
+        }
+    }
 }
