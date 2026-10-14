@@ -20,7 +20,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("api/v1/activity-logs")
 @Tag(name = "Activity Log", description = "API tra cứu nhật ký đăng nhập và thao tác dữ liệu")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasRole('ADMIN') and hasAuthority('ACTIVITY_LOG_VIEW')")
 @RequiredArgsConstructor
 @Slf4j
 public class ActivityLogController {

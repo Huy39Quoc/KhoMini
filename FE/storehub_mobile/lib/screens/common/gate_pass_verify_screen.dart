@@ -74,11 +74,15 @@ class _GatePassVerifyScreenState extends State<GatePassVerifyScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text('Quét QR trên điện thoại khách hoặc nhập mã bên dưới. '
-              'Mỗi mã chỉ xác minh được một lần.'),
+          const Text('1. Khách mở My Units → Smart Key → Lấy QR ra vào cổng.\n'
+              '2. Nhân viên bấm “Quét bằng camera” rồi hướng vào QR của khách.\n'
+              'Mã dùng một lần và hết hạn sau 90 giây.'),
           const SizedBox(height: 12),
           OutlinedButton.icon(
-            onPressed: _busy ? null : () => setState(() => _scanning = !_scanning),
+            onPressed: _busy ? null : () {
+              FocusScope.of(context).unfocus();
+              setState(() => _scanning = !_scanning);
+            },
             icon: Icon(_scanning ? Icons.close : Icons.qr_code_scanner),
             label: Text(_scanning ? 'Đóng camera' : 'Quét bằng camera'),
           ),
@@ -97,7 +101,7 @@ class _GatePassVerifyScreenState extends State<GatePassVerifyScreen> {
           const SizedBox(height: 16),
           TextField(
             controller: _controller,
-            autofocus: true,
+            autofocus: false,
             decoration: InputDecoration(
               labelText: 'Mã QR ra cổng',
               suffixIcon: IconButton(

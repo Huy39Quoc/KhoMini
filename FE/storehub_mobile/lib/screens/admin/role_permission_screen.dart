@@ -176,6 +176,15 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
                 )
               : Column(
                   children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Text(
+                        'Chọn vai trò để xem quyền. Admin tích/bỏ rồi bấm Save changes. '
+                        'Vai trò quyết định màn hình; quyền là lớp kiểm tra bổ sung '
+                        'cho các API quản trị, giá, chính sách và báo cáo.',
+                        style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                       child: SizedBox(

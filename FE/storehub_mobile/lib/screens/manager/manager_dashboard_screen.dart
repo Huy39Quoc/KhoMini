@@ -806,64 +806,46 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
               ),
             ),
           if (_facilityId != null && _facilityId!.isNotEmpty)
-            IconButton(
-              tooltip: 'Refund requests',
-              icon: const Icon(Icons.currency_exchange_outlined),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => RefundReviewScreen(facilityId: _facilityId!),
-                ),
-              ),
-            ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            IconButton(
-              tooltip: 'Handover appointments',
-              icon: const Icon(Icons.event_note_outlined),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AppointmentAssignmentScreen(
-                    facilityId: _facilityId!,
-                  ),
-                ),
-              ),
-            ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            IconButton(
-              tooltip: 'Confirmed bookings',
-              icon: const Icon(Icons.swap_horiz_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => BookingAssignmentScreen(
-                      facilityId: _facilityId!,
-                      facilityName: _facilityName ?? '',
-                    ),
-                  ),
-                ).then((_) {
-                  if (!mounted) return;
-                  _loadUnits();
-                  _loadReport();
-                });
+            PopupMenuButton<String>(
+              tooltip: 'Quản lý lịch, đơn, hoàn tiền và giao dịch',
+              icon: const Icon(Icons.more_vert),
+              onSelected: (action) {
+                final facilityId = _facilityId!;
+                switch (action) {
+                  case 'refunds':
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => RefundReviewScreen(facilityId: facilityId)));
+                    return;
+                  case 'appointments':
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => AppointmentAssignmentScreen(facilityId: facilityId)));
+                    return;
+                  case 'bookings':
+                    final route = MaterialPageRoute(
+                      builder: (_) => BookingAssignmentScreen(
+                        facilityId: facilityId,
+                        facilityName: _facilityName ?? '',
+                      ),
+                    );
+                    Navigator.push(context, route).then((_) {
+                      if (!mounted) return;
+                      _loadUnits();
+                      _loadReport();
+                    });
+                    return;
+                  case 'transactions':
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => TransactionHistoryScreen(
+                        userRole: widget.user.roleName, facilityId: facilityId)));
+                    return;
+                }
               },
-            ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            IconButton(
-              tooltip: 'Facility Transactions',
-              icon: const Icon(Icons.receipt_long_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TransactionHistoryScreen(
-                      userRole: widget.user.roleName,
-                      facilityId: _facilityId,
-                    ),
-                  ),
-                );
-              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'appointments', child: Text('Lịch bàn giao')),
+                PopupMenuItem(value: 'bookings', child: Text('Đơn đã xác nhận')),
+                PopupMenuItem(value: 'refunds', child: Text('Yêu cầu hoàn tiền')),
+                PopupMenuItem(value: 'transactions', child: Text('Lịch sử giao dịch')),
+              ],
             ),
           IconButton(
             tooltip: 'Profile',

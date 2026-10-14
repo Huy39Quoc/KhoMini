@@ -15,11 +15,13 @@ import '../../../services/storage_api_service.dart';
 class SmartKeyScreen extends StatefulWidget {
   final String bookingId;
   final String unitNumber;
+  final StorageApiService? apiService;
 
   const SmartKeyScreen({
     super.key,
     required this.bookingId,
     required this.unitNumber,
+    this.apiService,
   });
 
   @override
@@ -27,7 +29,7 @@ class SmartKeyScreen extends StatefulWidget {
 }
 
 class _SmartKeyScreenState extends State<SmartKeyScreen> {
-  final StorageApiService _service = StorageApiService();
+  late final StorageApiService _service;
   final TextEditingController _pinController = TextEditingController();
 
   SmartAccessModel? _access;
@@ -47,6 +49,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
   @override
   void initState() {
     super.initState();
+    _service = widget.apiService ?? StorageApiService();
     _load();
   }
 
@@ -281,172 +284,38 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
     );
   }
 
-  Widget _pinField(TextEditingController c, String label,
-      {String? Function(String?)? validator}) {
-    return TextFormField(
-      controller: c,
-      keyboardType: TextInputType.number,
-      obscureText: true,
-      inputFormatters: _digitsOnly,
-      maxLength: 6,
-      decoration: InputDecoration(labelText: label, counterText: ''),
-      validator: validator ??
-          (v) => (v == null || v.length != 6) ? 'PIN phải đủ 6 số' : null,
-    );
-  }
-
   /// Hộp thoại tự đặt PIN lần đầu.
   Future<void> _customPinDialog() async {
-    final pin = TextEditingController();
-    final confirm = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    final ok = await showDialog<bool>(
+    final value = await showDialog<_PinDialogResult>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Tự đặt mã PIN'),
-        content: Form(
-          key: formKey,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            _pinField(pin, 'Mã PIN mới (6 số)'),
-            _pinField(confirm, 'Nhập lại mã PIN',
-                validator: (v) => v != pin.text ? 'Mã PIN không khớp' : null),
-          ]),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
-            },
-            child: const Text('Lưu'),
-          ),
-        ],
-      ),
+      builder: (_) => const _PinEntryDialog(mode: _PinDialogMode.setup),
     );
-    final value = pin.text;
-    pin.dispose();
-    confirm.dispose();
-    if (ok == true) await _setupPin(customPin: value);
+    if (!mounted || value == null) return;
+    await _setupPin(customPin: value.newPin);
   }
 
   /// Đổi PIN: phải biết PIN hiện tại.
   Future<void> _changePinDialog() async {
-    final current = TextEditingController();
-    final pin = TextEditingController();
-    final confirm = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    final ok = await showDialog<bool>(
+    final result = await showDialog<_PinDialogResult>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Đổi mã PIN'),
-        content: Form(
-          key: formKey,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            _pinField(current, 'Mã PIN hiện tại'),
-            _pinField(pin, 'Mã PIN mới (6 số)'),
-            _pinField(confirm, 'Nhập lại mã PIN mới',
-                validator: (v) => v != pin.text ? 'Mã PIN không khớp' : null),
-          ]),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
-            },
-            child: const Text('Đổi mã'),
-          ),
-        ],
-      ),
+      builder: (_) => const _PinEntryDialog(mode: _PinDialogMode.change),
     );
-    final cur = current.text, neu = pin.text;
-    current.dispose();
-    pin.dispose();
-    confirm.dispose();
-    if (ok != true) return;
-    final model =
-        await _run(() => _service.updatePin(widget.bookingId, cur, neu));
+    if (!mounted || result == null) return;
+    final model = await _run(() => _service.updatePin(
+        widget.bookingId, result.currentPin!, result.newPin!));
     if (model != null) _toast('Đã đổi mã PIN, cửa đã được khóa lại');
   }
 
   /// Quên PIN: xác minh bằng mật khẩu tài khoản rồi cấp/đặt PIN mới.
   Future<void> _forgotPinDialog() async {
-    final password = TextEditingController();
-    final pin = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    var generate = true;
-    final ok = await showDialog<bool>(
+    final result = await showDialog<_PinDialogResult>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('Quên mã PIN?'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Nhập mật khẩu tài khoản để xác minh đúng là bạn, '
-                    'sau đó tạo mã PIN mới. Mã cũ sẽ không còn dùng được.',
-                    style: TextStyle(
-                        fontSize: 12.5, color: AppColors.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: password,
-                    obscureText: true,
-                    decoration:
-                        const InputDecoration(labelText: 'Mật khẩu tài khoản'),
-                    validator: (v) =>
-                        (v == null || v.isEmpty) ? 'Nhập mật khẩu' : null,
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: SegmentedButton<bool>(
-                      showSelectedIcon: false,
-                      segments: const [
-                        ButtonSegment(value: true, label: Text('Hệ thống cấp')),
-                        ButtonSegment(value: false, label: Text('Tự đặt mã')),
-                      ],
-                      selected: {generate},
-                      onSelectionChanged: (s) =>
-                          setLocal(() => generate = s.first),
-                    ),
-                  ),
-                  if (!generate) _pinField(pin, 'Mã PIN mới (6 số)'),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Hủy')),
-            ElevatedButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
-              },
-              child: const Text('Đặt lại PIN'),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => const _PinEntryDialog(mode: _PinDialogMode.reset),
     );
-    final pass = password.text, custom = pin.text;
-    final useGenerated = generate;
-    password.dispose();
-    pin.dispose();
-    if (ok != true) return;
+    if (!mounted || result == null) return;
 
-    final model = await _run(() => _service.resetPin(widget.bookingId, pass,
-        newPin: useGenerated ? null : custom));
+    final model = await _run(() => _service.resetPin(widget.bookingId,
+        result.password!, newPin: result.newPin));
     if (model == null) return;
     if (model.generatedPin != null) {
       await _showGeneratedPin(model.generatedPin!);
@@ -477,7 +346,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                 offset: const Offset(0, 4)),
           ],
         ),
-        child: child,
+        child: Material(type: MaterialType.transparency, child: child),
       );
 
   Widget _noPinView() {
@@ -684,6 +553,114 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
         ],
       ),
       body: _body(),
+    );
+  }
+}
+
+enum _PinDialogMode { setup, change, reset }
+
+class _PinDialogResult {
+  final String? currentPin;
+  final String? newPin;
+  final String? password;
+
+  const _PinDialogResult({this.currentPin, this.newPin, this.password});
+}
+
+/// Owns the text controllers until the dialog route has actually unmounted.
+/// showDialog completes before its closing animation finishes.
+class _PinEntryDialog extends StatefulWidget {
+  final _PinDialogMode mode;
+
+  const _PinEntryDialog({required this.mode});
+
+  @override
+  State<_PinEntryDialog> createState() => _PinEntryDialogState();
+}
+
+class _PinEntryDialogState extends State<_PinEntryDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _current = TextEditingController();
+  final _pin = TextEditingController();
+  final _confirm = TextEditingController();
+  final _password = TextEditingController();
+  bool _generate = true;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _pin.dispose();
+    _confirm.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Widget _pinField(TextEditingController controller, String label,
+      {String? Function(String?)? validator}) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      obscureText: true,
+      inputFormatters: _SmartKeyScreenState._digitsOnly,
+      maxLength: 6,
+      decoration: InputDecoration(labelText: label, counterText: ''),
+      validator: validator ??
+          (value) => value?.length == 6 ? null : 'PIN phải đủ 6 số',
+    );
+  }
+
+  void _submit() {
+    if (_formKey.currentState?.validate() != true) return;
+    Navigator.pop(context, _PinDialogResult(
+      currentPin: widget.mode == _PinDialogMode.change ? _current.text : null,
+      newPin: widget.mode == _PinDialogMode.reset && _generate
+          ? null
+          : _pin.text,
+      password: widget.mode == _PinDialogMode.reset ? _password.text : null,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reset = widget.mode == _PinDialogMode.reset;
+    final change = widget.mode == _PinDialogMode.change;
+    return AlertDialog(
+      title: Text(reset ? 'Quên mã PIN?' : change ? 'Đổi mã PIN' : 'Tự đặt mã PIN'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (reset) ...[
+              const Text('Nhập mật khẩu tài khoản để xác minh, sau đó tạo mã PIN mới. Mã cũ sẽ không còn dùng được.'),
+              TextFormField(
+                controller: _password,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Mật khẩu tài khoản'),
+                validator: (v) => v == null || v.isEmpty ? 'Nhập mật khẩu' : null,
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<bool>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: true, label: Text('Hệ thống cấp')),
+                  ButtonSegment(value: false, label: Text('Tự đặt mã')),
+                ],
+                selected: {_generate},
+                onSelectionChanged: (s) => setState(() => _generate = s.first),
+              ),
+            ],
+            if (change) _pinField(_current, 'Mã PIN hiện tại'),
+            if (!reset || !_generate) _pinField(_pin, 'Mã PIN mới (6 số)'),
+            if (!reset) _pinField(_confirm, 'Nhập lại mã PIN',
+                validator: (v) => v == _pin.text ? null : 'Mã PIN không khớp'),
+          ]),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+        ElevatedButton(onPressed: _submit,
+          child: Text(reset ? 'Đặt lại PIN' : change ? 'Đổi mã' : 'Lưu')),
+      ],
     );
   }
 }

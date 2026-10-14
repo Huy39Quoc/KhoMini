@@ -32,7 +32,7 @@ public class ReportController {
     private final ReportService reportService;
 
     @GetMapping("/revenue")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('REPORT_VIEW')")
     @Operation(summary = "Lấy báo cáo doanh thu toàn hệ thống")
     public ResponseEntity<ApiResponse<RevenueReportResponse>> getRevenueReport(
             @RequestParam(required = false)
@@ -50,7 +50,7 @@ public class ReportController {
     }
 
     @GetMapping("/export")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('REPORT_VIEW')")
     @Operation(summary = "Xuất báo cáo toàn hệ thống dạng CSV (type = revenue | occupancy)")
     public ResponseEntity<String> exportReport(
             @RequestParam String type,
@@ -127,7 +127,7 @@ public class ReportController {
     }
 
     @GetMapping("/occupancy")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('REPORT_VIEW')")
     @Operation(summary = "Lấy báo cáo tỷ lệ lấp đầy kho")
     public ResponseEntity<ApiResponse<OccupancyReportResponse>> getOccupancyReport() {
         OccupancyReportResponse response = reportService.getOccupancyReport();

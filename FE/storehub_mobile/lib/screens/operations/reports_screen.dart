@@ -20,7 +20,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('MMM d, yyyy');
 
-  DateTime? _fromDate = DateTime.now().subtract(const Duration(days: 365));
+  DateTime? _fromDate = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _toDate = DateTime.now();
   Future<Map<String, dynamic>>? _revenueFuture;
   Future<Map<String, dynamic>>? _occupancyFuture;
@@ -86,6 +86,8 @@ class _ReportsScreenState extends State<ReportsScreen>
       context: context,
       firstDate: DateTime(now.year - 3),
       lastDate: now,
+      helpText: 'Chọn khoảng ngày thu/hoàn tiền',
+      saveText: 'Áp dụng',
       initialDateRange: _fromDate != null && _toDate != null
           ? DateTimeRange(start: _fromDate!, end: _toDate!)
           : null,
@@ -182,6 +184,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                       : 'All time (pick a date range)',
                 ),
               ),
+              const Text('Chọn ngày bắt đầu và kết thúc để lọc doanh thu. '
+                  'Tab Occupancy luôn hiển thị số liệu hiện tại.',
+                  style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
               const SizedBox(height: 16),
               Container(
                 width: double.infinity,

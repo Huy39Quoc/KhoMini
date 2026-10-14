@@ -71,7 +71,8 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
-            debugPrint('[VNPay] page started: $url');
+            // The URL contains VNPay signature and transaction parameters.
+            debugPrint('[VNPay] page started: ${Uri.tryParse(url)?.host}');
             if (mounted) {
               setState(() {
                 _pageLoading = true;
@@ -102,10 +103,10 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
           },
           onHttpError: (error) {
             debugPrint(
-                '[VNPay] http error ${error.response?.statusCode} ${error.request?.uri}');
+                '[VNPay] http error ${error.response?.statusCode}');
           },
           onPageFinished: (url) {
-            debugPrint('[VNPay] page finished: $url');
+            debugPrint('[VNPay] page finished: ${Uri.tryParse(url)?.host}');
             if (!mounted) return;
             setState(() => _pageLoading = false);
             // Trang kết quả của server (vnpay-return) đã xử lý callback xong.
@@ -207,12 +208,18 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
   /// Phương án dự phòng: mở trang VNPay bằng trình duyệt của máy. Màn hình này vẫn tự
   /// hỏi server định kỳ nên khi thanh toán xong, quay lại app là thấy kết quả.
   Future<void> _openInBrowser() async {
-    final ok = await launchUrl(
-      Uri.parse(widget.paymentUrl),
-      mode: LaunchMode.externalApplication,
-    );
+    bool ok;
+    try {
+      ok = await launchUrl(
+        Uri.parse(widget.paymentUrl),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      ok = false;
+    }
     if (!ok && mounted) {
-      Clipboard.setData(ClipboardData(text: widget.paymentUrl));
+      await Clipboard.setData(ClipboardData(text: widget.paymentUrl));
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Không mở được trình duyệt. Đã chép liên kết thanh toán.')),
@@ -237,7 +244,8 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
                 style: const TextStyle(fontSize: 12, color: Colors.black54)),
             const SizedBox(height: 4),
             const Text(
-              'Kiểm tra kết nối mạng của máy ảo/điện thoại (và đồng hồ hệ thống nếu báo lỗi SSL).',
+              'Kiểm tra mạng và đồng hồ của thiết bị. Bạn có thể mở liên kết bằng trình duyệt; '
+              'sau khi thanh toán, quay lại ứng dụng để kiểm tra kết quả.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: Colors.black54),
             ),
@@ -409,6 +417,11 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
         backgroundColor: const Color(0xFF1E3C72),
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: 'Mở VNPay bằng trình duyệt',
+            icon: const Icon(Icons.open_in_browser),
+            onPressed: _openInBrowser,
+          ),
           IconButton(
             tooltip: 'Kiểm tra kết quả',
             icon: _checking
