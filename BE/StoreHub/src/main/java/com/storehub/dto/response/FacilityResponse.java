@@ -8,6 +8,7 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class FacilityResponse {
@@ -33,4 +34,14 @@ public class FacilityResponse {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public String getImageUrl() {
+        if (imageUrl != null && !imageUrl.isBlank()) {
+            return imageUrl;
+        }
+        if (images != null && !images.isEmpty()) {
+            return images.get(0);
+        }
+        return null;
+    }
 }

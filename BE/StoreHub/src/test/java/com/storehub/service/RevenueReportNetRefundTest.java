@@ -3,6 +3,8 @@ package com.storehub.service;
 import com.storehub.dto.response.FacilityRevenueResponse;
 import com.storehub.dto.response.RevenueReportResponse;
 import com.storehub.dto.response.SystemRevenueSummaryResponse;
+import com.storehub.repository.FacilityRepository;
+import com.storehub.repository.UnitTypeRepository;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
@@ -29,10 +31,13 @@ class RevenueReportNetRefundTest {
     @Mock RefundRequestRepository refunds;
     @Mock StorageUnitRepository units;
     @Mock BookingRepository bookings;
+    @Mock FacilityRepository facilities;
+    @Mock UnitTypeRepository unitTypes;
     @InjectMocks ReportServiceImpl report;
 
     @Test
     void refundInFebruaryDoesNotRewriteJanuaryRevenue() {
+        when(facilities.findAllByOrderByCreatedAtAsc()).thenReturn(List.of());
         UUID facilityId = UUID.randomUUID();
         var januaryCharge = facility(facilityId, "800", "200", "800", 2);
         var februaryRefund = facility(facilityId, "300", "100", "300", 0);

@@ -1,14 +1,18 @@
 package com.storehub.service.impl;
 
 import com.storehub.dto.response.*;
+import com.storehub.entity.Facility;
+import com.storehub.entity.UnitType;
 import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.enums.BookingStatus;
 import com.storehub.repository.BookingRepository;
+import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
 import com.storehub.repository.StorageUnitRepository;
+import com.storehub.repository.UnitTypeRepository;
 import com.storehub.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +40,8 @@ public class ReportServiceImpl implements ReportService {
     private final RefundRequestRepository refundRequestRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final BookingRepository bookingRepository;
+    private final FacilityRepository facilityRepository;
+    private final UnitTypeRepository unitTypeRepository;
 
     @Override
     public RevenueReportResponse getRevenueReport(LocalDate fromDate, LocalDate toDate) {
@@ -70,6 +76,17 @@ public class ReportServiceImpl implements ReportService {
         }
 
         Map<UUID, FacilityRevenueResponse> facilityTotals = new LinkedHashMap<>();
+        for (Facility f : facilityRepository.findAllByOrderByCreatedAtAsc()) {
+            facilityTotals.put(f.getId(), FacilityRevenueResponse.builder()
+                    .facilityId(f.getId())
+                    .facilityName(f.getName())
+                    .totalRevenue(BigDecimal.ZERO)
+                    .depositRevenue(BigDecimal.ZERO)
+                    .rentalFeeRevenue(BigDecimal.ZERO)
+                    .extraChargeRevenue(BigDecimal.ZERO)
+                    .paymentCount(0L)
+                    .build());
+        }
         for (FacilityRevenueResponse charge : captured) {
             facilityTotals.put(charge.getFacilityId(), charge);
         }
@@ -103,11 +120,16 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public OccupancyReportResponse getOccupancyReport() {
-        List<Object[]> rows = storageUnitRepository.countUnitsGroupedByFacilityAndStatus();
-
         Map<UUID, String> facilityNames = new LinkedHashMap<>();
         // bucket layout per facility: [total, occupied, available, reserved, maintenance]
         Map<UUID, long[]> counts = new LinkedHashMap<>();
+
+        for (Facility f : facilityRepository.findAllByOrderByCreatedAtAsc()) {
+            facilityNames.put(f.getId(), f.getName());
+            counts.put(f.getId(), new long[5]);
+        }
+
+        List<Object[]> rows = storageUnitRepository.countUnitsGroupedByFacilityAndStatus();
 
         for (Object[] row : rows) {
             UUID facilityId = (UUID) row[0];
@@ -195,6 +217,11 @@ public class ReportServiceImpl implements ReportService {
         Map<UUID, String> names = new LinkedHashMap<>();
         // bucket layout: [total, occupied, available, reserved, maintenance]
         Map<UUID, long[]> counts = new LinkedHashMap<>();
+
+        for (UnitType ut : unitTypeRepository.findAll()) {
+            names.put(ut.getId(), ut.getTypeName());
+            counts.put(ut.getId(), new long[5]);
+        }
 
         for (Object[] row : storageUnitRepository.countUnitsGroupedByUnitTypeAndStatus()) {
             UUID unitTypeId = (UUID) row[0];

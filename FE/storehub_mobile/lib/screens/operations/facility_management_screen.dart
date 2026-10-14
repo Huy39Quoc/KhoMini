@@ -75,6 +75,73 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
     }
   }
 
+  String? _getFacilityThumbnail(Map<String, dynamic> f) {
+    final img = f['imageUrl']?.toString().trim();
+    if (img != null && img.isNotEmpty) return img;
+    final images = f['images'];
+    if (images is List && images.isNotEmpty) {
+      final first = images.first?.toString().trim();
+      if (first != null && first.isNotEmpty) return first;
+    } else if (images is String && images.trim().isNotEmpty) {
+      final first = images.split(',').first.trim();
+      if (first.isNotEmpty) return first;
+    }
+    return null;
+  }
+
+  Widget _buildFacilityAvatar(Map<String, dynamic> f) {
+    final thumbUrl = _getFacilityThumbnail(f);
+    final initial = (f['code']?.toString().isNotEmpty ?? false)
+        ? f['code'].toString().substring(0, 1).toUpperCase()
+        : (f['name']?.toString().isNotEmpty ?? false)
+            ? f['name'].toString().substring(0, 1).toUpperCase()
+            : 'F';
+
+    Widget fallback() => Container(
+          width: 46,
+          height: 46,
+          color: AppColors.primaryContainer,
+          alignment: Alignment.center,
+          child: Text(
+            initial,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        width: 46,
+        height: 46,
+        child: (thumbUrl != null && thumbUrl.isNotEmpty)
+            ? Image.network(
+                thumbUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => fallback(),
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    width: 46,
+                    height: 46,
+                    color: AppColors.surfaceContainer,
+                    alignment: Alignment.center,
+                    child: const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
+              )
+            : fallback(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,27 +218,7 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 8),
-                          leading: CircleAvatar(
-                            backgroundColor: AppColors.primaryContainer,
-                            backgroundImage: (f['imageUrl'] != null &&
-                                    f['imageUrl'].toString().isNotEmpty)
-                                ? NetworkImage(f['imageUrl'].toString())
-                                : null,
-                            child: (f['imageUrl'] != null &&
-                                    f['imageUrl'].toString().isNotEmpty)
-                                ? null
-                                : Text(
-                                    (f['code']?.toString().isNotEmpty ?? false)
-                                        ? f['code']
-                                            .toString()
-                                            .substring(0, 1)
-                                            .toUpperCase()
-                                        : 'F',
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                          ),
+                          leading: _buildFacilityAvatar(f),
                           title: Text(f['name']?.toString() ?? '',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 14)),

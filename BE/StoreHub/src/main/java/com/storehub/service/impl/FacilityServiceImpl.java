@@ -57,9 +57,14 @@ public class FacilityServiceImpl implements FacilityService {
         }
 
         Facility facility = facilityMapper.toEntity(request);
-        if ((facility.getImageUrl() == null || facility.getImageUrl().isBlank())
-                && request.getImages() != null && !request.getImages().isEmpty()) {
-            facility.setImageUrl(request.getImages().get(0));
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            facility.assignImages(request.getImages());
+            if (facility.getImageUrl() == null || facility.getImageUrl().isBlank()) {
+                facility.setImageUrl(request.getImages().get(0));
+            }
+        } else if (request.getImageUrl() != null && !request.getImageUrl().isBlank()) {
+            facility.setImageUrl(request.getImageUrl().trim());
+            facility.assignImages(java.util.List.of(request.getImageUrl().trim()));
         }
 
         facility.setAirConditioned24h(Boolean.TRUE.equals(request.getAirConditioned24h()));
