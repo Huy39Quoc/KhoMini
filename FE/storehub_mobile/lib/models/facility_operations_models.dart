@@ -65,6 +65,8 @@ class HandoverModel {
   final String staffName;
   final DateTime? recordedAt;
   final String message;
+  final num? damageFee;
+  final String? damageReason;
 
   const HandoverModel({
     required this.bookingId,
@@ -81,6 +83,8 @@ class HandoverModel {
     required this.staffName,
     required this.recordedAt,
     required this.message,
+    this.damageFee,
+    this.damageReason,
   });
 }
 
@@ -93,6 +97,8 @@ class HandoverRecordModel {
   final String staffId;
   final String staffName;
   final DateTime? recordedAt;
+  final num? damageFee;
+  final String? damageReason;
 
   const HandoverRecordModel({
     required this.id,
@@ -103,5 +109,7 @@ class HandoverRecordModel {
     required this.staffId,
     required this.staffName,
     required this.recordedAt,
+    this.damageFee,
+    this.damageReason,
   });
 }

@@ -186,7 +186,9 @@ public class FacilityOperationsServiceImpl
                         record.getNotes(),
                         record.getStaff().getId(),
                         record.getStaff().getFullName(),
-                        record.getRecordedAt()
+                        record.getRecordedAt(),
+                        record.getDamageFee(),
+                        record.getDamageReason()
                 ))
                 .toList();
     }
@@ -416,7 +418,9 @@ public class FacilityOperationsServiceImpl
         }
 
         // Nghiệm thu trả kho -> tạo yêu cầu hoàn cọc. Bị chặn nếu còn nợ phí trễ hạn.
-        BigDecimal requestedRefund = paymentService.refundDepositOnReturn(booking);
+        BigDecimal requestedRefund = (request.getDamageFee() != null || request.getDamageReason() != null)
+                ? paymentService.refundDepositOnReturn(booking, request.getDamageFee(), request.getDamageReason())
+                : paymentService.refundDepositOnReturn(booking);
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -426,6 +430,8 @@ public class FacilityOperationsServiceImpl
                 .recordType("RETURN")
                 .unitCondition(buildUnitCondition(request))
                 .notes(request.getNotes())
+                .damageFee(request.getDamageFee())
+                .damageReason(request.getDamageReason())
                 .recordedAt(now)
                 .build();
 
@@ -439,16 +445,29 @@ public class FacilityOperationsServiceImpl
         bookingRepository.save(booking);
         storageUnitRepository.save(storageUnit);
 
+        String message;
+        if (requestedRefund.signum() > 0) {
+            message = "Check-out completed. Deposit refund requested: " + requestedRefund.toPlainString()
+                    + (request.getDamageFee() != null && request.getDamageFee().signum() > 0
+                        ? " (Damage fee deducted: " + request.getDamageFee().toPlainString() + ")" : "");
+        } else if (request.getDamageFee() != null && booking.getDepositPaid() != null
+                && request.getDamageFee().compareTo(booking.getDepositPaid()) > 0) {
+            BigDecimal extraDebt = request.getDamageFee().subtract(booking.getDepositPaid());
+            message = "Check-out completed. Deposit fully absorbed by damage fee. Extra compensation required: "
+                    + extraDebt.toPlainString();
+        } else if (request.getDamageFee() != null && request.getDamageFee().signum() > 0) {
+            message = "Check-out completed. Deposit fully absorbed by damage fee (0 refund).";
+        } else {
+            message = "Check-out completed successfully";
+        }
+
         return toHandoverResponse(
                 booking,
                 storageUnit,
                 record,
                 request.getLockCondition(),
                 staff,
-                requestedRefund.signum() > 0
-                        ? "Check-out completed. Deposit refund requested: "
-                        + requestedRefund.toPlainString()
-                        : "Check-out completed successfully"
+                message
         );
     }
 
@@ -633,6 +652,8 @@ public class FacilityOperationsServiceImpl
                 .unitStatus(storageUnit.getStatus().name())
                 .staffId(staff.getId())
                 .staffName(staff.getFullName())
+                .damageFee(record.getDamageFee())
+                .damageReason(record.getDamageReason())
                 .recordedAt(record.getRecordedAt())
                 .message(message)
                 .build();

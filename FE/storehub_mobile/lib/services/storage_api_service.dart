@@ -149,6 +149,9 @@ class StorageApiService {
     String bookingId,
     DateTime scheduledReturnTime, {
     String? notes,
+    String? bankCode,
+    String? bankAccountNumber,
+    String? bankAccountName,
   }) async {
     try {
       final response = await _dio.post(
@@ -156,6 +159,12 @@ class StorageApiService {
         data: {
           'scheduledReturnTime': _formatLocalDateTime(scheduledReturnTime),
           if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+          if (bankCode != null && bankCode.trim().isNotEmpty)
+            'bankCode': bankCode.trim(),
+          if (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty)
+            'bankAccountNumber': bankAccountNumber.trim(),
+          if (bankAccountName != null && bankAccountName.trim().isNotEmpty)
+            'bankAccountName': bankAccountName.trim(),
         },
       );
       return _unwrapMap(response.data);

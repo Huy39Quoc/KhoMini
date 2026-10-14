@@ -31,6 +31,12 @@ public class HandoverRecord extends BaseEntity {
     @Column(name = "notes")
     private String notes;
 
+    @Column(name = "damage_fee", precision = 12, scale = 2)
+    private java.math.BigDecimal damageFee;
+
+    @Column(name = "damage_reason")
+    private String damageReason;
+
     @Column(name = "recorded_at", nullable = false)
     private LocalDateTime recordedAt;
 }

@@ -48,6 +48,8 @@ public interface PaymentService {
     // huỷ yêu cầu gia hạn đang treo, rồi yêu cầu hoàn cọc. Trả về số tiền yêu cầu hoàn.
     BigDecimal refundDepositOnReturn(Booking booking);
 
+    BigDecimal refundDepositOnReturn(Booking booking, BigDecimal damageFee, String damageReason);
+
     java.util.List<PaymentResponse> getMyPaymentHistory(String customerEmail);
 
     java.util.List<PaymentResponse> getFacilityPaymentHistory(String userEmail, UUID facilityId);

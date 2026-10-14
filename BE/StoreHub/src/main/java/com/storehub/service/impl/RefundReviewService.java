@@ -85,6 +85,51 @@ public class RefundReviewService {
         return response(refund);
     }
 
+    @Transactional
+    public RefundRequestResponse confirmBankTransfer(UUID facilityId, UUID refundId,
+                                                     String managerEmail, com.storehub.dto.request.ConfirmBankTransferRequest request) {
+        requireManager(facilityId, managerEmail);
+        RefundRequest refund = requireRefund(facilityId, refundId);
+        if (refund.getStatus() != RefundStatus.AWAITING_BANK_TRANSFER
+                && refund.getStatus() != RefundStatus.NEEDS_REVIEW
+                && refund.getStatus() != RefundStatus.QUEUED) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        refund.setStatus(RefundStatus.COMPLETED);
+        refund.setCompletedAt(now);
+        refund.setUpdatedStatusAt(now);
+        refund.setTransferReference(request.getTransferReference());
+
+        com.storehub.entity.Booking booking = refund.getBooking();
+        if (booking != null && booking.getDepositPaid() != null) {
+            java.math.BigDecimal depositRemaining = booking.getDepositPaid().subtract(refund.getDepositAmount());
+            if (depositRemaining.signum() >= 0) {
+                booking.setDepositPaid(depositRemaining);
+            }
+        }
+
+        Payment original = refund.getOriginalPayment();
+        if (original != null) {
+            java.math.BigDecimal remaining = original.getAmount().subtract(refund.getDepositAmount());
+            if (remaining.signum() <= 0) {
+                original.setStatus(com.storehub.enums.PaymentStatus.REFUNDED);
+            }
+        }
+
+        Payment refundPayment = refund.getRefundPayment();
+        if (refundPayment != null) {
+            refundPayment.setStatus(com.storehub.enums.PaymentStatus.REFUNDED);
+            refundPayment.setPaymentTime(now);
+            if (request.getNotes() != null && !request.getNotes().isBlank()) {
+                String existingNote = refundPayment.getNote() != null ? refundPayment.getNote() : "";
+                refundPayment.setNote(existingNote + " | Ref: " + request.getTransferReference() + " (" + request.getNotes() + ")");
+            }
+        }
+
+        return response(refund);
+    }
+
     private void rotateRequestId(RefundRequest refund) {
         String requestId = UUID.randomUUID().toString().replace("-", "").toUpperCase();
         refund.setRequestId(requestId);
@@ -111,11 +156,23 @@ public class RefundReviewService {
 
     private RefundRequestResponse response(RefundRequest refund) {
         boolean unresolved = refund.getStatus() != RefundStatus.COMPLETED;
-        return new RefundRequestResponse(refund.getId(), refund.getBooking().getId(),
-                refund.getBooking().getBookingCode(), refund.getOriginalPayment().getTransactionId(),
-                refund.getRequestId(), refund.getAmount(), refund.getStatus(),
-                refund.getGatewayResponseCode(), refund.getGatewayTransactionStatus(),
-                refund.getDueAt(), unresolved && refund.getDueAt() != null
-                        && refund.getDueAt().isBefore(LocalDateTime.now()));
+        return new RefundRequestResponse(
+                refund.getId(),
+                refund.getBooking().getId(),
+                refund.getBooking().getBookingCode(),
+                refund.getOriginalPayment() != null ? refund.getOriginalPayment().getTransactionId() : null,
+                refund.getRequestId(),
+                refund.getAmount(),
+                refund.getStatus(),
+                refund.getGatewayResponseCode(),
+                refund.getGatewayTransactionStatus(),
+                refund.getDueAt(),
+                unresolved && refund.getDueAt() != null && refund.getDueAt().isBefore(LocalDateTime.now()),
+                refund.getDamageDeduction() != null ? refund.getDamageDeduction() : java.math.BigDecimal.ZERO,
+                refund.getBankCode(),
+                refund.getBankAccountNumber(),
+                refund.getBankAccountName(),
+                refund.getTransferReference()
+        );
     }
 }

@@ -136,6 +136,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     String lockCondition = 'Locked & working';
 
     final notesController = TextEditingController();
+    final damageFeeController = TextEditingController();
+    final damageReasonController = TextEditingController();
 
     bool submitting = false;
     bool inspectionConfirmed = false;
@@ -255,6 +257,70 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                               }
                             },
                     ),
+                    if (!isCheckIn &&
+                        (unitCondition == 'Damaged' ||
+                            unitCondition == 'Needs cleaning' ||
+                            lockCondition == 'Damaged / needs repair')) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded,
+                                    size: 18, color: Colors.orange.shade900),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Damage / Cleaning Deduction',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Colors.orange.shade900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'This fee will be deducted directly from the customer deposit. Extra charge will be issued if damage exceeds deposit.',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.onSurfaceVariant),
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: damageFeeController,
+                              keyboardType: TextInputType.number,
+                              enabled: !submitting,
+                              decoration: const InputDecoration(
+                                labelText: 'Damage / Cleaning Fee (₫)',
+                                prefixIcon: Icon(Icons.attach_money, size: 20),
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: damageReasonController,
+                              enabled: !submitting,
+                              decoration: const InputDecoration(
+                                labelText:
+                                    'Deduction Reason (e.g. Scratched wall, broken lock)',
+                                prefixIcon:
+                                    Icon(Icons.description_outlined, size: 20),
+                                isDense: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     TextField(
                       controller: notesController,
@@ -298,12 +364,23 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                     notes: notesController.text,
                                   );
                                 } else {
+                                  final num? damageFee = num.tryParse(
+                                      damageFeeController.text.trim());
+                                  final String? damageReason =
+                                      damageReasonController.text
+                                              .trim()
+                                              .isNotEmpty
+                                          ? damageReasonController.text.trim()
+                                          : null;
+
                                   result = await _opsService.checkOut(
                                     bookingId: item.bookingId,
                                     facilityId: _facilityId!,
                                     unitCondition: unitCondition,
                                     lockCondition: lockCondition,
                                     notes: notesController.text,
+                                    damageFee: damageFee,
+                                    damageReason: damageReason,
                                   );
                                 }
 

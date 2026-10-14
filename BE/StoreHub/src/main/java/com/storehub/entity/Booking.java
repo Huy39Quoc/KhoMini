@@ -128,4 +128,13 @@ public class Booking extends BaseEntity {
     // Facility Manager đã duyệt niêm phong cho hợp đồng quá hạn
     @Column(name = "sealing_approved_at")
     private LocalDateTime sealingApprovedAt;
+
+    @Column(name = "refund_bank_code", length = 50)
+    private String refundBankCode;
+
+    @Column(name = "refund_account_number", length = 50)
+    private String refundAccountNumber;
+
+    @Column(name = "refund_account_name", length = 100)
+    private String refundAccountName;
 }

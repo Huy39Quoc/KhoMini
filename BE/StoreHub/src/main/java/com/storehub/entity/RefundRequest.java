@@ -54,4 +54,20 @@ public class RefundRequest extends BaseEntity {
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    @Column(name = "damage_deduction", precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal damageDeduction = BigDecimal.ZERO;
+
+    @Column(name = "bank_code", length = 50)
+    private String bankCode;
+
+    @Column(name = "bank_account_number", length = 50)
+    private String bankAccountNumber;
+
+    @Column(name = "bank_account_name", length = 100)
+    private String bankAccountName;
+
+    @Column(name = "transfer_reference", length = 100)
+    private String transferReference;
 }

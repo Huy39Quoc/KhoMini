@@ -19,4 +19,8 @@ public class HandoverRequest {
     private String lockCondition;
 
     private String notes;
+
+    private java.math.BigDecimal damageFee;
+
+    private String damageReason;
 }

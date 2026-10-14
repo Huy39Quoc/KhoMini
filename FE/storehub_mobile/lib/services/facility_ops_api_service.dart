@@ -472,12 +472,31 @@ class FacilityOpsApiService {
     }
   }
 
+  Future<void> confirmBankTransfer(String facilityId, String refundId, {
+    required String transferReference,
+    String? notes,
+  }) async {
+    try {
+      await _dio.post(
+        '${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/confirm-bank-transfer',
+        data: {
+          'transferReference': transferReference.trim(),
+          if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+        },
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'confirm bank transfer refund');
+    }
+  }
+
   Future<HandoverModel> checkOut({
     required String bookingId,
     required String facilityId,
     required String unitCondition,
     required String lockCondition,
     String? notes,
+    num? damageFee,
+    String? damageReason,
   }) async {
     try {
       final response = await _dio.post(
@@ -489,6 +508,8 @@ class FacilityOpsApiService {
           unitCondition: unitCondition,
           lockCondition: lockCondition,
           notes: notes,
+          damageFee: damageFee,
+          damageReason: damageReason,
         ),
       );
 

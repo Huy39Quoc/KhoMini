@@ -41,5 +41,9 @@ public class HandoverResponse {
 
     private LocalDateTime recordedAt;
 
+    private java.math.BigDecimal damageFee;
+
+    private String damageReason;
+
     private String message;
 }

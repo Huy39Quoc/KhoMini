@@ -51,4 +51,12 @@ public class RefundReviewController {
         service.reconcile(facilityId, refundId, principal.getUsername());
         return ApiResponse.success("VNPay reconciliation checked", null);
     }
+
+    @PostMapping("/{refundId}/confirm-bank-transfer")
+    public ApiResponse<RefundRequestResponse> confirmBankTransfer(@PathVariable UUID facilityId,
+            @PathVariable UUID refundId, @AuthenticationPrincipal UserDetails principal,
+            @RequestBody @Valid com.storehub.dto.request.ConfirmBankTransferRequest request) {
+        return ApiResponse.success("Bank transfer confirmed successfully",
+                service.confirmBankTransfer(facilityId, refundId, principal.getUsername(), request));
+    }
 }

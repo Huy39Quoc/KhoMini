@@ -108,6 +108,117 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
     }
   }
 
+  Future<void> _confirmBankTransfer(Map<String, dynamic> refund) async {
+    final refController = TextEditingController();
+    final noteController = TextEditingController();
+    try {
+      final amount = num.tryParse('${refund['amount']}') ?? 0;
+      final submitted = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Xác nhận chuyển khoản hoàn cọc'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Số tiền hoàn cọc: ${_money.format(amount)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
+                ),
+                const SizedBox(height: 12),
+                if (refund['bankCode'] != null || refund['bankAccountNumber'] != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (refund['bankCode'] != null)
+                          Text('Ngân hàng: ${refund['bankCode']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                        if (refund['bankAccountNumber'] != null)
+                          Text('Số tài khoản: ${refund['bankAccountNumber']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        if (refund['bankAccountName'] != null)
+                          Text('Chủ tài khoản: ${refund['bankAccountName']}'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                const Text('Vui lòng nhập mã giao dịch ngân hàng sau khi bạn đã chuyển khoản thành công:'),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: refController,
+                  decoration: const InputDecoration(
+                    labelText: 'Mã tham chiếu / Mã GD chuyển khoản *',
+                    hintText: 'VD: FT2601019827361 hoặc GD-12345',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: noteController,
+                  decoration: const InputDecoration(
+                    labelText: 'Ghi chú thêm (tùy chọn)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (refController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Vui lòng nhập mã tham chiếu giao dịch')),
+                  );
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              child: const Text('Xác nhận hoàn tất'),
+            ),
+          ],
+        ),
+      );
+
+      if (submitted != true) return;
+
+      await _api.confirmBankTransfer(
+        widget.facilityId,
+        '${refund['id']}',
+        transferReference: refController.text.trim(),
+        notes: noteController.text.trim().isNotEmpty ? noteController.text.trim() : null,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã xác nhận hoàn tiền cọc thành công!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _reload(resetPage: true);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$error'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      refController.dispose();
+      noteController.dispose();
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Refund requests'),
@@ -166,6 +277,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
                 }
                 final refund = requests[index];
                 final status = '${refund['status']}';
+                final damageDeduction = num.tryParse('${refund['damageDeduction']}') ?? 0;
                 return Card(
                   margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
                   child: Padding(
@@ -174,8 +286,52 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
                       Text('${refund['bookingCode']} • '
                           '${_money.format(num.tryParse('${refund['amount']}') ?? 0)}',
                           style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text('Original transaction: ${refund['originalTransactionId']}'),
+                      if (refund['originalTransactionId'] != null)
+                        Text('Original transaction: ${refund['originalTransactionId']}'),
                       Text('Status: ${status.replaceAll('_', ' ')}'),
+                      if (damageDeduction > 0)
+                        Text(
+                          'Khấu trừ hư hại: -${_money.format(damageDeduction)}',
+                          style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                        ),
+                      if (refund['bankAccountNumber'] != null &&
+                          '${refund['bankAccountNumber']}'.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade100),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.account_balance, size: 16, color: Colors.blue),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${refund['bankCode'] ?? 'Ngân hàng'}: ${refund['bankAccountNumber']}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                              if (refund['bankAccountName'] != null)
+                                Text('Chủ TK: ${refund['bankAccountName']}', style: const TextStyle(fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (refund['transferReference'] != null &&
+                          '${refund['transferReference']}'.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Mã GD chuyển tiền: ${refund['transferReference']}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.teal),
+                          ),
+                        ),
                       if (refund['dueAt'] != null) ...[
                         Text('Hạn hoàn tiền: ${refund['dueAt'].toString().replaceFirst('T', ' ')}',
                             style: TextStyle(
@@ -189,6 +345,15 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
                       ],
                       if (refund['gatewayResponseCode'] != null)
                         Text('VNPay response: ${refund['gatewayResponseCode']}'),
+                      if (status == 'AWAITING_BANK_TRANSFER')
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: FilledButton.icon(
+                            onPressed: () => _confirmBankTransfer(refund),
+                            icon: const Icon(Icons.check_circle_outline, size: 18),
+                            label: const Text('Xác nhận đã chuyển khoản hoàn cọc'),
+                          ),
+                        ),
                       if (status == 'MISSING_METADATA' || status == 'REJECTED')
                         TextButton(onPressed: () => _provideDetails(refund),
                             child: const Text('Enter/correct original payment details')),

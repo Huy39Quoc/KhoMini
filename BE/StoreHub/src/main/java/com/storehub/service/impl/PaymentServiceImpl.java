@@ -854,6 +854,12 @@ public class PaymentServiceImpl implements PaymentService {
     // booking. Each original gateway transaction is refunded at most once.
     private BigDecimal queueRefund(Booking booking, Payment original,
                                    BigDecimal depositPart, BigDecimal rentalPart) {
+        return queueRefund(booking, original, depositPart, rentalPart, BigDecimal.ZERO);
+    }
+
+    private BigDecimal queueRefund(Booking booking, Payment original,
+                                   BigDecimal depositPart, BigDecimal rentalPart,
+                                   BigDecimal damageDeduction) {
         BigDecimal total = depositPart.add(rentalPart);
         if (total.signum() <= 0) return BigDecimal.ZERO;
         if (refundRequests.existsByOriginalPayment_Id(original.getId())) {
@@ -867,23 +873,36 @@ public class PaymentServiceImpl implements PaymentService {
                     .map(policy -> policy.getDepositRefundSlaDays()).orElse(5)
                 : 5;
         if (slaDays == null || slaDays < 0) slaDays = 5;
+
+        boolean hasBankInfo = booking.getRefundAccountNumber() != null && !booking.getRefundAccountNumber().isBlank();
+        RefundStatus initialStatus = hasBankInfo
+                ? RefundStatus.AWAITING_BANK_TRANSFER
+                : (original.getGatewayCreateDate() == null
+                        ? RefundStatus.MISSING_METADATA : RefundStatus.QUEUED);
+
         Payment refundPayment = paymentRepository.save(Payment.builder()
                 .transactionId("RF-" + requestId)
                 .booking(booking)
                 .amount(total)
                 .paymentType(original.getPaymentType())
                 .status(PaymentStatus.REFUND_PENDING)
-                .paymentMethod(original.getPaymentMethod())
+                .paymentMethod(hasBankInfo ? "BANK_TRANSFER" : original.getPaymentMethod())
                 .note(original.getPaymentType() == PaymentType.EXTRA_CHARGE
-                        ? EXTRA_CHARGE_REFUND : DEPOSIT_REFUND)
+                        ? EXTRA_CHARGE_REFUND
+                        : (DEPOSIT_REFUND + (damageDeduction != null && damageDeduction.signum() > 0
+                            ? " (Khấu trừ hư hại: " + damageDeduction.toPlainString() + " ₫)" : "")))
                 .paymentTime(requestedAt)
                 .build());
+
         refundRequests.save(RefundRequest.builder()
                 .booking(booking).originalPayment(original).refundPayment(refundPayment)
                 .requestId(requestId).amount(total).depositAmount(depositPart)
                 .rentalAmount(rentalPart)
-                .status(original.getGatewayCreateDate() == null
-                        ? RefundStatus.MISSING_METADATA : RefundStatus.QUEUED)
+                .damageDeduction(damageDeduction != null ? damageDeduction : BigDecimal.ZERO)
+                .bankCode(booking.getRefundBankCode())
+                .bankAccountNumber(booking.getRefundAccountNumber())
+                .bankAccountName(booking.getRefundAccountName())
+                .status(initialStatus)
                 .updatedStatusAt(requestedAt)
                 .dueAt(requestedAt.plusDays(slaDays))
                 .build());
@@ -893,6 +912,12 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public BigDecimal refundDepositOnReturn(Booking booking) {
+        return refundDepositOnReturn(booking, BigDecimal.ZERO, null);
+    }
+
+    @Override
+    @Transactional
+    public BigDecimal refundDepositOnReturn(Booking booking, BigDecimal damageFee, String damageReason) {
         boolean unpaidLateFee = paymentRepository
                 .findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
                         booking.getId(), PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
@@ -916,7 +941,38 @@ public class PaymentServiceImpl implements PaymentService {
             booking.setPendingExtensionFee(null);
         }
 
-        return refundDeposit(booking, booking.getDepositPaid());
+        BigDecimal depositPaid = booking.getDepositPaid() != null ? booking.getDepositPaid() : BigDecimal.ZERO;
+        BigDecimal safeDamage = (damageFee != null && damageFee.signum() > 0) ? damageFee : BigDecimal.ZERO;
+        BigDecimal netRefund = depositPaid.subtract(safeDamage);
+
+        if (netRefund.signum() < 0) {
+            BigDecimal excessDebt = safeDamage.subtract(depositPaid);
+            String reasonText = (damageReason != null && !damageReason.isBlank())
+                    ? damageReason.trim() : "Bồi thường hư hại kho khi trả phòng";
+            Payment extraCharge = Payment.builder()
+                    .transactionId("DMG-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase())
+                    .booking(booking)
+                    .amount(excessDebt)
+                    .paymentType(PaymentType.EXTRA_CHARGE)
+                    .status(PaymentStatus.PENDING)
+                    .paymentMethod("VNPAY")
+                    .note("Bồi thường thiệt hại hư hại kho: " + reasonText)
+                    .paymentTime(LocalDateTime.now())
+                    .build();
+            paymentRepository.save(extraCharge);
+            return BigDecimal.ZERO;
+        }
+
+        if (netRefund.signum() == 0) {
+            return BigDecimal.ZERO;
+        }
+
+        Payment original = paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                        booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        return queueRefund(booking, original, netRefund, BigDecimal.ZERO, safeDamage);
     }
 
     @Override

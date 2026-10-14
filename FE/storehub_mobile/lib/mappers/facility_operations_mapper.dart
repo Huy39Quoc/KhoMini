@@ -52,6 +52,8 @@ class FacilityOperationsMapper {
       staffName: _text(json['staffName']),
       recordedAt: _dateTime(json['recordedAt']),
       message: _text(json['message']),
+      damageFee: json['damageFee'] as num?,
+      damageReason: json['damageReason']?.toString(),
     );
   }
 
@@ -67,6 +69,8 @@ class FacilityOperationsMapper {
       staffId: _text(json['staffId']),
       staffName: _text(json['staffName']),
       recordedAt: _dateTime(json['recordedAt']),
+      damageFee: json['damageFee'] as num?,
+      damageReason: json['damageReason']?.toString(),
     );
   }
 
@@ -74,14 +78,21 @@ class FacilityOperationsMapper {
     required String unitCondition,
     required String lockCondition,
     String? notes,
+    num? damageFee,
+    String? damageReason,
   }) {
     final normalizedNotes = notes?.trim();
+    final normalizedReason = damageReason?.trim();
 
     return {
       'unitCondition': unitCondition.trim(),
       'lockCondition': lockCondition.trim(),
       if (normalizedNotes != null && normalizedNotes.isNotEmpty)
         'notes': normalizedNotes,
+      if (damageFee != null && damageFee > 0)
+        'damageFee': damageFee,
+      if (normalizedReason != null && normalizedReason.isNotEmpty)
+        'damageReason': normalizedReason,
     };
   }
 

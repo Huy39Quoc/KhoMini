@@ -32,6 +32,9 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       !bool.fromEnvironment('dart.vm.product');
   final StorageApiService _storageService = StorageApiService();
   final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _bankCodeController = TextEditingController();
+  final TextEditingController _accountNumberController = TextEditingController();
+  final TextEditingController _accountNameController = TextEditingController();
   final _currency = NumberFormat.currency(
       locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('MMM d, yyyy');
@@ -197,6 +200,9 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   @override
   void dispose() {
     _notesController.dispose();
+    _bankCodeController.dispose();
+    _accountNumberController.dispose();
+    _accountNameController.dispose();
     super.dispose();
   }
 
@@ -247,6 +253,9 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           widget.unit.bookingId,
           _scheduledReturnTime!,
           notes: _notesController.text,
+          bankCode: _bankCodeController.text,
+          bankAccountNumber: _accountNumberController.text,
+          bankAccountName: _accountNameController.text,
         );
       }
 
@@ -466,6 +475,68 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
             _scheduledReturnTime == null
                 ? 'Select return date & time'
                 : _dateTimeFmt.format(_scheduledReturnTime!),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.shade100),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.account_balance, size: 18, color: Colors.blue.shade800),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Bank Information for Deposit Refund',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.blue.shade900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Enter your bank account so the manager can transfer your deposit refund upon inspection.',
+                style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _bankCodeController,
+                decoration: const InputDecoration(
+                  labelText: 'Bank Name / Code (e.g. MBBank, VCB)',
+                  prefixIcon: Icon(Icons.account_balance_outlined, size: 20),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _accountNumberController,
+                decoration: const InputDecoration(
+                  labelText: 'Account Number',
+                  prefixIcon: Icon(Icons.numbers, size: 20),
+                  isDense: true,
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _accountNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Account Holder Name',
+                  prefixIcon: Icon(Icons.person_outline, size: 20),
+                  isDense: true,
+                ),
+                textCapitalization: TextCapitalization.characters,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
