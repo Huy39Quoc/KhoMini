@@ -559,31 +559,41 @@ class _FacilityCard extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    if (facility.minAreaSqm != null &&
-                        facility.maxAreaSqm != null)
-                      _infoChip(
-                          Icons.straighten,
-                          '${facility.minAreaSqm!.toInt()}–${facility.maxAreaSqm!.toInt()} m²',
-                          Colors.indigo),
-                    if (facility.minAreaSqm != null) const SizedBox(width: 8),
-                    _infoChip(
-                        Icons.inventory_2_outlined, availLabel, availColor),
-                    const Spacer(),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (facility.minAreaSqm != null &&
+                              facility.maxAreaSqm != null)
+                            _infoChip(
+                                Icons.straighten,
+                                '${facility.minAreaSqm!.toInt()}–${facility.maxAreaSqm!.toInt()} m²',
+                                Colors.indigo),
+                          _infoChip(
+                              Icons.inventory_2_outlined, availLabel, availColor),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text('From',
                             style: TextStyle(
-                                fontSize: 11, color: AppColors.textSecondary)),
+                                fontSize: 10, color: AppColors.textSecondary)),
                         Text(
                           facility.minPricePerMonth != null
                               ? '${_formatPrice(facility.minPricePerMonth!)}/month'
                               : 'Contact us',
                           style: const TextStyle(
-                              fontSize: 14,
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary),
                         ),
