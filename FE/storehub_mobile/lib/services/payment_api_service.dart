@@ -4,36 +4,45 @@ import '../core/network/http_client.dart';
 import '../mappers/payment_mapper.dart';
 import '../models/payment_model.dart';
 
+class PaymentPage {
+  final List<PaymentModel> items;
+  final bool hasMore;
+
+  const PaymentPage(this.items, this.hasMore);
+}
+
 class PaymentApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  Future<List<PaymentModel>> getMyPayments() async {
+  Future<PaymentPage> getMyPayments({int page = 0}) async {
     try {
-      final response = await _dio.get(ApiEndpoints.paymentMyHistory);
-      final rawData = _extractList(response.data);
-      return rawData.map((json) => PaymentMapper.fromJson(PaymentMapper.asJsonMap(json))).toList();
+      final response = await _dio
+          .get(ApiEndpoints.paymentMyHistory, queryParameters: {'page': page});
+      return _extractPage(response.data);
     } on DioException catch (e) {
       final message = _errorMessage(e);
       throw Exception('Failed to load payment history: $message');
     }
   }
 
-  Future<List<PaymentModel>> getFacilityPayments(String facilityId) async {
+  Future<PaymentPage> getFacilityPayments(String facilityId,
+      {int page = 0}) async {
     try {
-      final response = await _dio.get(ApiEndpoints.paymentFacilityHistory(facilityId));
-      final rawData = _extractList(response.data);
-      return rawData.map((json) => PaymentMapper.fromJson(PaymentMapper.asJsonMap(json))).toList();
+      final response = await _dio.get(
+          ApiEndpoints.paymentFacilityHistory(facilityId),
+          queryParameters: {'page': page});
+      return _extractPage(response.data);
     } on DioException catch (e) {
       final message = _errorMessage(e);
       throw Exception('Failed to load facility payments: $message');
     }
   }
 
-  Future<List<PaymentModel>> getAllPayments() async {
+  Future<PaymentPage> getAllPayments({int page = 0}) async {
     try {
-      final response = await _dio.get(ApiEndpoints.paymentAllHistory);
-      final rawData = _extractList(response.data);
-      return rawData.map((json) => PaymentMapper.fromJson(PaymentMapper.asJsonMap(json))).toList();
+      final response = await _dio
+          .get(ApiEndpoints.paymentAllHistory, queryParameters: {'page': page});
+      return _extractPage(response.data);
     } on DioException catch (e) {
       final message = _errorMessage(e);
       throw Exception('Failed to load system payment history: $message');
@@ -51,17 +60,16 @@ class PaymentApiService {
     }
   }
 
-  List<dynamic> _extractList(dynamic responseData) {
-    if (responseData is List) {
-      return responseData;
-    } else if (responseData is Map) {
-      if (responseData['data'] is List) {
-        return responseData['data'];
-      } else if (responseData['result'] is List) {
-        return responseData['result'];
-      }
+  PaymentPage _extractPage(dynamic responseData) {
+    final envelope = responseData is Map ? responseData : const {};
+    final data = envelope['data'] ?? envelope['result'];
+    if (data is! Map || data['content'] is! List) {
+      throw const FormatException('Invalid payment history response');
     }
-    return [];
+    final items = (data['content'] as List)
+        .map((json) => PaymentMapper.fromJson(PaymentMapper.asJsonMap(json)))
+        .toList();
+    return PaymentPage(items, data['last'] == false);
   }
 
   Map<String, dynamic> _extractObject(dynamic responseData) {

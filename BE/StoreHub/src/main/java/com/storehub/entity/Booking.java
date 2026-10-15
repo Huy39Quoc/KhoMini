@@ -50,6 +50,12 @@ public class Booking extends BaseEntity {
     @Column(name = "total_rental_fee", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalRentalFee;
 
+    @Column(name = "quoted_deposit_amount", precision = 12, scale = 2)
+    private BigDecimal quotedDepositAmount;
+
+    @Column(name = "quoted_management_fee", precision = 12, scale = 2)
+    private BigDecimal quotedManagementFee;
+
     @Column(name = "deposit_paid", nullable = false, precision = 12, scale = 2)
     private BigDecimal depositPaid;
 

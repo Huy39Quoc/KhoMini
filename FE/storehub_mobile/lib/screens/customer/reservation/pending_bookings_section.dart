@@ -79,6 +79,7 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
             rentalMonths: (item['rentalMonths'] as num?)?.toInt() ?? 0,
             totalRentalFee: (item['totalRentalFee'] as num?)?.toDouble() ?? 0,
             depositAmount: (item['depositAmount'] as num?)?.toDouble() ?? 0,
+            totalExtraFees: (item['totalExtraFees'] as num?)?.toDouble() ?? 0,
             expiresAt: DateTime.tryParse(item['expiresAt']?.toString() ?? ''),
           ),
         ),
@@ -103,7 +104,8 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
         if (snapshot.hasError) {
           return ListTile(
             title: const Text('Could not load pending bookings'),
-            trailing: TextButton(onPressed: _reload, child: const Text('Retry')),
+            trailing:
+                TextButton(onPressed: _reload, child: const Text('Retry')),
           );
         }
         final bookings = snapshot.data ?? [];
@@ -117,7 +119,8 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
               Card(
                 child: ListTile(
                   title: Text(booking['unitTypeName']?.toString() ??
-                      booking['bookingCode']?.toString() ?? 'Reservation'),
+                      booking['bookingCode']?.toString() ??
+                      'Reservation'),
                   subtitle: Text(
                     '${booking['facilityName'] ?? ''} • ${booking['bookingCode'] ?? ''}',
                   ),

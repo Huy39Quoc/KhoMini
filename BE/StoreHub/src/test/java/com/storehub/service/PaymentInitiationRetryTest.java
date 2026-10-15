@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,6 +57,26 @@ class PaymentInitiationRetryTest {
     @Mock WaitlistService waitlist;
     @Mock FacilityPolicyRepository facilityPolicies;
     @InjectMocks PaymentServiceImpl service;
+
+    @Test
+    void paymentUsesBookingQuoteEvenAfterPolicyChanges() {
+        Booking booking = booking();
+        booking.setTotalRentalFee(new BigDecimal("700"));
+        booking.setQuotedDepositAmount(new BigDecimal("200"));
+        booking.setQuotedManagementFee(new BigDecimal("100"));
+        configure(booking, List.of());
+        when(payments.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentResponse response = service.initiatePayment(
+                "customer@example.com", request(booking.getId()));
+
+        assertEquals(new BigDecimal("1000"), response.getAmount());
+        ArgumentCaptor<Payment> saved = ArgumentCaptor.forClass(Payment.class);
+        verify(payments, org.mockito.Mockito.times(2)).save(saved.capture());
+        assertEquals(new BigDecimal("200"), saved.getAllValues().get(0).getAmount());
+        assertEquals(new BigDecimal("800"), saved.getAllValues().get(1).getAmount());
+        verifyNoInteractions(pricing);
+    }
 
     @Test
     void repeatedInitiationReturnsSameLiveUrlWithoutFailingOriginalTransaction() {

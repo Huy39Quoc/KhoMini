@@ -8,25 +8,46 @@ class ApiEndpoints {
 
   static void setBaseUrl(String url) {
     var formatted = url.trim();
-    if (formatted.endsWith('/')) {
+    while (formatted.endsWith('/')) {
       formatted = formatted.substring(0, formatted.length - 1);
     }
-    if (!formatted.endsWith('/api/v1')) {
+    final initialUri = Uri.tryParse(formatted);
+    if (initialUri == null ||
+        !{'http', 'https'}.contains(initialUri.scheme) ||
+        initialUri.host.isEmpty ||
+        initialUri.userInfo.isNotEmpty ||
+        initialUri.hasQuery ||
+        initialUri.hasFragment ||
+        (initialUri.path.isNotEmpty && initialUri.path != '/api/v1')) {
+      throw const FormatException('Enter a valid API server URL.');
+    }
+    if (initialUri.path != '/api/v1') {
       formatted = '$formatted/api/v1';
     }
+    _validateReleaseUrl(formatted);
     _baseUrl = formatted;
   }
 
   static void validateReleaseConfiguration() {
+    _validateReleaseUrl(baseUrl);
+  }
+
+  static void _validateReleaseUrl(String url) {
     const isRelease = bool.fromEnvironment('dart.vm.product');
     if (!isRelease) {
       return;
     }
-    final uri = Uri.tryParse(baseUrl);
-    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty ||
-        uri.host == '10.0.2.2' || uri.host == 'localhost' ||
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        uri.host == '10.0.2.2' ||
+        uri.host == 'localhost' ||
         uri.host.startsWith('127.') ||
-        !uri.path.endsWith('/api/v1')) {
+        uri.path != '/api/v1') {
       throw StateError(
           'Release build requires an HTTPS API_BASE_URL ending in /api/v1');
     }
@@ -126,7 +147,8 @@ class ApiEndpoints {
 
   // ---- Payments (PaymentController) ----
   static const String paymentInitiate = '/payments/initiate';
-  static const String paymentConfirm = '/payments/confirm'; // deprecated: chỉ trả trạng thái
+  static const String paymentConfirm =
+      '/payments/confirm'; // deprecated: chỉ trả trạng thái
   static String paymentStatus(String transactionId) =>
       '/payments/$transactionId/status';
   static const String paymentMyHistory = '/payments/my-history';

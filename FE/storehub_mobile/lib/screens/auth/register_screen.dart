@@ -160,7 +160,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'e.g. nguyenvana',
                       prefixIcon: Icon(Icons.account_circle_outlined),
                       helperText:
-                          'Between 3 and 30 characters, used to sign in later',
+                          'Between 3 and 30 characters, shown on your profile',
                       counterText: '',
                     ),
                     validator: (value) {

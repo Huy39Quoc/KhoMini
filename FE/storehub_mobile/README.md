@@ -1,17 +1,21 @@
-# khomini_mobile
+# KhoMini mobile
 
-A new Flutter project.
+## Development
 
-## Getting Started
+The default API URL is `http://10.0.2.2:8080/api/v1` for the Android emulator.
+Debug builds allow a local HTTP server. The login screen can also save a custom
+server URL; that URL is loaded before session restoration.
 
-This project is a starting point for a Flutter application.
+## Android release
 
-A few resources to get you started if this is your first Flutter project:
+Release builds require an HTTPS backend and a private signing key. Set these
+environment variables before building:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- `STOREHUB_KEYSTORE_PATH`: absolute path to the Android keystore
+- `STOREHUB_KEYSTORE_PASSWORD`: keystore password
+- `STOREHUB_KEY_ALIAS`: signing key alias
+- `STOREHUB_KEY_PASSWORD`: signing key password
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Then run `flutter build appbundle --release --dart-define=API_BASE_URL=https://your-domain.example/api/v1`.
+The app ID is `com.huy39quoc.khomini`; confirm it matches your store listing
+before the first public release. Do not commit the keystore or passwords.

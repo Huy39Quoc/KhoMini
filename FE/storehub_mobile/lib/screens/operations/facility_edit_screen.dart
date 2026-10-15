@@ -32,6 +32,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   late final TextEditingController _imageUrlController;
   String _status = 'ACTIVE';
   bool _airConditioned24h = false;
+  TimeOfDay _openTime = const TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay _closeTime = const TimeOfDay(hour: 20, minute: 0);
 
   bool get _isEditing => widget.facility != null;
   bool _isSaving = false;
@@ -85,7 +87,9 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
           .map((e) => e?.toString() ?? '')
           .where((s) => s.isNotEmpty)
           .toList();
-    } else if (f != null && f['images'] is String && (f['images'] as String).isNotEmpty) {
+    } else if (f != null &&
+        f['images'] is String &&
+        (f['images'] as String).isNotEmpty) {
       _imageUrls = (f['images'] as String)
           .split(',')
           .map((s) => s.trim())
@@ -98,6 +102,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
 
     _status = f?['status']?.toString() ?? 'ACTIVE';
     _airConditioned24h = f?['airConditioned24h'] == true;
+    _openTime = _parseTime(f?['openTime']) ?? _openTime;
+    _closeTime = _parseTime(f?['closeTime']) ?? _closeTime;
     _managerId = f?['managerId']?.toString();
     _managerName = f?['managerName']?.toString();
 
@@ -158,8 +164,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
               (policy['returnNoticeDays'] ?? '').toString();
           _refundSlaController.text =
               (policy['depositRefundSlaDays'] ?? '').toString();
-          _graceController.text =
-              (policy['overdueGraceDays'] ?? '').toString();
+          _graceController.text = (policy['overdueGraceDays'] ?? '').toString();
           _accessDisableController.text =
               (policy['overdueAccessDisableDays'] ?? '').toString();
           _sealingController.text =
@@ -213,7 +218,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Tải ảnh thất bại: ${e.toString().replaceAll('Exception: ', '')}'),
+          content: Text(
+              'Tải ảnh thất bại: ${e.toString().replaceAll('Exception: ', '')}'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -227,7 +233,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   Future<void> _pickAndUploadFromCamera() async {
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+      final picked =
+          await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
       if (picked == null) return;
 
       setState(() {
@@ -259,7 +266,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Tải ảnh thất bại: ${e.toString().replaceAll('Exception: ', '')}'),
+          content: Text(
+              'Tải ảnh thất bại: ${e.toString().replaceAll('Exception: ', '')}'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -299,16 +307,19 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
               ),
               const SizedBox(height: 12),
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primaryContainer),
+                leading: const Icon(Icons.photo_library_outlined,
+                    color: AppColors.primaryContainer),
                 title: const Text('Chọn nhiều ảnh từ thư viện'),
-                subtitle: const Text('Có thể chọn cùng lúc nhiều ảnh từ thiết bị'),
+                subtitle:
+                    const Text('Có thể chọn cùng lúc nhiều ảnh từ thiết bị'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickAndUploadMultipleImages();
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primaryContainer),
+                leading: const Icon(Icons.camera_alt_outlined,
+                    color: AppColors.primaryContainer),
                 title: const Text('Chụp ảnh mới bằng camera'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -333,6 +344,15 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       return;
     }
     if (!_formKey.currentState!.validate()) return;
+    final opens = _openTime.hour * 60 + _openTime.minute;
+    final closes = _closeTime.hour * 60 + _closeTime.minute;
+    if (opens >= closes) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Giờ đóng cửa phải sau giờ mở cửa trong cùng một ngày.'),
+        backgroundColor: AppColors.error,
+      ));
+      return;
+    }
     setState(() => _isSaving = true);
     final body = {
       'name': _nameController.text.trim(),
@@ -346,10 +366,14 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
         'email': _emailController.text.trim(),
       if (_descriptionController.text.trim().isNotEmpty)
         'description': _descriptionController.text.trim(),
-      'imageUrl': _imageUrls.isNotEmpty ? _imageUrls.first : _imageUrlController.text.trim(),
+      'imageUrl': _imageUrls.isNotEmpty
+          ? _imageUrls.first
+          : _imageUrlController.text.trim(),
       'images': _imageUrls,
       if (_isEditing) 'status': _status,
       'airConditioned24h': _airConditioned24h,
+      'openTime': _formatTime(_openTime),
+      'closeTime': _formatTime(_closeTime),
     };
 
     try {
@@ -377,6 +401,40 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  TimeOfDay? _parseTime(dynamic value) {
+    final parts = value?.toString().split(':');
+    if (parts == null || parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return null;
+    }
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  String _formatTime(TimeOfDay value) =>
+      '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:00';
+
+  Future<void> _pickFacilityTime({required bool opening}) async {
+    final chosen = await showTimePicker(
+      context: context,
+      initialTime: opening ? _openTime : _closeTime,
+    );
+    if (chosen == null || !mounted) return;
+    setState(() {
+      if (opening) {
+        _openTime = chosen;
+      } else {
+        _closeTime = chosen;
+      }
+    });
   }
 
   InputDecoration _dec(String label, {String? hint, String? suffix}) {
@@ -586,63 +644,65 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                           ),
                         )
                       : ListView.builder(
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final u = filtered[index];
-                      final userId = u['id']?.toString() ?? '';
-                      final name = u['fullName']?.toString() ??
-                          u['username']?.toString() ??
-                          '';
-                      final managed = managedFacility[userId];
-                      final isCurrent = userId == _managerId;
-                      return ListTile(
-                        title: Text(name),
-                        subtitle: Text(
-                          '${u['email'] ?? ''}\n'
-                          '${managed == null ? 'Not managing any facility' : 'Manages: $managed'}',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        isThreeLine: true,
-                        trailing: isCurrent
-                            ? const Icon(Icons.check_circle,
-                                color: AppColors.success)
-                            : null,
-                        onTap: () async {
-                          try {
-                            // Đây là màn "Assign Facility Manager" nên phải gọi endpoint
-                            // gán Manager (PUT /managers/{userId}), không phải endpoint
-                            // gán Staff như trước đây.
-                            await _opsService.assignManagerToFacility(
-                                widget.facility!['id'].toString(), userId);
-                            if (mounted) {
-                              setState(() {
-                                _managerId = userId;
-                                _managerName = name;
-                                _managerEmail = u['email']?.toString();
-                              });
-                            }
-                            if (!ctx.mounted) return;
-                            Navigator.pop(ctx);
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('$name assigned as Facility Manager'),
-                                backgroundColor: AppColors.success,
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final u = filtered[index];
+                            final userId = u['id']?.toString() ?? '';
+                            final name = u['fullName']?.toString() ??
+                                u['username']?.toString() ??
+                                '';
+                            final managed = managedFacility[userId];
+                            final isCurrent = userId == _managerId;
+                            return ListTile(
+                              title: Text(name),
+                              subtitle: Text(
+                                '${u['email'] ?? ''}\n'
+                                '${managed == null ? 'Not managing any facility' : 'Manages: $managed'}',
+                                style: const TextStyle(fontSize: 12),
                               ),
+                              isThreeLine: true,
+                              trailing: isCurrent
+                                  ? const Icon(Icons.check_circle,
+                                      color: AppColors.success)
+                                  : null,
+                              onTap: () async {
+                                try {
+                                  // Đây là màn "Assign Facility Manager" nên phải gọi endpoint
+                                  // gán Manager (PUT /managers/{userId}), không phải endpoint
+                                  // gán Staff như trước đây.
+                                  await _opsService.assignManagerToFacility(
+                                      widget.facility!['id'].toString(),
+                                      userId);
+                                  if (mounted) {
+                                    setState(() {
+                                      _managerId = userId;
+                                      _managerName = name;
+                                      _managerEmail = u['email']?.toString();
+                                    });
+                                  }
+                                  if (!ctx.mounted) return;
+                                  Navigator.pop(ctx);
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          '$name assigned as Facility Manager'),
+                                      backgroundColor: AppColors.success,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  if (!ctx.mounted) return;
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                        content: Text(e
+                                            .toString()
+                                            .replaceAll('Exception: ', ''))),
+                                  );
+                                }
+                              },
                             );
-                          } catch (e) {
-                            if (!ctx.mounted) return;
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                  content: Text(e
-                                      .toString()
-                                      .replaceAll('Exception: ', ''))),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
+                          },
+                        ),
                 ),
               ],
             ),
@@ -651,7 +711,6 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       ),
     );
   }
-
 
   static const SizedBox _gap = SizedBox(height: 14);
 
@@ -818,10 +877,30 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                 ],
                 SwitchListTile(
                   title: const Text('Máy lạnh 24/7'),
-                  subtitle: const Text('Bật khi toàn bộ ngăn tại cơ sở đều có máy lạnh 24/7.'),
+                  subtitle: const Text(
+                      'Bật khi toàn bộ ngăn tại cơ sở đều có máy lạnh 24/7.'),
                   value: _airConditioned24h,
                   onChanged: (value) =>
                       setState(() => _airConditioned24h = value),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickFacilityTime(opening: true),
+                        icon: const Icon(Icons.schedule),
+                        label: Text('Mở ${_openTime.format(context)}'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickFacilityTime(opening: false),
+                        icon: const Icon(Icons.schedule),
+                        label: Text('Đóng ${_closeTime.format(context)}'),
+                      ),
+                    ),
+                  ],
                 ),
                 _gap,
                 const Text(
@@ -836,7 +915,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                       height: 150,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHigh.withValues(alpha: 0.3),
+                        color: AppColors.surfaceContainerHigh
+                            .withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: AppColors.border,
@@ -873,7 +953,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    CircularProgressIndicator(color: Colors.white),
+                                    CircularProgressIndicator(
+                                        color: Colors.white),
                                     SizedBox(height: 10),
                                     Text(
                                       'Đang tải ảnh lên...',
@@ -905,12 +986,17 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                                 color: AppColors.primaryContainer),
                           ),
                           TextButton.icon(
-                            onPressed: _isUploadingImage ? null : _showImageSourceSheet,
-                            icon: const Icon(Icons.add_photo_alternate, size: 16),
-                            label: const Text('Thêm ảnh', style: TextStyle(fontSize: 12)),
+                            onPressed: _isUploadingImage
+                                ? null
+                                : _showImageSourceSheet,
+                            icon:
+                                const Icon(Icons.add_photo_alternate, size: 16),
+                            label: const Text('Thêm ảnh',
+                                style: TextStyle(fontSize: 12)),
                             style: TextButton.styleFrom(
                               visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
                             ),
                           ),
                         ],
@@ -921,15 +1007,19 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: _imageUrls.length + 1,
-                          separatorBuilder: (_, __) => const SizedBox(width: 10),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 10),
                           itemBuilder: (context, idx) {
                             if (idx == _imageUrls.length) {
                               return GestureDetector(
-                                onTap: _isUploadingImage ? null : _showImageSourceSheet,
+                                onTap: _isUploadingImage
+                                    ? null
+                                    : _showImageSourceSheet,
                                 child: Container(
                                   width: 100,
                                   decoration: BoxDecoration(
-                                    color: AppColors.surfaceContainerHigh.withValues(alpha: 0.3),
+                                    color: AppColors.surfaceContainerHigh
+                                        .withValues(alpha: 0.3),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: AppColors.border,
@@ -939,11 +1029,16 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                                   child: const Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.add_a_photo_outlined, size: 28, color: AppColors.primaryContainer),
+                                      Icon(Icons.add_a_photo_outlined,
+                                          size: 28,
+                                          color: AppColors.primaryContainer),
                                       SizedBox(height: 6),
                                       Text(
                                         '+ Thêm',
-                                        style: TextStyle(fontSize: 12, color: AppColors.primaryContainer, fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.primaryContainer,
+                                            fontWeight: FontWeight.bold),
                                       ),
                                     ],
                                   ),
@@ -963,8 +1058,10 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                                     child: Image.network(
                                       url,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => const Center(
-                                        child: Icon(Icons.broken_image_outlined, color: Colors.grey),
+                                      errorBuilder: (_, __, ___) =>
+                                          const Center(
+                                        child: Icon(Icons.broken_image_outlined,
+                                            color: Colors.grey),
                                       ),
                                     ),
                                   ),
@@ -974,14 +1071,19 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                                     top: 6,
                                     left: 6,
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.7),
+                                        color:
+                                            Colors.black.withValues(alpha: 0.7),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: const Text(
                                         'Ảnh chính',
-                                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold),
                                       ),
                                     ),
                                   ),
@@ -993,10 +1095,12 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
-                                        color: Colors.red.shade700.withValues(alpha: 0.9),
+                                        color: Colors.red.shade700
+                                            .withValues(alpha: 0.9),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                      child: const Icon(Icons.close,
+                                          size: 14, color: Colors.white),
                                     ),
                                   ),
                                 ),
@@ -1009,9 +1113,16 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                         const SizedBox(height: 10),
                         const Row(
                           children: [
-                            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                            SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2)),
                             SizedBox(width: 8),
-                            Text('Đang tải ảnh lên...', style: TextStyle(fontSize: 12, color: AppColors.primaryContainer)),
+                            Text('Đang tải ảnh lên...',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.primaryContainer)),
                           ],
                         ),
                       ],
@@ -1094,7 +1205,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
             children: [
               _pair(
                 _policyField(_depositController, 'Deposit', suffix: '%'),
-                _policyField(_lateFeeController, 'Daily late fee', suffix: 'VND'),
+                _policyField(_lateFeeController, 'Daily late fee',
+                    suffix: 'VND'),
               ),
               _gap,
               _pair(
@@ -1146,8 +1258,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                     int_: true, suffix: 'hours'),
               ),
               _gap,
-              _policyField(_partialRefundPercentController,
-                  'Partial refund amount',
+              _policyField(
+                  _partialRefundPercentController, 'Partial refund amount',
                   suffix: '%'),
             ],
           ),

@@ -24,7 +24,7 @@ public class FacilityManagementController {
     private final FacilityManagementService service;
 
     @GetMapping("/my-facility")
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('FACILITY_VIEW')")
     public ApiResponse<AssignedFacilityResponse> myFacility(
             @AuthenticationPrincipal UserDetails principal
     ) {
@@ -34,7 +34,7 @@ public class FacilityManagementController {
     }
 
     @GetMapping("/{facilityId}/units")
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('STORAGE_UNIT_VIEW')")
     public ApiResponse<List<FacilityUnitResponse>> units(
             @PathVariable UUID facilityId,
             @AuthenticationPrincipal UserDetails principal
@@ -48,7 +48,7 @@ public class FacilityManagementController {
     }
 
     @PostMapping("/{facilityId}/units")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('STORAGE_UNIT_CREATE')")
     public ApiResponse<FacilityUnitResponse> createUnit(
             @PathVariable UUID facilityId,
             @AuthenticationPrincipal UserDetails principal,
@@ -64,7 +64,7 @@ public class FacilityManagementController {
     }
 
     @PutMapping("/{facilityId}/units/{unitId}")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('STORAGE_UNIT_UPDATE')")
     public ApiResponse<FacilityUnitResponse> updateUnit(
             @PathVariable UUID facilityId,
             @PathVariable UUID unitId,
@@ -82,7 +82,7 @@ public class FacilityManagementController {
     }
 
     @PutMapping("/{facilityId}/bookings/{bookingId}/unit/{unitId}")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('BOOKING_UPDATE')")
     public ApiResponse<FacilityUnitResponse> assignUnit(
             @PathVariable UUID facilityId,
             @PathVariable UUID bookingId,
@@ -100,7 +100,7 @@ public class FacilityManagementController {
     }
 
     @GetMapping("/{facilityId}/report")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('REPORT_VIEW')")
     public ApiResponse<FacilityReportResponse> report(
             @PathVariable UUID facilityId,
             @AuthenticationPrincipal UserDetails principal
@@ -114,7 +114,7 @@ public class FacilityManagementController {
     }
 
     @GetMapping("/{facilityId}/staff")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('STAFF_ASSIGNMENT_VIEW')")
     public ApiResponse<List<FacilityStaffResponse>> staff(
             @PathVariable UUID facilityId,
             @AuthenticationPrincipal UserDetails principal
@@ -128,7 +128,7 @@ public class FacilityManagementController {
     }
 
     @GetMapping("/{facilityId}/staff/assignable")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('STAFF_ASSIGNMENT_VIEW')")
     public ApiResponse<List<AssignableStaffResponse>> assignableStaff(
             @PathVariable UUID facilityId,
             @AuthenticationPrincipal UserDetails principal
@@ -139,7 +139,7 @@ public class FacilityManagementController {
     }
 
     @PutMapping("/{facilityId}/staff/{userId}")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('STAFF_ASSIGNMENT_CREATE')")
     public ApiResponse<FacilityStaffResponse> assignStaff(
             @PathVariable UUID facilityId,
             @PathVariable UUID userId,
@@ -156,7 +156,7 @@ public class FacilityManagementController {
     }
 
     @PutMapping("/{facilityId}/managers/{userId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('STAFF_ASSIGNMENT_CREATE')")
     public ApiResponse<FacilityStaffResponse> assignManager(
             @PathVariable UUID facilityId,
             @PathVariable UUID userId
@@ -172,7 +172,7 @@ public class FacilityManagementController {
     }
 
     @DeleteMapping("/{facilityId}/staff/{userId}")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('STAFF_ASSIGNMENT_DELETE')")
     public ApiResponse<Void> unassignStaff(
             @PathVariable UUID facilityId,
             @PathVariable UUID userId,
@@ -191,7 +191,7 @@ public class FacilityManagementController {
     }
 
     @GetMapping("/{facilityId}/bookings")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('BOOKING_VIEW')")
     public ApiResponse<List<FacilityContractResponse>> contracts(
             @PathVariable UUID facilityId,
             @AuthenticationPrincipal UserDetails principal
@@ -205,7 +205,7 @@ public class FacilityManagementController {
     }
 
     @PutMapping("/{facilityId}/bookings/{bookingId}/sealing/approve")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('BOOKING_UPDATE')")
     public ApiResponse<FacilityContractResponse> approveSealing(
             @PathVariable UUID facilityId,
             @PathVariable UUID bookingId,
@@ -221,7 +221,7 @@ public class FacilityManagementController {
     }
 
     @GetMapping("/{facilityId}/bookings/confirmed")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('BOOKING_VIEW')")
     public ApiResponse<List<FacilityBookingResponse>> confirmedBookings(
             @PathVariable UUID facilityId,
             @AuthenticationPrincipal UserDetails principal

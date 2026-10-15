@@ -17,6 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,9 +47,10 @@ class PaymentHistoryAccessTest {
         when(userRepository.findByEmail("staff@test.com"))
                 .thenReturn(Optional.of(viewer("STAFF", assignedId)));
 
+        PageRequest page = PageRequest.of(0, 20);
         assertThrows(AppException.class, () -> paymentService
-                .getFacilityPaymentHistory("staff@test.com", requestedId));
-        verify(paymentRepository, never()).findFacilityPayments(requestedId);
+                .getFacilityPaymentHistory("staff@test.com", requestedId, page));
+        verify(paymentRepository, never()).findFacilityPayments(requestedId, page);
     }
 
     @Test
@@ -55,10 +58,11 @@ class PaymentHistoryAccessTest {
         UUID assignedId = UUID.randomUUID();
         when(userRepository.findByEmail("manager@test.com"))
                 .thenReturn(Optional.of(viewer("FACILITY_MANAGER", assignedId)));
-        when(paymentRepository.findFacilityPayments(assignedId)).thenReturn(List.of());
+        PageRequest page = PageRequest.of(0, 20);
+        when(paymentRepository.findFacilityPayments(assignedId, page)).thenReturn(Page.empty(page));
 
-        paymentService.getFacilityPaymentHistory("manager@test.com", assignedId);
-        verify(paymentRepository).findFacilityPayments(assignedId);
+        paymentService.getFacilityPaymentHistory("manager@test.com", assignedId, page);
+        verify(paymentRepository).findFacilityPayments(assignedId, page);
     }
 
     @Test

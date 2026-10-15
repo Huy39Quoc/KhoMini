@@ -22,7 +22,13 @@ class _ExploreScreenState extends State<ExploreScreen>
   String? _error;
 
   RangeValues _areaRange = const RangeValues(0, 50);
+  bool _areaFilterApplied = false;
   bool _airConditioned24hOnly = false;
+
+  double get _areaMax => _allFacilities.fold<double>(50, (current, facility) {
+        final area = facility.maxAreaSqm;
+        return area != null && area > current ? area.ceilToDouble() : current;
+      });
 
   late final AnimationController _fadeCtrl;
   late final Animation<double> _fadeAnim;
@@ -74,25 +80,31 @@ class _ExploreScreenState extends State<ExploreScreen>
       final matchQ = q.isEmpty ||
           f.name.toLowerCase().contains(q) ||
           f.fullAddress.toLowerCase().contains(q);
-      final matchArea = f.minAreaSqm == null ||
+      final matchArea = !_areaFilterApplied ||
+          f.minAreaSqm == null ||
           f.maxAreaSqm == null ||
           (f.minAreaSqm! <= _areaRange.end &&
               f.maxAreaSqm! >= _areaRange.start);
-      return matchQ && matchArea &&
+      return matchQ &&
+          matchArea &&
           (!_airConditioned24hOnly || f.airConditioned24h);
     }).toList();
   }
 
   int get _activeFilterCount {
     int c = 0;
-    if (_areaRange.start > 0 || _areaRange.end < 50) c++;
+    if (_areaFilterApplied) c++;
     if (_airConditioned24hOnly) c++;
     return c;
   }
 
   void _showFilterSheet() {
-    double tempMin = _areaRange.start;
-    double tempMax = _areaRange.end;
+    double tempMax = _areaFilterApplied && _areaRange.end < _areaMax
+        ? _areaRange.end
+        : _areaMax;
+    double tempMin = _areaFilterApplied && _areaRange.start < tempMax
+        ? _areaRange.start
+        : 0;
     bool tempAirConditioned = _airConditioned24hOnly;
 
     showModalBottomSheet(
@@ -132,7 +144,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                       onPressed: () {
                         setModal(() {
                           tempMin = 0;
-                          tempMax = 50;
+                          tempMax = _areaMax;
                           tempAirConditioned = false;
                         });
                       },
@@ -158,8 +170,8 @@ class _ExploreScreenState extends State<ExploreScreen>
                 RangeSlider(
                   values: RangeValues(tempMin, tempMax),
                   min: 0,
-                  max: 50,
-                  divisions: 50,
+                  max: _areaMax,
+                  divisions: _areaMax.round(),
                   activeColor: AppColors.primary,
                   onChanged: (v) => setModal(() {
                     tempMin = v.start;
@@ -187,6 +199,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                       Navigator.pop(ctx);
                       setState(() {
                         _areaRange = RangeValues(tempMin, tempMax);
+                        _areaFilterApplied = tempMin > 0 || tempMax < _areaMax;
                         _airConditioned24hOnly = tempAirConditioned;
                         _applyFilter();
                       });
@@ -314,18 +327,21 @@ class _ExploreScreenState extends State<ExploreScreen>
                     const Icon(Icons.filter_list,
                         size: 16, color: AppColors.textSecondary),
                     const SizedBox(width: 6),
-                    if (_areaRange.start > 0 || _areaRange.end < 50)
+                    if (_areaFilterApplied)
                       _filterChip(
                           '📐 ${_areaRange.start.toInt()}–${_areaRange.end.toInt()} m²',
                           () => setState(() {
-                                _areaRange = const RangeValues(0, 50);
+                                _areaRange = RangeValues(0, _areaMax);
+                                _areaFilterApplied = false;
                                 _applyFilter();
                               })),
                     if (_airConditioned24hOnly)
-                      _filterChip('Máy lạnh 24/7', () => setState(() {
-                        _airConditioned24hOnly = false;
-                        _applyFilter();
-                      })),
+                      _filterChip(
+                          'Máy lạnh 24/7',
+                          () => setState(() {
+                                _airConditioned24hOnly = false;
+                                _applyFilter();
+                              })),
                   ],
                 ),
               ),
@@ -404,7 +420,8 @@ class _ExploreScreenState extends State<ExploreScreen>
             TextButton(
               onPressed: () => setState(() {
                 _searchCtrl.clear();
-                _areaRange = const RangeValues(0, 50);
+                _areaRange = RangeValues(0, _areaMax);
+                _areaFilterApplied = false;
                 _airConditioned24hOnly = false;
                 _applyFilter();
               }),
@@ -559,7 +576,8 @@ class _FacilityCard extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -575,8 +593,8 @@ class _FacilityCard extends StatelessWidget {
                                 Icons.straighten,
                                 '${facility.minAreaSqm!.toInt()}–${facility.maxAreaSqm!.toInt()} m²',
                                 Colors.indigo),
-                          _infoChip(
-                              Icons.inventory_2_outlined, availLabel, availColor),
+                          _infoChip(Icons.inventory_2_outlined, availLabel,
+                              availColor),
                         ],
                       ),
                     ),

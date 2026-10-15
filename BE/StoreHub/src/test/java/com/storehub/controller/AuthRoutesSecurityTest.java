@@ -62,6 +62,11 @@ class AuthRoutesSecurityTest {
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/bookings/my-pending")
                         .with(user("owner@example.com").roles("CUSTOMER")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/bookings/my-pending")
+                        .with(user("owner@example.com")
+                                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CUSTOMER"),
+                                        new org.springframework.security.core.authority.SimpleGrantedAuthority("BOOKING_VIEW"))))
                 .andExpect(status().isOk());
         verify(bookingService).getPayableBookings("owner@example.com");
     }

@@ -32,7 +32,7 @@ public class StaffTicketController {
     private final StaffTicketService staffTicketService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('SUPPORT_VIEW')")
     @Operation(summary = "Lấy danh sách ticket thuộc cơ sở của staff")
     public ResponseEntity<ApiResponse<PageResponse<TicketResponse>>> getFacilityTickets(
             @RequestParam UUID facilityId,
@@ -51,7 +51,7 @@ public class StaffTicketController {
     }
 
     @PostMapping("/{ticketId}/assign-to-me")
-    @PreAuthorize("hasRole('STAFF')")
+    @PreAuthorize("hasRole('STAFF') and hasAuthority('SUPPORT_UPDATE')")
     @Operation(summary = "Staff tự nhận xử lý ticket")
     public ResponseEntity<ApiResponse<TicketResponse>> assignToMe(
             @RequestParam UUID facilityId,
@@ -70,7 +70,7 @@ public class StaffTicketController {
     }
 
     @PostMapping("/{ticketId}/assign/{staffId}")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('SUPPORT_UPDATE')")
     @Operation(summary = "Facility Manager giao ticket cho nhân viên của cơ sở")
     public ResponseEntity<ApiResponse<TicketResponse>> assignToStaff(
             @RequestParam UUID facilityId,
@@ -91,7 +91,7 @@ public class StaffTicketController {
     }
 
     @PatchMapping("/{ticketId}/status")
-    @PreAuthorize("hasRole('STAFF')")
+    @PreAuthorize("hasRole('STAFF') and hasAuthority('SUPPORT_UPDATE')")
     @Operation(summary = "Cập nhật trạng thái xử lý ticket")
     public ResponseEntity<ApiResponse<TicketResponse>> updateStatus(
             @RequestParam UUID facilityId,

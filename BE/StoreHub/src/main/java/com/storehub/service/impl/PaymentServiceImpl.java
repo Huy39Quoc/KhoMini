@@ -3,6 +3,7 @@ package com.storehub.service.impl;
 import com.storehub.dto.request.PaymentConfirmationRequest;
 import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.entity.Booking;
 import com.storehub.entity.Facility;
 import com.storehub.entity.Payment;
@@ -33,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import static com.storehub.common.PaymentNotes.DEPOSIT_REFUND;
@@ -144,16 +146,20 @@ public class PaymentServiceImpl implements PaymentService {
 
         switch (request.getPaymentType()) {
             case DEPOSIT -> {
-                primaryAmount = pricingService.calculateDepositAmount(
-                        facilityId,
-                        booking.getTotalRentalFee(),
-                        defaultDeposit
-                );
+                primaryAmount = booking.getQuotedDepositAmount() != null
+                        ? booking.getQuotedDepositAmount()
+                        : pricingService.calculateDepositAmount(
+                                facilityId,
+                                booking.getTotalRentalFee(),
+                                defaultDeposit
+                        );
                 if (primaryAmount == null) {
                     primaryAmount = BigDecimal.ZERO;
                 }
-                rentalAmount = booking.getTotalRentalFee().add(
-                        pricingService.calculateManagementFee(facilityId, booking.getRentalMonths()));
+                BigDecimal managementFee = booking.getQuotedManagementFee() != null
+                        ? booking.getQuotedManagementFee()
+                        : pricingService.calculateManagementFee(facilityId, booking.getRentalMonths());
+                rentalAmount = booking.getTotalRentalFee().add(managementFee);
                 payableAmount = primaryAmount.add(rentalAmount);
             }
             case EXTRA_CHARGE -> {
@@ -977,19 +983,18 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PaymentResponse> getMyPaymentHistory(String customerEmail) {
+    public PageResponse<PaymentResponse> getMyPaymentHistory(String customerEmail, Pageable pageable) {
         User customer = userRepository.findByEmail(customerEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        return paymentRepository.findCustomerPayments(customer.getId())
-                .stream()
-                .map(this::toPaymentResponse)
-                .toList();
+        return PageResponse.from(paymentRepository.findCustomerPayments(customer.getId(), pageable)
+                .map(this::toPaymentResponse));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<PaymentResponse> getFacilityPaymentHistory(String userEmail, UUID facilityId) {
+    public PageResponse<PaymentResponse> getFacilityPaymentHistory(
+            String userEmail, UUID facilityId, Pageable pageable) {
         User viewer = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         String role = viewer.getRole() == null || viewer.getRole().getName() == null
@@ -1003,19 +1008,15 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new AppException(ErrorCode.FORBIDDEN);
             }
         }
-        return paymentRepository.findFacilityPayments(facilityId)
-                .stream()
-                .map(this::toPaymentResponse)
-                .toList();
+        return PageResponse.from(paymentRepository.findFacilityPayments(facilityId, pageable)
+                .map(this::toPaymentResponse));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<PaymentResponse> getAllPaymentHistory() {
-        return paymentRepository.findAllPayments()
-                .stream()
-                .map(this::toPaymentResponse)
-                .toList();
+    public PageResponse<PaymentResponse> getAllPaymentHistory(Pageable pageable) {
+        return PageResponse.from(paymentRepository.findAllPayments(pageable)
+                .map(this::toPaymentResponse));
     }
 
     @Override

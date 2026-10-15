@@ -17,17 +17,22 @@ class TransactionHistoryScreen extends StatefulWidget {
   });
 
   @override
-  State<TransactionHistoryScreen> createState() => _TransactionHistoryScreenState();
+  State<TransactionHistoryScreen> createState() =>
+      _TransactionHistoryScreenState();
 }
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   final PaymentApiService _paymentService = PaymentApiService();
   final TextEditingController _searchController = TextEditingController();
   final DateFormat _dateFormat = DateFormat('MMM d, yyyy • h:mm a');
-  final NumberFormat _currencyFormat = NumberFormat.currency(
-    locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+  final NumberFormat _currencyFormat =
+      NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = false;
+  int _nextPage = 0;
+  String? _loadMoreError;
   String? _errorMessage;
   List<PaymentModel> _allPayments = [];
   String _selectedStatus = 'ALL';
@@ -44,41 +49,62 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     super.dispose();
   }
 
-  Future<void> _loadPayments() async {
+  Future<void> _loadPayments({bool more = false}) async {
+    if (more && (_isLoadingMore || !_hasMore)) return;
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      if (more) {
+        _isLoadingMore = true;
+        _loadMoreError = null;
+      } else {
+        _isLoading = true;
+        _errorMessage = null;
+        _nextPage = 0;
+      }
     });
 
     try {
       final role = widget.userRole.toUpperCase().replaceAll('ROLE_', '');
-      List<PaymentModel> payments = [];
+      PaymentPage payments;
 
       if (role == 'CUSTOMER') {
-        payments = await _paymentService.getMyPayments();
-      } else if (role == 'FACILITY_MANAGER' || role == 'STAFF' || role == 'FACILITY_STAFF') {
+        payments = await _paymentService.getMyPayments(page: _nextPage);
+      } else if (role == 'FACILITY_MANAGER' ||
+          role == 'STAFF' ||
+          role == 'FACILITY_STAFF') {
         if (widget.facilityId == null || widget.facilityId!.isEmpty) {
           throw StateError('Your account has no assigned facility.');
         }
-        payments = await _paymentService.getFacilityPayments(widget.facilityId!);
+        payments = await _paymentService.getFacilityPayments(widget.facilityId!,
+            page: _nextPage);
       } else if (role == 'ADMIN' || role == 'BUSINESS_MANAGER') {
-        payments = await _paymentService.getAllPayments();
+        payments = await _paymentService.getAllPayments(page: _nextPage);
       } else {
         throw StateError('This account cannot view payment history.');
       }
 
       if (!mounted) return;
       setState(() {
-        _allPayments = payments;
+        _allPayments =
+            more ? [..._allPayments, ...payments.items] : payments.items;
+        _hasMore = payments.hasMore;
+        _nextPage++;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString()
+        final message = e
+            .toString()
             .replaceAll('Exception: ', '')
             .replaceAll('Bad state: ', '');
+        if (more) {
+          _loadMoreError = message;
+        } else {
+          _errorMessage = message;
+        }
         _isLoading = false;
+        _isLoadingMore = false;
       });
     }
   }
@@ -132,7 +158,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    hintText: 'Search transaction ID, booking, unit...',
+                    hintText: 'Search loaded transactions...',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
@@ -211,7 +237,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
     final payments = _filteredPayments;
 
-    if (payments.isEmpty) {
+    if (payments.isEmpty && !_hasMore) {
       return RefreshIndicator(
         onRefresh: _loadPayments,
         child: ListView(
@@ -221,7 +247,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             AppEmptyState(
               icon: Icons.receipt_long_outlined,
               title: 'No Transactions Found',
-              message: 'There are no payment transactions matching your filter.',
+              message:
+                  'There are no payment transactions matching your filter.',
             ),
           ],
         ),
@@ -233,8 +260,23 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        itemCount: payments.length,
+        itemCount:
+            payments.length + (_hasMore || _loadMoreError != null ? 1 : 0),
         itemBuilder: (context, index) {
+          if (index == payments.length) {
+            if (_isLoadingMore) {
+              return const Center(
+                  child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator()));
+            }
+            return Center(
+                child: TextButton(
+              onPressed: () => _loadPayments(more: true),
+              child: Text(
+                  _loadMoreError == null ? 'Load more' : 'Retry loading more'),
+            ));
+          }
           final payment = payments[index];
           return _buildPaymentCard(payment);
         },
@@ -316,11 +358,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                         Expanded(
                           child: Text(
                             [
-                              if (payment.unitCode != null && payment.unitCode!.isNotEmpty)
+                              if (payment.unitCode != null &&
+                                  payment.unitCode!.isNotEmpty)
                                 'Unit ${payment.unitCode}',
-                              if (payment.bookingCode != null && payment.bookingCode!.isNotEmpty)
+                              if (payment.bookingCode != null &&
+                                  payment.bookingCode!.isNotEmpty)
                                 payment.bookingCode,
-                              if (payment.customerName != null && payment.customerName!.isNotEmpty)
+                              if (payment.customerName != null &&
+                                  payment.customerName!.isNotEmpty)
                                 payment.customerName,
                             ].join(' • '),
                             style: const TextStyle(
@@ -332,7 +377,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: payment.statusColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),

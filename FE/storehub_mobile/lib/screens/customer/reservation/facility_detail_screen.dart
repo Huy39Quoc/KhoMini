@@ -77,7 +77,14 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     if (parts == null || parts.length < 2) return null;
     final hour = int.tryParse(parts[0]);
     final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null || hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return null;
+    }
     return TimeOfDay(hour: hour, minute: minute);
   }
 
@@ -208,7 +215,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                     top: 40,
                     right: 20,
                     child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                      icon: const Icon(Icons.close,
+                          color: Colors.white, size: 28),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ),
@@ -219,7 +227,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                       right: 0,
                       child: Center(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.black54,
                             borderRadius: BorderRadius.circular(20),
@@ -258,12 +267,16 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                 pinned: true,
                 backgroundColor: const Color(0xFF1E3C72),
                 foregroundColor: Colors.white,
-                actions: [IconButton(
-                  tooltip: 'My waitlist',
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => const MyWaitlistScreen())),
-                  icon: const Icon(Icons.notifications_active_outlined),
-                )],
+                actions: [
+                  IconButton(
+                    tooltip: 'My waitlist',
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const MyWaitlistScreen())),
+                    icon: const Icon(Icons.notifications_active_outlined),
+                  )
+                ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     fit: StackFit.expand,
@@ -281,7 +294,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                               return Image.network(
                                 _facilityImages[idx],
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                errorBuilder: (_, __, ___) =>
+                                    const SizedBox.shrink(),
                               );
                             },
                           ),
@@ -301,9 +315,15 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                               end: Alignment.bottomCenter,
                               colors: [
                                 const Color(0xFF1E3C72).withValues(
-                                    alpha: _facilityImages.isNotEmpty || _facilityImageUrl != null ? 0.45 : 0.95),
+                                    alpha: _facilityImages.isNotEmpty ||
+                                            _facilityImageUrl != null
+                                        ? 0.45
+                                        : 0.95),
                                 const Color(0xFF2A5298).withValues(
-                                    alpha: _facilityImages.isNotEmpty || _facilityImageUrl != null ? 0.88 : 0.95),
+                                    alpha: _facilityImages.isNotEmpty ||
+                                            _facilityImageUrl != null
+                                        ? 0.88
+                                        : 0.95),
                               ],
                             ),
                           ),
@@ -316,7 +336,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                           child: GestureDetector(
                             onTap: () => _openImageViewer(_currentImageIndex),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.6),
                                 borderRadius: BorderRadius.circular(14),
@@ -324,7 +345,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.photo_library, size: 13, color: Colors.white),
+                                  const Icon(Icons.photo_library,
+                                      size: 13, color: Colors.white),
                                   const SizedBox(width: 5),
                                   Text(
                                     '${_currentImageIndex + 1}/${_facilityImages.length}',
@@ -442,8 +464,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ),
         ],
@@ -478,7 +500,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       children: [
         if (_facilityImages.length > 1) ...[
           _sectionHeader('📸 Warehouse Photos',
-              subtitle: '${_facilityImages.length} photos available • Tap to view full size'),
+              subtitle:
+                  '${_facilityImages.length} photos available • Tap to view full size'),
           const SizedBox(height: 10),
           SizedBox(
             height: 90,
@@ -502,13 +525,16 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                             _facilityImages[idx],
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(Icons.broken_image_outlined, color: Colors.grey),
+                              child: Icon(Icons.broken_image_outlined,
+                                  color: Colors.grey),
                             ),
                           ),
                           if (idx == _currentImageIndex)
                             Container(
                               decoration: BoxDecoration(
-                                border: Border.all(color: AppColors.primaryContainer, width: 2.5),
+                                border: Border.all(
+                                    color: AppColors.primaryContainer,
+                                    width: 2.5),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
@@ -563,17 +589,25 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         ListTile(
           leading: const Icon(Icons.schedule_outlined),
           title: const Text('Check-in time'),
-          subtitle: Text('${_checkInTime.format(context)}${_opensAt != null && _closesAt != null ? ' • Open ${_opensAt!.format(context)}–${_closesAt!.format(context)}' : ''}'),
+          subtitle: Text(
+              '${_checkInTime.format(context)}${_opensAt != null && _closesAt != null ? ' • Open ${_opensAt!.format(context)}–${_closesAt!.format(context)}' : ''}'),
           onTap: () async {
-            final picked = await showTimePicker(context: context,
-                initialTime: _checkInTime);
+            final picked = await showTimePicker(
+                context: context, initialTime: _checkInTime);
             if (!mounted || picked == null) return;
             final selected = picked.hour * 60 + picked.minute;
-            final open = _opensAt == null ? null : _opensAt!.hour * 60 + _opensAt!.minute;
-            final close = _closesAt == null ? null : _closesAt!.hour * 60 + _closesAt!.minute;
-            if (open != null && close != null && (selected < open || selected >= close)) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Choose a time during facility opening hours.')));
+            final open = _opensAt == null
+                ? null
+                : _opensAt!.hour * 60 + _opensAt!.minute;
+            final close = _closesAt == null
+                ? null
+                : _closesAt!.hour * 60 + _closesAt!.minute;
+            if (open != null &&
+                close != null &&
+                (selected < open || selected >= close)) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content:
+                      Text('Choose a time during facility opening hours.')));
               return;
             }
             setState(() => _checkInTime = picked);
@@ -1081,7 +1115,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         facilityId: widget.facilityId,
         unitTypeId: _selectedType!.id,
         startDate: _startDate,
-        checkInTime: '${_checkInTime.hour.toString().padLeft(2, '0')}:${_checkInTime.minute.toString().padLeft(2, '0')}:00',
+        checkInTime:
+            '${_checkInTime.hour.toString().padLeft(2, '0')}:${_checkInTime.minute.toString().padLeft(2, '0')}:00',
         rentalMonths: _rentalMonths,
       );
       if (!mounted) return;
@@ -1108,6 +1143,9 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                 0,
             depositAmount: (booking['depositAmount'] as num?)?.toDouble() ??
                 (_quote!['depositAmount'] as num?)?.toDouble() ??
+                0,
+            totalExtraFees: (booking['totalExtraFees'] as num?)?.toDouble() ??
+                (_quote!['totalExtraFees'] as num?)?.toDouble() ??
                 0,
             expiresAt: booking['expiresAt'] != null
                 ? DateTime.tryParse(booking['expiresAt'].toString())
@@ -1198,7 +1236,8 @@ class _UnitTypeCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) => Icon(
                             Icons.warehouse,
-                            color: isSelected ? Colors.white : AppColors.primary,
+                            color:
+                                isSelected ? Colors.white : AppColors.primary,
                             size: 28,
                           ),
                         )

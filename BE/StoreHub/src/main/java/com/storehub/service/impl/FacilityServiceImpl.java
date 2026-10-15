@@ -77,6 +77,7 @@ public class FacilityServiceImpl implements FacilityService {
         if (facility.getCloseTime() == null) {
             facility.setCloseTime(LocalTime.of(20, 0));
         }
+        validateOpeningHours(facility);
 
         if (request.getManagerId() != null) {
             User manager = userRepository.findById(request.getManagerId())
@@ -136,6 +137,7 @@ public class FacilityServiceImpl implements FacilityService {
         }
 
         facilityMapper.updateEntityFromRequest(request, facility);
+        validateOpeningHours(facility);
 
         if (request.getImages() != null) {
             facility.assignImages(request.getImages());
@@ -250,6 +252,13 @@ public class FacilityServiceImpl implements FacilityService {
                 .map(facilityMapper::toResponse);
 
         return PageResponse.from(result);
+    }
+
+    private void validateOpeningHours(Facility facility) {
+        if (facility.getOpenTime() == null || facility.getCloseTime() == null
+                || !facility.getOpenTime().isBefore(facility.getCloseTime())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
     }
 
     @Override

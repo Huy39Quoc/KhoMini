@@ -17,6 +17,7 @@ class PaymentScreen extends StatefulWidget {
   final int rentalMonths;
   final double totalRentalFee;
   final double depositAmount;
+  final double totalExtraFees;
   final DateTime? expiresAt;
 
   const PaymentScreen({
@@ -30,6 +31,7 @@ class PaymentScreen extends StatefulWidget {
     required this.rentalMonths,
     required this.totalRentalFee,
     required this.depositAmount,
+    required this.totalExtraFees,
     this.expiresAt,
   });
 
@@ -186,7 +188,8 @@ class _PaymentScreenState extends State<PaymentScreen>
           transactionId: transactionId,
           amount: amount,
           title: 'Deposit • VNPay Sandbox',
-          fetchStatus: (id) => _bookingService.getPaymentStatus(transactionId: id),
+          fetchStatus: (id) =>
+              _bookingService.getPaymentStatus(transactionId: id),
         ),
       ),
     );
@@ -667,8 +670,14 @@ class _PaymentScreenState extends State<PaymentScreen>
               SizedBox(height: 8),
               _Step(step: '1', text: 'Tap "Pay with VNPay Sandbox" below'),
               _Step(step: '2', text: 'Choose NCB bank on the VNPay page'),
-              _Step(step: '3', text: 'Copy the test card info above into the form, OTP 123456'),
-              _Step(step: '4', text: 'The app confirms automatically once VNPay reports success'),
+              _Step(
+                  step: '3',
+                  text:
+                      'Copy the test card info above into the form, OTP 123456'),
+              _Step(
+                  step: '4',
+                  text:
+                      'The app confirms automatically once VNPay reports success'),
             ],
           ),
         ),
@@ -793,26 +802,37 @@ class _PaymentScreenState extends State<PaymentScreen>
               icon: Icons.shield_outlined,
               label: 'Deposit (refundable)',
               value: _formatPrice(widget.depositAmount)),
-          if (_payment?['amount'] is num &&
-              (_payment!['amount'] as num) -
-                      widget.totalRentalFee -
-                      widget.depositAmount >
-                  0) ...[
+          if (widget.totalExtraFees > 0) ...[
             const Divider(height: 16),
             _summaryRow(
                 icon: Icons.build_circle_outlined,
                 label: 'Management fee',
+                value: _formatPrice(widget.totalExtraFees)),
+          ],
+          if (_payment?['amount'] is num &&
+              ((_payment!['amount'] as num).toDouble() -
+                          widget.totalRentalFee -
+                          widget.depositAmount -
+                          widget.totalExtraFees)
+                      .abs() >
+                  0.01) ...[
+            const Divider(height: 16),
+            _summaryRow(
+                icon: Icons.info_outline,
+                label: 'Payment adjustment',
                 value: _formatPrice((_payment!['amount'] as num).toDouble() -
                     widget.totalRentalFee -
-                    widget.depositAmount)),
+                    widget.depositAmount -
+                    widget.totalExtraFees)),
           ],
           const Divider(height: 16, thickness: 1.5),
           _summaryRow(
               icon: Icons.payments_outlined,
               label: '💳 Total to pay',
-              value: _formatPrice(
-                  (_payment?['amount'] as num?)?.toDouble() ??
-                      (widget.totalRentalFee + widget.depositAmount)),
+              value: _formatPrice((_payment?['amount'] as num?)?.toDouble() ??
+                  (widget.totalRentalFee +
+                      widget.depositAmount +
+                      widget.totalExtraFees)),
               isHighlight: true),
         ],
       ),

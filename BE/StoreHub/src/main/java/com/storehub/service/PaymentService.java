@@ -50,11 +50,14 @@ public interface PaymentService {
 
     BigDecimal refundDepositOnReturn(Booking booking, BigDecimal damageFee, String damageReason);
 
-    java.util.List<PaymentResponse> getMyPaymentHistory(String customerEmail);
+    com.storehub.common.PageResponse<PaymentResponse> getMyPaymentHistory(
+            String customerEmail, org.springframework.data.domain.Pageable pageable);
 
-    java.util.List<PaymentResponse> getFacilityPaymentHistory(String userEmail, UUID facilityId);
+    com.storehub.common.PageResponse<PaymentResponse> getFacilityPaymentHistory(
+            String userEmail, UUID facilityId, org.springframework.data.domain.Pageable pageable);
 
-    java.util.List<PaymentResponse> getAllPaymentHistory();
+    com.storehub.common.PageResponse<PaymentResponse> getAllPaymentHistory(
+            org.springframework.data.domain.Pageable pageable);
 
     PaymentResponse getPaymentDetail(UUID paymentId, String userEmail);
 }

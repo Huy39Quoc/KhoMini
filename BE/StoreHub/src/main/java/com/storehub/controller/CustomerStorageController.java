@@ -32,13 +32,13 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Customer Storage", description = "APIs quản lý kho đang thuê dành cho khách hàng")
 @SecurityRequirement(name = "Bearer Authentication")
-@PreAuthorize("hasRole('CUSTOMER')")
 public class CustomerStorageController {
 
     private final CustomerStorageService customerStorageService;
     private final GatePassService gatePassService;
 
     @PostMapping("/{bookingId}/gate-pass")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('ACCESS_CREDENTIAL_UPDATE')")
     @Operation(summary = "Cấp QR ra cổng có hạn dùng cho kho ACTIVE của khách")
     public ResponseEntity<ApiResponse<GatePassResponse>> issueGatePass(
             @PathVariable UUID bookingId,
@@ -51,6 +51,7 @@ public class CustomerStorageController {
     }
 
     @GetMapping("/my-units")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('CONTRACT_VIEW')")
     @Operation(summary = "Chỉ lấy ngăn kho đã bàn giao và đang thuê (ACTIVE)")
     public ResponseEntity<ApiResponse<List<MyUnitResponse>>> getMyRentedUnits(
             @AuthenticationPrincipal UserDetails userDetails
@@ -65,6 +66,7 @@ public class CustomerStorageController {
     }
 
     @GetMapping("/awaiting-handover")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('BOOKING_VIEW')")
     @Operation(summary = "Lấy booking đã đặt cọc, đang chờ nhận kho (CONFIRMED)")
     public ResponseEntity<ApiResponse<List<MyUnitResponse>>> getAwaitingHandover(
             @AuthenticationPrincipal UserDetails userDetails
@@ -74,6 +76,7 @@ public class CustomerStorageController {
     }
 
     @GetMapping("/{bookingId}/access")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('ACCESS_CREDENTIAL_VIEW')")
     @Operation(summary = "Xem trạng thái khóa thông minh (đã có PIN chưa, đang khóa/mở). Không trả PIN đã lưu")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> getSmartAccess(
             @PathVariable UUID bookingId,
@@ -88,6 +91,7 @@ public class CustomerStorageController {
     }
 
     @PostMapping("/{bookingId}/access/pin/setup")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('ACCESS_CREDENTIAL_UPDATE')")
     @Operation(summary = "Tạo PIN lần đầu: để trống newPin = hệ thống cấp (trả về 1 lần), có newPin = khách tự đặt")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> setupAccessPin(
             @PathVariable UUID bookingId,
@@ -103,6 +107,7 @@ public class CustomerStorageController {
     }
 
     @PostMapping("/{bookingId}/access/pin/reset")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('ACCESS_CREDENTIAL_UPDATE')")
     @Operation(summary = "Quên PIN: nhập mật khẩu tài khoản để đặt lại PIN (tự đặt hoặc hệ thống cấp)")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> resetAccessPin(
             @PathVariable UUID bookingId,
@@ -118,6 +123,7 @@ public class CustomerStorageController {
     }
 
     @PutMapping("/{bookingId}/access/pin")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('ACCESS_CREDENTIAL_UPDATE')")
     @Operation(summary = "Đổi mã PIN (6 số) - phải nhập đúng PIN hiện tại")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> updateAccessPin(
             @PathVariable UUID bookingId,
@@ -133,6 +139,7 @@ public class CustomerStorageController {
     }
 
     @PostMapping("/{bookingId}/access/unlock")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('ACCESS_CREDENTIAL_UPDATE')")
     @Operation(summary = "Mở khóa ngăn kho bằng PIN (mô phỏng - không có phần cứng khóa thật đứng sau)")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> unlockUnit(
             @PathVariable UUID bookingId,
@@ -148,6 +155,7 @@ public class CustomerStorageController {
     }
 
     @PostMapping("/{bookingId}/access/lock")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('ACCESS_CREDENTIAL_UPDATE')")
     @Operation(summary = "Đóng khóa ngăn kho (không cần PIN)")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> lockUnit(
             @PathVariable UUID bookingId,
@@ -162,6 +170,7 @@ public class CustomerStorageController {
     }
 
     @PostMapping("/{bookingId}/extend")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('RENEWAL_CREATE')")
     @Operation(summary = "Yêu cầu gia hạn hợp đồng thuê kho")
     public ResponseEntity<ApiResponse<ContractOperationResponse>> extendRental(
             @PathVariable UUID bookingId,
@@ -177,6 +186,7 @@ public class CustomerStorageController {
     }
 
     @DeleteMapping("/{bookingId}/extend")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('RENEWAL_CREATE')")
     @Operation(summary = "Hủy yêu cầu gia hạn đang chờ thanh toán")
     public ResponseEntity<ApiResponse<ContractOperationResponse>> cancelPendingExtension(
             @PathVariable UUID bookingId,
@@ -191,6 +201,7 @@ public class CustomerStorageController {
     }
 
     @PostMapping("/{bookingId}/checkout")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('CONTRACT_UPDATE')")
     @Operation(summary = "Gửi yêu cầu và đặt lịch hẹn trả kho")
     public ResponseEntity<ApiResponse<ContractOperationResponse>> requestCheckout(
             @PathVariable UUID bookingId,
@@ -205,6 +216,7 @@ public class CustomerStorageController {
                 .build());
     }
     @GetMapping("/{bookingId}/extend/pending-payment")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('PAYMENT_VIEW')")
     @Operation(summary = "Lấy lại giao dịch thanh toán gia hạn đang chờ (nếu có), để tiếp tục thanh toán")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPendingExtensionPayment(
             @PathVariable UUID bookingId,

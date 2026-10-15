@@ -220,22 +220,27 @@ public interface PaymentRepository
             SELECT p FROM Payment p
             WHERE p.booking.customer.id = :customerId
             AND p.transactionId NOT LIKE '%-R'
-            ORDER BY p.paymentTime DESC
+            ORDER BY p.paymentTime DESC, p.id DESC
             """)
-    List<Payment> findCustomerPayments(@Param("customerId") UUID customerId);
+    org.springframework.data.domain.Page<Payment> findCustomerPayments(
+            @Param("customerId") UUID customerId,
+            org.springframework.data.domain.Pageable pageable);
 
     @Query("""
             SELECT p FROM Payment p
             WHERE p.booking.storageUnit.facility.id = :facilityId
             AND p.transactionId NOT LIKE '%-R'
-            ORDER BY p.paymentTime DESC
+            ORDER BY p.paymentTime DESC, p.id DESC
             """)
-    List<Payment> findFacilityPayments(@Param("facilityId") UUID facilityId);
+    org.springframework.data.domain.Page<Payment> findFacilityPayments(
+            @Param("facilityId") UUID facilityId,
+            org.springframework.data.domain.Pageable pageable);
 
     @Query("""
             SELECT p FROM Payment p
             WHERE p.transactionId NOT LIKE '%-R'
-            ORDER BY p.paymentTime DESC
+            ORDER BY p.paymentTime DESC, p.id DESC
             """)
-    List<Payment> findAllPayments();
+    org.springframework.data.domain.Page<Payment> findAllPayments(
+            org.springframework.data.domain.Pageable pageable);
 }

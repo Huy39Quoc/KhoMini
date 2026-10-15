@@ -126,6 +126,8 @@ public class BookingServiceImpl implements BookingService {
                 .endDate(quote.getEndDate())
                 .rentalMonths(request.getRentalMonths())
                 .totalRentalFee(quote.getTotalRentalFee())
+                .quotedDepositAmount(quote.getDepositAmount())
+                .quotedManagementFee(quote.getTotalExtraFees())
                 .depositPaid(BigDecimal.ZERO)
                 .status(BookingStatus.PENDING_PAYMENT)
                 .expiresAt(expiresAt)
@@ -168,11 +170,15 @@ public class BookingServiceImpl implements BookingService {
                 .stream().map(booking -> {
                     StorageUnit unit = booking.getStorageUnit();
                     Facility facility = unit.getFacility();
-                    BigDecimal deposit = pricingService.calculateDepositAmount(
-                            facility.getId(), booking.getTotalRentalFee(),
-                            unit.getUnitType().getDepositAmount());
-                    BigDecimal fees = pricingService.calculateManagementFee(
-                            facility.getId(), booking.getRentalMonths());
+                    BigDecimal deposit = booking.getQuotedDepositAmount() != null
+                            ? booking.getQuotedDepositAmount()
+                            : pricingService.calculateDepositAmount(
+                                    facility.getId(), booking.getTotalRentalFee(),
+                                    unit.getUnitType().getDepositAmount());
+                    BigDecimal fees = booking.getQuotedManagementFee() != null
+                            ? booking.getQuotedManagementFee()
+                            : pricingService.calculateManagementFee(
+                                    facility.getId(), booking.getRentalMonths());
                     // Existing VNPay attempts retain their original amounts even if policy changes.
                     List<Payment> pending = paymentRepository.findByBooking_IdAndStatusAndPaymentTypeIn(
                             booking.getId(), PaymentStatus.PENDING,

@@ -17,11 +17,11 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/facility/{facilityId}/refunds")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('FACILITY_MANAGER')")
 public class RefundReviewController {
     private final RefundReviewService service;
 
     @GetMapping
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('REFUND_VIEW')")
     public ApiResponse<PageResponse<RefundRequestResponse>> list(@PathVariable UUID facilityId,
             @AuthenticationPrincipal UserDetails principal,
             @RequestParam(defaultValue = "0") int page,
@@ -31,6 +31,7 @@ public class RefundReviewController {
     }
 
     @PutMapping("/{refundId}/gateway-details")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('REFUND_APPROVE')")
     public ApiResponse<RefundRequestResponse> provideMetadata(@PathVariable UUID facilityId,
             @PathVariable UUID refundId, @AuthenticationPrincipal UserDetails principal,
             @RequestBody @Valid RefundGatewayMetadataRequest request) {
@@ -39,6 +40,7 @@ public class RefundReviewController {
     }
 
     @PostMapping("/{refundId}/retry")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('REFUND_APPROVE')")
     public ApiResponse<RefundRequestResponse> retry(@PathVariable UUID facilityId,
             @PathVariable UUID refundId, @AuthenticationPrincipal UserDetails principal) {
         return ApiResponse.success("Rejected refund queued again",
@@ -46,6 +48,7 @@ public class RefundReviewController {
     }
 
     @PostMapping("/{refundId}/reconcile")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('REFUND_VIEW')")
     public ApiResponse<Void> reconcile(@PathVariable UUID facilityId,
             @PathVariable UUID refundId, @AuthenticationPrincipal UserDetails principal) {
         service.reconcile(facilityId, refundId, principal.getUsername());
@@ -53,6 +56,7 @@ public class RefundReviewController {
     }
 
     @PostMapping("/{refundId}/confirm-bank-transfer")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('REFUND_APPROVE')")
     public ApiResponse<RefundRequestResponse> confirmBankTransfer(@PathVariable UUID facilityId,
             @PathVariable UUID refundId, @AuthenticationPrincipal UserDetails principal,
             @RequestBody @Valid com.storehub.dto.request.ConfirmBankTransferRequest request) {

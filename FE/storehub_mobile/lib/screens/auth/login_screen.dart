@@ -30,20 +30,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSavedServerUrl();
     if (widget.initialResetToken != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showResetPasswordDialog(widget.initialResetToken);
       });
-    }
-  }
-
-  Future<void> _loadSavedServerUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('custom_api_base_url');
-    if (saved != null && saved.isNotEmpty) {
-      HttpClient.instance.updateBaseUrl(saved);
-      if (mounted) setState(() {});
     }
   }
 
@@ -95,7 +85,8 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 6),
             Text(
               'Hiện tại: ${ApiEndpoints.baseUrl}',
-              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -103,30 +94,35 @@ class _LoginScreenState extends State<LoginScreen> {
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            _serverOptionTile(
-              ctx,
-              title: '📱 Máy thật Android (qua cáp USB)',
-              subtitle: 'http://127.0.0.1:8080/api/v1 (Khuyên dùng khi cắm cáp)',
-              url: 'http://127.0.0.1:8080/api/v1',
-            ),
-            _serverOptionTile(
-              ctx,
-              title: '📶 Máy thật Android (qua Wi-Fi)',
-              subtitle: 'http://192.168.101.6:8080/api/v1 (Cùng mạng Wi-Fi)',
-              url: 'http://192.168.101.6:8080/api/v1',
-            ),
-            _serverOptionTile(
-              ctx,
-              title: '💻 Máy ảo Android Studio (Emulator)',
-              subtitle: 'http://10.0.2.2:8080/api/v1',
-              url: 'http://10.0.2.2:8080/api/v1',
-            ),
+            if (!const bool.fromEnvironment('dart.vm.product')) ...[
+              _serverOptionTile(
+                ctx,
+                title: '📱 Máy thật Android (qua cáp USB)',
+                subtitle:
+                    'http://127.0.0.1:8080/api/v1 (Khuyên dùng khi cắm cáp)',
+                url: 'http://127.0.0.1:8080/api/v1',
+              ),
+              _serverOptionTile(
+                ctx,
+                title: '📶 Máy thật Android (qua Wi-Fi)',
+                subtitle: 'http://192.168.101.6:8080/api/v1 (Cùng mạng Wi-Fi)',
+                url: 'http://192.168.101.6:8080/api/v1',
+              ),
+              _serverOptionTile(
+                ctx,
+                title: '💻 Máy ảo Android Studio (Emulator)',
+                subtitle: 'http://10.0.2.2:8080/api/v1',
+                url: 'http://10.0.2.2:8080/api/v1',
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: customController,
               decoration: const InputDecoration(
                 labelText: 'Hoặc tự nhập URL API của máy tính',
-                hintText: 'http://192.168.x.x:8080/api/v1',
+                hintText: bool.fromEnvironment('dart.vm.product')
+                    ? 'https://api.example.com/api/v1'
+                    : 'http://192.168.x.x:8080/api/v1',
                 suffixIcon: Icon(Icons.edit_outlined),
               ),
               style: const TextStyle(fontSize: 13),
@@ -135,9 +131,11 @@ class _LoginScreenState extends State<LoginScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  _applyServerUrl(customController.text.trim());
-                  Navigator.pop(ctx);
+                onPressed: () async {
+                  if (await _applyServerUrl(customController.text.trim()) &&
+                      ctx.mounted) {
+                    Navigator.pop(ctx);
+                  }
                 },
                 child: const Text('Lưu & Áp dụng'),
               ),
@@ -159,19 +157,35 @@ class _LoginScreenState extends State<LoginScreen> {
       trailing: isSelected
           ? const Icon(Icons.check_circle, color: AppColors.success, size: 20)
           : const Icon(Icons.chevron_right, size: 18),
-      onTap: () {
-        _applyServerUrl(url);
-        Navigator.pop(ctx);
+      onTap: () async {
+        if (await _applyServerUrl(url) && ctx.mounted) {
+          Navigator.pop(ctx);
+        }
       },
     );
   }
 
-  Future<void> _applyServerUrl(String newUrl) async {
-    if (newUrl.isEmpty) return;
-    HttpClient.instance.updateBaseUrl(newUrl);
+  Future<bool> _applyServerUrl(String newUrl) async {
+    try {
+      HttpClient.instance.updateBaseUrl(newUrl);
+    } on FormatException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message.toString())),
+        );
+      }
+      return false;
+    } on StateError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message.toString())),
+        );
+      }
+      return false;
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('custom_api_base_url', ApiEndpoints.baseUrl);
-    if (!mounted) return;
+    if (!mounted) return true;
     setState(() {
       _errorMessage = null;
     });
@@ -181,6 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: AppColors.success,
       ),
     );
+    return true;
   }
 
   @override
@@ -534,7 +549,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(

@@ -26,7 +26,7 @@ public class WaitlistController {
     private final WaitlistService waitlistService;
 
     @PostMapping
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('BOOKING_CREATE')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Đăng ký vào hàng đợi khi không còn kho trống cho loại kho đã chọn")
     public ResponseEntity<ApiResponse<Void>> joinWaitlist(
@@ -40,7 +40,7 @@ public class WaitlistController {
     }
 
     @GetMapping("/mine")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('BOOKING_VIEW')")
     public ResponseEntity<ApiResponse<List<WaitlistResponse>>> myWaitlist(
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(ApiResponse.success(
@@ -48,7 +48,7 @@ public class WaitlistController {
     }
 
     @DeleteMapping("/{waitlistId}")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('BOOKING_CANCEL')")
     public ResponseEntity<ApiResponse<Void>> leaveWaitlist(
             @AuthenticationPrincipal UserDetails userDetails, @PathVariable UUID waitlistId) {
         waitlistService.leaveWaitlist(userDetails.getUsername(), waitlistId);

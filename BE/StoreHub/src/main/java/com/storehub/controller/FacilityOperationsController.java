@@ -40,7 +40,7 @@ public class FacilityOperationsController {
     private final GatePassService gatePassService;
 
     @PostMapping("/gate-pass/verify")
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('ACCESS_CREDENTIAL_VIEW')")
     @Operation(summary = "Kiểm tra và sử dụng một lần QR ra cổng tại cơ sở được phân công")
     public ResponseEntity<ApiResponse<GatePassVerificationResponse>> verifyGatePass(
             @RequestParam UUID facilityId,
@@ -52,7 +52,7 @@ public class FacilityOperationsController {
     }
 
     @PutMapping("/{bookingId}/appointment-assignment")
-    @PreAuthorize("hasRole('FACILITY_MANAGER')")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('BOOKING_UPDATE')")
     public ResponseEntity<ApiResponse<DailyScheduleResponse>> assignAppointment(
             @PathVariable UUID bookingId,
             @RequestParam UUID facilityId,
@@ -65,7 +65,7 @@ public class FacilityOperationsController {
     }
 
     @GetMapping("/daily-schedule")
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('BOOKING_VIEW')")
     @Operation(summary = "Get daily check-in and check-out schedule")
     public ResponseEntity<ApiResponse<List<DailyScheduleResponse>>> getDailySchedule(
             @RequestParam UUID facilityId,
@@ -89,7 +89,7 @@ public class FacilityOperationsController {
     }
 
     @PostMapping("/{bookingId}/reset-pin")
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('ACCESS_CREDENTIAL_UPDATE')")
     @Operation(summary = "Cấp lại PIN cho khách quên mã (xác minh khách tại quầy). PIN mới chỉ trả về một lần")
     public ResponseEntity<ApiResponse<com.storehub.dto.response.SmartAccessResponse>> resetCustomerPin(
             @PathVariable UUID bookingId,
@@ -109,7 +109,7 @@ public class FacilityOperationsController {
     }
 
     @GetMapping("/{bookingId}/handover-records")
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('HANDOVER_VIEW')")
     @Operation(summary = "Get handover history of a booking")
     public ResponseEntity<ApiResponse<List<HandoverRecordResponse>>> getHandoverHistory(
             @PathVariable UUID bookingId,
@@ -133,7 +133,7 @@ public class FacilityOperationsController {
 
 
     @PostMapping("/{bookingId}/check-in")
-    @PreAuthorize("hasRole('STAFF')")
+    @PreAuthorize("hasRole('STAFF') and hasAuthority('HANDOVER_CREATE')")
     @Operation(
             summary = "Check-in customer and hand over storage unit"
     )
@@ -162,7 +162,7 @@ public class FacilityOperationsController {
     }
 
     @PostMapping("/{bookingId}/check-out")
-    @PreAuthorize("hasRole('STAFF')")
+    @PreAuthorize("hasRole('STAFF') and hasAuthority('HANDOVER_CREATE')")
     @Operation(
             summary = "Inspect returned storage unit and complete check-out"
     )
@@ -191,7 +191,7 @@ public class FacilityOperationsController {
     }
 
     @PatchMapping("/units/{unitId}/status")
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('STORAGE_UNIT_UPDATE')")
     @Operation(summary = "Update storage unit status")
     public ResponseEntity<ApiResponse<String>> updateUnitStatus(
             @PathVariable UUID unitId,

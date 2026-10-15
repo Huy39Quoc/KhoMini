@@ -1,6 +1,7 @@
 package com.storehub.controller;
 
 import com.storehub.common.ApiResponse;
+import com.storehub.common.PageResponse;
 import com.storehub.dto.request.PaymentConfirmationRequest;
 import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -33,7 +35,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping("/initiate")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('PAYMENT_CREATE')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(
             summary = "Khởi tạo giao dịch thanh toán cọc/phí kho – trả về VNPay Sandbox Payment URL"
@@ -56,7 +58,7 @@ public class PaymentController {
     }
 
     @GetMapping("/{transactionId}/status")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('PAYMENT_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Xem trạng thái giao dịch (PENDING/PAID/FAILED) - app dùng để chờ kết quả từ VNPay")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPaymentStatus(
@@ -71,7 +73,7 @@ public class PaymentController {
     }
 
     @PostMapping("/confirm")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('PAYMENT_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "[Deprecated] Chỉ trả về trạng thái giao dịch, không còn tự xác nhận thanh toán")
     public ResponseEntity<ApiResponse<PaymentResponse>> confirmPayment(
@@ -92,7 +94,7 @@ public class PaymentController {
     }
 
     @GetMapping("/bookings/{bookingId}/overdue")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('PAYMENT_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Lấy phí quá hạn đang chờ thanh toán và VNPay Payment URL")
     public ResponseEntity<ApiResponse<PaymentResponse>>
@@ -114,39 +116,51 @@ public class PaymentController {
     }
 
     @GetMapping("/my-history")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('PAYMENT_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Lấy lịch sử giao dịch cá nhân của khách hàng đang đăng nhập")
-    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getMyPaymentHistory(
-            @AuthenticationPrincipal UserDetails userDetails
+    public ResponseEntity<ApiResponse<PageResponse<PaymentResponse>>> getMyPaymentHistory(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
     ) {
-        List<PaymentResponse> responses = paymentService.getMyPaymentHistory(userDetails.getUsername());
+        PageResponse<PaymentResponse> responses = paymentService.getMyPaymentHistory(
+                userDetails.getUsername(), paymentPage(page, size));
         return ResponseEntity.ok(ApiResponse.success("Payment history retrieved successfully", responses));
     }
 
     @GetMapping("/facility/{facilityId}")
-    @PreAuthorize("hasAnyRole('FACILITY_MANAGER', 'STAFF', 'ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasAnyRole('FACILITY_MANAGER', 'STAFF', 'ADMIN', 'BUSINESS_MANAGER') and hasAuthority('PAYMENT_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Lấy lịch sử giao dịch thuộc một cơ sở cụ thể")
-    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getFacilityPaymentHistory(
+    public ResponseEntity<ApiResponse<PageResponse<PaymentResponse>>> getFacilityPaymentHistory(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable UUID facilityId
+            @PathVariable UUID facilityId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
     ) {
-        List<PaymentResponse> responses = paymentService.getFacilityPaymentHistory(userDetails.getUsername(), facilityId);
+        PageResponse<PaymentResponse> responses = paymentService.getFacilityPaymentHistory(
+                userDetails.getUsername(), facilityId, paymentPage(page, size));
         return ResponseEntity.ok(ApiResponse.success("Facility payment history retrieved successfully", responses));
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('PAYMENT_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Lấy toàn bộ lịch sử giao dịch thanh toán trong hệ thống")
-    public ResponseEntity<ApiResponse<List<PaymentResponse>>> getAllPaymentHistory() {
-        List<PaymentResponse> responses = paymentService.getAllPaymentHistory();
+    public ResponseEntity<ApiResponse<PageResponse<PaymentResponse>>> getAllPaymentHistory(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageResponse<PaymentResponse> responses = paymentService.getAllPaymentHistory(paymentPage(page, size));
         return ResponseEntity.ok(ApiResponse.success("All system payment history retrieved successfully", responses));
     }
 
+    private PageRequest paymentPage(int page, int size) {
+        return PageRequest.of(Math.max(0, page), Math.min(100, Math.max(1, size)));
+    }
+
     @GetMapping("/detail/{paymentId}")
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF', 'FACILITY_MANAGER', 'BUSINESS_MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF', 'FACILITY_MANAGER', 'BUSINESS_MANAGER', 'ADMIN') and hasAuthority('PAYMENT_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Xem chi tiết thông tin một giao dịch thanh toán theo ID")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPaymentDetail(
