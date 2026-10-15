@@ -24,6 +24,9 @@ class StaffTicketMapper {
       customerEmail: _text(json['customerEmail']),
       customerPhone: _text(json['customerPhone']),
       unitCode: _text(json['unitCode']),
+      photos: (json['photos'] is List)
+          ? (json['photos'] as List).map((e) => e.toString()).toList()
+          : const <String>[],
     );
   }
 

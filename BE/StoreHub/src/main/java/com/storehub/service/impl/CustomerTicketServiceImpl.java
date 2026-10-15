@@ -33,6 +33,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final ActivityLogService activityLogService;
+    private final com.storehub.service.CloudinaryService cloudinaryService;
 
     @Override
     @Transactional
@@ -57,6 +58,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
                 .description(request.getDescription())
                 .status(TicketStatus.OPEN)
                 .priority("MEDIUM")
+                .photos(request.getPhotos())
                 .build();
 
         SupportTicket savedTicket = ticketRepository.save(ticket);
@@ -85,6 +87,20 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
         return mapToResponse(ticket);
     }
 
+    @Override
+    public List<String> uploadTicketPhotos(org.springframework.web.multipart.MultipartFile[] files) {
+        if (files == null || files.length == 0) {
+            return java.util.Collections.emptyList();
+        }
+        List<String> urls = new java.util.ArrayList<>();
+        for (org.springframework.web.multipart.MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                urls.add(cloudinaryService.uploadImage(file, "tickets"));
+            }
+        }
+        return urls;
+    }
+
     private User resolveCustomer(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -104,6 +120,13 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
                 .assignedStaffId(t.getAssignedStaff() != null ? t.getAssignedStaff().getId() : null)
                 .assignedStaffName(t.getAssignedStaff() != null ? t.getAssignedStaff().getFullName() : null)
                 .resolutionNote(t.getResolutionNote())
+                .customerName(t.getCustomer() != null ? t.getCustomer().getFullName() : null)
+                .customerEmail(t.getCustomer() != null ? t.getCustomer().getEmail() : null)
+                .customerPhone(t.getCustomer() != null ? t.getCustomer().getPhone() : null)
+                .unitCode(t.getBooking() != null && t.getBooking().getStorageUnit() != null
+                        ? t.getBooking().getStorageUnit().getUnitCode()
+                        : null)
+                .photos(t.getPhotos())
                 .createdAt(t.getCreatedAt())
                 .build();
     }

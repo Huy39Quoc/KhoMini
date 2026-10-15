@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -20,7 +23,9 @@ public class HandoverRequest {
 
     private String notes;
 
-    private java.math.BigDecimal damageFee;
+    private BigDecimal damageFee;
 
     private String damageReason;
+
+    private List<String> photos;
 }

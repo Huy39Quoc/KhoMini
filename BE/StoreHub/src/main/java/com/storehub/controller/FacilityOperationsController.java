@@ -214,4 +214,14 @@ public class FacilityOperationsController {
                         .build()
         );
     }
+
+    @PostMapping(value = "/upload-photos", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('HANDOVER_CREATE')")
+    @Operation(summary = "Upload photos for handover evidence")
+    public ResponseEntity<ApiResponse<List<String>>> uploadHandoverPhotos(
+            @RequestParam("files") org.springframework.web.multipart.MultipartFile[] files
+    ) {
+        List<String> urls = facilityOperationsService.uploadHandoverPhotos(files);
+        return ResponseEntity.ok(ApiResponse.success("Photos uploaded successfully", urls));
+    }
 }

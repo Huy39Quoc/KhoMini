@@ -5,7 +5,9 @@ import com.storehub.dto.request.FacilityCreateRequest;
 import com.storehub.dto.request.FacilityUpdateRequest;
 import com.storehub.dto.response.FacilityResponse;
 import com.storehub.enums.FacilityStatus;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface FacilityService {
@@ -14,7 +16,7 @@ public interface FacilityService {
     FacilityResponse update(UUID id, FacilityUpdateRequest request);
     void delete(UUID id);
     PageResponse<FacilityResponse> getAll(String search, FacilityStatus status, int page, int size, String sortBy, String sortDir);
-    String uploadImage(UUID id, org.springframework.web.multipart.MultipartFile file);
-    String uploadImageOnly(org.springframework.web.multipart.MultipartFile file);
-    java.util.List<String> uploadImagesOnly(org.springframework.web.multipart.MultipartFile[] files);
+    String uploadImage(UUID id, MultipartFile file);
+    String uploadImageOnly(MultipartFile file);
+    List<String> uploadImagesOnly(MultipartFile[] files);
 }

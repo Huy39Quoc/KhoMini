@@ -248,6 +248,7 @@ public class StaffTicketServiceImpl implements StaffTicketService {
                         && ticket.getBooking().getStorageUnit() != null
                         ? ticket.getBooking().getStorageUnit().getUnitCode()
                         : null)
+                .photos(ticket.getPhotos())
                 .createdAt(ticket.getCreatedAt())
                 .build();
     }

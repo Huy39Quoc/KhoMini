@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -33,4 +34,5 @@ public class TicketResponse {
     private String customerPhone;
     private String unitCode;
     private LocalDateTime createdAt;
+    private List<String> photos;
 }

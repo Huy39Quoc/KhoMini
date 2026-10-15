@@ -1,10 +1,14 @@
 package com.storehub.entity;
 
 import com.storehub.enums.FacilityStatus;
+import com.storehub.util.StringListAttributeConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Entity
 @Table(name = "facilities")
@@ -62,27 +66,23 @@ public class Facility extends BaseEntity {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @Convert(converter = StringListAttributeConverter.class)
     @Column(name = "images", columnDefinition = "TEXT")
-    private String images;
+    @Builder.Default
+    private List<String> images = new ArrayList<>();
 
-    public java.util.List<String> getImageList() {
-        if (images != null && !images.trim().isEmpty()) {
-            return java.util.Arrays.stream(images.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .collect(java.util.stream.Collectors.toList());
+    public List<String> getImageList() {
+        if (images != null && !images.isEmpty()) {
+            return images;
         }
-        if (imageUrl != null && !imageUrl.trim().isEmpty()) {
-            return java.util.List.of(imageUrl);
+        if (imageUrl != null && !imageUrl.isBlank()) {
+            return List.of(imageUrl);
         }
-        return java.util.Collections.emptyList();
+        return Collections.emptyList();
     }
 
-    public void assignImages(java.util.List<String> list) {
-        if (list == null || list.isEmpty()) {
-            this.images = null;
-        } else {
-            this.images = String.join(",", list);
-        }
+    @Deprecated
+    public void assignImages(List<String> list) {
+        this.images = list != null ? list : new ArrayList<>();
     }
 }

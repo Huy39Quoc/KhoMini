@@ -76,4 +76,14 @@ public class CustomerTicketController {
                 .data(response)
                 .build());
     }
+
+    @PostMapping(value = "/upload-photos", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('SUPPORT_CREATE')")
+    @Operation(summary = "Upload photos as evidence for customer support tickets")
+    public ResponseEntity<ApiResponse<java.util.List<String>>> uploadTicketPhotos(
+            @RequestParam("files") org.springframework.web.multipart.MultipartFile[] files
+    ) {
+        java.util.List<String> urls = customerTicketService.uploadTicketPhotos(files);
+        return ResponseEntity.ok(ApiResponse.success("Ticket photos uploaded successfully", urls));
+    }
 }

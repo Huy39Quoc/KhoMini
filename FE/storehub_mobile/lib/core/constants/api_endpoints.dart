@@ -65,6 +65,8 @@ class ApiEndpoints {
   // ---- Customer Storage (CustomerStorageController) ----
   static const String myUnits = '/customer/storage/my-units';
   static const String awaitingHandover = '/customer/storage/awaiting-handover';
+  static String customerHandoverRecords(String bookingId) =>
+      '/customer/storage/$bookingId/handover-records';
   static String gatePass(String bookingId) =>
       '/customer/storage/$bookingId/gate-pass';
   static const String verifyGatePass = '/facility/operations/gate-pass/verify';
@@ -103,6 +105,8 @@ class ApiEndpoints {
   // ---- Customer Tickets (CustomerTicketController) ----
   static const String tickets = '/customer/tickets';
   static String ticketDetail(String ticketId) => '/customer/tickets/$ticketId';
+  static const String customerTicketsUploadPhotos =
+      '/customer/tickets/upload-photos';
 
   // ---- Users (UserController) ----
   static const String users = '/users';
@@ -226,4 +230,6 @@ class ApiEndpoints {
 
   static String updateUnitStatus(String unitId) =>
       '/facility/operations/units/$unitId/status';
+  static const String facilityOpsUploadPhotos =
+      '/facility/operations/upload-photos';
 }

@@ -53,6 +53,7 @@ public class FacilityOperationsServiceImpl
     private final OverdueScheduler overdueScheduler;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     private final com.storehub.service.ActivityLogService activityLogService;
+    private final com.storehub.service.CloudinaryService cloudinaryService;
 
     @Override
     @Transactional
@@ -188,7 +189,8 @@ public class FacilityOperationsServiceImpl
                         record.getStaff().getFullName(),
                         record.getRecordedAt(),
                         record.getDamageFee(),
-                        record.getDamageReason()
+                        record.getDamageReason(),
+                        record.getPhotos()
                 ))
                 .toList();
     }
@@ -328,6 +330,7 @@ public class FacilityOperationsServiceImpl
                 .recordType("CHECK_IN")
                 .unitCondition(buildUnitCondition(request))
                 .notes(request.getNotes())
+                .photos(request.getPhotos())
                 .recordedAt(now)
                 .build();
 
@@ -432,6 +435,7 @@ public class FacilityOperationsServiceImpl
                 .notes(request.getNotes())
                 .damageFee(request.getDamageFee())
                 .damageReason(request.getDamageReason())
+                .photos(request.getPhotos())
                 .recordedAt(now)
                 .build();
 
@@ -657,5 +661,19 @@ public class FacilityOperationsServiceImpl
                 .recordedAt(record.getRecordedAt())
                 .message(message)
                 .build();
+    }
+
+    @Override
+    public List<String> uploadHandoverPhotos(org.springframework.web.multipart.MultipartFile[] files) {
+        if (files == null || files.length == 0) {
+            return java.util.Collections.emptyList();
+        }
+        List<String> urls = new ArrayList<>();
+        for (org.springframework.web.multipart.MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                urls.add(cloudinaryService.uploadImage(file, "handover"));
+            }
+        }
+        return urls;
     }
 }

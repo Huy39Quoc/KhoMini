@@ -55,4 +55,6 @@ public interface FacilityOperationsService {
             String staffEmail,
             UpdateUnitStatusRequest request
     );
+
+    List<String> uploadHandoverPhotos(org.springframework.web.multipart.MultipartFile[] files);
 }

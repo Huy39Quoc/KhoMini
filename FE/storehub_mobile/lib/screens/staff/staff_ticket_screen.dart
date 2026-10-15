@@ -6,6 +6,7 @@ import '../../models/paged_result.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../services/staff_ticket_api_service.dart';
 import '../../widgets/state_views.dart';
+import '../../widgets/photo_preview_dialog.dart';
 
 class StaffTicketScreen extends StatefulWidget {
   final String facilityId;
@@ -519,6 +520,21 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
                             ),
+                          ),
+                        ],
+                        if (ticket.photos.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Photo Evidence:',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          PhotoThumbnailGrid(
+                            photos: ticket.photos,
+                            size: 64,
                           ),
                         ],
                         const SizedBox(height: 12),

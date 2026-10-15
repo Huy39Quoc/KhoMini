@@ -99,6 +99,7 @@ class HandoverRecordModel {
   final DateTime? recordedAt;
   final num? damageFee;
   final String? damageReason;
+  final List<String> photos;
 
   const HandoverRecordModel({
     required this.id,
@@ -111,5 +112,6 @@ class HandoverRecordModel {
     required this.recordedAt,
     this.damageFee,
     this.damageReason,
+    this.photos = const <String>[],
   });
 }

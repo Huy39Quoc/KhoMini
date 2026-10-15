@@ -71,6 +71,9 @@ class FacilityOperationsMapper {
       recordedAt: _dateTime(json['recordedAt']),
       damageFee: json['damageFee'] as num?,
       damageReason: json['damageReason']?.toString(),
+      photos: (json['photos'] is List)
+          ? (json['photos'] as List).map((e) => e.toString()).toList()
+          : const <String>[],
     );
   }
 
@@ -80,6 +83,7 @@ class FacilityOperationsMapper {
     String? notes,
     num? damageFee,
     String? damageReason,
+    List<String>? photos,
   }) {
     final normalizedNotes = notes?.trim();
     final normalizedReason = damageReason?.trim();
@@ -93,6 +97,8 @@ class FacilityOperationsMapper {
         'damageFee': damageFee,
       if (normalizedReason != null && normalizedReason.isNotEmpty)
         'damageReason': normalizedReason,
+      if (photos != null && photos.isNotEmpty)
+        'photos': photos,
     };
   }
 

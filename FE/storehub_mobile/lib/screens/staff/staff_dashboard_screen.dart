@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'staff_ticket_screen.dart';
@@ -7,6 +8,7 @@ import '../../models/facility_operations_models.dart';
 import '../../models/user_model.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
+import '../../widgets/photo_preview_dialog.dart';
 import '../common/profile_screen.dart';
 import '../common/transaction_history_screen.dart';
 import '../common/gate_pass_verify_screen.dart';
@@ -138,6 +140,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     final notesController = TextEditingController();
     final damageFeeController = TextEditingController();
     final damageReasonController = TextEditingController();
+    List<File> evidencePhotos = [];
 
     bool submitting = false;
     bool inspectionConfirmed = false;
@@ -330,6 +333,35 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                         labelText: 'Notes (optional)',
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Photo Evidence (Recommended)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isCheckIn
+                          ? 'Capture photos of clean unit, working lock, and meter (if any) as check-in proof.'
+                          : 'Capture photos of return condition, damages, or left-behind items to avoid disputes.',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    EvidencePhotoPicker(
+                      selectedFiles: evidencePhotos,
+                      enabled: !submitting,
+                      onFilesChanged: (files) {
+                        setSheetState(() {
+                          evidencePhotos = files;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
                       value: inspectionConfirmed,
@@ -353,6 +385,13 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                               });
 
                               try {
+                                List<String> uploadedPhotos = [];
+                                if (evidencePhotos.isNotEmpty) {
+                                  uploadedPhotos = await _opsService.uploadHandoverPhotos(
+                                    evidencePhotos.map((f) => f.path).toList(),
+                                  );
+                                }
+
                                 final HandoverModel result;
 
                                 if (isCheckIn) {
@@ -362,6 +401,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                     unitCondition: unitCondition,
                                     lockCondition: lockCondition,
                                     notes: notesController.text,
+                                    photos: uploadedPhotos,
                                   );
                                 } else {
                                   final num? damageFee = num.tryParse(
@@ -381,6 +421,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                     notes: notesController.text,
                                     damageFee: damageFee,
                                     damageReason: damageReason,
+                                    photos: uploadedPhotos,
                                   );
                                 }
 
@@ -582,38 +623,74 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
           ).format(record.recordedAt!);
 
     final details = <String>[
-      if (record.unitCondition.isNotEmpty) record.unitCondition,
+      if (record.unitCondition.isNotEmpty) 'Condition: ${record.unitCondition}',
+      if (record.damageFee != null && record.damageFee! > 0)
+        'Damage Fee: ${record.damageFee} ₫${record.damageReason != null ? " (${record.damageReason})" : ""}',
       if (record.notes.isNotEmpty) 'Notes: ${record.notes}',
       if (record.staffName.isNotEmpty) 'Staff: ${record.staffName}',
       if (recordedTime.isNotEmpty) recordedTime,
     ];
 
     return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
-        leading: CircleAvatar(
-          backgroundColor: isCheckIn
-              ? AppColors.success.withValues(
-                  alpha: 0.15,
-                )
-              : AppColors.secondaryContainer.withValues(alpha: 0.15),
-          child: Icon(
-            isCheckIn ? Icons.login : Icons.logout,
-            color: isCheckIn ? AppColors.success : AppColors.secondaryContainer,
-          ),
-        ),
-        title: Text(
-          _recordTypeLabel(record.recordType),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: details.isEmpty
-            ? null
-            : Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(details.join('\n')),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: isCheckIn
+                      ? AppColors.success.withValues(alpha: 0.15)
+                      : AppColors.secondaryContainer.withValues(alpha: 0.15),
+                  child: Icon(
+                    isCheckIn ? Icons.login : Icons.logout,
+                    color: isCheckIn ? AppColors.success : AppColors.secondaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _recordTypeLabel(record.recordType),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      if (recordedTime.isNotEmpty)
+                        Text(
+                          recordedTime,
+                          style: const TextStyle(
+                              fontSize: 11, color: AppColors.onSurfaceVariant),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (details.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ...details
+                  .where((d) => d != recordedTime)
+                  .map((d) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(d, style: const TextStyle(fontSize: 13)),
+                      )),
+            ],
+            if (record.photos.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'Photo Evidence:',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+              const SizedBox(height: 6),
+              PhotoThumbnailGrid(photos: record.photos, size: 64),
+            ],
+          ],
+        ),
       ),
     );
   }

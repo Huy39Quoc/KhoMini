@@ -9,6 +9,8 @@ import '../../../widgets/state_views.dart';
 import '../tickets/create_ticket_screen.dart';
 import 'contract_operation_dialog.dart';
 import 'smart_key_screen.dart';
+import '../../../models/facility_operations_models.dart';
+import '../../../widgets/photo_preview_dialog.dart';
 
 class MyRentedUnitsScreen extends StatefulWidget {
   const MyRentedUnitsScreen({super.key});
@@ -212,6 +214,23 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     color: AppColors.surfaceContainer,
                     borderRadius: BorderRadius.circular(10),
                   ),
+                  child: const Icon(Icons.history_edu_outlined,
+                      color: AppColors.primaryContainer),
+                ),
+                title: const Text('Handover Records & Photos'),
+                subtitle: const Text('View condition & photos from check-in/return'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openCustomerHandoverHistory(unit);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: const Icon(Icons.report_problem_outlined,
                       color: AppColors.secondary),
                 ),
@@ -235,6 +254,196 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _openCustomerHandoverHistory(MyUnitModel unit) async {
+    final historyFuture =
+        _storageService.getCustomerHandoverRecords(unit.bookingId);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SizedBox(
+          height: MediaQuery.of(sheetContext).size.height * 0.75,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history_edu,
+                        color: AppColors.primaryContainer),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Handover Records • Unit ${unit.unitCode}',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(sheetContext),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: FutureBuilder<List<HandoverRecordModel>>(
+                  future: historyFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const AppLoadingState(
+                        message: 'Loading handover records...',
+                      );
+                    }
+                    if (snapshot.hasError) {
+                      return AppErrorState(
+                        message: snapshot.error
+                            .toString()
+                            .replaceAll('Exception: ', ''),
+                      );
+                    }
+
+                    final records = snapshot.data ?? <HandoverRecordModel>[];
+                    if (records.isEmpty) {
+                      return const AppEmptyState(
+                        icon: Icons.history,
+                        title: 'No handover records yet',
+                        message:
+                            'Handover records with photos will appear here after staff check-in.',
+                      );
+                    }
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: records.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final record = records[index];
+                        final isCheckIn =
+                            record.recordType.toUpperCase() == 'CHECK_IN';
+                        final recordedTime = record.recordedAt == null
+                            ? ''
+                            : _dateTimeFmt.format(record.recordedAt!);
+
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: isCheckIn
+                                          ? AppColors.success
+                                              .withValues(alpha: 0.15)
+                                          : AppColors.secondaryContainer
+                                              .withValues(alpha: 0.15),
+                                      child: Icon(
+                                        isCheckIn ? Icons.login : Icons.logout,
+                                        color: isCheckIn
+                                            ? AppColors.success
+                                            : AppColors.secondaryContainer,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            isCheckIn
+                                                ? 'Check-in Handover'
+                                                : 'Return / Check-out Handover',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                          if (recordedTime.isNotEmpty)
+                                            Text(
+                                              recordedTime,
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppColors
+                                                      .onSurfaceVariant),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                if (record.unitCondition.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      'Condition: ${record.unitCondition}',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                if (record.damageFee != null &&
+                                    record.damageFee! > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      'Deduction: ${_currency.format(record.damageFee)}${record.damageReason != null ? " (${record.damageReason})" : ""}',
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.error,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                if (record.notes.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      'Notes: ${record.notes}',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                if (record.staffName.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      'Inspected by: ${record.staffName}',
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.onSurfaceVariant),
+                                    ),
+                                  ),
+                                if (record.photos.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  const Text(
+                                    'Photo Evidence:',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  PhotoThumbnailGrid(
+                                      photos: record.photos, size: 70),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

@@ -444,12 +444,37 @@ class FacilityOpsApiService {
     }
   }
 
+  Future<List<String>> uploadHandoverPhotos(List<String> filePaths) async {
+    if (filePaths.isEmpty) return [];
+    try {
+      final formData = FormData();
+      for (final path in filePaths) {
+        final fileName = path.split(RegExp(r'[/\\]')).last;
+        formData.files.add(MapEntry(
+          'files',
+          await MultipartFile.fromFile(path, filename: fileName),
+        ));
+      }
+      final response = await _dio.post(
+        ApiEndpoints.facilityOpsUploadPhotos,
+        data: formData,
+      );
+      if (response.data is Map && response.data['data'] is List) {
+        return (response.data['data'] as List).map((e) => e.toString()).toList();
+      }
+      return [];
+    } on DioException catch (error) {
+      throw _err(error, 'upload handover photos');
+    }
+  }
+
   Future<HandoverModel> checkIn({
     required String bookingId,
     required String facilityId,
     required String unitCondition,
     required String lockCondition,
     String? notes,
+    List<String>? photos,
   }) async {
     try {
       final response = await _dio.post(
@@ -461,6 +486,7 @@ class FacilityOpsApiService {
           unitCondition: unitCondition,
           lockCondition: lockCondition,
           notes: notes,
+          photos: photos,
         ),
       );
 
@@ -497,6 +523,7 @@ class FacilityOpsApiService {
     String? notes,
     num? damageFee,
     String? damageReason,
+    List<String>? photos,
   }) async {
     try {
       final response = await _dio.post(
@@ -510,6 +537,7 @@ class FacilityOpsApiService {
           notes: notes,
           damageFee: damageFee,
           damageReason: damageReason,
+          photos: photos,
         ),
       );
 

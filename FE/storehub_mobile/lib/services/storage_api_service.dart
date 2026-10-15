@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
+import '../mappers/facility_operations_mapper.dart';
+import '../models/facility_operations_models.dart';
 
 class StorageApiService {
   final Dio _dio = HttpClient.instance.dio;
@@ -221,6 +223,20 @@ class StorageApiService {
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to get payment status: $message');
+    }
+  }
+
+  Future<List<HandoverRecordModel>> getCustomerHandoverRecords(String bookingId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.customerHandoverRecords(bookingId));
+      final data = response.data;
+      final list = (data is Map && data['data'] is List) ? data['data'] as List : [];
+      return list
+          .map((e) => FacilityOperationsMapper.handoverRecordFromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to load handover records: $message');
     }
   }
 

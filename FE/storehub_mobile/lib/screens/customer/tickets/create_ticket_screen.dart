@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/storage_api_service.dart';
 import '../../../services/ticket_api_service.dart';
+import '../../../widgets/photo_preview_dialog.dart';
 
 class CreateTicketScreen extends StatefulWidget {
   final String? preselectedBookingId;
@@ -42,6 +44,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   String _selectedCategory = 'LOCK_ISSUE';
   String? _selectedBookingId;
   String? _selectedUnitLabel;
+  List<File> _selectedFiles = [];
 
   bool _isLoading = false;
   bool _isLoadingUnits = true;
@@ -111,11 +114,19 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
     });
 
     try {
+      List<String> uploadedUrls = [];
+      if (_selectedFiles.isNotEmpty) {
+        uploadedUrls = await _ticketApiService.uploadTicketPhotos(
+          _selectedFiles.map((f) => f.path).toList(),
+        );
+      }
+
       await _ticketApiService.createTicket(
         _selectedCategory,
         _titleController.text.trim(),
         _descriptionController.text.trim(),
         _selectedBookingId!,
+        photos: uploadedUrls,
       );
 
       if (!mounted) return;
@@ -259,6 +270,24 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                     if (v.isEmpty) return 'Description is required';
                     return null;
                   },
+                ),
+                const SizedBox(height: 16),
+
+                const Text('Photo evidence (optional)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 4),
+                const Text(
+                  'Attach photos of water leaks, cracked walls, broken locks, etc. to help staff prepare the right tools to resolve quickly.',
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.onSurfaceVariant),
+                ),
+                const SizedBox(height: 8),
+                EvidencePhotoPicker(
+                  selectedFiles: _selectedFiles,
+                  enabled: !_isLoading,
+                  onFilesChanged: (files) =>
+                      setState(() => _selectedFiles = files),
                 ),
                 const SizedBox(height: 24),
 

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/ticket_api_service.dart';
 import '../../../widgets/state_views.dart';
+import '../../../widgets/photo_preview_dialog.dart';
 
 const Map<String, String> _kCategoryLabels = {
   'PIN_CODE': 'Access PIN issue',
@@ -83,6 +84,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           final priority = ticket['priority']?.toString();
           final resolutionNote = ticket['resolutionNote']?.toString();
           final bookingCode = ticket['bookingCode']?.toString();
+          final rawPhotos = ticket['photos'];
+          final List<String> photos = (rawPhotos is List)
+              ? rawPhotos.map((e) => e.toString()).toList()
+              : <String>[];
           final createdAt = ticket['createdAt'] != null
               ? DateTime.tryParse(ticket['createdAt'].toString())
               : null;
@@ -149,6 +154,16 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                         style: const TextStyle(fontSize: 14, height: 1.5)),
                   ),
                 ),
+                if (photos.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Text(
+                    'Photo Evidence (${photos.length})',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  PhotoThumbnailGrid(photos: photos, size: 80),
+                ],
                 if (resolutionNote != null &&
                     resolutionNote.trim().isNotEmpty) ...[
                   const SizedBox(height: 20),

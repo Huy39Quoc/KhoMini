@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -30,7 +31,7 @@ public class FacilityResponse {
 
     private Boolean airConditioned24h;
     private String imageUrl;
-    private java.util.List<String> images;
+    private List<String> images;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

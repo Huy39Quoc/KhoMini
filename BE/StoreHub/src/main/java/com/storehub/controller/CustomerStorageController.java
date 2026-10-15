@@ -229,4 +229,17 @@ public class CustomerStorageController {
                 .data(response)
                 .build());
     }
+
+    @GetMapping("/{bookingId}/handover-records")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('CONTRACT_VIEW')")
+    @Operation(summary = "Xem lịch sử biên bản bàn giao nhận/trả kho kèm hình ảnh")
+    public ResponseEntity<ApiResponse<List<com.storehub.dto.response.HandoverRecordResponse>>> getHandoverRecords(
+            @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Handover records retrieved successfully",
+                customerStorageService.getHandoverRecords(bookingId, userDetails.getUsername())
+        ));
+    }
 }

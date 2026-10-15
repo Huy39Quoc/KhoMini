@@ -7,6 +7,7 @@ import com.storehub.dto.request.SetupPinRequest;
 import com.storehub.dto.request.UnlockRequest;
 import com.storehub.dto.request.UpdatePinRequest;
 import com.storehub.dto.response.ContractOperationResponse;
+import com.storehub.dto.response.HandoverRecordResponse;
 import com.storehub.dto.response.MyUnitResponse;
 import com.storehub.dto.response.SmartAccessResponse;
 import com.storehub.entity.Booking;
@@ -59,6 +60,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     private final PaymentService paymentService;
     private final CustomerStorageMapper customerStorageMapper;
     private final PasswordEncoder passwordEncoder;
+    private final com.storehub.repository.HandoverRecordRepository handoverRecordRepository;
 
     @Override
     @Transactional
@@ -510,5 +512,31 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 : BigDecimal.ZERO;
         response.setOverdueFeeOutstanding(lateFees);
         return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<com.storehub.dto.response.HandoverRecordResponse> getHandoverRecords(UUID bookingId, String customerEmail) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        bookingRepository.findByIdAndCustomerId(bookingId, customerId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        return handoverRecordRepository
+                .findByBookingIdOrderByRecordedAtDesc(bookingId)
+                .stream()
+                .map(record -> new HandoverRecordResponse(
+                        record.getId(),
+                        bookingId,
+                        record.getRecordType(),
+                        record.getUnitCondition(),
+                        record.getNotes(),
+                        record.getStaff().getId(),
+                        record.getStaff().getFullName(),
+                        record.getRecordedAt(),
+                        record.getDamageFee(),
+                        record.getDamageReason(),
+                        record.getPhotos()
+                ))
+                .toList();
     }
 }

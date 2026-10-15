@@ -43,4 +43,6 @@ public interface CustomerStorageService {
     ContractOperationResponse cancelPendingExtension(UUID bookingId, String customerEmail);
 
     PaymentResponse getPendingExtensionPayment(UUID bookingId, String customerEmail);
+
+    List<com.storehub.dto.response.HandoverRecordResponse> getHandoverRecords(UUID bookingId, String customerEmail);
 }

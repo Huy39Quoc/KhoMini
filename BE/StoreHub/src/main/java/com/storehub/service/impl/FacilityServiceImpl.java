@@ -25,8 +25,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -58,13 +62,13 @@ public class FacilityServiceImpl implements FacilityService {
 
         Facility facility = facilityMapper.toEntity(request);
         if (request.getImages() != null && !request.getImages().isEmpty()) {
-            facility.assignImages(request.getImages());
+            facility.setImages(request.getImages());
             if (facility.getImageUrl() == null || facility.getImageUrl().isBlank()) {
                 facility.setImageUrl(request.getImages().get(0));
             }
         } else if (request.getImageUrl() != null && !request.getImageUrl().isBlank()) {
             facility.setImageUrl(request.getImageUrl().trim());
-            facility.assignImages(java.util.List.of(request.getImageUrl().trim()));
+            facility.setImages(List.of(request.getImageUrl().trim()));
         }
 
         facility.setAirConditioned24h(Boolean.TRUE.equals(request.getAirConditioned24h()));
@@ -140,7 +144,7 @@ public class FacilityServiceImpl implements FacilityService {
         validateOpeningHours(facility);
 
         if (request.getImages() != null) {
-            facility.assignImages(request.getImages());
+            facility.setImages(request.getImages());
             if ((facility.getImageUrl() == null || facility.getImageUrl().isBlank()) && !request.getImages().isEmpty()) {
                 facility.setImageUrl(request.getImages().get(0));
             }
@@ -262,16 +266,16 @@ public class FacilityServiceImpl implements FacilityService {
     }
 
     @Override
-    public String uploadImage(UUID id, org.springframework.web.multipart.MultipartFile file) {
+    public String uploadImage(UUID id, MultipartFile file) {
         Facility facility = facilityRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
 
         String imageUrl = cloudinaryService.uploadImage(file, "facilities");
         facility.setImageUrl(imageUrl);
-        java.util.List<String> list = new java.util.ArrayList<>(facility.getImageList());
+        List<String> list = new ArrayList<>(facility.getImageList());
         if (!list.contains(imageUrl)) {
             list.add(imageUrl);
-            facility.assignImages(list);
+            facility.setImages(list);
         }
         facilityRepository.save(facility);
 
@@ -288,17 +292,17 @@ public class FacilityServiceImpl implements FacilityService {
     }
 
     @Override
-    public String uploadImageOnly(org.springframework.web.multipart.MultipartFile file) {
+    public String uploadImageOnly(MultipartFile file) {
         return cloudinaryService.uploadImage(file, "facilities");
     }
 
     @Override
-    public java.util.List<String> uploadImagesOnly(org.springframework.web.multipart.MultipartFile[] files) {
+    public List<String> uploadImagesOnly(MultipartFile[] files) {
         if (files == null || files.length == 0) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
-        java.util.List<String> urls = new java.util.ArrayList<>();
-        for (org.springframework.web.multipart.MultipartFile file : files) {
+        List<String> urls = new ArrayList<>();
+        for (MultipartFile file : files) {
             if (file != null && !file.isEmpty()) {
                 urls.add(cloudinaryService.uploadImage(file, "facilities"));
             }
