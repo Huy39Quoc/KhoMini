@@ -101,4 +101,15 @@ public class FacilityPolicy extends BaseEntity {
     @Builder.Default
     private Double longTermDiscountPercent = 0.0;
 
+    // --- Cam kết pháp lý & Danh mục hàng cấm (Legal Agreement & Prohibited Items) ---
+    @Column(name = "prohibited_items", columnDefinition = "TEXT")
+    private String prohibitedItems;
+
+    @Column(name = "terms_and_conditions", columnDefinition = "TEXT")
+    private String termsAndConditions;
+
+    @Column(name = "terms_version", length = 30)
+    @Builder.Default
+    private String termsVersion = "v2026.1";
+
 }

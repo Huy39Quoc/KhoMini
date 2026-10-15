@@ -143,4 +143,19 @@ public class Booking extends BaseEntity {
 
     @Column(name = "refund_account_name", length = 100)
     private String refundAccountName;
+
+    // --- Thỏa thuận pháp lý & Cam kết hàng cấm (Legal Agreement & Prohibited Items) ---
+    @Column(name = "prohibited_items_accepted", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private Boolean prohibitedItemsAccepted = false;
+
+    @Column(name = "terms_accepted", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private Boolean termsAccepted = false;
+
+    @Column(name = "terms_accepted_at")
+    private LocalDateTime termsAcceptedAt;
+
+    @Column(name = "terms_version", length = 30)
+    private String termsVersion;
 }

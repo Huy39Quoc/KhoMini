@@ -33,4 +33,8 @@ public class BookingResponse {
     private BookingStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime expiresAt;
+    private Boolean prohibitedItemsAccepted;
+    private Boolean termsAccepted;
+    private LocalDateTime termsAcceptedAt;
+    private String termsVersion;
 }

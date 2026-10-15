@@ -90,6 +90,10 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
                         ? request.getLongTermDiscountMinMonths() : 0)
                 .longTermDiscountPercent(request.getLongTermDiscountPercent() != null
                         ? request.getLongTermDiscountPercent() : 0.0)
+                .prohibitedItems(request.getProhibitedItems())
+                .termsAndConditions(request.getTermsAndConditions())
+                .termsVersion(request.getTermsVersion() != null && !request.getTermsVersion().isBlank()
+                        ? request.getTermsVersion() : "v2026.1")
                 .build();
 
         FacilityPolicy saved = facilityPolicyRepository.save(policy);

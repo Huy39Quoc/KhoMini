@@ -3,6 +3,7 @@ package com.storehub.service.impl;
 import com.storehub.dto.request.BookingCreationRequest;
 import com.storehub.dto.request.RentalQuoteRequest;
 import com.storehub.dto.response.BookingResponse;
+import com.storehub.dto.response.FacilityPolicyResponse;
 import com.storehub.dto.response.RentalQuoteResponse;
 import com.storehub.entity.Booking;
 import com.storehub.entity.Facility;
@@ -91,6 +92,21 @@ public class BookingServiceImpl implements BookingService {
             throw new AppException(ErrorCode.ADVANCE_RESERVATION_EXCEEDED);
         }
 
+        if (!Boolean.TRUE.equals(request.getProhibitedItemsConfirmed())
+                || !Boolean.TRUE.equals(request.getTermsConfirmed())) {
+            throw new AppException(ErrorCode.TERMS_AND_CONDITIONS_REQUIRED);
+        }
+
+        String resolvedTermsVersion = request.getTermsVersion();
+        if (resolvedTermsVersion == null || resolvedTermsVersion.isBlank()) {
+            try {
+                FacilityPolicyResponse policy = facilityPolicyService.getByFacilityId(request.getFacilityId());
+                resolvedTermsVersion = policy.getTermsVersion();
+            } catch (Exception ignored) {
+                resolvedTermsVersion = "v2026.1";
+            }
+        }
+
         StorageUnit selectedUnit = storageUnitRepository
                 .claimAvailableUnitId(
                         request.getFacilityId(),
@@ -136,6 +152,10 @@ public class BookingServiceImpl implements BookingService {
                 .depositPaid(BigDecimal.ZERO)
                 .status(BookingStatus.PENDING_PAYMENT)
                 .expiresAt(expiresAt)
+                .prohibitedItemsAccepted(true)
+                .termsAccepted(true)
+                .termsAcceptedAt(LocalDateTime.now())
+                .termsVersion(resolvedTermsVersion)
                 .build();
 
         Booking savedBooking = bookingRepository.save(booking);
@@ -162,6 +182,10 @@ public class BookingServiceImpl implements BookingService {
                 .status(savedBooking.getStatus())
                 .createdAt(savedBooking.getCreatedAt())
                 .expiresAt(expiresAt)
+                .prohibitedItemsAccepted(savedBooking.getProhibitedItemsAccepted())
+                .termsAccepted(savedBooking.getTermsAccepted())
+                .termsAcceptedAt(savedBooking.getTermsAcceptedAt())
+                .termsVersion(savedBooking.getTermsVersion())
                 .build();
     }
 
@@ -220,6 +244,10 @@ public class BookingServiceImpl implements BookingService {
                             .status(booking.getStatus())
                             .createdAt(booking.getCreatedAt())
                             .expiresAt(booking.getExpiresAt())
+                            .prohibitedItemsAccepted(booking.getProhibitedItemsAccepted())
+                            .termsAccepted(booking.getTermsAccepted())
+                            .termsAcceptedAt(booking.getTermsAcceptedAt())
+                            .termsVersion(booking.getTermsVersion())
                             .build();
                 }).toList();
     }

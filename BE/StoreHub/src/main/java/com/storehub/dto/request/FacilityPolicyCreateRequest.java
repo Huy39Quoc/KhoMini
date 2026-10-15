@@ -61,4 +61,8 @@ public class FacilityPolicyCreateRequest {
     private Integer longTermDiscountMinMonths;
     @DecimalMin(value = "0.0") @DecimalMax(value = "100.0")
     private Double longTermDiscountPercent;
+
+    private String prohibitedItems;
+    private String termsAndConditions;
+    private String termsVersion;
 }

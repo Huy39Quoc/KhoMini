@@ -64,6 +64,9 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   final _discountMonthsController = TextEditingController();
   final _discountPercentController = TextEditingController();
   final _maxAdvanceReservationDaysController = TextEditingController();
+  final _prohibitedItemsController = TextEditingController();
+  final _termsAndConditionsController = TextEditingController();
+  final _termsVersionController = TextEditingController();
 
   @override
   void initState() {
@@ -137,6 +140,9 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     _discountMonthsController.dispose();
     _discountPercentController.dispose();
     _maxAdvanceReservationDaysController.dispose();
+    _prohibitedItemsController.dispose();
+    _termsAndConditionsController.dispose();
+    _termsVersionController.dispose();
     super.dispose();
   }
 
@@ -179,6 +185,12 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
               (policy['longTermDiscountPercent'] ?? '').toString();
           _maxAdvanceReservationDaysController.text =
               (policy['maxAdvanceReservationDays'] ?? '14').toString();
+          _prohibitedItemsController.text =
+              (policy['prohibitedItems'] ?? '').toString();
+          _termsAndConditionsController.text =
+              (policy['termsAndConditions'] ?? '').toString();
+          _termsVersionController.text =
+              (policy['termsVersion'] ?? 'v2026.1').toString();
         }
         _isLoadingPolicy = false;
       });
@@ -538,6 +550,9 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       'managementFeePerMonth': managementFee,
       'longTermDiscountMinMonths': discountMonths,
       'longTermDiscountPercent': discountPercent,
+      'prohibitedItems': _prohibitedItemsController.text.trim(),
+      'termsAndConditions': _termsAndConditionsController.text.trim(),
+      'termsVersion': _termsVersionController.text.trim(),
     };
 
     try {
@@ -1286,6 +1301,33 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                     int_: true, suffix: 'days'),
                 _policyField(_sealingController, 'Sealing',
                     int_: true, suffix: 'days'),
+              ),
+            ],
+          ),
+          _section(
+            icon: Icons.gavel_outlined,
+            title: 'Legal & Prohibited items',
+            subtitle: 'Configured dynamically for customer agreement.',
+            children: [
+              _policyField(_termsVersionController, 'Terms version',
+                  hint: 'e.g. v2026.1'),
+              _gap,
+              TextFormField(
+                controller: _prohibitedItemsController,
+                maxLines: 4,
+                decoration: _dec(
+                  'Prohibited items',
+                  hint: 'Separate items with semicolons (;)',
+                ),
+              ),
+              _gap,
+              TextFormField(
+                controller: _termsAndConditionsController,
+                maxLines: 5,
+                decoration: _dec(
+                  'Terms & Conditions summary',
+                  hint: 'Rules, safety, responsibilities...',
+                ),
               ),
             ],
           ),

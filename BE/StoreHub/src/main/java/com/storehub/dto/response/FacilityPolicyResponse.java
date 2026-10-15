@@ -33,4 +33,7 @@ public class FacilityPolicyResponse {
     private BigDecimal managementFeePerMonth;
     private Integer longTermDiscountMinMonths;
     private Double longTermDiscountPercent;
+    private String prohibitedItems;
+    private String termsAndConditions;
+    private String termsVersion;
 }

@@ -36,4 +36,19 @@ public class BookingCreationRequest {
     @Min(value = 1, message = "Rental months must be at least 1")
     @Max(value = 36, message = "Rental months must be at most 36")
     private Integer rentalMonths;
+
+    // Cam kết không lưu trữ hàng cấm
+    @NotNull(message = "Prohibited items confirmation is required")
+    @jakarta.validation.constraints.AssertTrue(message = "You must confirm you will not store prohibited items")
+    @Builder.Default
+    private Boolean prohibitedItemsConfirmed = true;
+
+    // Chấp thuận điều khoản dịch vụ lưu kho
+    @NotNull(message = "Terms and conditions confirmation is required")
+    @jakarta.validation.constraints.AssertTrue(message = "You must accept the terms of service")
+    @Builder.Default
+    private Boolean termsConfirmed = true;
+
+    // Phiên bản điều khoản đã chấp thuận
+    private String termsVersion;
 }

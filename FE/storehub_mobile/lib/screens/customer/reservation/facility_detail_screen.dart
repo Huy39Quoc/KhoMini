@@ -40,6 +40,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   TimeOfDay? _closesAt;
   int _rentalMonths = 1;
   int _maxAdvanceReservationDays = 14;
+  Map<String, dynamic>? _facilityPolicy;
 
   Map<String, dynamic>? _quote;
   bool _isQuoting = false;
@@ -124,17 +125,22 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         }
       });
 
-      // Load policy to get max advance reservation days
+      // Load policy to get max advance reservation days & legal terms
       try {
         final policy = await _catalogService.getFacilityPolicy(widget.facilityId);
-        if (policy != null && policy['maxAdvanceReservationDays'] != null) {
-          final maxDays = (policy['maxAdvanceReservationDays'] as num).toInt();
-          if (mounted && maxDays > 0) {
+        if (policy != null) {
+          if (mounted) {
             setState(() {
-              _maxAdvanceReservationDays = maxDays;
-              final maxAllowed = DateTime.now().add(Duration(days: maxDays));
-              if (_startDate.isAfter(maxAllowed)) {
-                _startDate = maxAllowed;
+              _facilityPolicy = policy;
+              if (policy['maxAdvanceReservationDays'] != null) {
+                final maxDays = (policy['maxAdvanceReservationDays'] as num).toInt();
+                if (maxDays > 0) {
+                  _maxAdvanceReservationDays = maxDays;
+                  final maxAllowed = DateTime.now().add(Duration(days: maxDays));
+                  if (_startDate.isAfter(maxAllowed)) {
+                    _startDate = maxAllowed;
+                  }
+                }
               }
             });
           }
@@ -1146,8 +1152,15 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
   Future<void> _handleReserve() async {
     if (_selectedType == null || _quote == null) return;
+
+    // Hiển thị BottomSheet ký cam kết hàng cấm & điều khoản dịch vụ lưu kho
+    final agreed = await _showLegalAgreementSheet();
+    if (agreed != true) return;
+
     setState(() => _isBooking = true);
     try {
+      final termsVersion =
+          _facilityPolicy?['termsVersion']?.toString() ?? 'v2026.1';
       final booking = await _bookingService.createBooking(
         facilityId: widget.facilityId,
         unitTypeId: _selectedType!.id,
@@ -1155,6 +1168,9 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         checkInTime:
             '${_checkInTime.hour.toString().padLeft(2, '0')}:${_checkInTime.minute.toString().padLeft(2, '0')}:00',
         rentalMonths: _rentalMonths,
+        prohibitedItemsConfirmed: true,
+        termsConfirmed: true,
+        termsVersion: termsVersion,
       );
       if (!mounted) return;
 
@@ -1201,6 +1217,350 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     } finally {
       if (mounted) setState(() => _isBooking = false);
     }
+  }
+
+  Future<bool?> _showLegalAgreementSheet() async {
+    final prohibitedRaw = _facilityPolicy?['prohibitedItems']?.toString() ??
+        'Chất dễ cháy nổ, bình gas, xăng dầu; Ma túy, chất kích thích, hóa chất độc hại; Động vật sống, thực phẩm tươi sống dễ thối rữa; Vũ khí, hàng lậu, pháo hoa; Hàng hóa có mùi nồng nặc gây ảnh hưởng kho xung quanh';
+    final termsRaw = _facilityPolicy?['termsAndConditions']?.toString() ??
+        '1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.';
+    final termsVersion =
+        _facilityPolicy?['termsVersion']?.toString() ?? 'v2026.1';
+
+    final prohibitedItemsList = prohibitedRaw
+        .split(RegExp(r'[;\n]'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        bool prohibitedChecked = false;
+        bool termsChecked = false;
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final canConfirm = prohibitedChecked && termsChecked;
+
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.88,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.gavel_rounded,
+                              color: AppColors.primary, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Thỏa thuận & Cam kết lưu kho',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Xác nhận quy định an toàn trước khi đặt cọc',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          icon: const Icon(Icons.close, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+
+                  // Scrollable content
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Prohibited Items Warning Card
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF4F2),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFFFCCC7),
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded,
+                                        color: Color(0xFFCF1322), size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Danh mục hàng hóa cấm lưu trữ',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFCF1322),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                ...prohibitedItemsList.map(
+                                  (item) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('🚫 ',
+                                            style: TextStyle(fontSize: 12)),
+                                        Expanded(
+                                          child: Text(
+                                            item,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF434343),
+                                              height: 1.3,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Terms and Conditions Card
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: AppColors.border,
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Điều khoản dịch vụ lưu kho',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        termsVersion,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  termsRaw,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Checkbox 1: Prohibited items
+                          InkWell(
+                            onTap: () {
+                              setSheetState(() {
+                                prohibitedChecked = !prohibitedChecked;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Checkbox(
+                                    value: prohibitedChecked,
+                                    activeColor: AppColors.primary,
+                                    onChanged: (val) {
+                                      setSheetState(() {
+                                        prohibitedChecked = val ?? false;
+                                      });
+                                    },
+                                  ),
+                                  const Expanded(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(top: 10),
+                                      child: Text(
+                                        'Tôi cam kết TUYỆT ĐỐI KHÔNG chứa hàng hóa thuộc danh mục cấm nêu trên và chịu trách nhiệm pháp lý nếu vi phạm.',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Checkbox 2: Terms of service
+                          InkWell(
+                            onTap: () {
+                              setSheetState(() {
+                                termsChecked = !termsChecked;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Checkbox(
+                                    value: termsChecked,
+                                    activeColor: AppColors.primary,
+                                    onChanged: (val) {
+                                      setSheetState(() {
+                                        termsChecked = val ?? false;
+                                      });
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 10),
+                                      child: Text(
+                                        'Tôi đã đọc, hiểu rõ và đồng ý với Điều khoản dịch vụ lưu kho StoreHub ($termsVersion).',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Bottom Action
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: canConfirm
+                            ? () => Navigator.pop(ctx, true)
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          disabledBackgroundColor: Colors.grey.shade300,
+                        ),
+                        child: const Text(
+                          'Xác nhận & Tiến hành đặt cọc',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }
 

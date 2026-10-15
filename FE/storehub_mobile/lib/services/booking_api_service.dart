@@ -33,6 +33,9 @@ class BookingApiService {
     required DateTime startDate,
     required String checkInTime,
     required int rentalMonths,
+    bool prohibitedItemsConfirmed = true,
+    bool termsConfirmed = true,
+    String? termsVersion,
   }) async {
     try {
       final response = await _dio.post(
@@ -43,6 +46,10 @@ class BookingApiService {
           'startDate': _formatLocalDate(startDate),
           'checkInTime': checkInTime,
           'rentalMonths': rentalMonths,
+          'prohibitedItemsConfirmed': prohibitedItemsConfirmed,
+          'termsConfirmed': termsConfirmed,
+          if (termsVersion != null && termsVersion.isNotEmpty)
+            'termsVersion': termsVersion,
         },
       );
       return _unwrapMap(response.data);
