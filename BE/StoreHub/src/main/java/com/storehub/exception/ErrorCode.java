@@ -74,6 +74,7 @@ public enum ErrorCode {
     GATE_PASS_INVALID(730, "Gate pass is invalid or belongs to a different facility", HttpStatus.FORBIDDEN),
     GATE_PASS_EXPIRED(731, "Gate pass has expired. Please generate a new one.", HttpStatus.GONE),
     GATE_PASS_USED(732, "Gate pass has already been used or replaced", HttpStatus.CONFLICT),
+    ADVANCE_RESERVATION_EXCEEDED(734, "Start date exceeds the maximum advance reservation window for this facility", HttpStatus.BAD_REQUEST),
 
 
     UNIT_UNAVAILABLE(

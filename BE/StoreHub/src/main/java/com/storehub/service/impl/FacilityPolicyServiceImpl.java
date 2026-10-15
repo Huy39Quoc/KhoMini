@@ -82,6 +82,8 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
                 .overdueAccessDisableDays(request.getOverdueAccessDisableDays())
                 .overdueSealingDays(request.getOverdueSealingDays())
                 .minimumRentalMonths(request.getMinimumRentalMonths())
+                .maxAdvanceReservationDays(request.getMaxAdvanceReservationDays() != null
+                        ? request.getMaxAdvanceReservationDays() : 14)
                 .managementFeePerMonth(request.getManagementFeePerMonth() != null
                         ? request.getManagementFeePerMonth() : java.math.BigDecimal.valueOf(50000))
                 .longTermDiscountMinMonths(request.getLongTermDiscountMinMonths() != null
@@ -166,6 +168,27 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
                 .map(policy -> policy.getMinimumRentalMonths() == null
                         || rentalMonths >= policy.getMinimumRentalMonths())
                 .orElse(true);
+    }
+
+    @Override
+    public boolean isAdvanceReservationAllowed(UUID facilityId, LocalDate startDate) {
+        if (startDate == null) {
+            return false;
+        }
+        LocalDate today = LocalDate.now();
+        if (startDate.isBefore(today)) {
+            return false;
+        }
+        int maxDays = getMaxAdvanceReservationDays(facilityId);
+        return !startDate.isAfter(today.plusDays(maxDays));
+    }
+
+    @Override
+    public int getMaxAdvanceReservationDays(UUID facilityId) {
+        return facilityPolicyRepository.findByFacility_Id(facilityId)
+                .map(policy -> policy.getMaxAdvanceReservationDays() != null
+                        ? policy.getMaxAdvanceReservationDays() : 14)
+                .orElse(14);
     }
 
     @Override

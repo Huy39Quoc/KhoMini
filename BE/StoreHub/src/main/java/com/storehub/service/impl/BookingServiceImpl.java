@@ -86,6 +86,11 @@ public class BookingServiceImpl implements BookingService {
             throw new AppException(ErrorCode.RENTAL_BELOW_MINIMUM_MONTHS);
         }
 
+        if (!facilityPolicyService.isAdvanceReservationAllowed(
+                request.getFacilityId(), request.getStartDate())) {
+            throw new AppException(ErrorCode.ADVANCE_RESERVATION_EXCEEDED);
+        }
+
         StorageUnit selectedUnit = storageUnitRepository
                 .claimAvailableUnitId(
                         request.getFacilityId(),

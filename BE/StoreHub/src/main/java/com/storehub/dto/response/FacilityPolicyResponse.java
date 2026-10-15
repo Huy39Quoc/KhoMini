@@ -29,6 +29,7 @@ public class FacilityPolicyResponse {
     private Integer overdueSealingDays;
 
     private Integer minimumRentalMonths;
+    private Integer maxAdvanceReservationDays;
     private BigDecimal managementFeePerMonth;
     private Integer longTermDiscountMinMonths;
     private Double longTermDiscountPercent;

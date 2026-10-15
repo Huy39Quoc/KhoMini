@@ -50,6 +50,11 @@ public class FacilityPolicyCreateRequest {
 
     @NotNull @Min(1)
     private Integer minimumRentalMonths;
+
+    @Min(1)
+    @Builder.Default
+    private Integer maxAdvanceReservationDays = 14;
+
     @DecimalMin(value = "0.0")
     private BigDecimal managementFeePerMonth;
     @Min(0)

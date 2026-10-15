@@ -91,6 +91,20 @@ class CatalogApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> getFacilityPolicy(String facilityId) async {
+    try {
+      final response =
+          await _dio.get(ApiEndpoints.facilityPolicyByFacility(facilityId));
+      final body = response.data;
+      if (body is Map && body['data'] is Map) {
+        return Map<String, dynamic>.from(body['data']);
+      }
+      return null;
+    } on DioException catch (_) {
+      return null;
+    }
+  }
+
   String _formatLocalDate(DateTime dt) {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${dt.year.toString().padLeft(4, '0')}-${two(dt.month)}-${two(dt.day)}';

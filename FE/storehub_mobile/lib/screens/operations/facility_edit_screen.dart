@@ -63,6 +63,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
   final _managementFeeController = TextEditingController();
   final _discountMonthsController = TextEditingController();
   final _discountPercentController = TextEditingController();
+  final _maxAdvanceReservationDaysController = TextEditingController();
 
   @override
   void initState() {
@@ -135,6 +136,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     _managementFeeController.dispose();
     _discountMonthsController.dispose();
     _discountPercentController.dispose();
+    _maxAdvanceReservationDaysController.dispose();
     super.dispose();
   }
 
@@ -175,6 +177,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
               (policy['longTermDiscountMinMonths'] ?? '').toString();
           _discountPercentController.text =
               (policy['longTermDiscountPercent'] ?? '').toString();
+          _maxAdvanceReservationDaysController.text =
+              (policy['maxAdvanceReservationDays'] ?? '14').toString();
         }
         _isLoadingPolicy = false;
       });
@@ -479,6 +483,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     final managementFee = double.tryParse(_managementFeeController.text);
     final discountMonths = int.tryParse(_discountMonthsController.text);
     final discountPercent = double.tryParse(_discountPercentController.text);
+    final maxAdvanceDays = int.tryParse(_maxAdvanceReservationDaysController.text) ?? 14;
 
     if (deposit == null ||
         managementFee == null ||
@@ -529,6 +534,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       'overdueAccessDisableDays': accessDisable,
       'overdueSealingDays': sealing,
       'minimumRentalMonths': minMonths,
+      'maxAdvanceReservationDays': maxAdvanceDays,
       'managementFeePerMonth': managementFee,
       'longTermDiscountMinMonths': discountMonths,
       'longTermDiscountPercent': discountPercent,
@@ -1219,14 +1225,18 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
           ),
           _section(
             icon: Icons.autorenew,
-            title: 'Renewal & return',
+            title: 'Booking & renewal window',
             children: [
               _pair(
+                _policyField(_maxAdvanceReservationDaysController,
+                    'Max advance booking',
+                    int_: true, suffix: 'days', hint: 'e.g. 14'),
                 _policyField(_renewalWindowController, 'Renewal window',
                     int_: true, suffix: 'days'),
-                _policyField(_returnNoticeController, 'Return notice',
-                    int_: true, suffix: 'days'),
               ),
+              _gap,
+              _policyField(_returnNoticeController, 'Return notice',
+                  int_: true, suffix: 'days'),
             ],
           ),
           _section(

@@ -39,6 +39,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   TimeOfDay? _opensAt;
   TimeOfDay? _closesAt;
   int _rentalMonths = 1;
+  int _maxAdvanceReservationDays = 14;
 
   Map<String, dynamic>? _quote;
   bool _isQuoting = false;
@@ -122,6 +123,23 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           if (chosen < opens || chosen >= closes) _checkInTime = open;
         }
       });
+
+      // Load policy to get max advance reservation days
+      try {
+        final policy = await _catalogService.getFacilityPolicy(widget.facilityId);
+        if (policy != null && policy['maxAdvanceReservationDays'] != null) {
+          final maxDays = (policy['maxAdvanceReservationDays'] as num).toInt();
+          if (mounted && maxDays > 0) {
+            setState(() {
+              _maxAdvanceReservationDays = maxDays;
+              final maxAllowed = DateTime.now().add(Duration(days: maxDays));
+              if (_startDate.isAfter(maxAllowed)) {
+                _startDate = maxAllowed;
+              }
+            });
+          }
+        }
+      } catch (_) {}
     } catch (_) {
       // Backend validates the time even if opening hours cannot be loaded.
     }
@@ -675,71 +693,90 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   }
 
   Widget _buildDatePicker() {
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: _startDate,
-          firstDate: DateTime.now(),
-          lastDate: DateTime.now().add(const Duration(days: 90)),
-          builder: (ctx, child) => Theme(
-            data: Theme.of(ctx).copyWith(
-              colorScheme: const ColorScheme.light(
-                  primary: AppColors.primary, onPrimary: Colors.white),
-            ),
-            child: child!,
-          ),
-        );
-        if (picked != null) {
-          setState(() => _startDate = picked);
-          _refreshQuote();
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
-          boxShadow: [
-            BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 3))
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+    final maxAllowedDate = DateTime.now().add(Duration(days: _maxAdvanceReservationDays));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _startDate.isAfter(maxAllowedDate) ? maxAllowedDate : _startDate,
+              firstDate: DateTime.now(),
+              lastDate: maxAllowedDate,
+              builder: (ctx, child) => Theme(
+                data: Theme.of(ctx).copyWith(
+                  colorScheme: const ColorScheme.light(
+                      primary: AppColors.primary, onPrimary: Colors.white),
+                ),
+                child: child!,
               ),
-              child: const Icon(Icons.calendar_month,
-                  color: AppColors.primary, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Rental start date',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                const SizedBox(height: 2),
-                Text(_formatDate(_startDate),
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary)),
+            );
+            if (picked != null) {
+              setState(() => _startDate = picked);
+              _refreshQuote();
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+              boxShadow: [
+                BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3))
               ],
             ),
-            const Spacer(),
-            const Icon(Icons.edit_calendar_outlined,
-                color: AppColors.primary, size: 20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.calendar_month,
+                      color: AppColors.primary, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Rental start date',
+                        style: TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary)),
+                    const SizedBox(height: 2),
+                    Text(_formatDate(_startDate),
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary)),
+                  ],
+                ),
+                const Spacer(),
+                const Icon(Icons.edit_calendar_outlined,
+                    color: AppColors.primary, size: 20),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            const Icon(Icons.info_outline, size: 13, color: AppColors.onSurfaceVariant),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                'Cơ sở cho phép giữ chỗ trước tối đa $_maxAdvanceReservationDays ngày tính từ hôm nay.',
+                style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+              ),
+            ),
           ],
         ),
-      ),
+      ],
     );
   }
 

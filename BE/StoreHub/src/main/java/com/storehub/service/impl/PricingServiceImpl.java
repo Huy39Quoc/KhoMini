@@ -76,12 +76,16 @@ public class PricingServiceImpl implements PricingService {
             throw new AppException(ErrorCode.FACILITY_NOT_ACTIVE);
         }
 
+        LocalDate startDate = request.getStartDate();
+        if (facility != null && startDate != null && !facilityPolicyService.isAdvanceReservationAllowed(facility.getId(), startDate)) {
+            throw new AppException(ErrorCode.ADVANCE_RESERVATION_EXCEEDED);
+        }
+
         if (unitType.getBasePricePerMonth() == null) {
             throw new AppException(ErrorCode.UNIT_TYPE_PRICE_NOT_CONFIGURED);
         }
 
         int months = request.getRentalMonths();
-        LocalDate startDate = request.getStartDate();
         LocalDate endDate = startDate.plusMonths(months);
 
         BigDecimal monthlyRate = unitType.getBasePricePerMonth().setScale(0, RoundingMode.HALF_UP);

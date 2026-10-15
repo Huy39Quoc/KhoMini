@@ -46,6 +46,10 @@ public class FacilityPolicyUpdateRequest {
 
     @Min(1)
     private Integer minimumRentalMonths;
+
+    @Min(1)
+    private Integer maxAdvanceReservationDays;
+
     @DecimalMin(value = "0.0")
     private BigDecimal managementFeePerMonth;
     @Min(0)

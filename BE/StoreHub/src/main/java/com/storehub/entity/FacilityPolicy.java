@@ -33,6 +33,11 @@ public class FacilityPolicy extends BaseEntity {
     @Builder.Default
     private Integer minimumRentalMonths = 1;
 
+    // Số ngày tối đa cho phép đặt chỗ trước ngày bắt đầu thuê (tránh giam kho ảo)
+    @Column(name = "max_advance_reservation_days", nullable = false, columnDefinition = "integer default 14")
+    @Builder.Default
+    private Integer maxAdvanceReservationDays = 14;
+
     // --- Cancellation ---
     @Column(name = "cancellation_full_refund_hours", nullable = false)
     @Builder.Default
