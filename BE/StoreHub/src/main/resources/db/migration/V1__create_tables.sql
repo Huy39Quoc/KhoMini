@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS roles
 
     CONSTRAINT pk_roles PRIMARY KEY (id),
     CONSTRAINT uc_roles_name UNIQUE (name)
-    );
+);
 
 
 -- =========================================================
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS permissions
 
     CONSTRAINT pk_permissions PRIMARY KEY (id),
     CONSTRAINT uc_permissions_name UNIQUE (name)
-    );
+);
 
 
 -- =========================================================
@@ -54,19 +54,18 @@ CREATE TABLE IF NOT EXISTS users
     assigned_by  UUID,
     assigned_at  TIMESTAMP,
     role_id      UUID,
+    facility_id  UUID,
 
     CONSTRAINT pk_users PRIMARY KEY (id),
     CONSTRAINT uc_users_username UNIQUE (username),
     CONSTRAINT uc_users_email UNIQUE (email),
 
     CONSTRAINT fk_users_role
-    FOREIGN KEY (role_id)
-    REFERENCES roles(id),
+        FOREIGN KEY (role_id) REFERENCES roles(id),
 
     CONSTRAINT fk_users_assigned_by
-    FOREIGN KEY (assigned_by)
-    REFERENCES users(id)
-    );
+        FOREIGN KEY (assigned_by) REFERENCES users(id)
+);
 
 
 -- =========================================================
@@ -79,7 +78,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens
     created_at    TIMESTAMP    NOT NULL,
     updated_at    TIMESTAMP    NOT NULL,
     user_id       UUID         NOT NULL,
-    token         VARCHAR(255) NOT NULL,
+    token         TEXT         NOT NULL,
     type          VARCHAR(255) NOT NULL,
     expired_at    TIMESTAMP    NOT NULL,
     last_used_at  TIMESTAMP    NOT NULL,
@@ -89,9 +88,8 @@ CREATE TABLE IF NOT EXISTS refresh_tokens
     CONSTRAINT uc_refresh_tokens_token UNIQUE (token),
 
     CONSTRAINT fk_refresh_tokens_user
-    FOREIGN KEY (user_id)
-    REFERENCES users(id)
-    );
+        FOREIGN KEY (user_id) REFERENCES users(id)
+);
 
 
 -- =========================================================
@@ -109,18 +107,14 @@ CREATE TABLE IF NOT EXISTS role_permissions
     description    VARCHAR(255),
 
     CONSTRAINT pk_role_permissions PRIMARY KEY (id),
-
-    CONSTRAINT uc_role_permissions_role_permission
-    UNIQUE (role_id, permission_id),
+    CONSTRAINT uc_role_permissions_role_permission UNIQUE (role_id, permission_id),
 
     CONSTRAINT fk_role_permissions_role
-    FOREIGN KEY (role_id)
-    REFERENCES roles(id),
+        FOREIGN KEY (role_id) REFERENCES roles(id),
 
     CONSTRAINT fk_role_permissions_permission
-    FOREIGN KEY (permission_id)
-    REFERENCES permissions(id)
-    );
+        FOREIGN KEY (permission_id) REFERENCES permissions(id)
+);
 
 
 -- =========================================================
@@ -129,28 +123,34 @@ CREATE TABLE IF NOT EXISTS role_permissions
 
 CREATE TABLE IF NOT EXISTS facilities
 (
-    id             UUID         NOT NULL,
-    created_at     TIMESTAMP    NOT NULL,
-    updated_at     TIMESTAMP    NOT NULL,
-    name           VARCHAR(150) NOT NULL,
-    code           VARCHAR(30)  NOT NULL,
-    address        VARCHAR(255) NOT NULL,
-    city           VARCHAR(50),
-    contact_phone  VARCHAR(20),
-    email          VARCHAR(150),
-    manager_id     UUID,
-    status         VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
-    open_time      TIME         NOT NULL DEFAULT '08:00',
-    close_time     TIME         NOT NULL DEFAULT '20:00',
-    description    TEXT,
+    id                   UUID         NOT NULL,
+    created_at           TIMESTAMP    NOT NULL,
+    updated_at           TIMESTAMP    NOT NULL,
+    name                 VARCHAR(150) NOT NULL,
+    code                 VARCHAR(30)  NOT NULL,
+    address              VARCHAR(255) NOT NULL,
+    city                 VARCHAR(50),
+    contact_phone        VARCHAR(20),
+    email                VARCHAR(150),
+    manager_id           UUID,
+    status               VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
+    open_time            TIME         NOT NULL DEFAULT '08:00',
+    close_time           TIME         NOT NULL DEFAULT '20:00',
+    description          TEXT,
+    air_conditioned_24h  BOOLEAN      NOT NULL DEFAULT FALSE,
+    image_url            VARCHAR(500),
+    images               TEXT,
 
     CONSTRAINT pk_facilities PRIMARY KEY (id),
     CONSTRAINT uc_facilities_code UNIQUE (code),
 
     CONSTRAINT fk_facilities_manager
-    FOREIGN KEY (manager_id)
-    REFERENCES users(id)
-    );
+        FOREIGN KEY (manager_id) REFERENCES users(id)
+);
+
+ALTER TABLE users
+    ADD CONSTRAINT fk_users_facility
+    FOREIGN KEY (facility_id) REFERENCES facilities(id);
 
 
 -- =========================================================
@@ -159,17 +159,19 @@ CREATE TABLE IF NOT EXISTS facilities
 
 CREATE TABLE IF NOT EXISTS unit_types
 (
-    id                    UUID           NOT NULL,
-    created_at            TIMESTAMP      NOT NULL,
-    updated_at            TIMESTAMP      NOT NULL,
-    type_name             VARCHAR(100)   NOT NULL,
-    dimensions            VARCHAR(50)    NOT NULL,
+    id                    UUID             NOT NULL,
+    created_at            TIMESTAMP        NOT NULL,
+    updated_at            TIMESTAMP        NOT NULL,
+    type_name             VARCHAR(100)     NOT NULL,
+    dimensions            VARCHAR(50)      NOT NULL,
     area_sqm              DOUBLE PRECISION NOT NULL,
-    base_price_per_month  NUMERIC(12,2)  NOT NULL,
-    deposit_amount        NUMERIC(12,2)  NOT NULL,
+    base_price_per_month  NUMERIC(12,2)    NOT NULL,
+    deposit_amount        NUMERIC(12,2)    NOT NULL,
+    image_url             VARCHAR(500),
 
     CONSTRAINT pk_unit_types PRIMARY KEY (id)
-    );
+);
+
 
 -- =========================================================
 -- WAITLISTS
@@ -177,31 +179,31 @@ CREATE TABLE IF NOT EXISTS unit_types
 
 CREATE TABLE IF NOT EXISTS waitlists
 (
-    id           UUID        NOT NULL,
-    created_at   TIMESTAMP   NOT NULL,
-    updated_at   TIMESTAMP   NOT NULL,
-    customer_id  UUID        NOT NULL,
-    facility_id  UUID        NOT NULL,
-    unit_type_id UUID        NOT NULL,
-    status       VARCHAR(20) NOT NULL,
+    id                 UUID                     NOT NULL,
+    created_at         TIMESTAMP                NOT NULL,
+    updated_at         TIMESTAMP                NOT NULL,
+    customer_id        UUID                     NOT NULL,
+    facility_id        UUID                     NOT NULL,
+    unit_type_id       UUID                     NOT NULL,
+    status             VARCHAR(20)              NOT NULL,
+    notified_at        TIMESTAMP WITH TIME ZONE,
+    offer_expires_at   TIMESTAMP WITH TIME ZONE,
 
     CONSTRAINT pk_waitlists PRIMARY KEY (id),
 
     CONSTRAINT fk_waitlists_customer
-    FOREIGN KEY (customer_id)
-    REFERENCES users(id),
+        FOREIGN KEY (customer_id) REFERENCES users(id),
 
     CONSTRAINT fk_waitlists_facility
-    FOREIGN KEY (facility_id)
-    REFERENCES facilities(id),
+        FOREIGN KEY (facility_id) REFERENCES facilities(id),
 
     CONSTRAINT fk_waitlists_unit_type
-    FOREIGN KEY (unit_type_id)
-    REFERENCES unit_types(id)
-    );
+        FOREIGN KEY (unit_type_id) REFERENCES unit_types(id)
+);
 
 CREATE INDEX IF NOT EXISTS idx_waitlist_facility_unittype_status
     ON waitlists(facility_id, unit_type_id, status);
+
 
 -- =========================================================
 -- STORAGE UNITS
@@ -221,13 +223,11 @@ CREATE TABLE IF NOT EXISTS storage_units
     CONSTRAINT pk_storage_units PRIMARY KEY (id),
 
     CONSTRAINT fk_storage_units_facility
-    FOREIGN KEY (facility_id)
-    REFERENCES facilities(id),
+        FOREIGN KEY (facility_id) REFERENCES facilities(id),
 
     CONSTRAINT fk_storage_units_unit_type
-    FOREIGN KEY (unit_type_id)
-    REFERENCES unit_types(id)
-    );
+        FOREIGN KEY (unit_type_id) REFERENCES unit_types(id)
+);
 
 
 -- =========================================================
@@ -245,26 +245,25 @@ CREATE TABLE IF NOT EXISTS facility_policies
     cancellation_full_refund_hours       INTEGER          NOT NULL DEFAULT 48,
     cancellation_partial_refund_hours    INTEGER          NOT NULL DEFAULT 24,
     cancellation_partial_refund_percent  DOUBLE PRECISION NOT NULL DEFAULT 50.0,
-    return_notice_days                  INTEGER          NOT NULL DEFAULT 0,
+    return_notice_days                   INTEGER          NOT NULL DEFAULT 0,
     deposit_refund_sla_days              INTEGER          NOT NULL DEFAULT 5,
     daily_late_fee                       NUMERIC(12,2)    NOT NULL,
     overdue_grace_days                   INTEGER          NOT NULL DEFAULT 1,
     overdue_access_disable_days          INTEGER          NOT NULL DEFAULT 3,
     overdue_sealing_days                 INTEGER          NOT NULL DEFAULT 7,
     minimum_rental_months                INTEGER          NOT NULL DEFAULT 1,
+    max_advance_reservation_days         INTEGER          NOT NULL DEFAULT 14,
     management_fee_per_month             NUMERIC(12,0)    NOT NULL DEFAULT 50000,
     long_term_discount_min_months        INTEGER          NOT NULL DEFAULT 0,
     long_term_discount_percent           DOUBLE PRECISION NOT NULL DEFAULT 0,
+    prohibited_items                     TEXT,
+    terms_and_conditions                 TEXT,
+    terms_version                        VARCHAR(30)      DEFAULT 'v2026.1',
 
     CONSTRAINT pk_facility_policies PRIMARY KEY (id),
-
-    CONSTRAINT uc_facility_policies_facility
-    UNIQUE (facility_id),
-
-    CONSTRAINT fk_facility_policies_facility
-    FOREIGN KEY (facility_id)
-    REFERENCES facilities(id)
-    );
+    CONSTRAINT uc_facility_policies_facility UNIQUE (facility_id),
+    CONSTRAINT fk_facility_policies_facility FOREIGN KEY (facility_id) REFERENCES facilities(id)
+);
 
 
 -- =========================================================
@@ -273,48 +272,58 @@ CREATE TABLE IF NOT EXISTS facility_policies
 
 CREATE TABLE IF NOT EXISTS bookings
 (
-    id                       UUID         NOT NULL,
-    created_at               TIMESTAMP    NOT NULL,
-    updated_at               TIMESTAMP    NOT NULL,
-    booking_code             VARCHAR(30)  NOT NULL,
-    customer_id              UUID         NOT NULL,
-    storage_unit_id          UUID         NOT NULL,
-    start_date               DATE         NOT NULL,
-    end_date                 DATE         NOT NULL,
-    rental_months            INTEGER      NOT NULL,
-    total_rental_fee         NUMERIC(12,2) NOT NULL,
-    deposit_paid             NUMERIC(12,2) NOT NULL,
-    status                   VARCHAR(30)  NOT NULL,
-    access_code              VARCHAR(20),
-    handed_over_by_staff_id  UUID,
-    handover_time            TIMESTAMP,
-    return_time              TIMESTAMP,
-    access_pin               VARCHAR(100),
-    pin_failed_attempts      INTEGER      NOT NULL DEFAULT 0,
-    pin_locked_until         TIMESTAMP,
-    pin_updated_at           TIMESTAMP,
-    expires_at               TIMESTAMP,
-    pending_extra_months     INTEGER,
-    pending_extension_fee    NUMERIC(12,2),
-    unit_locked              BOOLEAN NOT NULL DEFAULT TRUE,
+    id                           UUID          NOT NULL,
+    created_at                   TIMESTAMP     NOT NULL,
+    updated_at                   TIMESTAMP     NOT NULL,
+    booking_code                 VARCHAR(30)   NOT NULL,
+    customer_id                  UUID          NOT NULL,
+    storage_unit_id              UUID          NOT NULL,
+    start_date                   DATE          NOT NULL,
+    scheduled_check_in_time      TIMESTAMP,
+    end_date                     DATE          NOT NULL,
+    rental_months                INTEGER       NOT NULL,
+    total_rental_fee             NUMERIC(12,2) NOT NULL,
+    quoted_deposit_amount        NUMERIC(12,2),
+    quoted_management_fee        NUMERIC(12,2),
+    deposit_paid                 NUMERIC(12,2) NOT NULL,
+    status                       VARCHAR(30)   NOT NULL,
+    access_code                  VARCHAR(20),
+    access_pin                   VARCHAR(100),
+    pin_failed_attempts          INTEGER       NOT NULL DEFAULT 0,
+    pin_locked_until             TIMESTAMP,
+    pin_updated_at               TIMESTAMP,
+    handed_over_by_staff_id      UUID,
+    handover_time                TIMESTAMP,
+    return_time                  TIMESTAMP,
+    scheduled_return_time        TIMESTAMP,
+    assigned_check_in_staff_id   UUID,
+    assigned_check_out_staff_id  UUID,
+    expires_at                   TIMESTAMP,
+    pending_extra_months         INTEGER,
+    pending_extension_fee        NUMERIC(12,2),
+    unit_locked                  BOOLEAN       NOT NULL DEFAULT TRUE,
+    unit_assignment_confirmed    BOOLEAN       NOT NULL DEFAULT FALSE,
+    overdue_detected_at          TIMESTAMP,
+    overdue_fee_accrued          NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+    access_disabled_at           TIMESTAMP,
+    sealing_pending_at           TIMESTAMP,
+    sealing_approved_at          TIMESTAMP,
+    refund_bank_code             VARCHAR(50),
+    refund_account_number        VARCHAR(50),
+    refund_account_name          VARCHAR(100),
+    prohibited_items_accepted    BOOLEAN       NOT NULL DEFAULT FALSE,
+    terms_accepted               BOOLEAN       NOT NULL DEFAULT FALSE,
+    terms_accepted_at            TIMESTAMP,
+    terms_version                VARCHAR(30),
 
     CONSTRAINT pk_bookings PRIMARY KEY (id),
-
-    CONSTRAINT uc_bookings_booking_code
-    UNIQUE (booking_code),
-
-    CONSTRAINT fk_bookings_customer
-    FOREIGN KEY (customer_id)
-    REFERENCES users(id),
-
-    CONSTRAINT fk_bookings_storage_unit
-    FOREIGN KEY (storage_unit_id)
-    REFERENCES storage_units(id),
-
-    CONSTRAINT fk_bookings_staff
-    FOREIGN KEY (handed_over_by_staff_id)
-    REFERENCES users(id)
-    );
+    CONSTRAINT uc_bookings_booking_code UNIQUE (booking_code),
+    CONSTRAINT fk_bookings_customer FOREIGN KEY (customer_id) REFERENCES users(id),
+    CONSTRAINT fk_bookings_storage_unit FOREIGN KEY (storage_unit_id) REFERENCES storage_units(id),
+    CONSTRAINT fk_bookings_staff FOREIGN KEY (handed_over_by_staff_id) REFERENCES users(id),
+    CONSTRAINT fk_bookings_assigned_check_in_staff FOREIGN KEY (assigned_check_in_staff_id) REFERENCES users(id),
+    CONSTRAINT fk_bookings_assigned_check_out_staff FOREIGN KEY (assigned_check_out_staff_id) REFERENCES users(id)
+);
 
 
 -- =========================================================
@@ -323,26 +332,28 @@ CREATE TABLE IF NOT EXISTS bookings
 
 CREATE TABLE IF NOT EXISTS payments
 (
-    id              UUID          NOT NULL,
-    created_at      TIMESTAMP     NOT NULL,
-    updated_at      TIMESTAMP     NOT NULL,
-    transaction_id  VARCHAR(60)   NOT NULL,
-    booking_id      UUID          NOT NULL,
-    amount          NUMERIC(12,2) NOT NULL,
-    payment_type    VARCHAR(30)   NOT NULL,
-    status          VARCHAR(30)   NOT NULL,
-    payment_method  VARCHAR(50),
-    payment_time    TIMESTAMP     NOT NULL,
+    id                      UUID          NOT NULL,
+    created_at              TIMESTAMP     NOT NULL,
+    updated_at              TIMESTAMP     NOT NULL,
+    transaction_id          VARCHAR(60)   NOT NULL,
+    booking_id              UUID          NOT NULL,
+    amount                  NUMERIC(12,2) NOT NULL,
+    payment_type            VARCHAR(30)   NOT NULL,
+    status                  VARCHAR(30)   NOT NULL,
+    payment_method          VARCHAR(50),
+    payment_time            TIMESTAMP     NOT NULL,
+    fine_days               INTEGER,
+    gateway_create_date     VARCHAR(14),
+    gateway_transaction_no  VARCHAR(20),
+    gateway_amount          NUMERIC(12,2),
+    last_gateway_query_at   TIMESTAMP,
+    voided_at               TIMESTAMP,
 
     CONSTRAINT pk_payments PRIMARY KEY (id),
+    CONSTRAINT uc_payments_transaction_id UNIQUE (transaction_id),
+    CONSTRAINT fk_payments_booking FOREIGN KEY (booking_id) REFERENCES bookings(id)
+);
 
-    CONSTRAINT uc_payments_transaction_id
-    UNIQUE (transaction_id),
-
-    CONSTRAINT fk_payments_booking
-    FOREIGN KEY (booking_id)
-    REFERENCES bookings(id)
-    );
 
 -- =========================================================
 -- ACTIVITY_LOGS
@@ -367,15 +378,13 @@ CREATE TABLE IF NOT EXISTS activity_logs
     user_agent        VARCHAR(255),
 
     CONSTRAINT pk_activity_logs PRIMARY KEY (id),
-
-    CONSTRAINT fk_activity_logs_user
-    FOREIGN KEY (user_id)
-    REFERENCES users(id)
-    );
+    CONSTRAINT fk_activity_logs_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
 
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_log_type ON activity_logs(log_type);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
+
 
 -- =========================================================
 -- HANDOVER RECORDS
@@ -383,31 +392,29 @@ CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created
 
 CREATE TABLE IF NOT EXISTS handover_records
 (
-    id             UUID        NOT NULL,
-    created_at     TIMESTAMP   NOT NULL,
-    updated_at     TIMESTAMP   NOT NULL,
-    booking_id     UUID        NOT NULL,
-    staff_id       UUID        NOT NULL,
-    record_type    VARCHAR(30) NOT NULL,
+    id             UUID          NOT NULL,
+    created_at     TIMESTAMP     NOT NULL,
+    updated_at     TIMESTAMP     NOT NULL,
+    booking_id     UUID          NOT NULL,
+    staff_id       UUID          NOT NULL,
+    record_type    VARCHAR(30)   NOT NULL,
     unit_condition TEXT,
     notes          TEXT,
-    recorded_at    TIMESTAMP   NOT NULL,
+    recorded_at    TIMESTAMP     NOT NULL,
+    damage_fee     NUMERIC(12,2) DEFAULT 0,
+    damage_reason  VARCHAR(255),
+    photos         TEXT,
 
     CONSTRAINT pk_handover_records PRIMARY KEY (id),
-
-    CONSTRAINT fk_handover_records_booking
-    FOREIGN KEY (booking_id)
-    REFERENCES bookings(id),
-
-    CONSTRAINT fk_handover_records_staff
-    FOREIGN KEY (staff_id)
-    REFERENCES users(id)
-    );
+    CONSTRAINT fk_handover_records_booking FOREIGN KEY (booking_id) REFERENCES bookings(id),
+    CONSTRAINT fk_handover_records_staff FOREIGN KEY (staff_id) REFERENCES users(id)
+);
 
 
 -- =========================================================
 -- SUPPORT_TICKETS
 -- =========================================================
+
 CREATE TABLE IF NOT EXISTS support_tickets
 (
     id                  UUID         NOT NULL,
@@ -421,25 +428,77 @@ CREATE TABLE IF NOT EXISTS support_tickets
     priority            VARCHAR(20)  NOT NULL DEFAULT 'MEDIUM',
     assigned_staff_id   UUID,
     resolution_note     TEXT,
+    photos              TEXT,
     created_at          TIMESTAMP    NOT NULL,
     updated_at          TIMESTAMP    NOT NULL,
 
-    CONSTRAINT pk_support_tickets
-    PRIMARY KEY (id),
+    CONSTRAINT pk_support_tickets PRIMARY KEY (id),
+    CONSTRAINT uc_support_tickets_code UNIQUE (ticket_code),
+    CONSTRAINT fk_support_tickets_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_support_tickets_booking FOREIGN KEY (booking_id) REFERENCES bookings(id),
+    CONSTRAINT fk_support_tickets_staff FOREIGN KEY (assigned_staff_id) REFERENCES users(id)
+);
 
-    CONSTRAINT uc_support_tickets_code
-    UNIQUE (ticket_code),
 
-    CONSTRAINT fk_support_tickets_user
-    FOREIGN KEY (user_id)
-    REFERENCES users(id),
+-- =========================================================
+-- REFUND_REQUESTS
+-- =========================================================
 
-    CONSTRAINT fk_support_tickets_booking
-    FOREIGN KEY (booking_id)
-    REFERENCES bookings(id),
+CREATE TABLE IF NOT EXISTS refund_requests
+(
+    id                         UUID           NOT NULL,
+    created_at                 TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                 TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    booking_id                 UUID           NOT NULL,
+    original_payment_id        UUID           NOT NULL,
+    refund_payment_id          UUID           NOT NULL,
+    request_id                 VARCHAR(32)    NOT NULL,
+    amount                     NUMERIC(12,2)  NOT NULL,
+    deposit_amount             NUMERIC(12,2)  NOT NULL,
+    rental_amount              NUMERIC(12,2)  NOT NULL,
+    status                     VARCHAR(30)    NOT NULL,
+    gateway_response_code      VARCHAR(10),
+    gateway_transaction_status VARCHAR(10),
+    updated_status_at          TIMESTAMP,
+    due_at                     TIMESTAMP      NOT NULL,
+    completed_at               TIMESTAMP,
+    damage_deduction           NUMERIC(12,2)  DEFAULT 0,
+    bank_code                  VARCHAR(50),
+    bank_account_number        VARCHAR(50),
+    bank_account_name          VARCHAR(100),
+    transfer_reference         VARCHAR(100),
 
-    CONSTRAINT fk_support_tickets_staff
-    FOREIGN KEY (assigned_staff_id)
-    REFERENCES users(id)
-    );
+    CONSTRAINT pk_refund_requests PRIMARY KEY (id),
+    CONSTRAINT uc_refund_requests_refund_payment UNIQUE (refund_payment_id),
+    CONSTRAINT uc_refund_requests_request_id UNIQUE (request_id),
+    CONSTRAINT fk_refund_requests_booking FOREIGN KEY (booking_id) REFERENCES bookings(id),
+    CONSTRAINT fk_refund_requests_original_payment FOREIGN KEY (original_payment_id) REFERENCES payments(id),
+    CONSTRAINT fk_refund_requests_refund_payment FOREIGN KEY (refund_payment_id) REFERENCES payments(id)
+);
 
+CREATE INDEX IF NOT EXISTS idx_refund_requests_status ON refund_requests(status);
+
+
+-- =========================================================
+-- GATE_PASSES
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS gate_passes
+(
+    id           UUID                        NOT NULL,
+    created_at   TIMESTAMP                   NOT NULL,
+    updated_at   TIMESTAMP                   NOT NULL,
+    booking_id   UUID                        NOT NULL,
+    facility_id  UUID                        NOT NULL,
+    token_hash   VARCHAR(64)                 NOT NULL,
+    expires_at   TIMESTAMP WITH TIME ZONE    NOT NULL,
+    used_at      TIMESTAMP WITH TIME ZONE,
+    revoked_at   TIMESTAMP WITH TIME ZONE,
+
+    CONSTRAINT pk_gate_passes PRIMARY KEY (id),
+    CONSTRAINT uc_gate_passes_token_hash UNIQUE (token_hash),
+    CONSTRAINT fk_gate_passes_booking FOREIGN KEY (booking_id) REFERENCES bookings(id),
+    CONSTRAINT fk_gate_passes_facility FOREIGN KEY (facility_id) REFERENCES facilities(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gate_passes_booking ON gate_passes(booking_id);

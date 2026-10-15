@@ -1,5 +1,6 @@
 
 *.patch
 .idea/
+.vscode/
 .env
 *.env
