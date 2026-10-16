@@ -82,6 +82,14 @@ class _AppointmentAssignmentScreenState
             trailing: const Icon(Icons.calendar_today_outlined),
             onTap: _chooseDate,
           ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              'Chọn nhân viên phụ trách cho từng lịch hẹn. Lịch chưa phân công hiện cho '
+              'mọi nhân viên của cơ sở; lịch đã phân công chỉ nhân viên đó thấy và xử lý.',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ),
           Expanded(
             child: FutureBuilder<List<FacilityStaffModel>>(
               future: _staff,
@@ -130,6 +138,7 @@ class _AppointmentAssignmentScreenState
                                   Text('${item.isCheckIn ? 'Nhận kho' : 'Trả kho'} • '
                                       '${item.customerName} • '
                                       '${item.scheduledTime == null ? '-' : DateFormat('HH:mm').format(item.scheduledTime!)}'),
+                                  const SizedBox(height: 12),
                                   DropdownButtonFormField<String>(
                                     key: ValueKey('${item.bookingId}-${item.scheduleType}-${chosen ?? ''}'),
                                     initialValue: chosen ?? '',

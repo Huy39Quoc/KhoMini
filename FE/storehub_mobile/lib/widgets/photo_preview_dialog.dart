@@ -172,7 +172,7 @@ class EvidencePhotoPicker extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not access camera: $e'),
+            content: Text('Không mở được camera: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -198,7 +198,7 @@ class EvidencePhotoPicker extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not access gallery: $e'),
+            content: Text('Không mở được thư viện ảnh: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -216,8 +216,9 @@ class EvidencePhotoPicker extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: enabled ? () => _pickFromCamera(context) : null,
               icon: const Icon(Icons.camera_alt_outlined, size: 18),
-              label: const Text('Take Photo'),
+              label: const Text('Chụp ảnh'),
               style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 40),
                 visualDensity: VisualDensity.compact,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -228,8 +229,9 @@ class EvidencePhotoPicker extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: enabled ? () => _pickFromGallery(context) : null,
               icon: const Icon(Icons.photo_library_outlined, size: 18),
-              label: const Text('Gallery'),
+              label: const Text('Thư viện'),
               style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 40),
                 visualDensity: VisualDensity.compact,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
