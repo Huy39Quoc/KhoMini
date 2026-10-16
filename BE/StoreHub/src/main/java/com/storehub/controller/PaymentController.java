@@ -130,7 +130,7 @@ public class PaymentController {
     }
 
     @GetMapping("/facility/{facilityId}")
-    @PreAuthorize("hasAnyRole('FACILITY_MANAGER', 'STAFF', 'BUSINESS_MANAGER') and hasAuthority('PAYMENT_VIEW')")
+    @PreAuthorize("hasAnyRole('FACILITY_MANAGER', 'STAFF', 'ADMIN', 'BUSINESS_MANAGER') and hasAuthority('PAYMENT_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Lấy lịch sử giao dịch thuộc một cơ sở cụ thể")
     public ResponseEntity<ApiResponse<PageResponse<PaymentResponse>>> getFacilityPaymentHistory(
@@ -145,7 +145,7 @@ public class PaymentController {
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('PAYMENT_VIEW')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('PAYMENT_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Lấy toàn bộ lịch sử giao dịch thanh toán trong hệ thống")
     public ResponseEntity<ApiResponse<PageResponse<PaymentResponse>>> getAllPaymentHistory(
@@ -160,7 +160,7 @@ public class PaymentController {
     }
 
     @GetMapping("/detail/{paymentId}")
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF', 'FACILITY_MANAGER', 'BUSINESS_MANAGER') and hasAuthority('PAYMENT_VIEW')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'STAFF', 'FACILITY_MANAGER', 'BUSINESS_MANAGER', 'ADMIN') and hasAuthority('PAYMENT_VIEW')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Xem chi tiết thông tin một giao dịch thanh toán theo ID")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPaymentDetail(

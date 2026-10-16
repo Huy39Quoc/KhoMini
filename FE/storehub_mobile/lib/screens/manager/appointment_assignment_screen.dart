@@ -74,7 +74,7 @@ class _AppointmentAssignmentScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Handover appointments')),
+      appBar: AppBar(title: const Text('Lịch hẹn nhận/trả kho')),
       body: Column(
         children: [
           ListTile(
@@ -103,7 +103,7 @@ class _AppointmentAssignmentScreenState
                     }
                     final appointments = scheduleSnapshot.data!;
                     if (appointments.isEmpty) {
-                      return const Center(child: Text('No appointments for this date.'));
+                      return const Center(child: Text('Không có lịch hẹn trong ngày này.'));
                     }
                     final staff = staffSnapshot.data!;
                     return RefreshIndicator(
@@ -127,15 +127,15 @@ class _AppointmentAssignmentScreenState
                                 children: [
                                   Text('${item.bookingCode} • ${item.unitCode}',
                                       style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  Text('${item.isCheckIn ? 'Check-in' : 'Check-out'} • '
+                                  Text('${item.isCheckIn ? 'Nhận kho' : 'Trả kho'} • '
                                       '${item.customerName} • '
                                       '${item.scheduledTime == null ? '-' : DateFormat('HH:mm').format(item.scheduledTime!)}'),
                                   DropdownButtonFormField<String>(
                                     key: ValueKey('${item.bookingId}-${item.scheduleType}-${chosen ?? ''}'),
                                     initialValue: chosen ?? '',
-                                    decoration: const InputDecoration(labelText: 'Assigned staff'),
+                                    decoration: const InputDecoration(labelText: 'Nhân viên phụ trách'),
                                     items: [
-                                      const DropdownMenuItem(value: '', child: Text('Unassigned')),
+                                      const DropdownMenuItem(value: '', child: Text('Chưa phân công')),
                                       ...staff.map((s) => DropdownMenuItem(
                                             value: s.id,
                                             child: Text(s.fullName),

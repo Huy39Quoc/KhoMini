@@ -37,16 +37,16 @@ class PaymentModel {
   });
 
   String get paymentTypeLabel {
-    if (transactionId.startsWith('RF-')) return 'Refund request';
+    if (transactionId.startsWith('RF-')) return 'Yêu cầu hoàn tiền';
     switch (paymentType.toUpperCase()) {
       case 'DEPOSIT':
-        return 'Deposit Payment';
+        return 'Tiền cọc';
       case 'RENTAL_FEE':
-        return 'Rental Fee';
+        return 'Tiền thuê';
       case 'EXTRA_CHARGE':
-        if (note == 'RENTAL_EXTENSION') return 'Extension Fee';
-        if (note == 'OVERDUE_LATE_FEE' || note == 'Phí phạt quá hạn') return 'Overdue Fee';
-        return 'Extra Charge';
+        if (note == 'RENTAL_EXTENSION') return 'Phí gia hạn';
+        if (note == 'OVERDUE_LATE_FEE' || note == 'Phí phạt quá hạn') return 'Phí quá hạn';
+        return 'Phí phát sinh';
       default:
         return paymentType.replaceAll('_', ' ');
     }
@@ -55,20 +55,20 @@ class PaymentModel {
   String get statusLabel {
     switch (status.toUpperCase()) {
       case 'PAID':
-        return 'Paid';
+        return 'Đã thanh toán';
       case 'PENDING':
-        return 'Pending';
+        return 'Chờ thanh toán';
       case 'REFUND_PENDING':
         return switch (refundStatus) {
-          'REJECTED' => 'Refund rejected',
-          'NEEDS_REVIEW' => 'Refund needs review',
-          'MISSING_METADATA' => 'Refund needs payment details',
-          _ => 'Refund processing',
+          'REJECTED' => 'Từ chối hoàn tiền',
+          'NEEDS_REVIEW' => 'Hoàn tiền cần xem xét',
+          'MISSING_METADATA' => 'Hoàn tiền thiếu thông tin',
+          _ => 'Đang hoàn tiền',
         };
       case 'FAILED':
-        return 'Failed';
+        return 'Thất bại';
       case 'REFUNDED':
-        return 'Refunded';
+        return 'Đã hoàn tiền';
       default:
         return status;
     }

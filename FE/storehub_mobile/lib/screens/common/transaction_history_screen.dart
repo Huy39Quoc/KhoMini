@@ -72,14 +72,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           role == 'STAFF' ||
           role == 'FACILITY_STAFF') {
         if (widget.facilityId == null || widget.facilityId!.isEmpty) {
-          throw StateError('Your account has no assigned facility.');
+          throw StateError('Tài khoản của bạn chưa được gán cơ sở.');
         }
         payments = await _paymentService.getFacilityPayments(widget.facilityId!,
             page: _nextPage);
       } else if (role == 'ADMIN' || role == 'BUSINESS_MANAGER') {
         payments = await _paymentService.getAllPayments(page: _nextPage);
       } else {
-        throw StateError('This account cannot view payment history.');
+        throw StateError('Tài khoản này không có quyền xem lịch sử giao dịch.');
       }
 
       if (!mounted) return;
@@ -138,7 +138,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Transaction History'),
+        title: const Text('Lịch sử giao dịch'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -158,7 +158,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    hintText: 'Search loaded transactions...',
+                    hintText: 'Tìm trong các giao dịch đã tải...',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
@@ -176,17 +176,17 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _statusFilterChip('ALL', 'All'),
+                      _statusFilterChip('ALL', 'Tất cả'),
                       const SizedBox(width: 8),
-                      _statusFilterChip('PAID', 'Paid'),
+                      _statusFilterChip('PAID', 'Đã thanh toán'),
                       const SizedBox(width: 8),
-                      _statusFilterChip('PENDING', 'Pending'),
+                      _statusFilterChip('PENDING', 'Chờ thanh toán'),
                       const SizedBox(width: 8),
-                      _statusFilterChip('REFUND_PENDING', 'Refund processing'),
+                      _statusFilterChip('REFUND_PENDING', 'Đang hoàn tiền'),
                       const SizedBox(width: 8),
-                      _statusFilterChip('FAILED', 'Failed'),
+                      _statusFilterChip('FAILED', 'Thất bại'),
                       const SizedBox(width: 8),
-                      _statusFilterChip('REFUNDED', 'Refunded'),
+                      _statusFilterChip('REFUNDED', 'Đã hoàn tiền'),
                     ],
                   ),
                 ),
@@ -225,7 +225,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const AppLoadingState(message: 'Loading transaction history...');
+      return const AppLoadingState(message: 'Đang tải lịch sử giao dịch...');
     }
 
     if (_errorMessage != null) {
@@ -246,9 +246,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             SizedBox(height: 60),
             AppEmptyState(
               icon: Icons.receipt_long_outlined,
-              title: 'No Transactions Found',
+              title: 'Không có giao dịch',
               message:
-                  'There are no payment transactions matching your filter.',
+                  'Không có giao dịch nào phù hợp bộ lọc.',
             ),
           ],
         ),
@@ -274,7 +274,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                 child: TextButton(
               onPressed: () => _loadPayments(more: true),
               child: Text(
-                  _loadMoreError == null ? 'Load more' : 'Retry loading more'),
+                  _loadMoreError == null ? 'Tải thêm' : 'Thử tải lại'),
             ));
           }
           final payment = payments[index];

@@ -14,6 +14,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,7 +39,7 @@ class PaymentReconciliationSchedulerTest {
                 .gatewayCreateDate("20261009230000")
                 .gatewayAmount(new BigDecimal("1000"))
                 .status(PaymentStatus.PENDING).build();
-        when(payments.findChargeIdsToReconcile(any(), any(), any())).thenReturn(List.of(id));
+        when(payments.findChargeIdsToReconcile(any(), any(), any(), any())).thenReturn(List.of(id));
         when(payments.lockById(id)).thenReturn(Optional.of(payment));
         when(manager.getTransaction(any())).thenAnswer(call -> new SimpleTransactionStatus());
         VnpayRefundClient.GatewayResult confirmed =
@@ -58,7 +59,7 @@ class PaymentReconciliationSchedulerTest {
                 .gatewayCreateDate("20261009230000")
                 .gatewayAmount(new BigDecimal("1000"))
                 .status(PaymentStatus.PENDING).build();
-        when(payments.findChargeIdsToReconcile(any(), any(), any())).thenReturn(List.of(id));
+        when(payments.findChargeIdsToReconcile(any(), any(), any(), any())).thenReturn(List.of(id));
         when(payments.lockById(id)).thenReturn(Optional.of(payment));
         when(manager.getTransaction(any())).thenAnswer(call -> new SimpleTransactionStatus());
         when(gateway.query("TXN-1", "20261009230000"))
@@ -67,5 +68,45 @@ class PaymentReconciliationSchedulerTest {
         new PaymentReconciliationScheduler(payments, gateway, paymentService, manager).reconcile();
 
         verify(paymentService, never()).reconcileConfirmedCharge(any(), any());
+    }
+
+    @Test
+    void chargeAbandonedPastLinkLifetimeIsExpiredWhenGatewayHasNoTransaction() throws Exception {
+        UUID id = UUID.randomUUID();
+        Payment payment = Payment.builder().transactionId("TXN-1")
+                .gatewayCreateDate("20261009230000")
+                .gatewayAmount(new BigDecimal("1000"))
+                .paymentTime(LocalDateTime.now().minusMinutes(45))
+                .status(PaymentStatus.PENDING).build();
+        when(payments.findChargeIdsToReconcile(any(), any(), any(), any())).thenReturn(List.of(id));
+        when(payments.lockById(id)).thenReturn(Optional.of(payment));
+        when(manager.getTransaction(any())).thenAnswer(call -> new SimpleTransactionStatus());
+        VnpayRefundClient.GatewayResult notFound =
+                new VnpayRefundClient.GatewayResult("91", "", "", "");
+        when(gateway.query("TXN-1", "20261009230000")).thenReturn(notFound);
+
+        new PaymentReconciliationScheduler(payments, gateway, paymentService, manager).reconcile();
+
+        verify(paymentService).expireAbandonedCharge("TXN-1", notFound);
+        verify(paymentService, never()).reconcileConfirmedCharge(any(), any());
+    }
+
+    @Test
+    void recentChargeIsNeverExpiredWhileCustomerMayStillBePaying() throws Exception {
+        UUID id = UUID.randomUUID();
+        Payment payment = Payment.builder().transactionId("TXN-1")
+                .gatewayCreateDate("20261009230000")
+                .gatewayAmount(new BigDecimal("1000"))
+                .paymentTime(LocalDateTime.now().minusMinutes(5))
+                .status(PaymentStatus.PENDING).build();
+        when(payments.findChargeIdsToReconcile(any(), any(), any(), any())).thenReturn(List.of(id));
+        when(payments.lockById(id)).thenReturn(Optional.of(payment));
+        when(manager.getTransaction(any())).thenAnswer(call -> new SimpleTransactionStatus());
+        when(gateway.query("TXN-1", "20261009230000"))
+                .thenReturn(new VnpayRefundClient.GatewayResult("91", "", "", ""));
+
+        new PaymentReconciliationScheduler(payments, gateway, paymentService, manager).reconcile();
+
+        verify(paymentService, never()).expireAbandonedCharge(any(), any());
     }
 }

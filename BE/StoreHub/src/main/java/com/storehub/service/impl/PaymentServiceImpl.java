@@ -388,6 +388,33 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Transactional
+    /**
+     * Một khoản thu cọc/thuê VNPay quá hạn mà cổng thanh toán xác nhận "không có giao dịch" hoặc
+     * "giao dịch lỗi" là khoản bị bỏ dở (khách đóng app, lỗi mạng...). Chuyển sang FAILED để lịch sử
+     * giao dịch không còn "Pending" vĩnh viễn. Nếu VNPay báo thành công muộn thì đối soát vẫn xử lý
+     * được vì reconcile chấp nhận cả PENDING lẫn FAILED. Kết quả không chắc chắn thì giữ nguyên.
+     */
+    public void expireAbandonedCharge(String transactionId, VnpayRefundClient.GatewayResult result) {
+        boolean definitelyUnpaid = "91".equals(result.responseCode())
+                || ("00".equals(result.responseCode()) && "02".equals(result.transactionStatus()));
+        if (!definitelyUnpaid) {
+            return;
+        }
+        Payment payment = paymentRepository.lockByTransactionId(transactionId).orElse(null);
+        if (payment == null || payment.getStatus() != PaymentStatus.PENDING
+                || payment.getPaymentType() != PaymentType.DEPOSIT) {
+            return;
+        }
+        payment.setStatus(PaymentStatus.FAILED);
+        paymentRepository.save(payment);
+        paymentRepository.findByTransactionId(transactionId + RENTAL_SUFFIX)
+                .filter(companion -> companion.getStatus() == PaymentStatus.PENDING)
+                .ifPresent(companion -> {
+                    companion.setStatus(PaymentStatus.FAILED);
+                    paymentRepository.save(companion);
+                });
+    }
+
     public PaymentResponse reconcileConfirmedCharge(String transactionId,
                                                      VnpayRefundClient.GatewayResult result) {
         Payment payment = paymentRepository.findByTransactionId(transactionId)
