@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -93,11 +94,22 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
             }
           },
           onSslAuthError: (error) async {
+            // Chỉ ở bản debug (chạy thử trên máy ảo/máy tính): phần mềm diệt virus, proxy hoặc
+            // hệ thống máy ảo cũ có thể làm WebView không tin chứng chỉ của trang sandbox.
+            // Trang này chỉ dùng thẻ test nên cho phép tiếp tục. Bản release luôn từ chối.
+            if (kDebugMode) {
+              debugPrint('[VNPay] Bỏ qua lỗi chứng chỉ SSL (chỉ bản debug)');
+              await error.proceed();
+              return;
+            }
             await error.cancel();
             if (mounted) {
               setState(() {
                 _pageLoading = false;
-                _loadError = 'Chứng chỉ bảo mật của trang thanh toán không hợp lệ.';
+                _loadError = 'Chứng chỉ bảo mật của trang thanh toán không hợp lệ. '
+                    'Nguyên nhân thường gặp: ngày giờ của máy bị sai '
+                    '(máy đang hiển thị ${DateTime.now().toString().substring(0, 16)}). '
+                    'Hãy bật "Ngày giờ tự động" trong Cài đặt rồi bấm Tải lại.';
               });
             }
           },

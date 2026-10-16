@@ -38,7 +38,7 @@ public class UserController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('USER_VIEW')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('USER_VIEW')")
     public ResponseEntity<ApiResponse<UserSummaryResponse>> getSummary() {
         return ResponseEntity.ok(ApiResponse.success(userService.getSummary()));
     }

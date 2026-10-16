@@ -41,7 +41,7 @@ public class FacilityController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('FACILITY_CREATE')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('FACILITY_CREATE')")
     @Operation(summary = "Create a new facility")
     public ResponseEntity<ApiResponse<FacilityResponse>> create(
             @Valid @RequestBody FacilityCreateRequest request
@@ -57,7 +57,7 @@ public class FacilityController {
     }
 
     @PutMapping("{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('FACILITY_UPDATE')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('FACILITY_UPDATE')")
     @Operation(summary = "Update an existing facility")
     public ResponseEntity<ApiResponse<FacilityResponse>> update(
             @PathVariable UUID id,
@@ -72,7 +72,7 @@ public class FacilityController {
     }
 
     @PostMapping(value = "{id}/image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER', 'FACILITY_MANAGER') and hasAuthority('FACILITY_UPDATE')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('FACILITY_UPDATE')")
     @Operation(summary = "Upload facility image to Cloudinary")
     public ResponseEntity<ApiResponse<String>> uploadImage(
             @PathVariable UUID id,
@@ -83,7 +83,7 @@ public class FacilityController {
     }
 
     @PostMapping(value = "upload-image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER', 'FACILITY_MANAGER') and hasAuthority('FACILITY_CREATE')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('FACILITY_CREATE')")
     @Operation(summary = "Upload image and return URL")
     public ResponseEntity<ApiResponse<String>> uploadImageOnly(
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file
@@ -93,7 +93,7 @@ public class FacilityController {
     }
 
     @PostMapping(value = "upload-images", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER', 'FACILITY_MANAGER') and hasAuthority('FACILITY_CREATE')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('FACILITY_CREATE')")
     @Operation(summary = "Upload multiple images and return list of URLs")
     public ResponseEntity<ApiResponse<java.util.List<String>>> uploadImagesOnly(
             @RequestParam("files") org.springframework.web.multipart.MultipartFile[] files
@@ -103,7 +103,7 @@ public class FacilityController {
     }
 
     @DeleteMapping("{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('FACILITY_DELETE')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('FACILITY_DELETE')")
     @Operation(summary = "Delete a facility")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable UUID id

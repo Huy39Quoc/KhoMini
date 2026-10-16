@@ -43,7 +43,8 @@ class BookingAppointmentTimeTest {
         when(facilities.findById(facilityId)).thenReturn(Optional.of(facility));
         var request = BookingCreationRequest.builder().facilityId(facilityId)
                 .unitTypeId(typeId).startDate(LocalDate.now().plusDays(1))
-                .checkInTime(LocalTime.of(22, 0)).rentalMonths(1).build();
+                .checkInTime(LocalTime.of(22, 0)).rentalMonths(1)
+                .prohibitedItemsConfirmed(true).termsConfirmed(true).build();
 
         AppException error = assertThrows(AppException.class,
                 () -> service.createBooking("customer@test.com", request));

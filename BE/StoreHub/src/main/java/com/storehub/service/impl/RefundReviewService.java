@@ -90,9 +90,9 @@ public class RefundReviewService {
                                                      String managerEmail, com.storehub.dto.request.ConfirmBankTransferRequest request) {
         requireManager(facilityId, managerEmail);
         RefundRequest refund = requireRefund(facilityId, refundId);
-        if (refund.getStatus() != RefundStatus.AWAITING_BANK_TRANSFER
-                && refund.getStatus() != RefundStatus.NEEDS_REVIEW
-                && refund.getStatus() != RefundStatus.QUEUED) {
+        // QUEUED/NEEDS_REVIEW thuộc luồng hoàn qua VNPay; xác nhận chuyển khoản tay ở đây
+        // có thể làm hoàn tiền hai lần.
+        if (refund.getStatus() != RefundStatus.AWAITING_BANK_TRANSFER) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
         LocalDateTime now = LocalDateTime.now();

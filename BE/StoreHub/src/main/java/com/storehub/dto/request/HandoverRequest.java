@@ -1,5 +1,6 @@
 package com.storehub.dto.request;
 
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,6 +24,7 @@ public class HandoverRequest {
 
     private String notes;
 
+    @DecimalMin(value = "0.0", message = "Damage fee cannot be negative")
     private BigDecimal damageFee;
 
     private String damageReason;

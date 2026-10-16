@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'staff_ticket_screen.dart';
 import 'staff_units_screen.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/safe_dispose.dart';
 import '../../models/facility_operations_models.dart';
 import '../../models/user_model.dart';
 import '../../services/facility_ops_api_service.dart';
@@ -491,7 +492,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       },
     );
 
-    notesController.dispose();
+    disposeAfterRouteCloses(
+        [notesController, damageFeeController, damageReasonController]);
   }
 
   Future<void> _openHandoverHistory(
@@ -845,52 +847,42 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               ),
             ),
           if (_facilityId != null && _facilityId!.isNotEmpty)
-            IconButton(
-              tooltip: 'Storage units',
-              icon: const Icon(Icons.inventory_2_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => StaffUnitsScreen(
-                      facilityId: _facilityId!,
+            PopupMenuButton<String>(
+              tooltip: 'Ngăn kho, hỗ trợ và giao dịch',
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                final facilityId = _facilityId!;
+                Widget page;
+                switch (value) {
+                  case 'units':
+                    page = StaffUnitsScreen(
+                      facilityId: facilityId,
                       facilityName: _facilityName ?? 'Facility',
-                    ),
-                  ),
-                );
-              },
-            ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            IconButton(
-              tooltip: 'Support tickets',
-              icon: const Icon(Icons.support_agent_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => StaffTicketScreen(
-                      facilityId: _facilityId!,
+                    );
+                    break;
+                  case 'tickets':
+                    page = StaffTicketScreen(
+                      facilityId: facilityId,
                       staffId: widget.user.id,
-                    ),
-                  ),
-                );
-              },
-            ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            IconButton(
-              tooltip: 'Facility Transactions',
-              icon: const Icon(Icons.receipt_long_outlined),
-              onPressed: () {
+                    );
+                    break;
+                  default:
+                    page = TransactionHistoryScreen(
+                      userRole: widget.user.roleName,
+                      facilityId: facilityId,
+                    );
+                }
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => TransactionHistoryScreen(
-                      userRole: widget.user.roleName,
-                      facilityId: _facilityId,
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => page),
                 );
               },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'units', child: Text('Ngăn kho')),
+                PopupMenuItem(value: 'tickets', child: Text('Yêu cầu hỗ trợ')),
+                PopupMenuItem(
+                    value: 'transactions', child: Text('Lịch sử giao dịch')),
+              ],
             ),
           IconButton(
             tooltip: 'Profile',

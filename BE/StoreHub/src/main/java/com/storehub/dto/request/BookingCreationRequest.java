@@ -40,14 +40,12 @@ public class BookingCreationRequest {
     // Cam kết không lưu trữ hàng cấm
     @NotNull(message = "Prohibited items confirmation is required")
     @jakarta.validation.constraints.AssertTrue(message = "You must confirm you will not store prohibited items")
-    @Builder.Default
-    private Boolean prohibitedItemsConfirmed = true;
+    private Boolean prohibitedItemsConfirmed;
 
     // Chấp thuận điều khoản dịch vụ lưu kho
     @NotNull(message = "Terms and conditions confirmation is required")
     @jakarta.validation.constraints.AssertTrue(message = "You must accept the terms of service")
-    @Builder.Default
-    private Boolean termsConfirmed = true;
+    private Boolean termsConfirmed;
 
     // Phiên bản điều khoản đã chấp thuận
     private String termsVersion;

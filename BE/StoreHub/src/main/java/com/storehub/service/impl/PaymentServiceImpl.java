@@ -952,21 +952,8 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal netRefund = depositPaid.subtract(safeDamage);
 
         if (netRefund.signum() < 0) {
-            BigDecimal excessDebt = safeDamage.subtract(depositPaid);
-            String reasonText = (damageReason != null && !damageReason.isBlank())
-                    ? damageReason.trim() : "Bồi thường hư hại kho khi trả phòng";
-            Payment extraCharge = Payment.builder()
-                    .transactionId("DMG-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase())
-                    .booking(booking)
-                    .amount(excessDebt)
-                    .paymentType(PaymentType.EXTRA_CHARGE)
-                    .status(PaymentStatus.PENDING)
-                    .paymentMethod("VNPAY")
-                    .note("Bồi thường thiệt hại hư hại kho: " + reasonText)
-                    .paymentTime(LocalDateTime.now())
-                    .build();
-            paymentRepository.save(extraCharge);
-            return BigDecimal.ZERO;
+            // Không tạo khoản nợ treo: phí hư hại chỉ được trừ trong phạm vi tiền cọc.
+            throw new AppException(ErrorCode.DAMAGE_FEE_EXCEEDS_DEPOSIT);
         }
 
         if (netRefund.signum() == 0) {

@@ -28,7 +28,7 @@ public class PermissionController {
     private final PermissionService permissionService;
 
     @GetMapping("{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER') and hasAuthority('PERMISSION_VIEW')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERMISSION_VIEW')")
     @Operation(summary = "Lấy quyền theo ID")
     public ResponseEntity<ApiResponse<PermissionResponse>> getById(@PathVariable UUID id) {
         PermissionResponse response = permissionService.getById(id);
@@ -71,7 +71,7 @@ public class PermissionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER') and hasAuthority('PERMISSION_VIEW')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERMISSION_VIEW')")
     @Operation(summary = "Get all permissions with filtering and pagination")
     public ResponseEntity<ApiResponse<PageResponse<PermissionResponse>>> getAll(
             @RequestParam(required = false) String search,

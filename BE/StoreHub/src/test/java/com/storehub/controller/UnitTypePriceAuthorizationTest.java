@@ -55,4 +55,14 @@ class UnitTypePriceAuthorizationTest {
                 .andExpect(status().isForbidden());
         verifyNoInteractions(unitTypes);
     }
+
+    @Test
+    void adminCannotEditPricesBecausePricingBelongsToTheBusinessManager() throws Exception {
+        mvc.perform(put(path).with(user("admin@example.com")
+                        .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"),
+                                new SimpleGrantedAuthority("UNIT_TYPE_UPDATE")))
+                        .contentType("application/json").content(BODY))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(unitTypes);
+    }
 }
