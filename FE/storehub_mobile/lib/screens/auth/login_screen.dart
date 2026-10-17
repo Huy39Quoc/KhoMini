@@ -234,7 +234,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (userMap != null) {
         final user = UserModel.fromJson(userMap);
         if (!user.hasSupportedRole) {
-          throw Exception('Unsupported account role. Contact support.');
+          throw Exception('Vai trò tài khoản không được hỗ trợ. Vui lòng liên hệ hỗ trợ.');
         }
         Navigator.pushReplacement(
           context,
@@ -243,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       } else {
-        throw Exception('Invalid user data received from server.');
+        throw Exception('Dữ liệu người dùng từ máy chủ không hợp lệ.');
       }
     } catch (e) {
       setState(() {
@@ -269,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
         builder: (dialogContext, setDialogState) => AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Reset your password'),
+          title: const Text('Đặt lại mật khẩu của bạn'),
           content: Form(
             key: formKey,
             child: Column(
@@ -277,7 +277,7 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "Enter the email on your account. We'll send you a link to reset your password.",
+                  "Nhập email của tài khoản. Chúng tôi sẽ gửi liên kết để bạn đặt lại mật khẩu.",
                   style: TextStyle(
                       fontSize: 13, color: AppColors.onSurfaceVariant),
                 ),
@@ -287,14 +287,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autofocus: true,
                   decoration: const InputDecoration(
-                    labelText: 'Email address',
-                    hintText: 'name@example.com',
+                    labelText: 'Địa chỉ email',
+                    hintText: 'ten@example.com',
                   ),
                   validator: (value) {
                     final v = value?.trim() ?? '';
-                    if (v.isEmpty) return 'Email is required';
+                    if (v.isEmpty) return 'Vui lòng nhập email';
                     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v)) {
-                      return 'Enter a valid email address';
+                      return 'Nhập email hợp lệ';
                     }
                     return null;
                   },
@@ -308,11 +308,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 Navigator.pop(dialogContext);
                 _showResetPasswordDialog();
               },
-              child: const Text('I have a reset link'),
+              child: const Text('Tôi đã có liên kết đặt lại'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: const Text('Hủy'),
             ),
             ElevatedButton(
               onPressed: sending
@@ -349,7 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Send link'),
+                  : const Text('Gửi liên kết'),
             ),
           ],
         ),
@@ -378,7 +378,7 @@ class _LoginScreenState extends State<LoginScreen> {
         builder: (dialogContext, setDialogState) => AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Set a new password'),
+          title: const Text('Đặt mật khẩu mới'),
           content: SingleChildScrollView(
             child: Form(
               key: formKey,
@@ -387,7 +387,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Paste the reset link from your email (valid for 15 minutes), then choose a new password.',
+                    'Dán liên kết đặt lại từ email (hiệu lực 15 phút), rồi chọn mật khẩu mới.',
                     style: TextStyle(
                         fontSize: 13, color: AppColors.onSurfaceVariant),
                   ),
@@ -396,10 +396,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: tokenController,
                     maxLines: 2,
                     decoration: const InputDecoration(
-                      labelText: 'Reset link or code',
+                      labelText: 'Liên kết hoặc mã đặt lại',
                     ),
                     validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Reset link is required'
+                        ? 'Vui lòng nhập liên kết đặt lại'
                         : null,
                   ),
                   const SizedBox(height: 10),
@@ -407,7 +407,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: passwordController,
                     obscureText: obscure,
                     decoration: InputDecoration(
-                      labelText: 'New password',
+                      labelText: 'Mật khẩu mới',
                       suffixIcon: IconButton(
                         icon: Icon(
                             obscure ? Icons.visibility_off : Icons.visibility),
@@ -416,7 +416,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     validator: (v) => (v == null || v.length < 5)
-                        ? 'At least 5 characters'
+                        ? 'Tối thiểu 5 ký tự'
                         : null,
                   ),
                   const SizedBox(height: 10),
@@ -424,9 +424,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: confirmController,
                     obscureText: obscure,
                     decoration: const InputDecoration(
-                        labelText: 'Confirm new password'),
+                        labelText: 'Xác nhận mật khẩu mới'),
                     validator: (v) => v != passwordController.text
-                        ? 'Passwords do not match'
+                        ? 'Mật khẩu xác nhận không khớp'
                         : null,
                   ),
                 ],
@@ -436,7 +436,7 @@ class _LoginScreenState extends State<LoginScreen> {
           actions: [
             TextButton(
               onPressed: submitting ? null : () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: const Text('Hủy'),
             ),
             ElevatedButton(
               onPressed: submitting
@@ -456,7 +456,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                                '$message. Please sign in with your new password.'),
+                                '$message. Vui lòng đăng nhập bằng mật khẩu mới.'),
                             backgroundColor: AppColors.success,
                           ),
                         );
@@ -479,7 +479,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Reset password'),
+                  : const Text('Đặt lại mật khẩu'),
             ),
           ],
         ),
@@ -531,7 +531,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Self-Storage Management Platform',
+                            'Nền tảng quản lý kho tự phục vụ',
                             style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.onPrimaryContainer),
@@ -562,13 +562,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Sign in to your account',
+                        'Đăng nhập vào tài khoản',
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Enter your credentials below to continue',
+                        'Nhập thông tin đăng nhập để tiếp tục',
                         style: TextStyle(
                             fontSize: 13, color: AppColors.onSurfaceVariant),
                       ),
@@ -634,7 +634,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                         ),
-                      const Text('Email address',
+                      const Text('Địa chỉ email',
                           style: TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 6),
@@ -643,19 +643,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
-                          hintText: 'name@example.com',
+                          hintText: 'ten@example.com',
                           prefixIcon: Icon(Icons.email_outlined),
                           helperText:
-                              'Use the email address you registered with',
+                              'Dùng email bạn đã đăng ký',
                         ),
                         validator: (value) {
                           final v = value?.trim() ?? '';
                           if (v.isEmpty) {
-                            return 'Email is required';
+                            return 'Vui lòng nhập email';
                           }
                           if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                               .hasMatch(v)) {
-                            return 'Enter a valid email address (e.g. name@example.com)';
+                            return 'Nhập email hợp lệ (VD: ten@example.com)';
                           }
                           return null;
                         },
@@ -664,13 +664,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Password',
+                          const Text('Mật khẩu',
                               style: TextStyle(
                                   fontSize: 13, fontWeight: FontWeight.w600)),
                           GestureDetector(
                             onTap: _showForgotPasswordDialog,
                             child: const Text(
-                              'Forgot password?',
+                              'Quên mật khẩu?',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.secondary,
@@ -687,7 +687,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _handleLogin(),
                         decoration: InputDecoration(
-                          hintText: 'Enter your password',
+                          hintText: 'Nhập mật khẩu',
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -701,11 +701,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               });
                             },
                           ),
-                          helperText: 'Case-sensitive',
+                          helperText: 'Phân biệt hoa thường',
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Password is required';
+                            return 'Vui lòng nhập mật khẩu';
                           }
                           return null;
                         },
@@ -723,14 +723,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                       Colors.white),
                                 ),
                               )
-                            : const Text('Sign In'),
+                            : const Text('Đăng nhập'),
                       ),
                       const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text(
-                            "Don't have an account?",
+                            "Chưa có tài khoản?",
                             style: TextStyle(
                                 color: AppColors.onSurfaceVariant,
                                 fontSize: 13),
@@ -744,7 +744,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               );
                             },
-                            child: const Text('Register now'),
+                            child: const Text('Đăng ký ngay'),
                           ),
                         ],
                       ),

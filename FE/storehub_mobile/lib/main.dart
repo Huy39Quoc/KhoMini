@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'core/network/http_client.dart';
@@ -12,6 +15,8 @@ import 'core/constants/api_endpoints.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  Intl.defaultLocale = 'vi';
+  await initializeDateFormatting('vi');
   final prefs = await SharedPreferences.getInstance();
   final savedUrl = prefs.getString('custom_api_base_url');
   if (savedUrl != null && savedUrl.isNotEmpty) {
@@ -77,6 +82,13 @@ class _StoreHubAppState extends State<StoreHubApp> {
       navigatorKey: _navigatorKey,
       title: 'StoreHub',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('vi'),
+      supportedLocales: const [Locale('vi'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: AppTheme.lightTheme,
       home: SessionGate(restoreSession: widget.restoreSession),
       routes: {

@@ -26,6 +26,6 @@ class PaymentMapper {
   static Map<String, dynamic> asJsonMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
     if (value is Map) return Map<String, dynamic>.from(value);
-    throw const FormatException('Invalid payment data');
+    throw const FormatException('Dữ liệu thanh toán không hợp lệ');
   }
 }

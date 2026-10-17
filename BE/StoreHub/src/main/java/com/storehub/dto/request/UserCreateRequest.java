@@ -16,26 +16,26 @@ public class UserCreateRequest {
     @Size(min = 3, max = 30, message = "Username must be between 3 and 30 characters")
     private String username;
 
-    @NotBlank(message = "Email is required")
+    @NotBlank(message = "Vui lòng nhập email")
     @Pattern(
             regexp = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$",
-            message = "Invalid email format"
+            message = "Email không đúng định dạng"
     )
-    @Size(max = 255, message = "Email must not exceed 255 characters")
+    @Size(max = 255, message = "Email tối đa 255 ký tự")
     private String email;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 5, message = "Password must be greater than 5 characters")
+    @NotBlank(message = "Vui lòng nhập mật khẩu")
+    @Size(min = 5, message = "Mật khẩu phải dài hơn 5 ký tự")
     private String password;
 
-    @NotBlank(message = "Full name is required")
-    @Size(max = 30, message = "Full name must be less than 30 characters")
+    @NotBlank(message = "Vui lòng nhập họ tên")
+    @Size(max = 30, message = "Họ tên tối đa 30 ký tự")
     private String fullName;
 
-    @NotBlank(message = "Phone is required")
+    @NotBlank(message = "Vui lòng nhập số điện thoại")
     @Pattern(
         regexp = "^(0|\\+84)(3|5|7|8|9)[0-9]{8}$",
-        message = "Phone must be a valid Vietnamese phone number"
+        message = "Số điện thoại Việt Nam không hợp lệ"
     )
     private String phone;
     // Admin assigns role when creating a user

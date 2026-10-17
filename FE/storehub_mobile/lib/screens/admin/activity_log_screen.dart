@@ -15,7 +15,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
     with SingleTickerProviderStateMixin {
   final FacilityAdminApiService _service = FacilityAdminApiService();
   late final TabController _tabController;
-  final _dateFmt = DateFormat('MMM d, h:mm a');
+  final _dateFmt = DateFormat('dd/MM, HH:mm');
 
   Future<List<dynamic>>? _allLogsFuture;
   Future<List<dynamic>>? _loginHistoryFuture;
@@ -113,13 +113,13 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Activity Log'),
+        title: const Text('Nhật ký hoạt động'),
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.secondaryContainer,
           unselectedLabelColor: AppColors.onSurfaceVariant,
           indicatorColor: AppColors.secondaryContainer,
-          tabs: const [Tab(text: 'All Activity'), Tab(text: 'Login History')],
+          tabs: const [Tab(text: 'Mọi hoạt động'), Tab(text: 'Lịch sử đăng nhập')],
         ),
       ),
       body: TabBarView(
@@ -131,7 +131,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
               future: _allLogsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const AppLoadingState(message: 'Loading activity...');
+                  return const AppLoadingState(message: 'Đang tải nhật ký...');
                 }
                 if (snapshot.hasError) {
                   return AppErrorState(
@@ -144,8 +144,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
                 if (logs.isEmpty) {
                   return const AppEmptyState(
                       icon: Icons.history,
-                      title: 'No activity yet',
-                      message: 'Actions across the system will show up here.');
+                      title: 'Chưa có hoạt động',
+                      message: 'Các thao tác trong hệ thống sẽ hiển thị tại đây.');
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
@@ -163,7 +163,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const AppLoadingState(
-                      message: 'Loading login history...');
+                      message: 'Đang tải lịch sử đăng nhập...');
                 }
                 if (snapshot.hasError) {
                   return AppErrorState(
@@ -176,8 +176,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
                 if (logs.isEmpty) {
                   return const AppEmptyState(
                       icon: Icons.login,
-                      title: 'No login history yet',
-                      message: 'Sign-in attempts will show up here.');
+                      title: 'Chưa có lịch sử đăng nhập',
+                      message: 'Các lần đăng nhập sẽ hiển thị tại đây.');
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),

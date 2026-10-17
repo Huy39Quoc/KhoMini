@@ -55,8 +55,8 @@ class MyUnitModel {
 
   bool get isActive => status == 'ACTIVE';
   String get displayUnit => (isActive || unitAssignmentConfirmed)
-      ? 'Unit $unitCode'
-      : 'Unit assignment pending manager confirmation';
+      ? 'Ngăn $unitCode'
+      : 'Đang chờ quản lý xác nhận ngăn kho';
   bool get hasLateFeeDue => overdueFeeOutstanding > 0;
 
   double? get monthlyRate {

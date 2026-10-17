@@ -75,7 +75,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         title: const Text('Quản trị hệ thống'),
         actions: [
           IconButton(
-            tooltip: 'Profile',
+            tooltip: 'Hồ sơ',
             icon: CircleAvatar(
               radius: 15,
               backgroundColor: AppColors.primaryContainer,

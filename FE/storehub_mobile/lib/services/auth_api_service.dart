@@ -27,18 +27,18 @@ class AuthApiService {
       final accessToken = data['accessToken'];
       final userData = data['user'];
       if (accessToken is! String || accessToken.isEmpty || userData is! Map) {
-        throw const FormatException('Invalid session response');
+        throw const FormatException('Phản hồi phiên đăng nhập không hợp lệ');
       }
       final userMap = Map<String, dynamic>.from(userData);
       final role = _decodeJwtPayload(accessToken)?['role'];
       if (role is! String || role.isEmpty ||
           (userMap['id']?.toString().isEmpty ?? true)) {
-        throw const FormatException('Invalid user session');
+        throw const FormatException('Phiên đăng nhập không hợp lệ');
       }
       userMap['roleName'] = role;
       final user = UserModel.fromJson(userMap);
       if (!user.hasSupportedRole) {
-        throw const FormatException('Unsupported account role');
+        throw const FormatException('Vai trò tài khoản không được hỗ trợ');
       }
       await TokenStore.instance.saveRefresh(
         accessToken,
@@ -98,7 +98,7 @@ class AuthApiService {
       return data;
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Login failed: $message');
+      throw Exception('Đăng nhập thất bại: $message');
     }
   }
 
@@ -139,7 +139,7 @@ class AuthApiService {
           : Map<String, dynamic>.from(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Registration failed: $message');
+      throw Exception('Đăng ký thất bại: $message');
     }
   }
 
@@ -153,10 +153,10 @@ class AuthApiService {
       if (body is Map && body['message'] is String) {
         return body['message'] as String;
       }
-      return 'If this email exists, a reset link has been sent.';
+      return 'Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi.';
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Request failed: $message');
+      throw Exception('Yêu cầu thất bại: $message');
     }
   }
 
@@ -178,7 +178,7 @@ class AuthApiService {
       if (body is Map && body['message'] is String) {
         return body['message'] as String;
       }
-      return 'Password reset successfully';
+      return 'Đặt lại mật khẩu thành công';
     } on DioException catch (e) {
       final data = e.response?.data;
       final message = (data is Map ? data['message'] : null) ?? e.message;
@@ -202,7 +202,7 @@ class AuthApiService {
       );
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to change password: $message');
+      throw Exception('Không thể đổi mật khẩu: $message');
     }
   }
 

@@ -37,8 +37,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   final TextEditingController _accountNameController = TextEditingController();
   final _currency = NumberFormat.currency(
       locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
-  final _dateFmt = DateFormat('MMM d, yyyy');
-  final _dateTimeFmt = DateFormat('MMM d, yyyy • h:mm a');
+  final _dateFmt = DateFormat('dd/MM/yyyy');
+  final _dateTimeFmt = DateFormat('dd/MM/yyyy • HH:mm');
 
   int _extraMonths = 3;
   DateTime? _scheduledReturnTime;
@@ -71,7 +71,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       if (payment == null) {
         setState(() {
           _isResuming = false;
-          _resumeError = 'There is no outstanding late fee for this unit.';
+          _resumeError = 'Ngăn kho này không còn phí trễ hạn.';
         });
         return;
       }
@@ -106,21 +106,21 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel extension request?'),
+        title: const Text('Hủy yêu cầu gia hạn?'),
         content: const Text(
-          'The extension request will be cancelled. If VNPay later collects '
-          'payment from the old link, a refund will be requested. '
-          'You can request a new extension afterward.',
+          'Yêu cầu gia hạn sẽ bị hủy. Nếu VNPay vẫn thu tiền '
+          'từ liên kết cũ, hệ thống sẽ yêu cầu hoàn tiền. '
+          'Sau đó bạn có thể yêu cầu gia hạn mới.',
           style: TextStyle(fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep it'),
+            child: const Text('Giữ lại'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel request'),
+            child: const Text('Hủy yêu cầu'),
           ),
         ],
       ),
@@ -133,7 +133,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Extension request cancelled'),
+          content: Text('Đã hủy yêu cầu gia hạn'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -163,7 +163,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         setState(() {
           _isResuming = false;
           _resumeError =
-              'No pending extension payment was found for this unit anymore.';
+              'Không còn khoản gia hạn nào đang chờ thanh toán cho ngăn kho này.';
         });
         return;
       }
@@ -232,7 +232,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     if (!widget.isExtension && _scheduledReturnTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please choose a scheduled return date & time.'),
+          content: Text('Vui lòng chọn ngày giờ hẹn trả kho.'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -315,7 +315,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           paymentUrl: paymentUrl,
           transactionId: transactionId,
           amount: fee.toDouble(),
-          title: widget.payOverdue ? 'Late fee • VNPay Sandbox' : 'Extension • VNPay Sandbox',
+          title: widget.payOverdue ? 'Phí trễ hạn • VNPay Sandbox' : 'Gia hạn • VNPay Sandbox',
           fetchStatus: _storageService.getPaymentStatus,
         ),
       ),
@@ -340,8 +340,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     if (resuming && _resumeError != null) {
       return AlertDialog(
         title: Text(widget.payOverdue
-            ? 'Unable to load late fee'
-            : 'Unable to resume payment'),
+            ? 'Không tải được phí trễ hạn'
+            : 'Không thể tiếp tục thanh toán'),
         content: Text(_resumeError!, style: const TextStyle(fontSize: 13)),
         actions: [
           ElevatedButton(
@@ -359,14 +359,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     }
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(widget.isExtension ? 'Extend Rental' : 'Request Checkout'),
+      title: Text(widget.isExtension ? 'Gia hạn thuê' : 'Yêu cầu trả kho'),
       content: SingleChildScrollView(
         child: widget.isExtension ? _buildExtendForm() : _buildCheckoutForm(),
       ),
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
+          child: const Text('Hủy'),
         ),
         ElevatedButton(
           onPressed: _isLoading ? null : _submitAction,
@@ -377,7 +377,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white),
                 )
-              : Text(widget.isExtension ? 'Extend' : 'Confirm Checkout'),
+              : Text(widget.isExtension ? 'Gia hạn' : 'Xác nhận trả kho'),
         ),
       ],
     );
@@ -399,21 +399,21 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Unit ${unit.unitCode}',
+              Text('Ngăn ${unit.unitCode}',
                   style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               if (unit.monthlyRate != null)
                 Text(
-                    'Current rate: ${_currency.format(unit.monthlyRate)} / month',
+                    'Giá hiện tại: ${_currency.format(unit.monthlyRate)} / tháng',
                     style: const TextStyle(fontSize: 12)),
               if (unit.endDate != null)
-                Text('Current end date: ${_dateFmt.format(unit.endDate!)}',
+                Text('Ngày hết hạn hiện tại: ${_dateFmt.format(unit.endDate!)}',
                     style: const TextStyle(fontSize: 12)),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        const Text('Extend by how many months?',
+        const Text('Gia hạn thêm bao nhiêu tháng?',
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         const SizedBox(height: 8),
         Wrap(
@@ -422,7 +422,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           children: [1, 3, 6, 12].map((m) {
             final selected = _extraMonths == m;
             return ChoiceChip(
-              label: Text('+$m mo'),
+              label: Text('+$m tháng'),
               selected: selected,
               onSelected: (_) => setState(() => _extraMonths = m),
             );
@@ -431,14 +431,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         const SizedBox(height: 12),
         Row(
           children: [
-            const Text('Custom:', style: TextStyle(fontSize: 12)),
+            const Text('Tùy chọn:', style: TextStyle(fontSize: 12)),
             IconButton(
               icon: const Icon(Icons.remove_circle_outline),
               onPressed: _extraMonths > 1
                   ? () => setState(() => _extraMonths--)
                   : null,
             ),
-            Text('$_extraMonths month${_extraMonths == 1 ? '' : 's'}',
+            Text('$_extraMonths tháng',
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             IconButton(
               icon: const Icon(Icons.add_circle_outline),
@@ -450,7 +450,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'The exact extension fee is calculated by the server and shown after you confirm.',
+          'Phí gia hạn chính xác do hệ thống tính và hiển thị sau khi bạn xác nhận.',
           style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
         ),
       ],
@@ -462,10 +462,10 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Unit ${widget.unit.unitCode}',
+        Text('Ngăn ${widget.unit.unitCode}',
             style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        const Text('Choose a date & time to schedule your checkout.',
+        const Text('Chọn ngày giờ để hẹn trả kho.',
             style: TextStyle(fontSize: 13)),
         const SizedBox(height: 12),
         OutlinedButton.icon(
@@ -473,7 +473,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           icon: const Icon(Icons.event),
           label: Text(
             _scheduledReturnTime == null
-                ? 'Select return date & time'
+                ? 'Chọn ngày giờ trả kho'
                 : _dateTimeFmt.format(_scheduledReturnTime!),
           ),
         ),
@@ -493,7 +493,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                   Icon(Icons.account_balance, size: 18, color: Colors.blue.shade800),
                   const SizedBox(width: 8),
                   Text(
-                    'Bank Information for Deposit Refund',
+                    'Thông tin ngân hàng nhận hoàn cọc',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
@@ -504,14 +504,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Enter your bank account so the manager can transfer your deposit refund upon inspection.',
+                'Nhập tài khoản ngân hàng để quản lý cơ sở chuyển khoản hoàn cọc sau khi nghiệm thu.',
                 style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: _bankCodeController,
                 decoration: const InputDecoration(
-                  labelText: 'Bank Name / Code (e.g. MBBank, VCB)',
+                  labelText: 'Ngân hàng (VD: MBBank, VCB)',
                   prefixIcon: Icon(Icons.account_balance_outlined, size: 20),
                   isDense: true,
                 ),
@@ -520,7 +520,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               TextField(
                 controller: _accountNumberController,
                 decoration: const InputDecoration(
-                  labelText: 'Account Number',
+                  labelText: 'Số tài khoản',
                   prefixIcon: Icon(Icons.numbers, size: 20),
                   isDense: true,
                 ),
@@ -530,7 +530,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               TextField(
                 controller: _accountNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Account Holder Name',
+                  labelText: 'Tên chủ tài khoản',
                   prefixIcon: Icon(Icons.person_outline, size: 20),
                   isDense: true,
                 ),
@@ -543,7 +543,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         TextField(
           controller: _notesController,
           decoration: const InputDecoration(
-            labelText: 'Notes for the facility staff (optional)',
+            labelText: 'Ghi chú cho nhân viên cơ sở (không bắt buộc)',
           ),
           maxLines: 2,
         ),
@@ -558,7 +558,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(widget.payOverdue ? 'Pay late fee' : 'Pay extension fee'),
+      title: Text(widget.payOverdue ? 'Thanh toán phí trễ hạn' : 'Thanh toán phí gia hạn'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -566,16 +566,16 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           children: [
             Text(
               widget.payOverdue
-                  ? 'Late fee: ${_currency.format(fee)}'
-                  : 'Extension fee: ${_currency.format(fee)}',
+                  ? 'Phí trễ hạn: ${_currency.format(fee)}'
+                  : 'Phí gia hạn: ${_currency.format(fee)}',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const SizedBox(height: 4),
             Text(
               widget.payOverdue
-                  ? 'Paying the late fee does not extend the contract. To restore access, '
-                      'extend the rental or schedule a checkout.'
-                  : 'The rental is only extended once this payment is confirmed.',
+                  ? 'Thanh toán phí trễ hạn không làm gia hạn hợp đồng. Để khôi phục truy cập, hãy '
+                      'gia hạn hoặc hẹn trả kho.'
+                  : 'Hợp đồng chỉ được gia hạn sau khi thanh toán này được xác nhận.',
               style: const TextStyle(
                   fontSize: 12, color: AppColors.onSurfaceVariant),
             ),
@@ -590,7 +590,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                 ),
                 child: const Column(
                   children: [
-                    Text('VNPAY SANDBOX TEST CARD',
+                    Text('THẺ THỬ VNPAY SANDBOX',
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -605,7 +605,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               ),
             ],
             const SizedBox(height: 8),
-            Text('Transaction code: $transactionId',
+            Text('Mã giao dịch: $transactionId',
                 style: const TextStyle(
                     fontSize: 11, color: AppColors.onSurfaceVariant)),
           ],
@@ -621,7 +621,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Cancel request',
+                : const Text('Hủy yêu cầu',
                     style: TextStyle(color: AppColors.error)),
           ),
         TextButton(
@@ -629,11 +629,11 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           onPressed: _isCancellingExtension
               ? null
               : () => Navigator.pop(context, true),
-          child: const Text('Close'),
+          child: const Text('Đóng'),
         ),
         ElevatedButton(
           onPressed: _isCancellingExtension ? null : _payWithVnpay,
-          child: const Text('Pay with VNPay'),
+          child: const Text('Thanh toán qua VNPay'),
         ),
       ],
     );
@@ -642,9 +642,9 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   Widget _buildResultDialog() {
     final result = _result!;
     final message = widget.payOverdue
-        ? 'Late fee paid. Extend the rental or schedule a checkout to restore normal access.'
+        ? 'Đã thanh toán phí trễ hạn. Hãy gia hạn hoặc hẹn trả kho để khôi phục quyền truy cập.'
         : (widget.isExtension && _paymentConfirmed != null)
-            ? 'Payment confirmed. Your rental has been extended.'
+            ? 'Đã xác nhận thanh toán. Hợp đồng của bạn đã được gia hạn.'
             : result['message']?.toString();
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -652,7 +652,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         children: [
           Icon(Icons.check_circle, color: AppColors.success),
           SizedBox(width: 8),
-          Text('Request confirmed'),
+          Text('Đã ghi nhận yêu cầu'),
         ],
       ),
       content: Column(
@@ -665,39 +665,39 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           ],
           if (widget.isExtension) ...[
             if (result['newEndDate'] != null)
-              _resultRow('New end date', result['newEndDate'].toString()),
+              _resultRow('Ngày hết hạn mới', result['newEndDate'].toString()),
             if (result['additionalFee'] != null)
               _resultRow(
-                'Additional fee charged',
+                'Phí phát sinh',
                 _currency.format(
                     num.tryParse(result['additionalFee'].toString()) ?? 0),
               ),
             if (result['updatedTotalFee'] != null)
               _resultRow(
-                'New total rental fee',
+                'Tổng tiền thuê mới',
                 _currency.format(
                     num.tryParse(result['updatedTotalFee'].toString()) ?? 0),
               ),
           ] else if (widget.payOverdue) ...[
             if (result['additionalFee'] != null)
               _resultRow(
-                'Late fee paid',
+                'Đã thanh toán phí trễ hạn',
                 _currency.format(
                     num.tryParse(result['additionalFee'].toString()) ?? 0),
               ),
           ] else ...[
             if (result['scheduledReturnTime'] != null)
               _resultRow(
-                  'Scheduled return', result['scheduledReturnTime'].toString()),
+                  'Hẹn trả kho', result['scheduledReturnTime'].toString()),
             if (result['status'] != null)
-              _resultRow('Status', result['status'].toString()),
+              _resultRow('Trạng thái', result['status'].toString()),
           ],
         ],
       ),
       actions: [
         ElevatedButton(
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Done'),
+          child: const Text('Xong'),
         ),
       ],
     );

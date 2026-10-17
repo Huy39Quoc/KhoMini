@@ -19,31 +19,31 @@ import java.util.UUID;
 @AllArgsConstructor
 public class BookingCreationRequest {
 
-    @NotNull(message = "Facility ID is required")
+    @NotNull(message = "Vui lòng chọn cơ sở")
     private UUID facilityId;
 
-    @NotNull(message = "Unit type ID is required")
+    @NotNull(message = "Vui lòng chọn loại kho")
     private UUID unitTypeId;
 
-    @NotNull(message = "Start date is required")
-    @FutureOrPresent(message = "Start date cannot be in the past")
+    @NotNull(message = "Vui lòng chọn ngày bắt đầu")
+    @FutureOrPresent(message = "Ngày bắt đầu không được ở quá khứ")
     private LocalDate startDate;
 
     // Giờ hẹn nhận kho tại chi nhánh; nếu không gửi, dùng giờ mở cửa.
     private LocalTime checkInTime;
 
-    @NotNull(message = "Rental months is required")
-    @Min(value = 1, message = "Rental months must be at least 1")
-    @Max(value = 36, message = "Rental months must be at most 36")
+    @NotNull(message = "Vui lòng chọn số tháng thuê")
+    @Min(value = 1, message = "Thời gian thuê tối thiểu 1 tháng")
+    @Max(value = 36, message = "Thời gian thuê tối đa 36 tháng")
     private Integer rentalMonths;
 
     // Cam kết không lưu trữ hàng cấm
-    @NotNull(message = "Prohibited items confirmation is required")
+    @NotNull(message = "Bạn cần cam kết không lưu trữ hàng cấm")
     @jakarta.validation.constraints.AssertTrue(message = "You must confirm you will not store prohibited items")
     private Boolean prohibitedItemsConfirmed;
 
     // Chấp thuận điều khoản dịch vụ lưu kho
-    @NotNull(message = "Terms and conditions confirmation is required")
+    @NotNull(message = "Bạn cần đồng ý điều khoản thuê kho")
     @jakarta.validation.constraints.AssertTrue(message = "You must accept the terms of service")
     private Boolean termsConfirmed;
 

@@ -10,6 +10,6 @@ import lombok.*;
 @Builder
 public class RefreshTokenRequest {
 
-    @NotBlank(message = "Refresh token is required")
+    @NotBlank(message = "Thiếu mã làm mới phiên đăng nhập")
     private String refreshToken;
 }

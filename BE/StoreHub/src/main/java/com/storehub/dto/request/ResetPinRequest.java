@@ -12,9 +12,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ResetPinRequest {
 
-    @NotBlank(message = "Account password is required")
+    @NotBlank(message = "Vui lòng nhập mật khẩu tài khoản")
     private String password;
 
-    @Pattern(regexp = "^[0-9]{6}$", message = "PIN must consist of exactly 6 digits")
+    @Pattern(regexp = "^[0-9]{6}$", message = "Mã PIN phải gồm đúng 6 chữ số")
     private String newPin;
 }

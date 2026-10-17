@@ -12,11 +12,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UpdatePinRequest {
 
-    @NotBlank(message = "Current PIN cannot be blank")
-    @Pattern(regexp = "^[0-9]{6}$", message = "PIN must consist of exactly 6 digits")
+    @NotBlank(message = "Vui lòng nhập mã PIN hiện tại")
+    @Pattern(regexp = "^[0-9]{6}$", message = "Mã PIN phải gồm đúng 6 chữ số")
     private String currentPin;
 
-    @NotBlank(message = "PIN cannot be blank")
-    @Pattern(regexp = "^[0-9]{6}$", message = "PIN must consist of exactly 6 digits")
+    @NotBlank(message = "Vui lòng nhập mã PIN")
+    @Pattern(regexp = "^[0-9]{6}$", message = "Mã PIN phải gồm đúng 6 chữ số")
     private String newPin;
 }

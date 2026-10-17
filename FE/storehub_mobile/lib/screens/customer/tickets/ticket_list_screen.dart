@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/vi_labels.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/ticket_api_service.dart';
 import '../../../models/paged_result.dart';
@@ -60,11 +61,11 @@ class _TicketListScreenState extends State<TicketListScreen> {
   }
 
   static const Map<String, String> _categoryLabels = {
-    'PIN_CODE': 'Access PIN issue',
-    'LOCK_ISSUE': 'Lock / door issue',
-    'FACILITY_DAMAGE': 'Facility damage',
-    'PAYMENT_ISSUE': 'Payment issue',
-    'OTHER': 'Other',
+    'PIN_CODE': 'Sự cố mã PIN',
+    'LOCK_ISSUE': 'Sự cố khóa / cửa',
+    'FACILITY_DAMAGE': 'Hư hỏng cơ sở',
+    'PAYMENT_ISSUE': 'Sự cố thanh toán',
+    'OTHER': 'Khác',
   };
 
   Color _statusColor(String? status) {
@@ -86,7 +87,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Support Tickets'),
+        title: const Text('Yêu cầu hỗ trợ'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -100,7 +101,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
           future: _ticketsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const AppLoadingState(message: 'Loading your tickets...');
+              return const AppLoadingState(message: 'Đang tải yêu cầu của bạn...');
             } else if (snapshot.hasError) {
               return ListView(
                 children: [
@@ -116,9 +117,9 @@ class _TicketListScreenState extends State<TicketListScreen> {
                 children: const [
                   AppEmptyState(
                     icon: Icons.support_agent,
-                    title: 'No support requests yet',
+                    title: 'Chưa có yêu cầu hỗ trợ',
                     message:
-                        'If you run into an issue with your unit, PIN, or payment, tap + to let us know.',
+                        'Nếu gặp sự cố với ngăn kho, mã PIN hoặc thanh toán, chạm + để báo cho chúng tôi.',
                   ),
                 ],
               );
@@ -133,7 +134,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
                 if (index == tickets.length) {
                   return Center(child: TextButton(
                     onPressed: _loadingMore ? null : _loadMore,
-                    child: Text(_loadingMore ? 'Loading...' : 'Load more tickets'),
+                    child: Text(_loadingMore ? 'Đang tải...' : 'Xem thêm yêu cầu'),
                   ));
                 }
                 final ticket = tickets[index];
@@ -190,7 +191,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
-                                    (status ?? 'OPEN').replaceAll('_', ' '),
+                                    ViLabels.ticketStatus(status ?? 'OPEN'),
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
@@ -224,7 +225,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
                                   ? title!
                                   : (_categoryLabels[category] ??
                                       category ??
-                                      'Support request'),
+                                      'Yêu cầu hỗ trợ'),
                               style: const TextStyle(
                                   fontSize: 15, fontWeight: FontWeight.bold),
                             ),
@@ -291,7 +292,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
           }
         },
         icon: const Icon(Icons.add),
-        label: const Text('New request'),
+        label: const Text('Yêu cầu mới'),
       ),
     );
   }

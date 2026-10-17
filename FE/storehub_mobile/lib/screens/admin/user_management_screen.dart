@@ -81,7 +81,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
-                'Failed to load roles: ${e.toString().replaceAll('Exception: ', '')}')),
+                'Không tải được danh sách vai trò: ${e.toString().replaceAll('Exception: ', '')}')),
       );
       return;
     }
@@ -89,7 +89,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     if (roles.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No roles available.')),
+        const SnackBar(content: Text('Chưa có vai trò nào.')),
       );
       return;
     }
@@ -109,7 +109,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Assign role to $username',
+                  'Gán vai trò cho $username',
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.bold),
                 ),
@@ -136,7 +136,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('$username is now $name'),
+                        content: Text('$username hiện là $name'),
                         backgroundColor: AppColors.success,
                       ),
                     );
@@ -168,7 +168,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(wasActive ? 'User deactivated' : 'User activated')),
+            content: Text(wasActive ? 'Đã vô hiệu hóa người dùng' : 'Đã kích hoạt người dùng')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -194,7 +194,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(title: const Text('Users')),
+      appBar: AppBar(title: const Text('Người dùng')),
       body: Column(
         children: [
           Padding(
@@ -207,7 +207,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 _searchTimer = Timer(const Duration(milliseconds: 350), _loadUsers);
               },
               decoration: const InputDecoration(
-                hintText: 'Search by name, username, or email',
+                hintText: 'Tìm theo tên, tên đăng nhập hoặc email',
                 prefixIcon: Icon(Icons.search),
               ),
             ),
@@ -216,11 +216,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                _filterChip('All', 'ALL'),
+                _filterChip('Tất cả', 'ALL'),
                 const SizedBox(width: 8),
-                _filterChip('Active', 'ACTIVE'),
+                _filterChip('Đang thuê', 'ACTIVE'),
                 const SizedBox(width: 8),
-                _filterChip('Inactive', 'INACTIVE'),
+                _filterChip('Ngừng hoạt động', 'INACTIVE'),
               ],
             ),
           ),
@@ -232,7 +232,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 future: _usersFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const AppLoadingState(message: 'Loading users...');
+                    return const AppLoadingState(message: 'Đang tải người dùng...');
                   }
                   if (snapshot.hasError) {
                     return ListView(
@@ -255,8 +255,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       children: const [
                         AppEmptyState(
                           icon: Icons.people_outline,
-                          title: 'No users found',
-                          message: 'No users match this filter.',
+                          title: 'Không tìm thấy người dùng',
+                          message: 'Không có người dùng nào phù hợp bộ lọc.',
                         ),
                       ],
                     );
@@ -269,7 +269,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       if (index == users.length) {
                         return Center(child: TextButton(
                           onPressed: _loadingMore ? null : _loadMore,
-                          child: Text(_loadingMore ? 'Loading...' : 'Load more users'),
+                          child: Text(_loadingMore ? 'Đang tải...' : 'Xem thêm người dùng'),
                         ));
                       }
                       final user = users[index];
@@ -321,7 +321,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               IconButton(
                                 icon:
                                     const Icon(Icons.badge_outlined, size: 20),
-                                tooltip: 'Assign role',
+                                tooltip: 'Gán vai trò',
                                 onPressed: () => _showAssignRoleSheet(
                                     userId, fullName, phone),
                               ),

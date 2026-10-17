@@ -17,7 +17,7 @@ class FacilityAdminApiService {
 
   Exception _err(DioException e, String action) {
     final message = e.response?.data?['message'] ?? e.message;
-    return Exception('Failed to $action: $message');
+    return Exception('Không thể $action: $message');
   }
 
   Future<List<dynamic>> getFacilities({String? search}) async {
@@ -44,7 +44,7 @@ class FacilityAdminApiService {
       return PagedResult.fromApi(response.data,
           (item) => Map<String, dynamic>.from(item as Map));
     } on DioException catch (e) {
-      throw _err(e, 'load facilities');
+      throw _err(e, 'tải danh sách cơ sở');
     }
   }
 
@@ -54,7 +54,7 @@ class FacilityAdminApiService {
           await _dio.post(ApiEndpoints.facilitiesAdmin, data: body);
       return _unwrap(response.data);
     } on DioException catch (e) {
-      throw _err(e, 'create facility');
+      throw _err(e, 'tạo cơ sở');
     }
   }
 
@@ -65,7 +65,7 @@ class FacilityAdminApiService {
           await _dio.put(ApiEndpoints.facilityDetail(id), data: body);
       return _unwrap(response.data);
     } on DioException catch (e) {
-      throw _err(e, 'update facility');
+      throw _err(e, 'cập nhật cơ sở');
     }
   }
 
@@ -86,7 +86,7 @@ class FacilityAdminApiService {
       }
       return '';
     } on DioException catch (e) {
-      throw _err(e, 'upload image');
+      throw _err(e, 'tải ảnh lên');
     }
   }
 
@@ -124,7 +124,7 @@ class FacilityAdminApiService {
     try {
       await _dio.delete(ApiEndpoints.facilityDetail(id));
     } on DioException catch (e) {
-      throw _err(e, 'delete facility');
+      throw _err(e, 'xóa cơ sở');
     }
   }
 
@@ -146,7 +146,7 @@ class FacilityAdminApiService {
       if (data is Map && data['content'] is List) return data['content'];
       return [];
     } on DioException catch (e) {
-      throw _err(e, 'load facility policies');
+      throw _err(e, 'tải chính sách cơ sở');
     }
   }
 
@@ -158,7 +158,7 @@ class FacilityAdminApiService {
       return _unwrap(response.data);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
-      throw _err(e, 'load this facility\'s policy');
+      throw _err(e, 'tải chính sách của cơ sở này');
     }
   }
 
@@ -169,7 +169,7 @@ class FacilityAdminApiService {
           await _dio.post(ApiEndpoints.facilityPolicies, data: body);
       return _unwrap(response.data);
     } on DioException catch (e) {
-      throw _err(e, 'create facility policy');
+      throw _err(e, 'tạo chính sách cơ sở');
     }
   }
 
@@ -180,7 +180,7 @@ class FacilityAdminApiService {
           await _dio.put(ApiEndpoints.facilityPolicyDetail(id), data: body);
       return _unwrap(response.data);
     } on DioException catch (e) {
-      throw _err(e, 'update facility policy');
+      throw _err(e, 'cập nhật chính sách cơ sở');
     }
   }
 
@@ -196,7 +196,7 @@ class FacilityAdminApiService {
       );
       return _unwrap(response.data);
     } on DioException catch (e) {
-      throw _err(e, 'load the revenue report');
+      throw _err(e, 'tải báo cáo doanh thu');
     }
   }
 
@@ -205,7 +205,7 @@ class FacilityAdminApiService {
       final response = await _dio.get(ApiEndpoints.reportOccupancy);
       return _unwrap(response.data);
     } on DioException catch (e) {
-      throw _err(e, 'load the occupancy report');
+      throw _err(e, 'tải báo cáo lấp đầy');
     }
   }
 
@@ -224,12 +224,12 @@ class FacilityAdminApiService {
         },
         options: Options(
           responseType: ResponseType.plain,
-          headers: {'Accept': '*/*'},
+          headers: {'Tiếp nhận': '*/*'},
         ),
       );
       return response.data?.toString() ?? '';
     } on DioException catch (e) {
-      throw _err(e, 'export the report');
+      throw _err(e, 'xuất báo cáo');
     }
   }
 
@@ -248,7 +248,7 @@ class FacilityAdminApiService {
       );
       return _unwrap(response.data);
     } on DioException catch (e) {
-      throw _err(e, 'update the unit type price');
+      throw _err(e, 'cập nhật giá loại kho');
     }
   }
 
@@ -276,7 +276,7 @@ class FacilityAdminApiService {
       }
       return [];
     } on DioException catch (e) {
-      throw _err(e, 'load activity logs');
+      throw _err(e, 'tải nhật ký hoạt động');
     }
   }
 
@@ -294,7 +294,7 @@ class FacilityAdminApiService {
       }
       return [];
     } on DioException catch (e) {
-      throw _err(e, 'load login history');
+      throw _err(e, 'tải lịch sử đăng nhập');
     }
   }
 

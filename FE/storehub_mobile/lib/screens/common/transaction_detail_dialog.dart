@@ -25,7 +25,7 @@ class TransactionDetailDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(
       locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
-    final dateFormat = DateFormat('MMM d, yyyy • h:mm a');
+    final dateFormat = DateFormat('dd/MM/yyyy • HH:mm');
     final formattedDate = payment.paymentTime != null
         ? dateFormat.format(payment.paymentTime!)
         : 'N/A';
@@ -87,6 +87,15 @@ class TransactionDetailDialog extends StatelessWidget {
               ),
             ],
           ),
+          if (payment.status.toUpperCase() == 'PENDING') ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Giao dịch này chưa hoàn tất: khách chưa thanh toán xong trên VNPay '
+              'hoặc đã thoát giữa chừng. Hệ thống sẽ tự cập nhật khi VNPay xác nhận; '
+              'nếu quá hạn giữ chỗ, giao dịch sẽ chuyển sang "Thất bại".',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
           const SizedBox(height: 20),
 
           // Amount Card
@@ -149,7 +158,11 @@ class TransactionDetailDialog extends StatelessWidget {
                     _detailRow(
                       context,
                       label: 'Phương thức',
-                      value: payment.paymentMethod! == 'BANK_TRANSFER' ? 'VNPay' : payment.paymentMethod!,
+                      value: payment.paymentMethod! == 'BANK_TRANSFER'
+                          ? (payment.transactionId.startsWith('RF-')
+                              ? 'Chuyển khoản ngân hàng'
+                              : 'VNPay')
+                          : payment.paymentMethod!,
                     ),
                   ],
                   if (payment.bookingCode != null && payment.bookingCode!.isNotEmpty) ...[
@@ -181,7 +194,7 @@ class TransactionDetailDialog extends StatelessWidget {
                     _detailRow(
                       context,
                       label: 'Ngăn kho',
-                      value: 'Unit ${payment.unitCode}',
+                      value: 'Ngăn ${payment.unitCode}',
                     ),
                   ],
                   if (payment.note != null && payment.note!.isNotEmpty) ...[

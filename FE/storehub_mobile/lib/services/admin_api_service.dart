@@ -20,7 +20,7 @@ class AdminApiService {
       return 0;
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load user count: $message');
+      throw Exception('Không tải được số lượng người dùng: $message');
     }
   }
 
@@ -40,7 +40,7 @@ class AdminApiService {
       return (total: 0, active: 0);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load user count: $message');
+      throw Exception('Không tải được số lượng người dùng: $message');
     }
   }
 
@@ -66,7 +66,7 @@ class AdminApiService {
           (item) => Map<String, dynamic>.from(item as Map));
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load users: $message');
+      throw Exception('Không tải được người dùng: $message');
     }
   }
 
@@ -76,7 +76,7 @@ class AdminApiService {
       return _extractList(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load roles: $message');
+      throw Exception('Không tải được danh sách vai trò: $message');
     }
   }
 
@@ -101,7 +101,7 @@ class AdminApiService {
       await _dio.patch(ApiEndpoints.toggleUserActive(userId));
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to toggle user status: $message');
+      throw Exception('Không thể đổi trạng thái người dùng: $message');
     }
   }
 
@@ -119,7 +119,7 @@ class AdminApiService {
       }
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load permissions: $message');
+      throw Exception('Không tải được danh sách quyền: $message');
     }
   }
 
@@ -133,7 +133,7 @@ class AdminApiService {
       return [];
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load role permissions: $message');
+      throw Exception('Không tải được quyền của vai trò: $message');
     }
   }
 
@@ -149,7 +149,7 @@ class AdminApiService {
       );
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to update role permissions: $message');
+      throw Exception('Không thể cập nhật quyền của vai trò: $message');
     }
   }
 
@@ -158,7 +158,7 @@ class AdminApiService {
       await _dio.delete(ApiEndpoints.rolePermissionDetail(rolePermissionId));
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to revoke permission: $message');
+      throw Exception('Không thể thu hồi quyền: $message');
     }
   }
 
@@ -174,7 +174,7 @@ class AdminApiService {
       );
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to create role: $message');
+      throw Exception('Không thể tạo vai trò: $message');
     }
   }
 
@@ -193,7 +193,7 @@ class AdminApiService {
       );
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to assign role: $message');
+      throw Exception('Không thể gán vai trò: $message');
     }
   }
 }

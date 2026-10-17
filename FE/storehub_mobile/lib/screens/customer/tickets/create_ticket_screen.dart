@@ -20,12 +20,12 @@ class CreateTicketScreen extends StatefulWidget {
 }
 
 const Map<String, _CategoryInfo> _kCategories = {
-  'PIN_CODE': _CategoryInfo('Access PIN issue', Icons.pin_outlined),
-  'LOCK_ISSUE': _CategoryInfo('Lock / door issue', Icons.lock_outline),
+  'PIN_CODE': _CategoryInfo('Sự cố mã PIN', Icons.pin_outlined),
+  'LOCK_ISSUE': _CategoryInfo('Sự cố khóa / cửa', Icons.lock_outline),
   'FACILITY_DAMAGE':
-      _CategoryInfo('Facility damage', Icons.report_problem_outlined),
-  'PAYMENT_ISSUE': _CategoryInfo('Payment issue', Icons.payments_outlined),
-  'OTHER': _CategoryInfo('Other', Icons.more_horiz),
+      _CategoryInfo('Hư hỏng cơ sở', Icons.report_problem_outlined),
+  'PAYMENT_ISSUE': _CategoryInfo('Sự cố thanh toán', Icons.payments_outlined),
+  'OTHER': _CategoryInfo('Khác', Icons.more_horiz),
 };
 
 class _CategoryInfo {
@@ -73,7 +73,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           .whereType<Map>()
           .map((u) {
             final bookingId = u['bookingId']?.toString() ?? '';
-            final unitCode = u['unitCode']?.toString() ?? 'Unit';
+            final unitCode = u['unitCode']?.toString() ?? 'Ngăn kho';
             final facility = u['facilityName']?.toString() ?? '';
             return {
               'bookingId': bookingId,
@@ -102,7 +102,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
     if (_selectedBookingId == null || _selectedBookingId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select the storage unit this issue is about.'),
+          content: Text('Vui lòng chọn ngăn kho liên quan đến sự cố.'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -132,7 +132,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Support ticket submitted successfully!'),
+          content: Text('Đã gửi yêu cầu hỗ trợ!'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -158,7 +158,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(title: const Text('Report an Issue')),
+      appBar: AppBar(title: const Text('Báo sự cố')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -167,12 +167,12 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Related unit',
+                const Text('Ngăn kho liên quan',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 4),
                 const Text(
-                  'Select the rented unit related to this issue',
+                  'Chọn ngăn kho đang thuê liên quan đến sự cố',
                   style: TextStyle(
                       fontSize: 12, color: AppColors.onSurfaceVariant),
                 ),
@@ -195,7 +195,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'This ticket will reference: $_selectedUnitLabel',
+                            'Yêu cầu sẽ gắn với: $_selectedUnitLabel',
                             style: const TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.w600),
                           ),
@@ -206,7 +206,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 ],
                 const SizedBox(height: 20),
 
-                const Text('Issue category',
+                const Text('Loại sự cố',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
@@ -232,7 +232,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                const Text('Title',
+                const Text('Tiêu đề',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
@@ -240,18 +240,18 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                   controller: _titleController,
                   maxLength: 255,
                   decoration: const InputDecoration(
-                    hintText: 'Short summary, e.g. "PIN code not working"',
-                    helperText: 'Required, up to 255 characters',
+                    hintText: 'Tóm tắt ngắn, VD: "Mã PIN không hoạt động"',
+                    helperText: 'Bắt buộc, tối đa 255 ký tự',
                   ),
                   validator: (value) {
                     final v = value?.trim() ?? '';
-                    if (v.isEmpty) return 'Title is required';
+                    if (v.isEmpty) return 'Vui lòng nhập tiêu đề';
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
 
-                const Text('Description',
+                const Text('Mô tả',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
@@ -260,25 +260,25 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                   maxLines: 5,
                   decoration: const InputDecoration(
                     hintText:
-                        'Describe the issue in detail, including when it started...',
+                        'Mô tả chi tiết sự cố, bao gồm thời điểm bắt đầu...',
                     helperText:
-                        'Required - the more detail, the faster we can help',
+                        'Bắt buộc - càng chi tiết, chúng tôi xử lý càng nhanh',
                     alignLabelWithHint: true,
                   ),
                   validator: (value) {
                     final v = value?.trim() ?? '';
-                    if (v.isEmpty) return 'Description is required';
+                    if (v.isEmpty) return 'Vui lòng nhập mô tả';
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
 
-                const Text('Photo evidence (optional)',
+                const Text('Ảnh bằng chứng (không bắt buộc)',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 4),
                 const Text(
-                  'Attach photos of water leaks, cracked walls, broken locks, etc. to help staff prepare the right tools to resolve quickly.',
+                  'Đính kèm ảnh (dột nước, nứt tường, hỏng khóa...) để nhân viên chuẩn bị dụng cụ và xử lý nhanh hơn.',
                   style: TextStyle(
                       fontSize: 12, color: AppColors.onSurfaceVariant),
                 ),
@@ -301,7 +301,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                               strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.send),
-                  label: Text(_isLoading ? 'Submitting...' : 'Submit Ticket'),
+                  label: Text(_isLoading ? 'Đang gửi...' : 'Gửi yêu cầu'),
                 ),
               ],
             ),
@@ -326,7 +326,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
-          "Couldn't load your units: $_unitsError",
+          "Không tải được kho của bạn: $_unitsError",
           style: const TextStyle(color: AppColors.error, fontSize: 12),
         ),
       );
@@ -340,7 +340,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Text(
-          'You need a booked storage unit to submit a support ticket.',
+          'Bạn cần có kho đang thuê để gửi yêu cầu hỗ trợ.',
           style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
         ),
       );
@@ -359,7 +359,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           borderRadius: BorderRadius.circular(12),
           hint: const Padding(
             padding: EdgeInsets.symmetric(vertical: 14),
-            child: Text('Select the unit this issue is about'),
+            child: Text('Chọn ngăn kho liên quan đến sự cố'),
           ),
           items: [
             ..._units.map(
@@ -367,7 +367,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 value: u['bookingId'],
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(u['label'] ?? 'Unit'),
+                  child: Text(u['label'] ?? 'Ngăn kho'),
                 ),
               ),
             ),

@@ -16,15 +16,15 @@ import java.util.List;
 @AllArgsConstructor
 public class HandoverRequest {
 
-    @NotBlank(message = "Unit condition is required")
+    @NotBlank(message = "Vui lòng chọn tình trạng ngăn kho")
     private String unitCondition;
 
-    @NotBlank(message = "Lock condition is required")
+    @NotBlank(message = "Vui lòng chọn tình trạng khóa")
     private String lockCondition;
 
     private String notes;
 
-    @DecimalMin(value = "0.0", message = "Damage fee cannot be negative")
+    @DecimalMin(value = "0.0", message = "Phí hư hại không được âm")
     private BigDecimal damageFee;
 
     private String damageReason;

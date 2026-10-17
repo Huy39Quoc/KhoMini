@@ -56,7 +56,7 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
       });
       if (found.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('This booking is no longer payable.')),
+          const SnackBar(content: Text('Đơn này không còn thanh toán được.')),
         );
         return;
       }
@@ -64,7 +64,7 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
       final startDate = DateTime.tryParse(item['startDate']?.toString() ?? '');
       final id = item['id']?.toString() ?? '';
       if (startDate == null || id.isEmpty) {
-        throw const FormatException('Incomplete booking details');
+        throw const FormatException('Thông tin đơn chưa đầy đủ');
       }
       await Navigator.push<void>(
         context,
@@ -103,9 +103,9 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
         }
         if (snapshot.hasError) {
           return ListTile(
-            title: const Text('Could not load pending bookings'),
+            title: const Text('Không tải được các đơn đang chờ'),
             trailing:
-                TextButton(onPressed: _reload, child: const Text('Retry')),
+                TextButton(onPressed: _reload, child: const Text('Thử lại')),
           );
         }
         final bookings = snapshot.data ?? [];
@@ -113,14 +113,14 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Pending reservations',
+            const Text('Đơn đang chờ thanh toán',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             for (final booking in bookings)
               Card(
                 child: ListTile(
                   title: Text(booking['unitTypeName']?.toString() ??
                       booking['bookingCode']?.toString() ??
-                      'Reservation'),
+                      'Đặt kho'),
                   subtitle: Text(
                     '${booking['facilityName'] ?? ''} • ${booking['bookingCode'] ?? ''}',
                   ),

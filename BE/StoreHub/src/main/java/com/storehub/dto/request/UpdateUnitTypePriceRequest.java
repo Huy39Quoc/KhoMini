@@ -13,11 +13,11 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class UpdateUnitTypePriceRequest {
 
-    @NotNull(message = "Base price per month is required")
-    @DecimalMin(value = "0.01", message = "Base price must be greater than 0")
+    @NotNull(message = "Vui lòng nhập giá thuê theo tháng")
+    @DecimalMin(value = "0.01", message = "Giá cơ bản phải lớn hơn 0")
     private BigDecimal basePricePerMonth;
 
-    @NotNull(message = "Deposit amount is required")
-    @DecimalMin(value = "0.00", message = "Deposit amount must not be negative")
+    @NotNull(message = "Vui lòng nhập tiền cọc")
+    @DecimalMin(value = "0.00", message = "Tiền cọc không được âm")
     private BigDecimal depositAmount;
 }

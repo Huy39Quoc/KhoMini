@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/utils/vi_labels.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/facility_management_models.dart';
 import '../../models/staff_ticket_model.dart';
@@ -96,7 +97,7 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
     if (!mounted) return;
 
     if (staff.isEmpty) {
-      _toast('No staff are assigned to this facility yet.', error: true);
+      _toast('Cơ sở này chưa có nhân viên.', error: true);
       return;
     }
 
@@ -114,7 +115,7 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                 child: Text(
-                  'Assign ${ticket.ticketCode} to',
+                  'Giao ${ticket.ticketCode} cho',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -148,7 +149,7 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
         ticketId: ticket.id,
         staffId: selected.id,
       );
-      _toast('Ticket assigned to ${selected.fullName}');
+      _toast('Đã giao yêu cầu cho ${selected.fullName}');
       _reload();
     } catch (e) {
       _toast(e.toString().replaceFirst('Exception: ', ''), error: true);
@@ -174,7 +175,7 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const AppLoadingState(message: 'Loading tickets...');
+          return const AppLoadingState(message: 'Đang tải yêu cầu hỗ trợ...');
         }
 
         if (snapshot.hasError) {
@@ -195,8 +196,8 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
                   children: const [
                     AppEmptyState(
                       icon: Icons.support_agent_outlined,
-                      title: 'No support tickets',
-                      message: 'Customer tickets for this facility appear here.',
+                      title: 'Chưa có yêu cầu hỗ trợ',
+                      message: 'Yêu cầu hỗ trợ của khách tại cơ sở sẽ hiển thị tại đây.',
                     ),
                   ],
                 )
@@ -208,7 +209,7 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
                     if (index == tickets.length) {
                       return Center(child: TextButton(
                         onPressed: _loadingMore ? null : _loadMore,
-                        child: Text(_loadingMore ? 'Loading...' : 'Load more tickets'),
+                        child: Text(_loadingMore ? 'Đang tải...' : 'Xem thêm yêu cầu'),
                       ));
                     }
                     final ticket = tickets[index];
@@ -244,7 +245,7 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
-                                    ticket.status.replaceAll('_', ' '),
+                                    ViLabels.ticketStatus(ticket.status),
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
@@ -275,7 +276,7 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
                             if (ticket.customerName.isNotEmpty) ...[
                               const SizedBox(height: 6),
                               Text(
-                                'Customer: ${ticket.customerName}'
+                                'Khách: ${ticket.customerName}'
                                 '${ticket.unitCode.isNotEmpty ? ' • Unit ${ticket.unitCode}' : ''}',
                                 style: const TextStyle(fontSize: 12),
                               ),
@@ -283,8 +284,8 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
                             const SizedBox(height: 6),
                             Text(
                               ticket.assignedStaffName.isEmpty
-                                  ? 'Unassigned'
-                                  : 'Assigned to ${ticket.assignedStaffName}',
+                                  ? 'Chưa phân công'
+                                  : 'Giao cho ${ticket.assignedStaffName}',
                               style: const TextStyle(fontSize: 12),
                             ),
                             if (!closed) ...[
@@ -299,8 +300,8 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
                                   ),
                                   label: Text(
                                     ticket.assignedStaffName.isEmpty
-                                        ? 'Assign staff'
-                                        : 'Reassign',
+                                        ? 'Thêm nhân viên'
+                                        : 'Phân công lại',
                                   ),
                                 ),
                               ),

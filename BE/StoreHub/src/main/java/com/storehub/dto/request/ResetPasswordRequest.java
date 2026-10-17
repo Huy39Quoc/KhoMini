@@ -11,13 +11,13 @@ import lombok.*;
 @Builder
 public class ResetPasswordRequest {
 
-    @NotBlank(message = "Token is required")
+    @NotBlank(message = "Thiếu mã xác thực")
     private String token;
 
-    @NotBlank(message = "New password is required")
-    @Size(min = 5, message = "New password must be at least 5 characters")
+    @NotBlank(message = "Vui lòng nhập mật khẩu mới")
+    @Size(min = 5, message = "Mật khẩu mới tối thiểu 5 ký tự")
     private String newPassword;
 
-    @NotBlank(message = "Confirm password is required")
+    @NotBlank(message = "Vui lòng nhập mật khẩu xác nhận")
     private String confirmPassword;
 }

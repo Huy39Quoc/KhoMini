@@ -547,7 +547,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text('Smart Key • Unit ${widget.unitNumber}'),
+        title: Text('Khóa thông minh • Ngăn ${widget.unitNumber}'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],

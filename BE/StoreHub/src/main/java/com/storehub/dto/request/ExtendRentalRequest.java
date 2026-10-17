@@ -12,9 +12,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ExtendRentalRequest {
 
-    @NotNull(message = "Number of extension months cannot be null")
-    @Min(value = 1, message = "Extension period must be at least 1 month")
-    @Max(value = 36, message = "Extension period cannot exceed 36 months")
+    @NotNull(message = "Vui lòng nhập số tháng gia hạn")
+    @Min(value = 1, message = "Thời gian gia hạn tối thiểu 1 tháng")
+    @Max(value = 36, message = "Thời gian gia hạn tối đa 36 tháng")
     private Integer extraMonths;
 
     private String paymentMethod;

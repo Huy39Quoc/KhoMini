@@ -600,7 +600,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
-                "Couldn't load users: ${e.toString().replaceAll('Exception: ', '')}")),
+                "Không tải được người dùng: ${e.toString().replaceAll('Exception: ', '')}")),
       );
       return;
     }
@@ -720,7 +720,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                          '$name assigned as Facility Manager'),
+                                          'Đã gán $name làm Quản lý cơ sở'),
                                       backgroundColor: AppColors.success,
                                     ),
                                   );
@@ -1337,7 +1337,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
           _section(
             icon: Icons.gavel_outlined,
             title: 'Điều khoản & hàng cấm',
-            subtitle: 'Configured dynamically for customer agreement.',
+            subtitle: 'Được cấu hình theo chính sách của cơ sở.',
             children: [
               _policyField(_termsVersionController, 'Phiên bản điều khoản',
                   hint: 'VD: v2026.1'),

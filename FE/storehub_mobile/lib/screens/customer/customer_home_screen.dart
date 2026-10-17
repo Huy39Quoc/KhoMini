@@ -39,12 +39,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
+        title: const Text('Đăng xuất'),
+        content: const Text('Bạn có chắc muốn đăng xuất?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: const Text('Hủy'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -52,7 +52,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sign Out'),
+            child: const Text('Đăng xuất'),
           ),
         ],
       ),
@@ -80,13 +80,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         type: BottomNavigationBarType.fixed,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Trang chủ'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.inventory_2_outlined), label: 'My Units'),
+              icon: Icon(Icons.inventory_2_outlined), label: 'Kho của tôi'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.explore_outlined), label: 'Explore'),
+              icon: Icon(Icons.explore_outlined), label: 'Khám phá'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.support_agent_outlined), label: 'Support'),
+              icon: Icon(Icons.support_agent_outlined), label: 'Hỗ trợ'),
         ],
       ),
     );
@@ -107,7 +107,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Welcome back,',
+                  const Text('Chào mừng trở lại,',
                       style: TextStyle(color: Colors.grey, fontSize: 14)),
                   Text(displayName,
                       style: const TextStyle(
@@ -132,7 +132,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    tooltip: 'Sign Out',
+                    tooltip: 'Đăng xuất',
                     icon: const Icon(Icons.logout, color: Colors.redAccent),
                     onPressed: _logout,
                   ),
@@ -150,19 +150,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('24/7 Self-Storage Access',
+                const Text('Ra vào kho tự phục vụ 24/7',
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 const Text(
-                    'Access your storage unit and facility gates with a digital PIN code.',
+                    'Mở ngăn kho và cổng cơ sở bằng mã PIN điện tử.',
                     style: TextStyle(color: Colors.white70, fontSize: 13)),
                 const SizedBox(height: 14),
                 ElevatedButton(
                   onPressed: () => setState(() => _currentIndex = 1),
-                  child: const Text('View Smart Access Keys'),
+                  child: const Text('Xem khóa thông minh'),
                 )
               ],
             ),
@@ -170,22 +170,22 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           const SizedBox(height: 24),
           const PendingBookingsSection(),
           const SizedBox(height: 16),
-          const Text('Quick Actions',
+          const Text('Thao tác nhanh',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Row(
             children: [
               _buildActionCard(
-                  'My Units',
+                  'Kho của tôi',
                   Icons.vpn_key,
                   AppColors.primaryContainer,
                   () => setState(() => _currentIndex = 1)),
               const SizedBox(width: 12),
-              _buildActionCard('Reserve Unit', Icons.add_circle_outline,
+              _buildActionCard('Đặt giữ kho', Icons.add_circle_outline,
                   AppColors.secondary, () => setState(() => _currentIndex = 2)),
               const SizedBox(width: 12),
               _buildActionCard(
-                  'Get Support',
+                  'Nhận hỗ trợ',
                   Icons.headset_mic_outlined,
                   AppColors.secondaryContainer,
                   () => setState(() => _currentIndex = 3)),
@@ -203,9 +203,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 child: const Icon(Icons.receipt_long_outlined,
                     color: AppColors.primaryContainer),
               ),
-              title: const Text('Transaction History',
+              title: const Text('Lịch sử giao dịch',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: const Text('View payment receipts and transaction records',
+              subtitle: const Text('Xem biên lai và lịch sử giao dịch',
                   style: TextStyle(fontSize: 12)),
               trailing: const Icon(Icons.arrow_forward_ios, size: 14),
               onTap: () {

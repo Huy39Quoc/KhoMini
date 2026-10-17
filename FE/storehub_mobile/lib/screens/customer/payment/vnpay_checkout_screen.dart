@@ -61,7 +61,7 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
   void initState() {
     super.initState();
     if (!_sandboxMode && Uri.tryParse(widget.paymentUrl)?.host == 'sandbox.vnpayment.vn') {
-      throw StateError('Release payment URL points to VNPay sandbox');
+      throw StateError('Đường dẫn thanh toán bản phát hành đang trỏ tới VNPay sandbox');
     }
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)

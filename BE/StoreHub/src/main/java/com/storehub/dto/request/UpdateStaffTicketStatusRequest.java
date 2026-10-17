@@ -8,9 +8,9 @@ import lombok.Data;
 @Data
 public class UpdateStaffTicketStatusRequest {
 
-    @NotNull(message = "Ticket status is required")
+    @NotNull(message = "Vui lòng chọn trạng thái yêu cầu")
     private TicketStatus status;
 
-    @Size(max = 2000, message = "Resolution note must not exceed 2000 characters")
+    @Size(max = 2000, message = "Ghi chú xử lý tối đa 2000 ký tự")
     private String resolutionNote;
 }

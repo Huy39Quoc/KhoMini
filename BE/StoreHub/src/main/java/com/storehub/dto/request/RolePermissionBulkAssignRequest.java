@@ -13,9 +13,9 @@ import java.util.UUID;
 @Builder
 public class RolePermissionBulkAssignRequest {
 
-    @NotNull(message = "Role id is required")
+    @NotNull(message = "Vui lòng chọn vai trò")
     private UUID roleId;
 
-    @NotEmpty(message = "Permission ids list cannot be empty")
+    @NotEmpty(message = "Danh sách quyền không được để trống")
     private List<UUID> permissionIds;
 }

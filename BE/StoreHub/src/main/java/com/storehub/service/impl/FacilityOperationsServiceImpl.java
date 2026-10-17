@@ -637,6 +637,7 @@ public class FacilityOperationsServiceImpl
                 .assignedStaffId(assigned != null ? assigned.getId() : null)
                 .assignedStaffName(assigned != null ? assigned.getFullName() : null)
                 .bookingStatus(booking.getStatus())
+                .unitAssignmentConfirmed(Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()))
                 .build();
     }
 

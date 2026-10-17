@@ -8,7 +8,7 @@ class PagedResult<T> {
   factory PagedResult.fromApi(dynamic body, T Function(dynamic) parse) {
     final data = body is Map ? body['data'] : null;
     if (data is! Map || data['content'] is! List || data['last'] is! bool) {
-      throw const FormatException('Invalid paginated response');
+      throw const FormatException('Dữ liệu phân trang không hợp lệ');
     }
     return PagedResult(
       content: (data['content'] as List).map(parse).toList(),

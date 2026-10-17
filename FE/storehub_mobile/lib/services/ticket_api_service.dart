@@ -14,7 +14,7 @@ class TicketApiService {
           (item) => Map<String, dynamic>.from(item as Map));
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load tickets: $message');
+      throw Exception('Không tải được yêu cầu hỗ trợ: $message');
     }
   }
 
@@ -39,7 +39,7 @@ class TicketApiService {
       return [];
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to upload photos: $message');
+      throw Exception('Không thể tải ảnh lên: $message');
     }
   }
 
@@ -63,7 +63,7 @@ class TicketApiService {
       );
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to create ticket: $message');
+      throw Exception('Không thể gửi yêu cầu hỗ trợ: $message');
     }
   }
 
@@ -79,7 +79,7 @@ class TicketApiService {
           : Map<String, dynamic>.from(data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load ticket detail: $message');
+      throw Exception('Không tải được chi tiết yêu cầu: $message');
     }
   }
 }
