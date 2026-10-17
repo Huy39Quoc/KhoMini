@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/vi_labels.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/utils/safe_dispose.dart';
@@ -13,6 +14,8 @@ class RefundReviewScreen extends StatefulWidget {
 }
 
 class _RefundReviewScreenState extends State<RefundReviewScreen> {
+  String _statusLabel(String status) => ViLabels.refund(status);
+
   final _api = FacilityOpsApiService();
   late Future<Map<String, dynamic>> _requests;
   int _page = 0;
@@ -39,25 +42,25 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
       final submitted = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Original VNPay payment'),
+          title: const Text('Giao dịch VNPay gốc'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Text('Copy these values from the original payment in VNPay. '
-                  'Do not enter the refund request date.'),
+              const Text('Sao chép các giá trị này từ giao dịch gốc trên VNPay. '
+                  'Không nhập ngày yêu cầu hoàn tiền.'),
               TextField(controller: date,
-                  decoration: const InputDecoration(labelText: 'Payment create date (yyyyMMddHHmmss)')),
+                  decoration: const InputDecoration(labelText: 'Ngày tạo giao dịch (yyyyMMddHHmmss)')),
               TextField(controller: transactionNo,
-                  decoration: const InputDecoration(labelText: 'VNPay transaction number (optional)')),
+                  decoration: const InputDecoration(labelText: 'Mã giao dịch VNPay (không bắt buộc)')),
               TextField(controller: amount,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Original payment amount (VND)')),
+                  decoration: const InputDecoration(labelText: 'Số tiền giao dịch gốc (VND)')),
             ]),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+                child: const Text('Hủy')),
             FilledButton(onPressed: () => Navigator.pop(context, true),
-                child: const Text('Submit')),
+                child: const Text('Gửi')),
           ],
         ),
       );
@@ -65,7 +68,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
       final value = num.tryParse(amount.text.trim());
       if (!RegExp(r'^\d{14}$').hasMatch(date.text.trim()) || value == null
           || value < (num.tryParse('${refund['amount']}') ?? 0)) {
-        throw const FormatException('Check original payment date and amount.');
+        throw const FormatException('Kiểm tra lại ngày và số tiền của giao dịch gốc.');
       }
       await _api.provideRefundDetails(widget.facilityId, '${refund['id']}',
           date.text.trim(), transactionNo.text.trim(), value);
@@ -219,7 +222,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Refund requests'),
+        appBar: AppBar(title: const Text('Yêu cầu hoàn tiền'),
             actions: [IconButton(onPressed: () => _reload(resetPage: true),
                 icon: const Icon(Icons.refresh))]),
         body: FutureBuilder<Map<String, dynamic>>(
@@ -233,7 +236,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
             final totalPages = (result['totalPages'] as num?)?.toInt() ?? 0;
             final total = (result['totalElements'] as num?)?.toInt() ?? 0;
             if (requests.isEmpty && total == 0) {
-              return const Center(child: Text('No refunds yet.'));
+              return const Center(child: Text('Chưa có yêu cầu hoàn tiền.'));
             }
             if (requests.isEmpty && _page > 0) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -249,7 +252,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
                     padding: const EdgeInsets.all(12),
                     child: Row(children: [
                       IconButton(
-                        tooltip: 'Previous page',
+                        tooltip: 'Trang trước',
                         onPressed: _page > 0 ? () {
                           setState(() {
                             _page--;
@@ -258,10 +261,10 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
                         } : null,
                         icon: const Icon(Icons.chevron_left),
                       ),
-                      Expanded(child: Text('Page ${_page + 1} / $totalPages • $total requests',
+                      Expanded(child: Text('Trang ${_page + 1} / $totalPages • $total yêu cầu',
                           textAlign: TextAlign.center)),
                       IconButton(
-                        tooltip: 'Next page',
+                        tooltip: 'Trang sau',
                         onPressed: _page + 1 < totalPages ? () {
                           setState(() {
                             _page++;
@@ -285,8 +288,8 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
                           '${_money.format(num.tryParse('${refund['amount']}') ?? 0)}',
                           style: const TextStyle(fontWeight: FontWeight.bold)),
                       if (refund['originalTransactionId'] != null)
-                        Text('Original transaction: ${refund['originalTransactionId']}'),
-                      Text('Status: ${status.replaceAll('_', ' ')}'),
+                        Text('Giao dịch gốc: ${refund['originalTransactionId']}'),
+                      Text('Trạng thái: ${_statusLabel(status)}'),
                       if (damageDeduction > 0)
                         Text(
                           'Khấu trừ hư hại: -${_money.format(damageDeduction)}',
@@ -342,7 +345,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
                               style: TextStyle(color: Colors.red)),
                       ],
                       if (refund['gatewayResponseCode'] != null)
-                        Text('VNPay response: ${refund['gatewayResponseCode']}'),
+                        Text('Phản hồi VNPay: ${refund['gatewayResponseCode']}'),
                       if (status == 'AWAITING_BANK_TRANSFER')
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
@@ -354,17 +357,17 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
                         ),
                       if (status == 'MISSING_METADATA' || status == 'REJECTED')
                         TextButton(onPressed: () => _provideDetails(refund),
-                            child: const Text('Enter/correct original payment details')),
+                            child: const Text('Nhập/sửa thông tin giao dịch gốc')),
                       if (status == 'REJECTED')
                         TextButton(onPressed: () => _retry(refund),
-                            child: const Text('Retry rejected request')),
+                            child: const Text('Gửi lại yêu cầu bị từ chối')),
                       if (status == 'NEEDS_REVIEW')
-                        const Text('Check this request in the VNPay merchant portal '
-                            'before taking further action.'),
+                        const Text('Kiểm tra yêu cầu này trên cổng merchant của VNPay '
+                            'trước khi thực hiện bước tiếp theo.'),
                       if (status == 'NEEDS_REVIEW' || status == 'SENDING'
                           || status == 'AWAITING_CONFIRMATION')
                         TextButton(onPressed: () => _reconcile(refund),
-                            child: const Text('Check with VNPay')),
+                            child: const Text('Kiểm tra với VNPay')),
                     ]),
                   ),
                 );

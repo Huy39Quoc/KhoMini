@@ -70,7 +70,7 @@ class _GatePassVerifyScreenState extends State<GatePassVerifyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Gate QR verification')),
+      appBar: AppBar(title: const Text('Kiểm tra mã QR cổng')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

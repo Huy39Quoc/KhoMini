@@ -46,4 +46,7 @@ public class DailyScheduleResponse {
     private String assignedStaffName;
 
     private BookingStatus bookingStatus;
+
+    // Quản lý cơ sở đã xác nhận ngăn kho vật lý hay chưa (bắt buộc trước khi bàn giao).
+    private Boolean unitAssignmentConfirmed;
 }

@@ -56,8 +56,8 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
       builder: (ctx) => AlertDialog(
         title: const Text('Duyệt niêm phong?'),
         content: Text(
-            'Approve sealing of unit ${item.unitCode} for booking $code. '
-            'The customer is overdue and access has been disabled.'),
+            'Duyệt niêm phong ngăn ${item.unitCode} của đơn $code. '
+            'Khách đã quá hạn và quyền truy cập đã bị khóa.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -257,6 +257,24 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
               ' • Tổng tiền thuê ${_currency.format(item.totalRentalFee)}',
               style: const TextStyle(fontSize: 12),
             ),
+            if (status == 'CONFIRMED') ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Đang chờ nhân viên bàn giao kho cho khách. Hợp đồng chuyển '
+                  'sang "Đang thuê" sau khi nhân viên hoàn tất biên bản bàn giao '
+                  '(từ ngày bắt đầu thuê). Nếu chưa xác nhận ngăn kho hoặc chưa '
+                  'phân công nhân viên, hãy dùng thanh "Quy trình bàn giao kho" ở trên.',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ),
+            ],
             if (pendingExtension != null) ...[
               const SizedBox(height: 4),
               Text(
@@ -271,8 +289,8 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
             if (overdue) ...[
               const SizedBox(height: 8),
               Text(
-                'Overdue ${item.overdueDays} day(s) • '
-                'late fee accrued ${_currency.format(item.overdueFeeAccrued)}',
+                'Quá hạn ${item.overdueDays} ngày • '
+                'phí trễ hạn ${_currency.format(item.overdueFeeAccrued)}',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -285,11 +303,11 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
                   spacing: 6,
                   children: [
                     if (accessDisabled)
-                      _chip('ACCESS DISABLED', AppColors.error),
+                      _chip('ĐÃ KHÓA TRUY CẬP', AppColors.error),
                     if (sealingPending && !sealingApproved)
-                      _chip('SEALING PENDING', AppColors.error),
+                      _chip('CHỜ DUYỆT NIÊM PHONG', AppColors.error),
                     if (sealingApproved)
-                      _chip('SEALING APPROVED', AppColors.success),
+                      _chip('ĐÃ DUYỆT NIÊM PHONG', AppColors.success),
                   ],
                 ),
               ],

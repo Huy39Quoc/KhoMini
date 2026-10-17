@@ -83,12 +83,12 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(title: const Text('Unit Prices')),
+      appBar: AppBar(title: const Text('Giá loại kho')),
       body: FutureBuilder<List<dynamic>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const AppLoadingState(message: 'Loading unit types...');
+            return const AppLoadingState(message: 'Đang tải loại kho...');
           }
 
           if (snapshot.hasError) {
@@ -107,8 +107,8 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
           if (items.isEmpty) {
             return const AppEmptyState(
               icon: Icons.price_change_outlined,
-              title: 'No unit types',
-              message: 'No unit types are defined yet.',
+              title: 'Chưa có loại kho',
+              message: 'Chưa có loại kho nào.',
             );
           }
 
@@ -139,8 +139,8 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
                     ),
                     subtitle: Text(
                       '${item['dimensions'] ?? ''}\n'
-                      'Rent ${_currency.format(_num(item['basePricePerMonth']))}/month'
-                      ' • Deposit ${_currency.format(_num(item['depositAmount']))}',
+                      'Thuê ${_currency.format(_num(item['basePricePerMonth']))}/tháng'
+                      ' • Cọc ${_currency.format(_num(item['depositAmount']))}',
                       style: const TextStyle(fontSize: 12),
                     ),
                     isThreeLine: true,

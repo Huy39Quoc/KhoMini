@@ -13,23 +13,23 @@ import java.util.UUID;
 @Builder
 public class FacilityUpdateRequest {
 
-    @Size(min = 2, max = 150, message = "Facility name must be between 2 and 150 characters")
+    @Size(min = 2, max = 150, message = "Tên cơ sở phải từ 2 đến 150 ký tự")
     private String name;
 
-    @Size(min = 2, max = 30, message = "Facility code must be between 2 and 30 characters")
+    @Size(min = 2, max = 30, message = "Mã cơ sở phải từ 2 đến 30 ký tự")
     private String code;
 
-    @Size(max = 255, message = "Address must not exceed 255 characters")
+    @Size(max = 255, message = "Địa chỉ tối đa 255 ký tự")
     private String address;
 
-    @Size(max = 50, message = "City must not exceed 50 characters")
+    @Size(max = 50, message = "Thành phố tối đa 50 ký tự")
     private String city;
 
-    @Size(max = 20, message = "Contact phone must not exceed 20 characters")
+    @Size(max = 20, message = "Số điện thoại liên hệ tối đa 20 ký tự")
     private String contactPhone;
 
-    @Email(message = "Email must be valid")
-    @Size(max = 150, message = "Email must not exceed 150 characters")
+    @Email(message = "Email không hợp lệ")
+    @Size(max = 150, message = "Email tối đa 150 ký tự")
     private String email;
 
     private UUID managerId;

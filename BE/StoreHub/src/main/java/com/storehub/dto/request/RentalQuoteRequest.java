@@ -25,12 +25,12 @@ public class RentalQuoteRequest {
     // tính theo % chính sách của cơ sở (khớp với số tiền thu thực tế ở PaymentService).
     private UUID facilityId;
 
-    @NotNull(message = "Start date is required")
-    @FutureOrPresent(message = "Start date must be today or in the future")
+    @NotNull(message = "Vui lòng chọn ngày bắt đầu")
+    @FutureOrPresent(message = "Ngày bắt đầu phải từ hôm nay trở đi")
     private LocalDate startDate;
 
-    @NotNull(message = "Rental months is required")
-    @Min(value = 1, message = "Rental period must be at least 1 month")
-    @Max(value = 36, message = "Rental period cannot exceed 36 months")
+    @NotNull(message = "Vui lòng chọn số tháng thuê")
+    @Min(value = 1, message = "Thời gian thuê tối thiểu 1 tháng")
+    @Max(value = 36, message = "Thời gian thuê tối đa 36 tháng")
     private Integer rentalMonths;
 }

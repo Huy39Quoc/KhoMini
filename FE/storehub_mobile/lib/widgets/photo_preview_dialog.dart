@@ -41,7 +41,7 @@ void showPhotoPreview(BuildContext context, String imageUrl, {String? title}) {
                     children: [
                       Icon(Icons.broken_image, color: Colors.white70, size: 48),
                       SizedBox(height: 8),
-                      Text('Could not load image',
+                      Text('Không tải được ảnh',
                           style: TextStyle(color: Colors.white70)),
                     ],
                   ),

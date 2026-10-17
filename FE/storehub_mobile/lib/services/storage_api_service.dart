@@ -22,7 +22,7 @@ class StorageApiService {
       return [];
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load rented units: $message');
+      throw Exception('Không tải được kho đang thuê: $message');
     }
   }
 
@@ -35,7 +35,7 @@ class StorageApiService {
           : <dynamic>[];
     } on DioException catch (e) {
       final body = e.response?.data;
-      throw Exception('Failed to load bookings awaiting handover: '
+      throw Exception('Không tải được các đơn chờ nhận kho: '
           '${body is Map ? body['message'] : e.message}');
     }
   }
@@ -46,7 +46,7 @@ class StorageApiService {
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final body = e.response?.data;
-      throw Exception('Could not issue gate QR: '
+      throw Exception('Không thể tạo mã QR cổng: '
           '${body is Map ? body['message'] : e.message}');
     }
   }
@@ -58,7 +58,7 @@ class StorageApiService {
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to get smart access: $message');
+      throw Exception('Không lấy được thông tin khóa thông minh: $message');
     }
   }
 
@@ -127,7 +127,7 @@ class StorageApiService {
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to lock unit: $message');
+      throw Exception('Không thể khóa ngăn kho: $message');
     }
   }
 
@@ -142,7 +142,7 @@ class StorageApiService {
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to extend rental: $message');
+      throw Exception('Không thể gia hạn: $message');
     }
   }
 
@@ -172,7 +172,7 @@ class StorageApiService {
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to checkout rental: $message');
+      throw Exception('Không thể gửi yêu cầu trả kho: $message');
     }
   }
 
@@ -185,7 +185,7 @@ class StorageApiService {
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load pending extension payment: $message');
+      throw Exception('Không tải được khoản gia hạn đang chờ: $message');
     }
   }
 
@@ -196,7 +196,7 @@ class StorageApiService {
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to cancel extension: $message');
+      throw Exception('Không thể hủy gia hạn: $message');
     }
   }
 
@@ -209,7 +209,7 @@ class StorageApiService {
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load overdue payment: $message');
+      throw Exception('Không tải được phí trễ hạn: $message');
     }
   }
 
@@ -222,7 +222,7 @@ class StorageApiService {
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to get payment status: $message');
+      throw Exception('Không lấy được trạng thái thanh toán: $message');
     }
   }
 
@@ -236,7 +236,7 @@ class StorageApiService {
           .toList();
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load handover records: $message');
+      throw Exception('Không tải được biên bản bàn giao: $message');
     }
   }
 

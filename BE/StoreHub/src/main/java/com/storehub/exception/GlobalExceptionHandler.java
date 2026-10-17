@@ -69,7 +69,7 @@ public class GlobalExceptionHandler {
         response.put("status", 400);
         response.put("code", ErrorCode.INVALID_REQUEST.getCode());
         response.put("error", "Bad Request");
-        response.put("message", "Validation failed");
+        response.put("message", "Dữ liệu nhập chưa hợp lệ");
         response.put("errors", errors);
 
         return ResponseEntity

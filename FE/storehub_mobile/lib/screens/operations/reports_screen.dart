@@ -18,7 +18,7 @@ class _ReportsScreenState extends State<ReportsScreen>
   late final TabController _tabController;
   final _currency = NumberFormat.currency(
       locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
-  final _dateFmt = DateFormat('MMM d, yyyy');
+  final _dateFmt = DateFormat('dd/MM/yyyy');
 
   DateTime? _fromDate = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _toDate = DateTime.now();
@@ -65,7 +65,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       final lines = csv.trim().isEmpty ? 0 : csv.trim().split('\n').length;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$type report copied to clipboard as CSV ($lines lines)'),
+          content: Text('Đã sao chép báo cáo $type (CSV, $lines dòng)'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -251,7 +251,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                       title: Text(m['facilityName']?.toString() ?? '',
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: Text('${m['paymentCount'] ?? 0} captured entries',
+                      subtitle: Text('${m['paymentCount'] ?? 0} giao dịch thu',
                           style: const TextStyle(fontSize: 12)),
                       trailing: Text(
                         _currency.format(

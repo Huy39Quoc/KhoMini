@@ -131,7 +131,7 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Permissions updated'),
+          content: Text('Đã cập nhật quyền'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -154,7 +154,7 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
     for (final p in _permissions) {
       final group = (p['permissionGroup']?.toString().isNotEmpty ?? false)
           ? p['permissionGroup'].toString()
-          : 'General';
+          : 'Chung';
       map.putIfAbsent(group, () => []).add(p);
     }
     return map;
@@ -165,10 +165,10 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Roles & Permissions'),
+        title: const Text('Vai trò & quyền hạn'),
       ),
       body: _isLoadingRoles
-          ? const AppLoadingState(message: 'Loading roles & permissions...')
+          ? const AppLoadingState(message: 'Đang tải vai trò & quyền hạn...')
           : _error != null
               ? AppErrorState(
                   message: _error!,
@@ -218,7 +218,7 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
                           ? const Center(child: CircularProgressIndicator())
                           : _permissions.isEmpty
                               ? const Center(
-                                  child: Text('No permissions defined yet.'))
+                                  child: Text('Chưa có quyền nào được định nghĩa.'))
                               : ListView(
                                   padding: const EdgeInsets.fromLTRB(
                                       16, 12, 16, 100),
@@ -244,7 +244,7 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Save changes'),
+                      : const Text('Lưu thay đổi'),
                 ),
               ),
             )
@@ -256,16 +256,16 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
     final discard = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Discard unsaved changes?'),
+        title: const Text('Bỏ các thay đổi chưa lưu?'),
         content: const Text(
-            'Switching roles will discard your unsaved permission changes.'),
+            'Chuyển vai trò sẽ bỏ các thay đổi quyền chưa lưu.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Keep editing')),
+              child: const Text('Tiếp tục chỉnh sửa')),
           ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Discard')),
+              child: const Text('Bỏ thay đổi')),
         ],
       ),
     );

@@ -29,9 +29,9 @@ class StaffDashboardScreen extends StatefulWidget {
 class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   final FacilityOpsApiService _opsService = FacilityOpsApiService();
 
-  final DateFormat _dateFormat = DateFormat('MMM d, yyyy');
+  final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 
-  final DateFormat _timeFormat = DateFormat('h:mm a');
+  final DateFormat _timeFormat = DateFormat('HH:mm');
 
   bool _isLoadingFacility = true;
 
@@ -135,8 +135,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   ) async {
     final bool isCheckIn = item.isCheckIn;
 
-    String unitCondition = 'Good / clean';
-    String lockCondition = 'Locked & working';
+    String unitCondition = 'Tốt / sạch sẽ';
+    String lockCondition = 'Đã khóa & hoạt động tốt';
 
     final notesController = TextEditingController();
     final damageFeeController = TextEditingController();
@@ -170,8 +170,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   children: [
                     Text(
                       isCheckIn
-                          ? 'Check-in • Unit ${item.unitCode}'
-                          : 'Check-out • Unit ${item.unitCode}',
+                          ? 'Bàn giao • Ngăn ${item.unitCode}'
+                          : 'Nghiệm thu • Ngăn ${item.unitCode}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -180,7 +180,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     const SizedBox(height: 4),
                     Text(
                       item.customerName.isEmpty
-                          ? 'Customer'
+                          ? 'Khách hàng'
                           : item.customerName,
                       style: const TextStyle(
                         fontSize: 13,
@@ -200,15 +200,15 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       initialValue: unitCondition,
                       items: const [
                         DropdownMenuItem(
-                          value: 'Good / clean',
+                          value: 'Tốt / sạch sẽ',
                           child: Text('Tốt / sạch'),
                         ),
                         DropdownMenuItem(
-                          value: 'Needs cleaning',
+                          value: 'Cần vệ sinh',
                           child: Text('Cần vệ sinh'),
                         ),
                         DropdownMenuItem(
-                          value: 'Damaged',
+                          value: 'Hư hỏng',
                           child: Text('Hư hỏng'),
                         ),
                       ],
@@ -235,17 +235,17 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       initialValue: lockCondition,
                       items: const [
                         DropdownMenuItem(
-                          value: 'Locked & working',
+                          value: 'Đã khóa & hoạt động tốt',
                           child: Text(
                             'Khóa hoạt động tốt',
                           ),
                         ),
                         DropdownMenuItem(
-                          value: 'Unlocked',
+                          value: 'Chưa khóa',
                           child: Text('Chưa khóa'),
                         ),
                         DropdownMenuItem(
-                          value: 'Damaged / needs repair',
+                          value: 'Hỏng / cần sửa chữa',
                           child: Text(
                             'Hỏng / cần sửa',
                           ),
@@ -262,9 +262,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                             },
                     ),
                     if (!isCheckIn &&
-                        (unitCondition == 'Damaged' ||
-                            unitCondition == 'Needs cleaning' ||
-                            lockCondition == 'Damaged / needs repair')) ...[
+                        (unitCondition == 'Hư hỏng' ||
+                            unitCondition == 'Cần vệ sinh' ||
+                            lockCondition == 'Hỏng / cần sửa chữa')) ...[
                       const SizedBox(height: 14),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -315,7 +315,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                               enabled: !submitting,
                               decoration: const InputDecoration(
                                 labelText:
-                                    'Deduction Reason (e.g. Scratched wall, broken lock)',
+                                    'Lý do khấu trừ (VD: trầy tường, hỏng khóa)',
                                 prefixIcon:
                                     Icon(Icons.description_outlined, size: 20),
                                 isDense: true,
@@ -345,8 +345,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     const SizedBox(height: 4),
                     Text(
                       isCheckIn
-                          ? 'Capture photos of clean unit, working lock, and meter (if any) as check-in proof.'
-                          : 'Capture photos of return condition, damages, or left-behind items to avoid disputes.',
+                          ? 'Chụp ảnh ngăn kho sạch, khóa hoạt động tốt làm bằng chứng bàn giao.'
+                          : 'Chụp ảnh hiện trạng khi trả, chỗ hư hỏng hoặc đồ còn sót lại để tránh tranh chấp.',
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.onSurfaceVariant,
@@ -372,8 +372,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                 inspectionConfirmed = value ?? false;
                               }),
                       title: Text(isCheckIn
-                          ? 'I verified the customer, unit and lock before handover'
-                          : 'I inspected the returned unit and lock'),
+                          ? 'Tôi đã xác minh khách hàng, ngăn kho và khóa trước khi bàn giao'
+                          : 'Tôi đã kiểm tra ngăn kho và khóa khi nhận lại'),
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                     const SizedBox(height: 20),
@@ -442,8 +442,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                   result.message.isNotEmpty
                                       ? result.message
                                       : isCheckIn
-                                          ? 'Check-in completed successfully'
-                                          : 'Check-out completed successfully',
+                                          ? 'Bàn giao kho thành công'
+                                          : 'Nghiệm thu trả kho thành công',
                                 );
 
                                 _loadSchedule();
@@ -479,8 +479,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                             )
                           : Text(
                               isCheckIn
-                                  ? 'Complete Check-in'
-                                  : 'Complete Check-out',
+                                  ? 'Xác nhận bàn giao'
+                                  : 'Xác nhận nghiệm thu',
                             ),
                     ),
                   ],
@@ -539,7 +539,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${item.bookingCode} • Unit ${item.unitCode}',
+                            '${item.bookingCode} • Ngăn ${item.unitCode}',
                             style: const TextStyle(
                               fontSize: 13,
                               color: AppColors.onSurfaceVariant,
@@ -621,15 +621,15 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     final recordedTime = record.recordedAt == null
         ? ''
         : DateFormat(
-            'MMM d, yyyy • h:mm a',
+            'dd/MM/yyyy • HH:mm',
           ).format(record.recordedAt!);
 
     final details = <String>[
-      if (record.unitCondition.isNotEmpty) 'Condition: ${record.unitCondition}',
+      if (record.unitCondition.isNotEmpty) 'Tình trạng: ${record.unitCondition}',
       if (record.damageFee != null && record.damageFee! > 0)
-        'Damage Fee: ${record.damageFee} ₫${record.damageReason != null ? " (${record.damageReason})" : ""}',
-      if (record.notes.isNotEmpty) 'Notes: ${record.notes}',
-      if (record.staffName.isNotEmpty) 'Staff: ${record.staffName}',
+        'Phí hư hại: ${record.damageFee} ₫${record.damageReason != null ? " (${record.damageReason})" : ""}',
+      if (record.notes.isNotEmpty) 'Ghi chú: ${record.notes}',
+      if (record.staffName.isNotEmpty) 'Nhân viên: ${record.staffName}',
       if (recordedTime.isNotEmpty) recordedTime,
     ];
 
@@ -709,7 +709,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
           );
 
     final customerName =
-        item.customerName.isEmpty ? 'Customer' : item.customerName;
+        item.customerName.isEmpty ? 'Khách hàng' : item.customerName;
 
     final unitCode = item.unitCode.isEmpty ? '-' : item.unitCode;
 
@@ -746,8 +746,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Unit $unitCode • '
-                    '${isCheckIn ? 'Check-in' : 'Check-out'}'
+                    'Ngăn $unitCode • '
+                    '${isCheckIn ? 'Bàn giao' : 'Nghiệm thu'}'
                     '${scheduledTime.isEmpty ? '' : ' • $scheduledTime'}',
                     style: const TextStyle(
                       fontSize: 12,
@@ -766,8 +766,35 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       ),
                     ),
                   if (item.assignedStaffName?.isNotEmpty == true)
-                    Text('Assigned: ${item.assignedStaffName}',
+                    Text(
+                        item.assignedStaffId == widget.user.id
+                            ? 'Phụ trách: bạn'
+                            : 'Phụ trách: ${item.assignedStaffName}',
                         style: const TextStyle(fontSize: 11)),
+                  if (isCheckIn && !item.unitAssignmentConfirmed)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Chờ quản lý cơ sở xác nhận ngăn kho - chưa thể bàn giao',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.warning,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  if (item.assignedStaffId != null &&
+                      item.assignedStaffId != widget.user.id)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Đã giao cho nhân viên khác',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -785,14 +812,15 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   horizontal: 12,
                 ),
               ),
-              onPressed: item.assignedStaffId != null &&
-                      item.assignedStaffId != widget.user.id
+              onPressed: (item.assignedStaffId != null &&
+                          item.assignedStaffId != widget.user.id) ||
+                      (isCheckIn && !item.unitAssignmentConfirmed)
                   ? null
                   : () {
                 _openHandoverSheet(item);
               },
               child: Text(
-                isCheckIn ? 'Check in' : 'Check out',
+                isCheckIn ? 'Bàn giao' : 'Nghiệm thu',
                 style: const TextStyle(
                   fontSize: 12,
                 ),
@@ -807,10 +835,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   String _recordTypeLabel(String recordType) {
     switch (recordType.toUpperCase()) {
       case 'CHECK_IN':
-        return 'Check-in';
+        return 'Bàn giao';
       case 'CHECK_OUT':
       case 'RETURN':
-        return 'Check-out';
+        return 'Nghiệm thu';
       default:
         return recordType.replaceAll('_', ' ');
     }
@@ -857,7 +885,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   case 'units':
                     page = StaffUnitsScreen(
                       facilityId: facilityId,
-                      facilityName: _facilityName ?? 'Facility',
+                      facilityName: _facilityName ?? 'Cơ sở',
                     );
                     break;
                   case 'tickets':
@@ -885,7 +913,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               ],
             ),
           IconButton(
-            tooltip: 'Profile',
+            tooltip: 'Hồ sơ',
             icon: CircleAvatar(
               radius: 15,
               backgroundColor: AppColors.primaryContainer,
@@ -944,6 +972,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     return Column(
       children: [
         _buildFacilityHeader(),
+        _buildQuickActions(),
         Expanded(
           child: FutureBuilder<List<DailyScheduleModel>>(
             future: _scheduleFuture,
@@ -1009,15 +1038,26 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _facilityName ?? 'Your facility',
+            _facilityName ?? 'Cơ sở của bạn',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
+          const SizedBox(height: 4),
+          const Text(
+            'Bạn trực tiếp bàn giao kho cho khách và nghiệm thu khi khách trả kho.',
+            style: TextStyle(color: Colors.white70, fontSize: 11),
+          ),
           const SizedBox(height: 10),
-          InkWell(
+          Row(
+            children: [
+              _dateChip('Hôm nay', 0),
+              const SizedBox(width: 8),
+              _dateChip('Ngày mai', 1),
+              const SizedBox(width: 8),
+              Flexible(child: InkWell(
             onTap: _pickDate,
             borderRadius: BorderRadius.circular(10),
             child: Container(
@@ -1055,9 +1095,100 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                 ],
               ),
             ),
+          )),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    Widget tile(IconData icon, String label, VoidCallback onTap) {
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.surfaceContainerHigh),
+            ),
+            child: Column(
+              children: [
+                Icon(icon, size: 20, color: AppColors.secondaryContainer),
+                const SizedBox(height: 4),
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final facilityId = _facilityId!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Row(
+        children: [
+          tile(Icons.grid_view_outlined, 'Ngăn kho', () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StaffUnitsScreen(
+                  facilityId: facilityId,
+                  facilityName: _facilityName ?? 'Cơ sở',
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: 8),
+          tile(Icons.support_agent_outlined, 'Hỗ trợ khách', () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StaffTicketScreen(
+                  facilityId: facilityId,
+                  staffId: widget.user.id,
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: 8),
+          tile(Icons.receipt_long_outlined, 'Giao dịch', () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TransactionHistoryScreen(
+                  userRole: widget.user.roleName,
+                  facilityId: facilityId,
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _dateChip(String label, int offsetDays) {
+    final now = DateTime.now();
+    final target = DateTime(now.year, now.month, now.day)
+        .add(Duration(days: offsetDays));
+    final selected = _selectedDate.year == target.year &&
+        _selectedDate.month == target.month &&
+        _selectedDate.day == target.day;
+    return ChoiceChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      selected: selected,
+      onSelected: (_) {
+        setState(() => _selectedDate = target);
+        _loadSchedule();
+      },
     );
   }
 }

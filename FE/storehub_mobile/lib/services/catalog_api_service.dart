@@ -10,7 +10,7 @@ class CatalogApiService {
     final response = await _dio.get(ApiEndpoints.facilityDetail(facilityId));
     final body = response.data;
     final facility = body is Map ? body['data'] : null;
-    if (facility is! Map) throw const FormatException('Invalid facility');
+    if (facility is! Map) throw const FormatException('Cơ sở không hợp lệ');
     return Map<String, dynamic>.from(facility);
   }
 
@@ -29,7 +29,7 @@ class CatalogApiService {
           .toList();
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load facilities: $message');
+      throw Exception('Không tải được danh sách cơ sở: $message');
     }
   }
 
@@ -47,7 +47,7 @@ class CatalogApiService {
       return [];
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to load unit types: $message');
+      throw Exception('Không tải được loại kho: $message');
     }
   }
 
@@ -87,7 +87,7 @@ class CatalogApiService {
           : Map<String, dynamic>.from(result as Map);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to get rental quote: $message');
+      throw Exception('Không tính được chi phí thuê: $message');
     }
   }
 

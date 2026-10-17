@@ -13,8 +13,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class CheckoutRequest {
 
-    @NotNull(message = "Scheduled return time cannot be null")
-    @Future(message = "Scheduled return time must be in the future")
+    @NotNull(message = "Vui lòng chọn giờ hẹn trả kho")
+    @Future(message = "Giờ hẹn trả kho phải ở tương lai")
     private LocalDateTime scheduledReturnTime;
 
     private String notes;

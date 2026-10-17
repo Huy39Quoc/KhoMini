@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Builder
 public class FacilityPolicyCreateRequest {
 
-    @NotNull(message = "Facility id is required")
+    @NotNull(message = "Vui lòng chọn cơ sở")
     private java.util.UUID facilityId;
 
     @NotNull @DecimalMin(value = "0.0") @DecimalMax(value = "100.0")

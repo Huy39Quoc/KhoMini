@@ -24,7 +24,7 @@ class TransactionHistoryScreen extends StatefulWidget {
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   final PaymentApiService _paymentService = PaymentApiService();
   final TextEditingController _searchController = TextEditingController();
-  final DateFormat _dateFormat = DateFormat('MMM d, yyyy • h:mm a');
+  final DateFormat _dateFormat = DateFormat('dd/MM/yyyy • HH:mm');
   final NumberFormat _currencyFormat =
       NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
@@ -143,7 +143,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadPayments,
-            tooltip: 'Refresh',
+            tooltip: 'Làm mới',
           ),
         ],
       ),
@@ -360,7 +360,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                             [
                               if (payment.unitCode != null &&
                                   payment.unitCode!.isNotEmpty)
-                                'Unit ${payment.unitCode}',
+                                'Ngăn ${payment.unitCode}',
                               if (payment.bookingCode != null &&
                                   payment.bookingCode!.isNotEmpty)
                                 payment.bookingCode,

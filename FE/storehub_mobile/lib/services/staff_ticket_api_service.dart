@@ -26,7 +26,7 @@ class StaffTicketApiService {
       return PagedResult.fromApi(response.data, (item) =>
           StaffTicketMapper.fromJson(StaffTicketMapper.asJsonMap(item)));
     } on DioException catch (error) {
-      throw _error(error, 'load facility tickets');
+      throw _error(error, 'tải yêu cầu hỗ trợ của cơ sở');
     }
   }
 
@@ -44,7 +44,7 @@ class StaffTicketApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _error(error, 'accept this ticket');
+      throw _error(error, 'tiếp nhận yêu cầu này');
     }
   }
 
@@ -63,7 +63,7 @@ class StaffTicketApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _error(error, 'assign this ticket');
+      throw _error(error, 'giao yêu cầu này');
     }
   }
 
@@ -87,7 +87,7 @@ class StaffTicketApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _error(error, 'update ticket status');
+      throw _error(error, 'cập nhật trạng thái yêu cầu');
     }
   }
 
@@ -108,7 +108,7 @@ class StaffTicketApiService {
     final message = data is Map ? data['message']?.toString() : error.message;
 
     return Exception(
-      'Failed to $action: ${message ?? 'Unknown error'}',
+      'Không thể $action: ${message ?? 'Lỗi không xác định'}',
     );
   }
 }

@@ -61,8 +61,8 @@ class _StaffUnitsScreenState extends State<StaffUnitsScreen> {
         SnackBar(
           content: Text(
             target == 'UNDER_MAINTENANCE'
-                ? 'Unit ${unit.unitCode} marked for inspection'
-                : 'Unit ${unit.unitCode} is available again',
+                ? 'Đã đánh dấu ngăn ${unit.unitCode} cần kiểm tra'
+                : 'Ngăn ${unit.unitCode} đã sẵn sàng cho thuê',
           ),
           backgroundColor: AppColors.success,
         ),
@@ -85,12 +85,12 @@ class _StaffUnitsScreenState extends State<StaffUnitsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(title: Text('Units • ${widget.facilityName}')),
+      appBar: AppBar(title: Text('Ngăn kho • ${widget.facilityName}')),
       body: FutureBuilder<List<FacilityUnitModel>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const AppLoadingState(message: 'Loading units...');
+            return const AppLoadingState(message: 'Đang tải ngăn kho...');
           }
 
           if (snapshot.hasError) {
@@ -106,8 +106,8 @@ class _StaffUnitsScreenState extends State<StaffUnitsScreen> {
           if (units.isEmpty) {
             return const AppEmptyState(
               icon: Icons.inventory_2_outlined,
-              title: 'No storage units',
-              message: 'This facility has no storage units yet.',
+              title: 'Chưa có ngăn kho',
+              message: 'Cơ sở này chưa có ngăn kho.',
             );
           }
 
@@ -136,7 +136,7 @@ class _StaffUnitsScreenState extends State<StaffUnitsScreen> {
                       child: Icon(Icons.inventory_2, color: color, size: 18),
                     ),
                     title: Text(
-                      'Unit ${unit.unitCode}',
+                      'Ngăn ${unit.unitCode}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -160,13 +160,13 @@ class _StaffUnitsScreenState extends State<StaffUnitsScreen> {
                             ? TextButton(
                                 onPressed: () =>
                                     _change(unit, 'UNDER_MAINTENANCE'),
-                                child: const Text('Needs inspection'),
+                                child: const Text('Cần kiểm tra'),
                               )
                             : unit.status == 'UNDER_MAINTENANCE'
                                 ? TextButton(
                                     onPressed: () =>
                                         _change(unit, 'AVAILABLE'),
-                                    child: const Text('Mark available'),
+                                    child: const Text('Đánh dấu đã sẵn sàng'),
                                   )
                                 : null,
                   ),

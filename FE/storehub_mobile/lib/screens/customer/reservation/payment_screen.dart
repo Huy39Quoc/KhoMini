@@ -106,7 +106,7 @@ class _PaymentScreenState extends State<PaymentScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              wasExpired ? 'This booking has expired.' : 'Booking cancelled.'),
+              wasExpired ? 'Đơn đã hết hạn.' : 'Đã hủy đơn.'),
         ),
       );
       Navigator.pop(context);
@@ -187,7 +187,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           paymentUrl: paymentUrl,
           transactionId: transactionId,
           amount: amount,
-          title: 'Deposit • VNPay Sandbox',
+          title: 'Tiền cọc • VNPay Sandbox',
           fetchStatus: (id) =>
               _bookingService.getPaymentStatus(transactionId: id),
         ),
@@ -209,7 +209,7 @@ class _PaymentScreenState extends State<PaymentScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(_isSuccess ? 'Booking Confirmed' : 'Deposit Payment'),
+        title: Text(_isSuccess ? 'Đặt kho thành công' : 'Tiền cọc'),
         backgroundColor: const Color(0xFF1E3C72),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -234,7 +234,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                           size: 14, color: Colors.white),
                       const SizedBox(width: 4),
                       Text(
-                        _isExpired ? 'Expired' : _formatCountdown(_remaining!),
+                        _isExpired ? 'Đã hết hạn' : _formatCountdown(_remaining!),
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -247,7 +247,7 @@ class _PaymentScreenState extends State<PaymentScreen>
             ),
           if (!_isSuccess)
             IconButton(
-              tooltip: 'Cancel booking',
+              tooltip: 'Hủy đơn',
               icon: _isCancelling
                   ? const SizedBox(
                       height: 16,
@@ -265,18 +265,18 @@ class _PaymentScreenState extends State<PaymentScreen>
                       final confirm = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('Cancel this booking?'),
+                          title: const Text('Hủy đơn đặt kho này?'),
                           content: const Text(
-                              'The reserved unit will be released back to availability.'),
+                              'Ngăn kho đã giữ sẽ được trả về trạng thái trống.'),
                           actions: [
                             TextButton(
                                 onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Keep booking')),
+                                child: const Text('Giữ đơn')),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.error),
                               onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Cancel booking'),
+                              child: const Text('Hủy đơn'),
                             ),
                           ],
                         ),
@@ -297,7 +297,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                     children: [
                       CircularProgressIndicator(color: AppColors.primary),
                       SizedBox(height: 12),
-                      Text('Setting up your payment...'),
+                      Text('Đang chuẩn bị thanh toán...'),
                     ],
                   ),
                 )
@@ -319,7 +319,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                             ElevatedButton.icon(
                               onPressed: _initiatePayment,
                               icon: const Icon(Icons.refresh),
-                              label: const Text('Try again'),
+                              label: const Text('Thử lại'),
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
                                   foregroundColor: Colors.white),
@@ -419,7 +419,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                       children: [
                         Icon(Icons.copy, color: Colors.white70, size: 14),
                         SizedBox(width: 4),
-                        Text('Copy code',
+                        Text('Sao chép mã',
                             style:
                                 TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
@@ -446,7 +446,7 @@ class _PaymentScreenState extends State<PaymentScreen>
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Back to Home',
+            child: const Text('Về trang chủ',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 12),
@@ -458,7 +458,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                   borderRadius: BorderRadius.circular(12)),
               side: const BorderSide(color: AppColors.primary),
             ),
-            child: const Text('View My Units',
+            child: const Text('Xem kho của tôi',
                 style: TextStyle(color: AppColors.primary)),
           ),
         ],
@@ -492,7 +492,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'This booking has expired and the unit has been released. Please start a new reservation.',
+                    'Đơn đã hết hạn và ngăn kho đã được trả lại. Vui lòng đặt kho mới.',
                     style: TextStyle(color: AppColors.error, fontSize: 12.5),
                   ),
                 ),
@@ -500,14 +500,14 @@ class _PaymentScreenState extends State<PaymentScreen>
             ),
           ),
         // Order summary
-        const Text('📋 Booking Summary',
+        const Text('📋 Tóm tắt đơn đặt kho',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         _summaryCard(),
         const SizedBox(height: 20),
 
         // VNPay Gateway
-        const Text('💳 VNPay Gateway',
+        const Text('💳 Cổng VNPay',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         Container(
@@ -566,7 +566,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                 ),
                 child: Column(
                   children: [
-                    const Text('Payable Amount',
+                    const Text('Số tiền cần thanh toán',
                         style: TextStyle(
                             color: AppColors.textSecondary, fontSize: 12)),
                     const SizedBox(height: 4),
@@ -579,7 +579,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Txn Ref: ',
+                        const Text('Mã tham chiếu: ',
                             style: TextStyle(
                                 fontSize: 12, color: AppColors.textSecondary)),
                         Text(transactionId,
@@ -594,7 +594,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                                 ClipboardData(text: transactionId));
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text('Transaction code copied'),
+                                    content: Text('Đã sao chép mã giao dịch'),
                                     backgroundColor: AppColors.success));
                           },
                           child: const Icon(Icons.copy,
@@ -625,7 +625,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                 children: [
                   Icon(Icons.credit_card, color: Color(0xFF0057B7), size: 20),
                   SizedBox(width: 8),
-                  Text('VNPay Sandbox Test Card',
+                  Text('Thẻ thử VNPay Sandbox',
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -641,7 +641,7 @@ class _PaymentScreenState extends State<PaymentScreen>
               const Divider(height: 12),
               _buildTestCardRow('Expiry (Ngày phát hành):', '07/15'),
               const Divider(height: 12),
-              _buildTestCardRow('OTP Code:', '123456'),
+              _buildTestCardRow('Mã OTP:', '123456'),
             ],
           ),
         ),
@@ -662,22 +662,22 @@ class _PaymentScreenState extends State<PaymentScreen>
                 children: [
                   Icon(Icons.info_outline, color: Colors.amber, size: 18),
                   SizedBox(width: 6),
-                  Text('Payment Steps',
+                  Text('Các bước thanh toán',
                       style: TextStyle(
                           fontWeight: FontWeight.bold, color: Colors.orange)),
                 ],
               ),
               SizedBox(height: 8),
-              _Step(step: '1', text: 'Tap "Pay with VNPay Sandbox" below'),
-              _Step(step: '2', text: 'Choose NCB bank on the VNPay page'),
+              _Step(step: '1', text: 'Chạm "Thanh toán qua VNPay Sandbox" bên dưới'),
+              _Step(step: '2', text: 'Chọn ngân hàng NCB trên trang VNPay'),
               _Step(
                   step: '3',
                   text:
-                      'Copy the test card info above into the form, OTP 123456'),
+                      'Nhập thông tin thẻ thử ở trên vào form, mã OTP 123456'),
               _Step(
                   step: '4',
                   text:
-                      'The app confirms automatically once VNPay reports success'),
+                      'Ứng dụng tự xác nhận khi VNPay báo thành công'),
             ],
           ),
         ),
@@ -701,7 +701,7 @@ class _PaymentScreenState extends State<PaymentScreen>
               children: [
                 Icon(Icons.lock_outline, size: 20),
                 SizedBox(width: 8),
-                Text('Pay with VNPay Sandbox',
+                Text('Thanh toán qua VNPay Sandbox',
                     style:
                         TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
               ],
@@ -711,7 +711,7 @@ class _PaymentScreenState extends State<PaymentScreen>
         const SizedBox(height: 10),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Pay later',
+          child: const Text('Thanh toán sau',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
         ),
         const SizedBox(height: 20),
@@ -740,7 +740,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                 Clipboard.setData(ClipboardData(text: value));
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('$label copied'),
+                    content: Text('Đã sao chép $label'),
                     duration: const Duration(seconds: 1),
                   ),
                 );
@@ -770,43 +770,43 @@ class _PaymentScreenState extends State<PaymentScreen>
         children: [
           _summaryRow(
               icon: Icons.confirmation_number_outlined,
-              label: 'Booking code',
+              label: 'Mã đơn',
               value: widget.bookingCode),
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.warehouse_outlined,
-              label: 'Facility',
+              label: 'Cơ sở',
               value: widget.facilityName),
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.category_outlined,
-              label: 'Unit type',
+              label: 'Loại kho',
               value: '${widget.unitTypeName} (${widget.unitTypeDimensions})'),
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.calendar_today_outlined,
-              label: 'Start date',
+              label: 'Ngày bắt đầu',
               value: _formatDate(widget.startDate)),
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.date_range_outlined,
-              label: 'Rental period',
-              value: '${widget.rentalMonths} months'),
+              label: 'Thời gian thuê',
+              value: '${widget.rentalMonths} tháng'),
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.account_balance_wallet_outlined,
-              label: 'Rental fee',
+              label: 'Tiền thuê',
               value: _formatPrice(widget.totalRentalFee)),
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.shield_outlined,
-              label: 'Deposit (refundable)',
+              label: 'Tiền cọc (được hoàn)',
               value: _formatPrice(widget.depositAmount)),
           if (widget.totalExtraFees > 0) ...[
             const Divider(height: 16),
             _summaryRow(
                 icon: Icons.build_circle_outlined,
-                label: 'Management fee',
+                label: 'Phí quản lý',
                 value: _formatPrice(widget.totalExtraFees)),
           ],
           if (_payment?['amount'] is num &&
@@ -819,7 +819,7 @@ class _PaymentScreenState extends State<PaymentScreen>
             const Divider(height: 16),
             _summaryRow(
                 icon: Icons.info_outline,
-                label: 'Payment adjustment',
+                label: 'Điều chỉnh thanh toán',
                 value: _formatPrice((_payment!['amount'] as num).toDouble() -
                     widget.totalRentalFee -
                     widget.depositAmount -
@@ -828,7 +828,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           const Divider(height: 16, thickness: 1.5),
           _summaryRow(
               icon: Icons.payments_outlined,
-              label: '💳 Total to pay',
+              label: '💳 Tổng cần thanh toán',
               value: _formatPrice((_payment?['amount'] as num?)?.toDouble() ??
                   (widget.totalRentalFee +
                       widget.depositAmount +

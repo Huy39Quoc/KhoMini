@@ -22,8 +22,8 @@ void main() {
     }));
     await tester.pumpAndSettle();
 
-    expect(find.text('Try again'), findsOneWidget);
-    await tester.tap(find.text('Try again'));
+    expect(find.text('Thử lại'), findsOneWidget);
+    await tester.tap(find.text('Thử lại'));
     await tester.pumpAndSettle();
 
     expect(attempts, 2);
@@ -44,9 +44,9 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Set a new password'), findsOneWidget);
+    expect(find.text('Đặt mật khẩu mới'), findsOneWidget);
     final field = tester.widget<TextFormField>(
-        find.widgetWithText(TextFormField, 'Reset link or code'));
+        find.widgetWithText(TextFormField, 'Liên kết hoặc mã đặt lại'));
     expect(field.controller?.text, 'sample-token');
   });
 }

@@ -6,6 +6,6 @@ import lombok.Data;
 @Data
 public class PaymentConfirmationRequest {
 
-    @NotBlank(message = "Transaction ID is required")
+    @NotBlank(message = "Thiếu mã giao dịch")
     private String transactionId;
 }

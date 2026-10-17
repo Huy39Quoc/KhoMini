@@ -40,23 +40,23 @@ class RevenueChartCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Net revenue by facility • ${DateFormat('MMM d').format(fromDate)}–${DateFormat('MMM d, yyyy').format(toDate)}',
+            Text('Doanh thu ròng theo cơ sở • ${DateFormat('dd/MM').format(fromDate)}–${DateFormat('dd/MM/yyyy').format(toDate)}',
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(currency.format(total),
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
                     color: AppColors.primaryContainer)),
-            Text('Net deposit cash flow in period: ${currency.format(deposit)}',
+            Text('Dòng tiền cọc ròng trong kỳ: ${currency.format(deposit)}',
                 style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
             const SizedBox(height: 16),
             if (rows.isEmpty || maxMagnitude <= 0)
-              const Text('No rental cash flow in this period.',
+              const Text('Không có dòng tiền thuê trong kỳ này.',
                   style: TextStyle(color: AppColors.onSurfaceVariant))
             else
               for (final row in rows) ...[
                 Row(
                   children: [
-                    Expanded(child: Text(row['facilityName']?.toString() ?? 'Facility',
+                    Expanded(child: Text(row['facilityName']?.toString() ?? 'Cơ sở',
                         maxLines: 1, overflow: TextOverflow.ellipsis)),
                     Text('${compact.format((row['totalRevenue'] as num?) ?? 0)} ₫',
                         style: const TextStyle(fontWeight: FontWeight.w600)),

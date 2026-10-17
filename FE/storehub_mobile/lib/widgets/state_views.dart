@@ -31,7 +31,7 @@ class AppErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Something went wrong',
+              'Đã xảy ra lỗi',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
@@ -47,7 +47,7 @@ class AppErrorState extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Try again'),
+                label: const Text('Thử lại'),
                 style:
                     OutlinedButton.styleFrom(minimumSize: const Size(140, 42)),
               ),

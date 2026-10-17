@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/vi_labels.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/ticket_api_service.dart';
@@ -6,11 +7,11 @@ import '../../../widgets/state_views.dart';
 import '../../../widgets/photo_preview_dialog.dart';
 
 const Map<String, String> _kCategoryLabels = {
-  'PIN_CODE': 'Access PIN issue',
-  'LOCK_ISSUE': 'Lock / door issue',
-  'FACILITY_DAMAGE': 'Facility damage',
-  'PAYMENT_ISSUE': 'Payment issue',
-  'OTHER': 'Other',
+  'PIN_CODE': 'Sự cố mã PIN',
+  'LOCK_ISSUE': 'Sự cố khóa / cửa',
+  'FACILITY_DAMAGE': 'Hư hỏng cơ sở',
+  'PAYMENT_ISSUE': 'Sự cố thanh toán',
+  'OTHER': 'Khác',
 };
 
 class TicketDetailScreen extends StatefulWidget {
@@ -24,7 +25,7 @@ class TicketDetailScreen extends StatefulWidget {
 class _TicketDetailScreenState extends State<TicketDetailScreen> {
   final TicketApiService _ticketApiService = TicketApiService();
   late Future<Map<String, dynamic>> _ticketFuture;
-  final _dateFmt = DateFormat('MMM d, yyyy • h:mm a');
+  final _dateFmt = DateFormat('dd/MM/yyyy • HH:mm');
 
   @override
   void initState() {
@@ -57,7 +58,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Ticket Details'),
+        title: const Text('Chi tiết yêu cầu'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load)
         ],
@@ -66,7 +67,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         future: _ticketFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const AppLoadingState(message: 'Loading ticket...');
+            return const AppLoadingState(message: 'Đang tải yêu cầu...');
           }
           if (snapshot.hasError) {
             return AppErrorState(
@@ -114,7 +115,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        (status ?? 'OPEN').replaceAll('_', ' '),
+                        ViLabels.ticketStatus(status ?? 'OPEN'),
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -143,7 +144,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                const Text('Description',
+                const Text('Mô tả',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
@@ -157,7 +158,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 if (photos.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   Text(
-                    'Photo Evidence (${photos.length})',
+                    'Ảnh bằng chứng (${photos.length})',
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 14),
                   ),
@@ -167,7 +168,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 if (resolutionNote != null &&
                     resolutionNote.trim().isNotEmpty) ...[
                   const SizedBox(height: 20),
-                  const Text('Resolution',
+                  const Text('Cách xử lý',
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 8),
@@ -210,7 +211,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Our team is still reviewing this request. You will see an update here once it is resolved.',
+                            'Đội ngũ đang xem xét yêu cầu này. Bạn sẽ thấy cập nhật tại đây khi có kết quả.',
                             style: TextStyle(
                                 fontSize: 12.5,
                                 color: AppColors.onSurfaceVariant),

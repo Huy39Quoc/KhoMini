@@ -19,7 +19,7 @@ class FacilityOpsApiService {
           queryParameters: {'facilityId': facilityId}, data: {'token': token});
       return _unwrap(response.data);
     } on DioException catch (e) {
-      throw _err(e, 'verify gate pass');
+      throw _err(e, 'kiểm tra mã QR cổng');
     }
   }
 
@@ -63,7 +63,7 @@ class FacilityOpsApiService {
     message ??= error.message;
 
     return Exception(
-      'Failed to $action: ${message ?? 'Unknown error'}',
+      'Không thể $action: ${message ?? 'Lỗi không xác định'}',
     );
   }
 
@@ -89,7 +89,7 @@ class FacilityOpsApiService {
           .map(FacilityManagementMapper.unitFromJson)
           .toList();
     } on DioException catch (error) {
-      throw _err(error, 'load units');
+      throw _err(error, 'tải danh sách ngăn kho');
     }
   }
 
@@ -113,7 +113,7 @@ class FacilityOpsApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _err(error, 'create unit');
+      throw _err(error, 'tạo ngăn kho');
     }
   }
 
@@ -141,7 +141,7 @@ class FacilityOpsApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _err(error, 'update unit');
+      throw _err(error, 'cập nhật ngăn kho');
     }
   }
 
@@ -163,7 +163,7 @@ class FacilityOpsApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _err(error, 'assign unit to booking');
+      throw _err(error, 'xác nhận ngăn kho cho đơn');
     }
   }
 
@@ -181,7 +181,7 @@ class FacilityOpsApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _err(error, 'load facility report');
+      throw _err(error, 'tải báo cáo cơ sở');
     }
   }
 
@@ -200,7 +200,7 @@ class FacilityOpsApiService {
           .map(FacilityManagementMapper.staffFromJson)
           .toList();
     } on DioException catch (error) {
-      throw _err(error, 'load staff list');
+      throw _err(error, 'tải danh sách nhân viên');
     }
   }
 
@@ -223,7 +223,7 @@ class FacilityOpsApiService {
           )
           .toList();
     } on DioException catch (error) {
-      throw _err(error, 'load assignable users');
+      throw _err(error, 'tải danh sách người có thể thêm');
     }
   }
 
@@ -243,7 +243,7 @@ class FacilityOpsApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _err(error, 'assign staff to facility');
+      throw _err(error, 'thêm nhân viên vào cơ sở');
     }
   }
 
@@ -264,7 +264,7 @@ class FacilityOpsApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _err(error, 'assign staff');
+      throw _err(error, 'thêm nhân viên');
     }
   }
 
@@ -280,7 +280,7 @@ class FacilityOpsApiService {
         ),
       );
     } on DioException catch (error) {
-      throw _err(error, 'unassign staff');
+      throw _err(error, 'gỡ nhân viên');
     }
   }
 
@@ -297,7 +297,7 @@ class FacilityOpsApiService {
           .map(FacilityManagementMapper.bookingFromJson)
           .toList();
     } on DioException catch (error) {
-      throw _err(error, 'load confirmed bookings');
+      throw _err(error, 'tải các đơn đã xác nhận');
     }
   }
   /// Hợp đồng đang CONFIRMED / ACTIVE của cơ sở (Facility Manager theo dõi).
@@ -314,7 +314,7 @@ class FacilityOpsApiService {
           .map(FacilityManagementMapper.contractFromJson)
           .toList();
     } on DioException catch (error) {
-      throw _err(error, 'load facility contracts');
+      throw _err(error, 'tải hợp đồng của cơ sở');
     }
   }
 
@@ -323,7 +323,7 @@ class FacilityOpsApiService {
     try {
       await _dio.put(ApiEndpoints.approveSealing(facilityId, bookingId));
     } on DioException catch (error) {
-      throw _err(error, 'approve sealing');
+      throw _err(error, 'duyệt niêm phong');
     }
   }
 
@@ -338,7 +338,7 @@ class FacilityOpsApiService {
       final data = _unwrap(response.data);
       return data['generatedPin']?.toString() ?? '';
     } on DioException catch (error) {
-      throw _err(error, 'reset customer PIN');
+      throw _err(error, 'đặt lại PIN cho khách');
     }
   }
 
@@ -361,7 +361,7 @@ class FacilityOpsApiService {
       if (error.response?.statusCode == 403) {
         return const AssignedFacilityModel(id: '', name: '', address: '');
       }
-      throw _err(error, 'load your assigned facility');
+      throw _err(error, 'tải cơ sở được phân công');
     }
   }
 
@@ -383,7 +383,7 @@ class FacilityOpsApiService {
           .map(FacilityOperationsMapper.dailyScheduleFromJson)
           .toList();
     } on DioException catch (error) {
-      throw _err(error, 'load the daily schedule');
+      throw _err(error, 'tải lịch làm việc trong ngày');
     }
   }
 
@@ -399,7 +399,7 @@ class FacilityOpsApiService {
         data: {'scheduleType': appointment.scheduleType, 'staffId': staffId},
       );
     } on DioException catch (error) {
-      throw _err(error, 'assign appointment');
+      throw _err(error, 'phân công lịch hẹn');
     }
   }
 
@@ -410,7 +410,7 @@ class FacilityOpsApiService {
           queryParameters: {'page': page, 'size': size});
       return _unwrap(response.data);
     } on DioException catch (error) {
-      throw _err(error, 'load refunds');
+      throw _err(error, 'tải yêu cầu hoàn tiền');
     }
   }
 
@@ -424,7 +424,7 @@ class FacilityOpsApiService {
             'originalAmount': originalAmount,
           });
     } on DioException catch (error) {
-      throw _err(error, 'provide original payment details');
+      throw _err(error, 'nhập thông tin giao dịch gốc');
     }
   }
 
@@ -432,7 +432,7 @@ class FacilityOpsApiService {
     try {
       await _dio.post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/retry');
     } on DioException catch (error) {
-      throw _err(error, 'retry rejected refund');
+      throw _err(error, 'gửi lại yêu cầu hoàn tiền bị từ chối');
     }
   }
 
@@ -440,7 +440,7 @@ class FacilityOpsApiService {
     try {
       await _dio.post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/reconcile');
     } on DioException catch (error) {
-      throw _err(error, 'check refund with VNPay');
+      throw _err(error, 'kiểm tra hoàn tiền với VNPay');
     }
   }
 
@@ -464,7 +464,7 @@ class FacilityOpsApiService {
       }
       return [];
     } on DioException catch (error) {
-      throw _err(error, 'upload handover photos');
+      throw _err(error, 'tải ảnh bàn giao lên');
     }
   }
 
@@ -494,7 +494,7 @@ class FacilityOpsApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _err(error, 'check in this customer');
+      throw _err(error, 'bàn giao kho cho khách này');
     }
   }
 
@@ -511,7 +511,7 @@ class FacilityOpsApiService {
         },
       );
     } on DioException catch (error) {
-      throw _err(error, 'confirm bank transfer refund');
+      throw _err(error, 'xác nhận đã chuyển khoản hoàn tiền');
     }
   }
 
@@ -545,7 +545,7 @@ class FacilityOpsApiService {
         _unwrap(response.data),
       );
     } on DioException catch (error) {
-      throw _err(error, 'complete check-out');
+      throw _err(error, 'hoàn tất nghiệm thu');
     }
   }
 
@@ -566,7 +566,7 @@ class FacilityOpsApiService {
           .map(FacilityOperationsMapper.handoverRecordFromJson)
           .toList();
     } on DioException catch (error) {
-      throw _err(error, 'load handover history');
+      throw _err(error, 'tải lịch sử bàn giao');
     }
   }
 
@@ -586,7 +586,7 @@ class FacilityOpsApiService {
         },
       );
     } on DioException catch (error) {
-      throw _err(error, 'update unit status');
+      throw _err(error, 'cập nhật trạng thái ngăn kho');
     }
   }
 

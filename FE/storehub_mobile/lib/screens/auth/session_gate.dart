@@ -40,21 +40,21 @@ class _SessionGateState extends State<SessionGate> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Could not restore your session. Check your connection.'),
+                  const Text('Không khôi phục được phiên đăng nhập. Hãy kiểm tra kết nối mạng.'),
                   TextButton(
                     onPressed: () {
                       setState(() {
                         _session = _restore();
                       });
                     },
-                    child: const Text('Try again'),
+                    child: const Text('Thử lại'),
                   ),
                   TextButton(
                     onPressed: () => Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
                     ),
-                    child: const Text('Sign in with another account'),
+                    child: const Text('Đăng nhập bằng tài khoản khác'),
                   ),
                 ],
               ),

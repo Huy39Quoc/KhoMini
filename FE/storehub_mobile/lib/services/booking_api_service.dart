@@ -14,12 +14,12 @@ class BookingApiService {
       final response = await _dio.get(ApiEndpoints.myPendingBookings);
       final body = response.data;
       final list = body is Map ? body['data'] : null;
-      if (list is! List) throw const FormatException('Invalid booking list');
+      if (list is! List) throw const FormatException('Danh sách đơn không hợp lệ');
       return list.map((item) => Map<String, dynamic>.from(item as Map)).toList();
     } on DioException catch (e) {
       final body = e.response?.data;
       final message = body is Map ? body['message'] : e.message;
-      throw Exception('Failed to load pending bookings: $message');
+      throw Exception('Không tải được các đơn đang chờ: $message');
     }
   }
 
@@ -55,7 +55,7 @@ class BookingApiService {
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to create booking: $message');
+      throw Exception('Không thể tạo đơn đặt kho: $message');
     }
   }
 
@@ -80,7 +80,7 @@ class BookingApiService {
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to initiate payment: $message');
+      throw Exception('Không thể khởi tạo thanh toán: $message');
     }
   }
 
@@ -95,7 +95,7 @@ class BookingApiService {
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to get payment status: $message');
+      throw Exception('Không lấy được trạng thái thanh toán: $message');
     }
   }
 
@@ -106,7 +106,7 @@ class BookingApiService {
       await _dio.delete(ApiEndpoints.bookingDetail(bookingId));
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to cancel booking: $message');
+      throw Exception('Không thể hủy đơn: $message');
     }
   }
 
@@ -125,10 +125,10 @@ class BookingApiService {
       if (body is Map && body['message'] is String) {
         return body['message'] as String;
       }
-      return "You've been added to the waitlist.";
+      return "Bạn đã được thêm vào danh sách chờ.";
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to join waitlist: $message');
+      throw Exception('Không thể vào danh sách chờ: $message');
     }
   }
 
@@ -136,7 +136,7 @@ class BookingApiService {
     final response = await _dio.get('${ApiEndpoints.waitlist}/mine');
     final data = response.data;
     final entries = data is Map ? data['data'] : null;
-    if (entries is! List) throw const FormatException('Invalid waitlist response');
+    if (entries is! List) throw const FormatException('Dữ liệu danh sách chờ không hợp lệ');
     return entries.map((item) => Map<String, dynamic>.from(item as Map)).toList();
   }
 

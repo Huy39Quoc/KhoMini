@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/utils/vi_labels.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/safe_dispose.dart';
 import '../../models/staff_ticket_model.dart';
@@ -91,7 +92,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
 
       if (!mounted) return;
 
-      _showSuccess('Ticket accepted successfully.');
+      _showSuccess('Đã tiếp nhận yêu cầu.');
       _loadTickets();
     } catch (error) {
       if (!mounted) return;
@@ -115,14 +116,14 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Resolve ticket'),
+          title: const Text('Hoàn tất yêu cầu'),
           content: TextField(
             controller: noteController,
             maxLines: 4,
             maxLength: 2000,
             decoration: const InputDecoration(
-              labelText: 'Resolution note',
-              hintText: 'Describe how the issue was resolved',
+              labelText: 'Ghi chú xử lý',
+              hintText: 'Mô tả cách đã xử lý sự cố',
             ),
           ),
           actions: [
@@ -130,7 +131,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
               onPressed: () {
                 Navigator.pop(dialogContext);
               },
-              child: const Text('Cancel'),
+              child: const Text('Hủy'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -142,7 +143,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
 
                 Navigator.pop(dialogContext, value);
               },
-              child: const Text('Resolve'),
+              child: const Text('Hoàn tất xử lý'),
             ),
           ],
         );
@@ -164,7 +165,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
 
       if (!mounted) return;
 
-      _showSuccess('Ticket resolved successfully.');
+      _showSuccess('Đã hoàn tất xử lý yêu cầu.');
       _loadTickets();
     } catch (error) {
       if (!mounted) return;
@@ -179,22 +180,22 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Close ticket'),
+          title: const Text('Đóng yêu cầu'),
           content: const Text(
-            'Confirm that this ticket is fully completed?',
+            'Xác nhận yêu cầu này đã hoàn tất?',
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(dialogContext, false);
               },
-              child: const Text('Cancel'),
+              child: const Text('Hủy'),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(dialogContext, true);
               },
-              child: const Text('Close ticket'),
+              child: const Text('Đóng yêu cầu'),
             ),
           ],
         );
@@ -214,7 +215,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
 
       if (!mounted) return;
 
-      _showSuccess('Ticket closed successfully.');
+      _showSuccess('Đã đóng yêu cầu.');
       _loadTickets();
     } catch (error) {
       if (!mounted) return;
@@ -264,17 +265,17 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Reset customer PIN?'),
+        title: const Text('Đặt lại PIN cho khách?'),
         content: const Text(
-            'Only continue after you have verified the customer\'s identity in person. '
-            'The old PIN stops working and the unit is locked.'),
+            'Chỉ tiếp tục sau khi bạn đã xác minh trực tiếp danh tính của khách. '
+            'PIN cũ sẽ ngừng hoạt động và ngăn kho được khóa lại.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: const Text('Hủy')),
           ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Reset PIN')),
+              child: const Text('Đặt lại PIN')),
         ],
       ),
     );
@@ -287,7 +288,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          title: const Text('New PIN'),
+          title: const Text('Mã PIN mới'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -298,7 +299,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
               ),
               const SizedBox(height: 10),
               const Text(
-                'Tell the customer this PIN. It is shown only once and the customer can change it in Smart Key.',
+                'Hãy đọc mã PIN này cho khách. Mã chỉ hiển thị một lần và khách có thể đổi trong mục Khóa thông minh.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12),
               ),
@@ -306,7 +307,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
           ),
           actions: [
             ElevatedButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('Done')),
+                onPressed: () => Navigator.pop(ctx), child: const Text('Xong')),
           ],
         ),
       );
@@ -326,7 +327,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
           _acceptTicket(ticket);
         },
         icon: const Icon(Icons.assignment_turned_in_outlined),
-        label: const Text('Accept'),
+        label: const Text('Tiếp nhận'),
       );
     }
 
@@ -338,7 +339,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
           _resolveTicket(ticket);
         },
         icon: const Icon(Icons.check_circle_outline),
-        label: const Text('Resolve'),
+        label: const Text('Hoàn tất xử lý'),
       );
       if (ticket.category == 'PIN_CODE' && ticket.bookingId.isNotEmpty) {
         return Wrap(
@@ -348,7 +349,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
             OutlinedButton.icon(
               onPressed: () => _resetCustomerPin(ticket),
               icon: const Icon(Icons.pin_outlined),
-              label: const Text('Reset PIN'),
+              label: const Text('Đặt lại PIN'),
             ),
             resolveButton,
           ],
@@ -363,7 +364,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
           _closeTicket(ticket);
         },
         icon: const Icon(Icons.lock_outline),
-        label: const Text('Close'),
+        label: const Text('Đóng'),
       );
     }
 
@@ -375,14 +376,14 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Support Tickets'),
+        title: const Text('Yêu cầu hỗ trợ'),
       ),
       body: FutureBuilder<PagedResult<StaffTicketModel>>(
         future: _ticketsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const AppLoadingState(
-              message: 'Loading tickets...',
+              message: 'Đang tải yêu cầu hỗ trợ...',
             );
           }
 
@@ -404,9 +405,9 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                 children: const [
                   AppEmptyState(
                     icon: Icons.support_agent_outlined,
-                    title: 'No support tickets',
+                    title: 'Chưa có yêu cầu hỗ trợ',
                     message:
-                        'Tickets from customers at this facility will appear here.',
+                        'Yêu cầu hỗ trợ của khách tại cơ sở này sẽ hiển thị tại đây.',
                   ),
                 ],
               ),
@@ -424,7 +425,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                 if (index == tickets.length) {
                   return Center(child: TextButton(
                     onPressed: _loadingMore ? null : _loadMore,
-                    child: Text(_loadingMore ? 'Loading...' : 'Load more tickets'),
+                    child: Text(_loadingMore ? 'Đang tải...' : 'Xem thêm yêu cầu'),
                   ));
                 }
                 final ticket = tickets[index];
@@ -458,7 +459,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                ticket.status.replaceAll('_', ' '),
+                                ViLabels.ticketStatus(ticket.status),
                                 style: TextStyle(
                                   color: statusColor,
                                   fontSize: 10,
@@ -487,13 +488,13 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Category: ${ticket.category} • Priority: ${ticket.priority}',
+                          'Loại: ${ticket.category} • Ưu tiên: ${ticket.priority}',
                           style: const TextStyle(fontSize: 11),
                         ),
                         if (ticket.bookingCode.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            'Booking: ${ticket.bookingCode}'
+                            'Đơn: ${ticket.bookingCode}'
                             '${ticket.unitCode.isNotEmpty ? ' • Unit ${ticket.unitCode}' : ''}',
                             style: const TextStyle(fontSize: 11),
                           ),
@@ -501,7 +502,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                         if (ticket.customerName.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            'Customer: ${ticket.customerName}'
+                            'Khách: ${ticket.customerName}'
                             '${ticket.customerPhone.isNotEmpty ? ' • ${ticket.customerPhone}' : ''}'
                             '${ticket.customerEmail.isNotEmpty ? ' • ${ticket.customerEmail}' : ''}',
                             style: const TextStyle(fontSize: 11),
@@ -510,14 +511,14 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                         if (ticket.assignedStaffName.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            'Assigned: ${ticket.assignedStaffName}',
+                            'Phụ trách: ${ticket.assignedStaffName}',
                             style: const TextStyle(fontSize: 11),
                           ),
                         ],
                         if (ticket.resolutionNote.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Text(
-                            'Resolution: ${ticket.resolutionNote}',
+                            'Cách xử lý: ${ticket.resolutionNote}',
                             style: const TextStyle(
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
@@ -527,7 +528,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                         if (ticket.photos.isNotEmpty) ...[
                           const SizedBox(height: 10),
                           const Text(
-                            'Photo Evidence:',
+                            'Ảnh bằng chứng:',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,

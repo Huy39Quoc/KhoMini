@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/vi_labels.dart';
 import 'package:intl/intl.dart';
 import '../../../services/booking_api_service.dart';
 
@@ -39,7 +40,7 @@ class _MyWaitlistScreenState extends State<MyWaitlistScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('My waitlist')),
+    appBar: AppBar(title: const Text('Danh sách chờ của tôi')),
     body: FutureBuilder<List<Map<String, dynamic>>>(
       future: _entries,
       builder: (context, snapshot) {
@@ -47,7 +48,7 @@ class _MyWaitlistScreenState extends State<MyWaitlistScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Could not load waitlist: ${snapshot.error}'));
+          return Center(child: Text('Không tải được danh sách chờ: ${snapshot.error}'));
         }
         final entries = snapshot.data ?? [];
         return RefreshIndicator(
@@ -58,8 +59,8 @@ class _MyWaitlistScreenState extends State<MyWaitlistScreen> {
             itemBuilder: (context, index) {
               if (entries.isEmpty) {
                 return const ListTile(
-                  title: Text('No waitlist entries'),
-                  subtitle: Text('Join a waitlist from a facility when a unit type is full.'),
+                  title: Text('Chưa có trong danh sách chờ'),
+                  subtitle: Text('Vào danh sách chờ tại cơ sở khi loại kho bạn cần đã hết chỗ.'),
                 );
               }
               final entry = entries[index];
@@ -70,11 +71,11 @@ class _MyWaitlistScreenState extends State<MyWaitlistScreen> {
               return ListTile(
                 title: Text('${entry['facilityName']} • ${entry['unitTypeName']}'),
                 subtitle: Text(status == 'NOTIFIED' && expiryLocal != null
-                    ? 'Book if still vacant. Notice expires: ${DateFormat('dd/MM/yyyy HH:mm').format(expiryLocal)}'
-                    : status.replaceAll('_', ' ')),
+                    ? 'Hãy đặt ngay nếu còn trống. Thông báo hết hạn lúc: ${DateFormat('dd/MM/yyyy HH:mm').format(expiryLocal)}'
+                    : ViLabels.waitlist(status)),
                 trailing: canLeave ? TextButton(
                   onPressed: () => _leave(entry['id'].toString()),
-                  child: const Text('Leave'),
+                  child: const Text('Rời đi'),
                 ) : null,
               );
             },

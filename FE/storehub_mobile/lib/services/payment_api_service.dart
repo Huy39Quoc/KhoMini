@@ -21,7 +21,7 @@ class PaymentApiService {
       return _extractPage(response.data);
     } on DioException catch (e) {
       final message = _errorMessage(e);
-      throw Exception('Failed to load payment history: $message');
+      throw Exception('Không tải được lịch sử giao dịch: $message');
     }
   }
 
@@ -34,7 +34,7 @@ class PaymentApiService {
       return _extractPage(response.data);
     } on DioException catch (e) {
       final message = _errorMessage(e);
-      throw Exception('Failed to load facility payments: $message');
+      throw Exception('Không tải được giao dịch của cơ sở: $message');
     }
   }
 
@@ -45,7 +45,7 @@ class PaymentApiService {
       return _extractPage(response.data);
     } on DioException catch (e) {
       final message = _errorMessage(e);
-      throw Exception('Failed to load system payment history: $message');
+      throw Exception('Không tải được lịch sử giao dịch hệ thống: $message');
     }
   }
 
@@ -56,7 +56,7 @@ class PaymentApiService {
       return PaymentMapper.fromJson(data);
     } on DioException catch (e) {
       final message = _errorMessage(e);
-      throw Exception('Failed to load payment detail: $message');
+      throw Exception('Không tải được chi tiết giao dịch: $message');
     }
   }
 
@@ -64,7 +64,7 @@ class PaymentApiService {
     final envelope = responseData is Map ? responseData : const {};
     final data = envelope['data'] ?? envelope['result'];
     if (data is! Map || data['content'] is! List) {
-      throw const FormatException('Invalid payment history response');
+      throw const FormatException('Dữ liệu lịch sử thanh toán không hợp lệ');
     }
     final items = (data['content'] as List)
         .map((json) => PaymentMapper.fromJson(PaymentMapper.asJsonMap(json)))
@@ -89,6 +89,6 @@ class PaymentApiService {
     if (data is Map && data['message'] != null) {
       return data['message'].toString();
     }
-    return error.message ?? 'Unknown error';
+    return error.message ?? 'Lỗi không xác định';
   }
 }

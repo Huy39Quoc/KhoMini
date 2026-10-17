@@ -78,7 +78,7 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
       }
 
       _showError(
-        'No available ${booking.unitType} units found.',
+        'Không còn ngăn ${booking.unitType} nào trống.',
       );
       return;
     }
@@ -108,7 +108,7 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
               children: [
                 Text(
                   booking.unitAssignmentConfirmed
-                      ? 'Change assigned unit' : 'Assign physical unit',
+                      ? 'Đổi ngăn kho đã chọn' : 'Chọn ngăn kho cụ thể',
                   style: Theme.of(sheetContext).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
@@ -132,7 +132,7 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                         leading: const CircleAvatar(
                           child: Icon(Icons.inventory_2_outlined),
                         ),
-                        title: Text('Unit ${unit.unitCode}'),
+                        title: Text('Ngăn ${unit.unitCode}'),
                         subtitle: Text(
                           unit.floorLevel.isEmpty
                               ? unit.unitType
@@ -159,7 +159,7 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                               return;
                             }
 
-                            _showSuccess('Assigned ${unit.unitCode} to booking.');
+                            _showSuccess('Đã chọn ngăn ${unit.unitCode} cho đơn.');
                             _loadBookings();
                           } catch (error) {
                             if (!sheetContext.mounted) {
