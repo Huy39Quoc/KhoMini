@@ -1,7 +1,6 @@
 package com.storehub.controller;
 
 import com.storehub.common.ApiResponse;
-import com.storehub.dto.response.CatalogOverviewResponse;
 import com.storehub.dto.response.FacilityResponse;
 import com.storehub.dto.response.UnitTypeCatalogResponse;
 import com.storehub.service.CatalogService;
@@ -21,15 +20,6 @@ import java.util.UUID;
 public class CatalogController {
 
     private final CatalogService catalogService;
-
-    @GetMapping("/overview")
-    @Operation(summary = "Lấy tổng quan danh mục bao gồm danh sách cơ sở và kích thước kho")
-    public ResponseEntity<ApiResponse<CatalogOverviewResponse>> getOverview(
-            @RequestParam(required = false) UUID facilityId
-    ) {
-        CatalogOverviewResponse data = catalogService.getCatalogOverview(facilityId);
-        return ResponseEntity.ok(ApiResponse.success("Catalog overview retrieved successfully", data));
-    }
 
     @GetMapping("/facilities")
     @Operation(summary = "Lấy danh sách các cơ sở kho (Facilities)")

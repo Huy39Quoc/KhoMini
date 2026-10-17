@@ -31,30 +31,6 @@ public class RolePermissionController {
 
     private final RolePermissionService rolePermissionService;
 
-    @GetMapping("{id}")
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_PERMISSION_VIEW')")
-    @Operation(summary = "Lấy phân quyền theo ID")
-    public ResponseEntity<ApiResponse<RolePermissionResponse>> getById(
-            @PathVariable UUID id) {
-
-        RolePermissionResponse response = rolePermissionService.getById(id);
-
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_PERMISSION_ASSIGN')")
-    @Operation(summary = "Gán quyền cho vai trò")
-    public ResponseEntity<ApiResponse<RolePermissionResponse>> create(
-            @Valid @RequestBody RolePermissionCreateRequest request) {
-
-        RolePermissionResponse response = rolePermissionService.create(request);
-
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(
-                        "Assigned permission to role successfully", response));
-    }
-
     @PostMapping("/bulk-assign")
     @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_PERMISSION_ASSIGN')")
     @Operation(summary = "Gán nhiều quyền cho vai trò")
@@ -71,21 +47,6 @@ public class RolePermissionController {
                         "Assigned permissions to role successfully", response));
     }
 
-    @PutMapping("{id}")
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_PERMISSION_ASSIGN')")
-    @Operation(summary = "Update a role-permission assignment")
-    public ResponseEntity<ApiResponse<RolePermissionResponse>> update(
-            @PathVariable UUID id,
-            @Valid @RequestBody RolePermissionUpdateRequest request) {
-
-        RolePermissionResponse response =
-                rolePermissionService.update(id, request);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Updated role-permission successfully.", response));
-    }
-
     @DeleteMapping("{id}")
     @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_PERMISSION_REVOKE')")
     @Operation(summary = "Thu hồi quyền khỏi vai trò, isActive=false")
@@ -96,33 +57,6 @@ public class RolePermissionController {
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Revoked permission from role successfully.", null));
-    }
-
-    @GetMapping
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_PERMISSION_VIEW')")
-    @Operation(summary = "Get all role-permission assignments with filtering and pagination")
-    public ResponseEntity<ApiResponse<PageResponse<RolePermissionResponse>>> getAll(
-            @RequestParam(required = false) UUID roleId,
-            @RequestParam(required = false) UUID permissionId,
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) Boolean isActive,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
-        PageResponse<RolePermissionResponse> response =
-                rolePermissionService.getAll(
-                        roleId,
-                        permissionId,
-                        search,
-                        isActive,
-                        page,
-                        size,
-                        sortBy,
-                        sortDir);
-
-        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/by-role/{roleId}")

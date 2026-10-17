@@ -1,6 +1,5 @@
 package com.storehub.service.impl;
 
-import com.storehub.dto.request.PaymentConfirmationRequest;
 import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
 import com.storehub.common.PageResponse;
@@ -373,18 +372,6 @@ public class PaymentServiceImpl implements PaymentService {
             throw new AppException(ErrorCode.PAYMENT_NOT_FOUND);
         }
         return toPaymentResponse(payment);
-    }
-
-    // Giữ endpoint POST /payments/confirm cho tương thích, nhưng KHÔNG còn tự đánh dấu PAID:
-    // khách không thể tự xác nhận đã trả tiền. Chỉ trả về trạng thái hiện tại; giao dịch
-    // chuyển PAID khi VNPay gọi về processVnpayCallback.
-    @Override
-    @Transactional(readOnly = true)
-    public PaymentResponse confirmPayment(
-            String customerEmail,
-            PaymentConfirmationRequest request
-    ) {
-        return getPaymentStatus(customerEmail, request.getTransactionId());
     }
 
     /**

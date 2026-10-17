@@ -53,11 +53,9 @@ class ReservationDatabaseFlowTest {
 
     @Test
     void migrationsAuthReservationPaymentAttemptAndCancellation() throws Exception {
+        // Các migration V1..V30 cũ đã được gộp thành V1__init_schema_and_seed.sql.
         assertEquals(1, jdbc.queryForObject(
-                "select count(*) from flyway_schema_history where version = '19' and success = true",
-                Integer.class));
-        assertEquals(1, jdbc.queryForObject(
-                "select count(*) from flyway_schema_history where version = '20' and success = true",
+                "select count(*) from flyway_schema_history where version = '1' and success = true",
                 Integer.class));
 
         Map<String, String> available = jdbc.queryForMap("""

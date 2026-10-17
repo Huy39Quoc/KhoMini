@@ -298,6 +298,24 @@ class FacilityAdminApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getActivityLogDetail(String id) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.activityLogDetail(id));
+      return _unwrap(response.data);
+    } on DioException catch (e) {
+      throw _err(e, 'tải chi tiết nhật ký');
+    }
+  }
+
+  Future<Map<String, dynamic>> getFacilityPolicyById(String id) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.facilityPolicyDetail(id));
+      return _unwrap(response.data);
+    } on DioException catch (e) {
+      throw _err(e, 'tải chính sách cơ sở');
+    }
+  }
+
   String _formatDate(DateTime dt) {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${dt.year.toString().padLeft(4, '0')}-${two(dt.month)}-${two(dt.day)}';

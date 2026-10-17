@@ -69,16 +69,6 @@ public class FacilityPolicyController {
                 ApiResponse.success("Updated facility policy successfully.", response));
     }
 
-    @DeleteMapping("{id}")
-    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('POLICY_DELETE')")
-    @Operation(summary = "Delete a facility policy")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        facilityPolicyService.delete(id);
-
-        return ResponseEntity.ok(
-                ApiResponse.success("Deleted facility policy successfully.", null));
-    }
-
     @GetMapping
     @Operation(summary = "Get all facility policies with pagination and search")
     public ResponseEntity<ApiResponse<PageResponse<FacilityPolicyResponse>>> getAll(

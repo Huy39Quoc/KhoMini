@@ -30,16 +30,6 @@ public class RoleController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_CREATE')")
-    public ResponseEntity<ApiResponse<RoleResponse>> create
-            (@Valid @RequestBody RoleCreateRequest request){
-        log.info("Creating new role : {}", request.getName());
-        RoleResponse response= roleService.create(request);
-        return ResponseEntity.status(HttpStatus.CREATED).
-                body(ApiResponse.success("Created role successfully",response));
-    }
-
     @PutMapping("{id}")
     @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_UPDATE')")
     public ResponseEntity<ApiResponse<RoleResponse>> update
@@ -47,14 +37,6 @@ public class RoleController {
         log.info("Updating role : {}", request.getName());
         RoleResponse response=roleService.update(id,request);
         return ResponseEntity.ok(ApiResponse.success("Updated role successfully.", response));
-    }
-
-    @DeleteMapping("{id}")
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_DELETE')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id){
-        log.info("Deleting role with id : {}",id);
-        roleService.delete(id);
-        return ResponseEntity.ok(ApiResponse.success("Deleted role successfully.",null));
     }
 
     @GetMapping

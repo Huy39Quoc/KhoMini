@@ -253,14 +253,6 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public RentalQuoteResponse getRentalQuote(
-            RentalQuoteRequest request
-    ) {
-        return pricingService.calculateRentalQuote(request);
-    }
-
-    @Override
     @Transactional
     public void cancelBooking(UUID bookingId, String customerEmail) {
         User customer = userRepository.findByEmail(customerEmail)

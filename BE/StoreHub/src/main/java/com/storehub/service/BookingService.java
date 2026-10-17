@@ -21,15 +21,6 @@ public interface BookingService {
      */
     BookingResponse createBooking(String customerEmail, BookingCreationRequest request);
 
-    /**
-     * Tính báo giá nhanh mà không tạo booking.
-     * Dùng để hiển thị trước cho khách xác nhận.
-     *
-     * @param request thông tin báo giá
-     * @return bảng kê chi tiết chi phí
-     */
-    RentalQuoteResponse getRentalQuote(RentalQuoteRequest request);
-
     void cancelBooking(UUID bookingId, String customerEmail);
 
     List<BookingResponse> getPayableBookings(String customerEmail);

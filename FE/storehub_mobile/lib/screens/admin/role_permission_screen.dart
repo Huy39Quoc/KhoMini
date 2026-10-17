@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/vi_labels.dart';
 import '../../services/admin_api_service.dart';
 import '../../widgets/state_views.dart';
 
@@ -149,6 +150,111 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
     }
   }
 
+  Map<String, dynamic>? get _selectedRole {
+    for (final r in _roles) {
+      if (r['id'].toString() == _selectedRoleId) return r;
+    }
+    return null;
+  }
+
+  void _toast(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? AppColors.error : AppColors.success,
+      ),
+    );
+  }
+
+  /// Hộp thoại sửa mô tả dùng chung cho vai trò và quyền.
+  Future<String?> _askDescription(
+      {required String title,
+      required String subtitle,
+      required String initial}) {
+    final controller = TextEditingController(text: initial);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(subtitle,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.onSurfaceVariant)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              maxLength: 255,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Mô tả'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, controller.text),
+              child: const Text('Lưu')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editRoleDescription() async {
+    final id = _selectedRoleId;
+    if (id == null) return;
+    try {
+      final detail = await _adminApiService.getRoleDetail(id);
+      if (!mounted) return;
+      final text = await _askDescription(
+        title: 'Vai trò: ${ViLabels.role(detail['name']?.toString())}',
+        subtitle: 'Tên vai trò là cố định theo hệ thống, chỉ sửa được mô tả.',
+        initial: detail['description']?.toString() ?? '',
+      );
+      if (text == null) return;
+      await _adminApiService.updateRoleDescription(detail, text);
+      final roles = (await _adminApiService.getRoles())
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      if (!mounted) return;
+      setState(() => _roles = roles);
+      _toast('Đã cập nhật mô tả vai trò');
+    } catch (e) {
+      _toast(e.toString().replaceAll('Exception: ', ''), error: true);
+    }
+  }
+
+  Future<void> _showPermissionDetail(Map<String, dynamic> permission) async {
+    try {
+      final detail =
+          await _adminApiService.getPermissionDetail(permission['id'].toString());
+      if (!mounted) return;
+      final text = await _askDescription(
+        title: detail['name']?.toString() ?? 'Quyền',
+        subtitle: 'Nhóm: ${detail['permissionGroup'] ?? 'Chung'}'
+            '${widget.readOnly ? '' : ' - chỉ sửa được mô tả (tên quyền gắn với mã nguồn).'}',
+        initial: detail['description']?.toString() ?? '',
+      );
+      if (text == null || widget.readOnly) return;
+      await _adminApiService.updatePermissionDescription(detail, text);
+      final permissions = (await _adminApiService.getPermissions())
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      if (!mounted) return;
+      setState(() => _permissions = permissions);
+      _toast('Đã cập nhật mô tả quyền');
+    } catch (e) {
+      _toast(e.toString().replaceAll('Exception: ', ''), error: true);
+    }
+  }
+
   Map<String, List<Map<String, dynamic>>> get _groupedPermissions {
     final map = <String, List<Map<String, dynamic>>>{};
     for (final p in _permissions) {
@@ -179,7 +285,7 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
                     const Padding(
                       padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
                       child: Text(
-                        'Chọn vai trò để xem quyền. Admin tích/bỏ rồi bấm Save changes. '
+                        'Chọn vai trò để xem quyền. Admin tích/bỏ rồi bấm Lưu thay đổi. '
                         'Vai trò quyết định màn hình; quyền là lớp kiểm tra bổ sung '
                         'cho các API quản trị, giá, chính sách và báo cáo.',
                         style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
@@ -198,7 +304,7 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
                             final roleId = role['id'].toString();
                             final selected = roleId == _selectedRoleId;
                             return ChoiceChip(
-                              label: Text(role['name']?.toString() ?? ''),
+                              label: Text(ViLabels.role(role['name']?.toString())),
                               selected: selected,
                               onSelected: (_) {
                                 if (_isDirty) {
@@ -210,6 +316,29 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
                             );
                           },
                         ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              (_selectedRole?['description']?.toString().isNotEmpty ?? false)
+                                  ? _selectedRole!['description'].toString()
+                                  : 'Chưa có mô tả cho vai trò này.',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.onSurfaceVariant),
+                            ),
+                          ),
+                          if (!widget.readOnly && _selectedRole != null)
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              tooltip: 'Sửa mô tả vai trò',
+                              onPressed: _editRoleDescription,
+                            ),
+                        ],
                       ),
                     ),
                     const Divider(height: 1),
@@ -308,6 +437,11 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
                         style: const TextStyle(fontSize: 11))
                     : null,
                 value: checked,
+                secondary: IconButton(
+                  icon: const Icon(Icons.info_outline, size: 18),
+                  tooltip: widget.readOnly ? 'Xem chi tiết quyền' : 'Chi tiết / sửa mô tả',
+                  onPressed: () => _showPermissionDetail(p),
+                ),
                 onChanged: widget.readOnly
                     ? null
                     : (value) {

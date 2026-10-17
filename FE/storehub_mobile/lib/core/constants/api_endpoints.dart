@@ -125,7 +125,6 @@ class ApiEndpoints {
       '/permissions/$permissionId';
 
   // ---- Role <-> Permission assignments (RolePermissionController) ----
-  static const String rolePermissions = '/role-permissions';
   static String rolePermissionDetail(String rolePermissionId) =>
       '/role-permissions/$rolePermissionId';
   static const String rolePermissionsBulkAssign =
@@ -134,7 +133,6 @@ class ApiEndpoints {
       '/role-permissions/by-role/$roleId';
 
   // ---- Catalog (CatalogController) ----
-  static const String catalogOverview = '/catalog/overview';
   static const String facilities = '/catalog/facilities';
   static const String unitTypes = '/catalog/unit-types';
 
@@ -151,8 +149,6 @@ class ApiEndpoints {
 
   // ---- Payments (PaymentController) ----
   static const String paymentInitiate = '/payments/initiate';
-  static const String paymentConfirm =
-      '/payments/confirm'; // deprecated: chỉ trả trạng thái
   static String paymentStatus(String transactionId) =>
       '/payments/$transactionId/status';
   static const String paymentMyHistory = '/payments/my-history';

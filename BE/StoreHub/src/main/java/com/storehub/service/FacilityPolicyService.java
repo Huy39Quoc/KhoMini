@@ -45,8 +45,6 @@ public interface FacilityPolicyService {
             FacilityPolicyUpdateRequest request
     );
 
-    void delete(UUID id);
-
     PageResponse<FacilityPolicyResponse> getAll(
             String search,
             int page,

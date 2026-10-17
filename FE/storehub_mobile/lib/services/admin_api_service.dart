@@ -162,22 +162,6 @@ class AdminApiService {
     }
   }
 
-  Future<void> createRole(String name, String? description) async {
-    try {
-      await _dio.post(
-        ApiEndpoints.roles,
-        data: {
-          'name': name,
-          if (description != null && description.trim().isNotEmpty)
-            'description': description.trim(),
-        },
-      );
-    } on DioException catch (e) {
-      final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Không thể tạo vai trò: $message');
-    }
-  }
-
   Future<void> updateUserRole(
     String userId,
     String roleId,
@@ -194,6 +178,123 @@ class AdminApiService {
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể gán vai trò: $message');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Quản lý tài khoản người dùng
+  // ---------------------------------------------------------------------------
+
+  Map<String, dynamic> _unwrap(dynamic body) {
+    if (body is Map && body['data'] is Map) {
+      return Map<String, dynamic>.from(body['data'] as Map);
+    }
+    if (body is Map) return Map<String, dynamic>.from(body);
+    return <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> getUserDetail(String userId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.userDetail(userId));
+      return _unwrap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Không tải được thông tin người dùng: $message');
+    }
+  }
+
+  Future<void> createUser({
+    required String username,
+    required String email,
+    required String password,
+    required String fullName,
+    required String phone,
+    String? roleId,
+  }) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.users,
+        data: {
+          'username': username,
+          'email': email,
+          'password': password,
+          'fullName': fullName,
+          'phone': phone,
+          if (roleId != null && roleId.isNotEmpty) 'roleId': roleId,
+        },
+      );
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Không thể tạo người dùng: $message');
+    }
+  }
+
+  Future<void> deleteUser(String userId) async {
+    try {
+      await _dio.delete(ApiEndpoints.userDetail(userId));
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('$message');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Vai trò & quyền: xem chi tiết, sửa mô tả (5 vai trò và danh sách quyền là cố định)
+  // ---------------------------------------------------------------------------
+
+  Future<Map<String, dynamic>> getRoleDetail(String roleId) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.roleDetail(roleId));
+      return _unwrap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Không tải được chi tiết vai trò: $message');
+    }
+  }
+
+  Future<void> updateRoleDescription(
+      Map<String, dynamic> role, String description) async {
+    try {
+      await _dio.put(
+        ApiEndpoints.roleDetail(role['id'].toString()),
+        data: {
+          'name': role['name'],
+          'description': description.trim(),
+          'isActive': role['isActive'] != false,
+        },
+      );
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Không thể cập nhật vai trò: $message');
+    }
+  }
+
+  Future<Map<String, dynamic>> getPermissionDetail(String permissionId) async {
+    try {
+      final response =
+          await _dio.get(ApiEndpoints.permissionDetail(permissionId));
+      return _unwrap(response.data);
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Không tải được chi tiết quyền: $message');
+    }
+  }
+
+  Future<void> updatePermissionDescription(
+      Map<String, dynamic> permission, String description) async {
+    try {
+      await _dio.put(
+        ApiEndpoints.permissionDetail(permission['id'].toString()),
+        data: {
+          'name': permission['name'],
+          'permissionGroup': permission['permissionGroup'],
+          'description': description.trim(),
+          'isActive': permission['isActive'] != false,
+        },
+      );
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Không thể cập nhật quyền: $message');
     }
   }
 }

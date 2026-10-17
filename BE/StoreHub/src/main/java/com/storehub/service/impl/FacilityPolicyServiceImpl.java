@@ -130,16 +130,6 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
-    public void delete(UUID id) {
-        FacilityPolicy policy = facilityPolicyRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.FACILITY_POLICY_NOT_FOUND));
-        facilityPolicyRepository.deleteById(policy.getId());
-
-        activityLogService.record(ActivityAction.FACILITY_POLICY_UPDATE, "FACILITY_POLICY", policy.getId(),
-                "Deleted policy for facility " + (policy.getFacility() != null ? policy.getFacility().getName() : id), null, null);
-    }
-
-    @Override
     public boolean isWithinRenewalWindow(UUID facilityId, LocalDate currentEndDate) {
         return facilityPolicyRepository.findByFacility_Id(facilityId)
                 .map(policy -> {
