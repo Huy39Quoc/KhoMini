@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/safe_dispose.dart';
 import '../../models/staff_ticket_model.dart';
 import '../../models/paged_result.dart';
 import '../../services/facility_ops_api_service.dart';
@@ -147,6 +148,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
         );
       },
     );
+    disposeAfterRouteCloses([noteController]);
 
     if (note == null || note.trim().isEmpty) {
       return;

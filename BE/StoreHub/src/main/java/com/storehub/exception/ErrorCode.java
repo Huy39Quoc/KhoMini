@@ -76,6 +76,7 @@ public enum ErrorCode {
     GATE_PASS_USED(732, "Gate pass has already been used or replaced", HttpStatus.CONFLICT),
     ADVANCE_RESERVATION_EXCEEDED(734, "Start date exceeds the maximum advance reservation window for this facility", HttpStatus.BAD_REQUEST),
     TERMS_AND_CONDITIONS_REQUIRED(735, "You must accept the storage terms of service and confirm no prohibited items will be stored", HttpStatus.BAD_REQUEST),
+    DAMAGE_FEE_EXCEEDS_DEPOSIT(736, "Damage fee cannot exceed the deposit held for this booking", HttpStatus.BAD_REQUEST),
 
 
     UNIT_UNAVAILABLE(

@@ -23,6 +23,11 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentReconciliationScheduler {
+    /** Link VNPay sống 15 phút; thêm 15 phút dự phòng trước khi coi khoản thu là bị bỏ dở. */
+    private static final long ABANDON_AFTER_MINUTES = 30;
+    /** Khoản thu đã FAILED chỉ được hỏi lại VNPay trong khoảng này (để bắt IPN đến muộn). */
+    private static final long FAILED_RECHECK_HOURS = 24;
+
     private final PaymentRepository payments;
     private final VnpayRefundClient gateway;
     private final PaymentServiceImpl paymentService;
@@ -32,7 +37,7 @@ public class PaymentReconciliationScheduler {
     public void reconcile() {
         LocalDateTime now = LocalDateTime.now();
         for (UUID id : payments.findChargeIdsToReconcile(now.minusMinutes(2),
-                now.minusMinutes(5), PageRequest.of(0, 50))) {
+                now.minusMinutes(5), now.minusHours(FAILED_RECHECK_HOURS), PageRequest.of(0, 50))) {
             Charge charge = inTransaction(() -> claim(id));
             if (charge == null) continue;
             try {
@@ -41,6 +46,14 @@ public class PaymentReconciliationScheduler {
                 if (result.confirmedCharge(charge.amount())) {
                     inTransaction(() -> {
                         paymentService.reconcileConfirmedCharge(charge.transactionId(), result);
+                        return null;
+                    });
+                } else if (charge.paymentTime() != null
+                        && charge.paymentTime().isBefore(now.minusMinutes(ABANDON_AFTER_MINUTES))) {
+                    // Link thanh toán đã hết hạn mà VNPay không có giao dịch thành công: khoản thu bị
+                    // bỏ dở, chuyển sang FAILED để lịch sử không hiển thị "Pending" mãi mãi.
+                    inTransaction(() -> {
+                        paymentService.expireAbandonedCharge(charge.transactionId(), result);
                         return null;
                     });
                 } else {
@@ -67,7 +80,7 @@ public class PaymentReconciliationScheduler {
         }
         payment.setLastGatewayQueryAt(LocalDateTime.now());
         return new Charge(payment.getTransactionId(), payment.getGatewayCreateDate(),
-                payment.getGatewayAmount());
+                payment.getGatewayAmount(), payment.getPaymentTime());
     }
 
     private <T> T inTransaction(Supplier<T> work) {
@@ -77,5 +90,5 @@ public class PaymentReconciliationScheduler {
     }
 
     private record Charge(String transactionId, String gatewayCreateDate,
-                          java.math.BigDecimal amount) {}
+                          java.math.BigDecimal amount, LocalDateTime paymentTime) {}
 }

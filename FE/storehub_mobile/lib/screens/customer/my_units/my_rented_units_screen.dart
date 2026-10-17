@@ -95,8 +95,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 subtitle: unit.hasActiveAccess
                     ? null
                     : Text(unit.accessDisabled
-                        ? 'Access disabled - rental is overdue'
-                        : 'Available after check-in at the facility'),
+                        ? 'Đã khóa truy cập vì quá hạn thuê'
+                        : 'Dùng được sau khi nhân viên bàn giao tại cơ sở'),
                 onTap: unit.hasActiveAccess
                     ? () {
                         Navigator.pop(ctx);
@@ -145,7 +145,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 title: const Text('Extend Rental'),
                 enabled: _canExtend(unit),
                 subtitle: !unit.isActive
-                    ? const Text('Available after check-in at the facility')
+                    ? const Text('Dùng được sau khi nhân viên bàn giao tại cơ sở')
                     : unit.hasPendingExtension
                         ? const Text('Resume or cancel your pending extension')
                         : unit.hasLateFeeDue
@@ -180,7 +180,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                         ? Text(
                             'Currently ${_dateTimeFmt.format(unit.scheduledReturnTime!)}')
                         : null)
-                    : const Text('Available after check-in at the facility'),
+                    : const Text('Dùng được sau khi nhân viên bàn giao tại cơ sở'),
                 onTap: unit.isActive
                     ? () {
                         Navigator.pop(ctx);
@@ -609,7 +609,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${active.length} active • ${awaiting.length} awaiting handover',
+                              '${active.length} đang thuê • ${awaiting.length} chờ nhận kho',
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -617,8 +617,9 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                             ),
                             Text(
                               _showAwaiting
-                                  ? 'These bookings are waiting for staff check-in and handover.'
-                                  : 'Tap a unit for its smart key, gate QR, rental and support.',
+                                  ? 'Bạn đã thanh toán. Hãy đến cơ sở đúng ngày giờ hẹn: nhân viên sẽ kiểm tra và bàn giao ngăn kho, '
+                                      'sau đó booking chuyển sang "Đang thuê".'
+                                  : 'Bấm vào ngăn kho để xem khóa thông minh, QR cổng, gia hạn/trả kho và hỗ trợ.',
                               style: const TextStyle(
                                   color: Colors.white70, fontSize: 11),
                             ),
@@ -633,12 +634,12 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   spacing: 8,
                   children: [
                     ChoiceChip(
-                      label: Text('Currently renting (${active.length})'),
+                      label: Text('Đang thuê (${active.length})'),
                       selected: !_showAwaiting,
                       onSelected: (_) => setState(() => _showAwaiting = false),
                     ),
                     ChoiceChip(
-                      label: Text('Awaiting handover (${awaiting.length})'),
+                      label: Text('Chờ nhận kho (${awaiting.length})'),
                       selected: _showAwaiting,
                       onSelected: (_) => setState(() => _showAwaiting = true),
                     ),
@@ -648,10 +649,10 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 if (units.isEmpty)
                   AppEmptyState(
                     icon: Icons.inventory_2_outlined,
-                    title: _showAwaiting ? 'No upcoming handovers' : 'No active rentals',
+                    title: _showAwaiting ? 'Chưa có lịch nhận kho' : 'Chưa có kho đang thuê',
                     message: _showAwaiting
-                        ? 'Confirmed bookings will appear here until check-in.'
-                        : 'Units appear here after staff complete the handover.',
+                        ? 'Booking đã thanh toán sẽ hiện ở đây cho đến khi nhân viên bàn giao.'
+                        : 'Ngăn kho sẽ hiện ở đây sau khi nhân viên hoàn tất bàn giao.',
                   ),
                 ...units.map((unit) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/safe_dispose.dart';
 import '../../services/admin_api_service.dart';
 import '../../services/facility_admin_api_service.dart';
 import '../../services/facility_ops_api_service.dart';
@@ -10,7 +11,19 @@ import '../../services/facility_ops_api_service.dart';
 /// always belongs to exactly one facility.
 class FacilityEditScreen extends StatefulWidget {
   final Map? facility; // null = create mode
-  const FacilityEditScreen({super.key, this.facility});
+
+  /// Chỉ Admin được gán Facility Manager (API gán manager yêu cầu role ADMIN).
+  final bool canAssignManager;
+
+  /// true: Admin chỉ xem tóm tắt cơ sở và gán Facility Manager (không sửa thông tin/chính sách).
+  final bool assignOnly;
+
+  const FacilityEditScreen({
+    super.key,
+    this.facility,
+    this.canAssignManager = false,
+    this.assignOnly = false,
+  });
 
   @override
   State<FacilityEditScreen> createState() => _FacilityEditScreenState();
@@ -111,7 +124,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     _managerId = f?['managerId']?.toString();
     _managerName = f?['managerName']?.toString();
 
-    if (_isEditing) _loadPolicy();
+    if (_isEditing && !widget.assignOnly) _loadPolicy();
   }
 
   @override
@@ -401,7 +414,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isEditing ? 'Facility updated' : 'Facility created'),
+          content: Text(_isEditing ? 'Đã cập nhật cơ sở' : 'Đã tạo cơ sở'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -515,7 +528,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content:
-                Text('Please fill in valid numbers for the policy fields.')),
+                Text('Vui lòng nhập số hợp lệ cho các trường chính sách.')),
       );
       return;
     }
@@ -524,7 +537,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Full-refund hours must be greater than or equal to partial-refund hours.'),
+              'Số giờ hoàn 100% phải lớn hơn hoặc bằng số giờ hoàn một phần.'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -564,7 +577,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Policy saved'), backgroundColor: AppColors.success),
+            content: Text('Đã lưu chính sách'), backgroundColor: AppColors.success),
       );
       _loadPolicy();
     } catch (e) {
@@ -635,7 +648,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Assign Facility Manager',
+                      const Text('Chọn Facility Manager cho cơ sở',
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
@@ -643,7 +656,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                         controller: searchController,
                         onChanged: (_) => setSheet(() {}),
                         decoration: const InputDecoration(
-                            hintText: 'Search by name or email',
+                            hintText: 'Tìm theo tên hoặc email',
                             prefixIcon: Icon(Icons.search)),
                       ),
                     ],
@@ -655,8 +668,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                           child: Padding(
                             padding: EdgeInsets.all(24),
                             child: Text(
-                              'No user with the FACILITY_MANAGER role found. '
-                              'Ask an admin to create one first.',
+                              'Chưa có tài khoản nào thuộc role Facility Manager. '
+                              'Hãy tạo tài khoản và gán role này ở mục Người dùng & phân quyền.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                   color: AppColors.onSurfaceVariant,
@@ -678,7 +691,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                               title: Text(name),
                               subtitle: Text(
                                 '${u['email'] ?? ''}\n'
-                                '${managed == null ? 'Not managing any facility' : 'Manages: $managed'}',
+                                '${managed == null ? 'Chưa quản lý cơ sở nào' : 'Đang quản lý: $managed'}',
                                 style: const TextStyle(fontSize: 12),
                               ),
                               isThreeLine: true,
@@ -731,6 +744,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
         },
       ),
     );
+    disposeAfterRouteCloses([searchController]);
   }
 
   static const SizedBox _gap = SizedBox(height: 14);
@@ -793,8 +807,8 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
 
     return _section(
       icon: Icons.manage_accounts_outlined,
-      title: 'Facility manager',
-      subtitle: 'The person responsible for operating this facility.',
+      title: 'Quản lý cơ sở',
+      subtitle: 'Người vận hành cơ sở này. Chỉ người được gán mới thấy và xử lý dữ liệu của cơ sở.',
       children: [
         Row(
           children: [
@@ -814,7 +828,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    hasManager ? _managerName! : 'No manager assigned',
+                    hasManager ? _managerName! : 'Chưa gán quản lý',
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 14),
                   ),
@@ -831,12 +845,14 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
             ),
           ],
         ),
-        _gap,
-        OutlinedButton.icon(
-          onPressed: _openAssignManagerSheet,
-          icon: const Icon(Icons.person_add_alt, size: 16),
-          label: Text(hasManager ? 'Change manager' : 'Assign manager'),
-        ),
+        if (widget.canAssignManager) ...[
+          _gap,
+          OutlinedButton.icon(
+            onPressed: _openAssignManagerSheet,
+            icon: const Icon(Icons.person_add_alt, size: 16),
+            label: Text(hasManager ? 'Đổi quản lý' : 'Gán quản lý'),
+          ),
+        ],
       ],
     );
   }
@@ -851,66 +867,80 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
           children: [
             _section(
               icon: Icons.business_outlined,
-              title: 'Facility details',
+              title: 'Thông tin cơ sở',
               children: [
                 TextFormField(
                   controller: _nameController,
-                  decoration: _dec('Facility name'),
+                  decoration: _dec('Tên cơ sở'),
                   validator: (v) => (v == null || v.trim().length < 2)
-                      ? 'Enter a name (min 2 characters)'
+                      ? 'Nhập tên (ít nhất 2 ký tự)'
                       : null,
                 ),
                 _gap,
                 TextFormField(
                   controller: _codeController,
-                  decoration: _dec('Facility code', hint: 'e.g. HCM-01'),
+                  decoration: _dec('Mã cơ sở', hint: 'VD: HCM-01'),
                   validator: (v) => (v == null || v.trim().length < 2)
-                      ? 'Enter a code (min 2 characters)'
+                      ? 'Nhập mã (ít nhất 2 ký tự)'
                       : null,
                 ),
                 _gap,
                 TextFormField(
                   controller: _addressController,
-                  decoration: _dec('Address'),
+                  decoration: _dec('Địa chỉ'),
                   validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Address is required'
+                      ? 'Vui lòng nhập địa chỉ'
                       : null,
                 ),
                 _gap,
                 TextFormField(
                   controller: _cityController,
-                  decoration: _dec('City (optional)'),
+                  decoration: _dec('Thành phố (không bắt buộc)'),
                 ),
                 if (_isEditing) ...[
                   _gap,
                   DropdownButtonFormField<String>(
                     initialValue: _status,
-                    decoration: _dec('Status'),
+                    decoration: _dec('Trạng thái'),
                     items: const [
-                      DropdownMenuItem(value: 'ACTIVE', child: Text('Active')),
+                      DropdownMenuItem(value: 'ACTIVE', child: Text('Hoạt động')),
                       DropdownMenuItem(
-                          value: 'INACTIVE', child: Text('Inactive')),
+                          value: 'INACTIVE', child: Text('Tạm ngưng')),
                       DropdownMenuItem(
-                          value: 'MAINTENANCE', child: Text('Maintenance')),
+                          value: 'MAINTENANCE', child: Text('Bảo trì')),
                     ],
                     onChanged: (v) => setState(() => _status = v ?? _status),
                   ),
                 ],
                 SwitchListTile(
-                  title: const Text('Máy lạnh 24/7'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Kho có máy lạnh 24/7'),
                   subtitle: const Text(
-                      'Bật khi toàn bộ ngăn tại cơ sở đều có máy lạnh 24/7.'),
+                      'Khách có thể lọc cơ sở theo mục này. Chỉ bật khi mọi ngăn '
+                      'đều có máy lạnh chạy suốt ngày.'),
                   value: _airConditioned24h,
                   onChanged: (value) =>
                       setState(() => _airConditioned24h = value),
                 ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Giờ làm việc của cơ sở',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Khách chỉ đặt được lịch hẹn nhận/trả kho trong khung giờ này.',
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.onSurfaceVariant),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () => _pickFacilityTime(opening: true),
                         icon: const Icon(Icons.schedule),
-                        label: Text('Mở ${_openTime.format(context)}'),
+                        label: Text('Mở cửa ${_openTime.format(context)}'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -918,7 +948,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () => _pickFacilityTime(opening: false),
                         icon: const Icon(Icons.schedule),
-                        label: Text('Đóng ${_closeTime.format(context)}'),
+                        label: Text('Đóng cửa ${_closeTime.format(context)}'),
                       ),
                     ),
                   ],
@@ -1153,23 +1183,23 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
             ),
             _section(
               icon: Icons.contact_phone_outlined,
-              title: 'Contact',
+              title: 'Liên hệ',
               children: [
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: _dec('Contact phone (optional)'),
+                  decoration: _dec('Số điện thoại (không bắt buộc)'),
                 ),
                 _gap,
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: _dec('Email (optional)'),
+                  decoration: _dec('Email (không bắt buộc)'),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return null;
                     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                         .hasMatch(v.trim())) {
-                      return 'Enter a valid email';
+                      return 'Email không hợp lệ';
                     }
                     return null;
                   },
@@ -1178,7 +1208,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                 TextFormField(
                   controller: _descriptionController,
                   maxLines: 3,
-                  decoration: _dec('Description (optional)'),
+                  decoration: _dec('Mô tả (không bắt buộc)'),
                 ),
               ],
             ),
@@ -1191,7 +1221,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                       width: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : Text(_isEditing ? 'Save Changes' : 'Create Facility'),
+                  : Text(_isEditing ? 'Lưu thay đổi' : 'Tạo cơ sở'),
             ),
             const SizedBox(height: 24),
           ],
@@ -1214,110 +1244,110 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
             padding: const EdgeInsets.only(bottom: 12, left: 2),
             child: Text(
               _policy == null
-                  ? 'No policy configured yet for this facility.'
-                  : 'Editing the existing policy for this facility.',
+                  ? 'Cơ sở này chưa có chính sách thuê.'
+                  : 'Đang chỉnh sửa chính sách thuê của cơ sở này.',
               style: const TextStyle(
                   fontSize: 12, color: AppColors.onSurfaceVariant),
             ),
           ),
           _section(
             icon: Icons.payments_outlined,
-            title: 'Deposit & fees',
+            title: 'Tiền cọc & phí',
             children: [
               _pair(
-                _policyField(_depositController, 'Deposit', suffix: '%'),
-                _policyField(_lateFeeController, 'Daily late fee',
+                _policyField(_depositController, 'Tiền cọc', suffix: '%'),
+                _policyField(_lateFeeController, 'Phí trễ hạn mỗi ngày',
                     suffix: 'VND'),
               ),
               _gap,
               _pair(
-                _policyField(_minMonthsController, 'Min. rental',
-                    int_: true, suffix: 'months'),
-                _policyField(_refundSlaController, 'Deposit refund',
-                    int_: true, suffix: 'days'),
+                _policyField(_minMonthsController, 'Thuê tối thiểu',
+                    int_: true, suffix: 'tháng'),
+                _policyField(_refundSlaController, 'Hoàn cọc trong',
+                    int_: true, suffix: 'ngày'),
               ),
             ],
           ),
           _section(
             icon: Icons.autorenew,
-            title: 'Booking & renewal window',
+            title: 'Đặt chỗ, gia hạn & trả kho',
             children: [
               _pair(
                 _policyField(_maxAdvanceReservationDaysController,
-                    'Max advance booking',
-                    int_: true, suffix: 'days', hint: 'e.g. 14'),
-                _policyField(_renewalWindowController, 'Renewal window',
-                    int_: true, suffix: 'days'),
+                    'Đặt trước tối đa',
+                    int_: true, suffix: 'ngày', hint: 'VD: 14'),
+                _policyField(_renewalWindowController, 'Cho gia hạn trước hạn',
+                    int_: true, suffix: 'ngày'),
               ),
               _gap,
-              _policyField(_returnNoticeController, 'Return notice',
-                  int_: true, suffix: 'days'),
+              _policyField(_returnNoticeController, 'Báo trước khi trả kho',
+                  int_: true, suffix: 'ngày'),
             ],
           ),
           _section(
             icon: Icons.sell_outlined,
-            title: 'Extra fee & discount',
+            title: 'Phí phát sinh & giảm giá',
             subtitle:
-                'Management fee 0 = fee waived. Discount 0 months = no discount.',
+                'Phí quản lý = 0 nghĩa là miễn phí. Giảm giá từ 0 tháng = không giảm giá.',
             children: [
-              _policyField(_managementFeeController, 'Management fee',
-                  suffix: 'VND / month'),
+              _policyField(_managementFeeController, 'Phí quản lý',
+                  suffix: 'VND / tháng'),
               _gap,
               _pair(
-                _policyField(_discountMonthsController, 'Discount from',
-                    int_: true, suffix: 'months'),
-                _policyField(_discountPercentController, 'Rent discount',
+                _policyField(_discountMonthsController, 'Giảm giá từ',
+                    int_: true, suffix: 'tháng'),
+                _policyField(_discountPercentController, 'Mức giảm tiền thuê',
                     suffix: '%'),
               ),
             ],
           ),
           _section(
             icon: Icons.event_busy_outlined,
-            title: 'Cancellation refund',
-            subtitle: 'Time before the rental start date.',
+            title: 'Hoàn tiền khi hủy',
+            subtitle: 'Tính theo số giờ trước ngày bắt đầu thuê.',
             children: [
               _pair(
-                _policyField(_fullRefundHoursController, 'Full refund',
-                    int_: true, suffix: 'hours'),
-                _policyField(_partialRefundHoursController, 'Partial refund',
-                    int_: true, suffix: 'hours'),
+                _policyField(_fullRefundHoursController, 'Hoàn 100% nếu hủy trước',
+                    int_: true, suffix: 'giờ'),
+                _policyField(_partialRefundHoursController, 'Hoàn một phần nếu hủy trước',
+                    int_: true, suffix: 'giờ'),
               ),
               _gap,
               _policyField(
-                  _partialRefundPercentController, 'Partial refund amount',
+                  _partialRefundPercentController, 'Tỷ lệ hoàn một phần',
                   suffix: '%'),
             ],
           ),
           _section(
             icon: Icons.warning_amber_rounded,
-            title: 'Overdue handling',
-            subtitle: 'Days after the rental end date.',
+            title: 'Xử lý quá hạn',
+            subtitle: 'Tính theo số ngày sau ngày hết hạn thuê.',
             children: [
-              _policyField(_graceController, 'Grace period',
-                  int_: true, suffix: 'days'),
+              _policyField(_graceController, 'Thời gian ân hạn',
+                  int_: true, suffix: 'ngày'),
               _gap,
               _pair(
-                _policyField(_accessDisableController, 'Disable access',
-                    int_: true, suffix: 'days'),
-                _policyField(_sealingController, 'Sealing',
-                    int_: true, suffix: 'days'),
+                _policyField(_accessDisableController, 'Khóa mã ra vào sau',
+                    int_: true, suffix: 'ngày'),
+                _policyField(_sealingController, 'Niêm phong sau',
+                    int_: true, suffix: 'ngày'),
               ),
             ],
           ),
           _section(
             icon: Icons.gavel_outlined,
-            title: 'Legal & Prohibited items',
+            title: 'Điều khoản & hàng cấm',
             subtitle: 'Configured dynamically for customer agreement.',
             children: [
-              _policyField(_termsVersionController, 'Terms version',
-                  hint: 'e.g. v2026.1'),
+              _policyField(_termsVersionController, 'Phiên bản điều khoản',
+                  hint: 'VD: v2026.1'),
               _gap,
               TextFormField(
                 controller: _prohibitedItemsController,
                 maxLines: 4,
                 decoration: _dec(
-                  'Prohibited items',
-                  hint: 'Separate items with semicolons (;)',
+                  'Hàng cấm lưu kho',
+                  hint: 'Ngăn cách các mục bằng dấu chấm phẩy (;)',
                 ),
               ),
               _gap,
@@ -1325,15 +1355,15 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                 controller: _termsAndConditionsController,
                 maxLines: 5,
                 decoration: _dec(
-                  'Terms & Conditions summary',
-                  hint: 'Rules, safety, responsibilities...',
+                  'Tóm tắt điều khoản',
+                  hint: 'Nội quy, an toàn, trách nhiệm...',
                 ),
               ),
             ],
           ),
           ElevatedButton(
             onPressed: _savePolicy,
-            child: Text(_policy == null ? 'Create Policy' : 'Save Policy'),
+            child: Text(_policy == null ? 'Tạo chính sách' : 'Lưu chính sách'),
           ),
           const SizedBox(height: 24),
         ],
@@ -1343,10 +1373,30 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.assignOnly) {
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: AppBar(title: const Text('Gán quản lý cơ sở')),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _section(
+              icon: Icons.warehouse_outlined,
+              title: _nameController.text,
+              subtitle:
+                  '${_codeController.text} • ${_addressController.text}',
+              children: const [],
+            ),
+            _buildManagerCard(),
+          ],
+        ),
+      );
+    }
+
     if (!_isEditing) {
       return Scaffold(
         backgroundColor: AppColors.surface,
-        appBar: AppBar(title: const Text('New Facility')),
+        appBar: AppBar(title: const Text('Thêm cơ sở')),
         body: _buildDetailsTab(),
       );
     }
@@ -1356,12 +1406,12 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       child: Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
-          title: const Text('Edit Facility'),
+          title: const Text('Sửa cơ sở'),
           bottom: const TabBar(
             labelColor: AppColors.secondaryContainer,
             unselectedLabelColor: AppColors.onSurfaceVariant,
             indicatorColor: AppColors.secondaryContainer,
-            tabs: [Tab(text: 'Details'), Tab(text: 'Rental Policy')],
+            tabs: [Tab(text: 'Thông tin'), Tab(text: 'Chính sách thuê')],
           ),
         ),
         body: TabBarView(

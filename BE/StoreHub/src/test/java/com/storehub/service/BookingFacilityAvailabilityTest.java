@@ -53,6 +53,8 @@ class BookingFacilityAvailabilityTest {
                 .unitTypeId(unitTypeId)
                 .startDate(LocalDate.now().plusDays(1))
                 .rentalMonths(1)
+                .prohibitedItemsConfirmed(true)
+                .termsConfirmed(true)
                 .build();
 
         AppException exception = assertThrows(AppException.class,

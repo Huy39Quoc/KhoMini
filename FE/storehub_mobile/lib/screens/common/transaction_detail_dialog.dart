@@ -63,7 +63,7 @@ class TransactionDetailDialog extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Transaction Details',
+                'Chi tiết giao dịch',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -99,7 +99,7 @@ class TransactionDetailDialog extends StatelessWidget {
             child: Column(
               children: [
                 const Text(
-                  'Total Amount',
+                  'Số tiền',
                   style: TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 const SizedBox(height: 6),
@@ -134,29 +134,29 @@ class TransactionDetailDialog extends StatelessWidget {
                 children: [
                   _detailRow(
                     context,
-                    label: 'Transaction ID',
+                    label: 'Mã giao dịch',
                     value: payment.transactionId,
                     isCopyable: true,
                   ),
                   const Divider(height: 1, indent: 12, endIndent: 12),
                   _detailRow(
                     context,
-                    label: 'Date & Time',
+                    label: 'Thời gian',
                     value: formattedDate,
                   ),
                   if (payment.paymentMethod != null && payment.paymentMethod!.isNotEmpty) ...[
                     const Divider(height: 1, indent: 12, endIndent: 12),
                     _detailRow(
                       context,
-                      label: 'Payment Method',
-                      value: payment.paymentMethod!,
+                      label: 'Phương thức',
+                      value: payment.paymentMethod! == 'BANK_TRANSFER' ? 'VNPay' : payment.paymentMethod!,
                     ),
                   ],
                   if (payment.bookingCode != null && payment.bookingCode!.isNotEmpty) ...[
                     const Divider(height: 1, indent: 12, endIndent: 12),
                     _detailRow(
                       context,
-                      label: 'Booking Code',
+                      label: 'Mã booking',
                       value: payment.bookingCode!,
                     ),
                   ],
@@ -164,7 +164,7 @@ class TransactionDetailDialog extends StatelessWidget {
                     const Divider(height: 1, indent: 12, endIndent: 12),
                     _detailRow(
                       context,
-                      label: 'Customer',
+                      label: 'Khách hàng',
                       value: '${payment.customerName} (${payment.customerEmail ?? ''})',
                     ),
                   ],
@@ -172,7 +172,7 @@ class TransactionDetailDialog extends StatelessWidget {
                     const Divider(height: 1, indent: 12, endIndent: 12),
                     _detailRow(
                       context,
-                      label: 'Facility',
+                      label: 'Cơ sở',
                       value: payment.facilityName!,
                     ),
                   ],
@@ -180,7 +180,7 @@ class TransactionDetailDialog extends StatelessWidget {
                     const Divider(height: 1, indent: 12, endIndent: 12),
                     _detailRow(
                       context,
-                      label: 'Storage Unit',
+                      label: 'Ngăn kho',
                       value: 'Unit ${payment.unitCode}',
                     ),
                   ],
@@ -188,7 +188,7 @@ class TransactionDetailDialog extends StatelessWidget {
                     const Divider(height: 1, indent: 12, endIndent: 12),
                     _detailRow(
                       context,
-                      label: 'Note',
+                      label: 'Ghi chú',
                       value: payment.note!,
                     ),
                   ],
@@ -200,7 +200,7 @@ class TransactionDetailDialog extends StatelessWidget {
 
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: const Text('Đóng'),
           ),
         ],
       ),
@@ -245,7 +245,7 @@ class TransactionDetailDialog extends StatelessWidget {
                 Clipboard.setData(ClipboardData(text: value));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Transaction ID copied to clipboard'),
+                    content: Text('Đã sao chép mã giao dịch'),
                     duration: Duration(seconds: 2),
                   ),
                 );

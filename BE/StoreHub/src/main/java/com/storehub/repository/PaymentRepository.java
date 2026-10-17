@@ -29,8 +29,9 @@ public interface PaymentRepository
 
     @Query("""
             select p.id from Payment p
-            where p.status in (com.storehub.enums.PaymentStatus.PENDING,
-                               com.storehub.enums.PaymentStatus.FAILED)
+            where (p.status = com.storehub.enums.PaymentStatus.PENDING
+                   or (p.status = com.storehub.enums.PaymentStatus.FAILED
+                       and p.paymentTime > :failedNotBefore))
             and p.gatewayCreateDate is not null
             and p.paymentTime < :createdBefore
             and (p.lastGatewayQueryAt is null or p.lastGatewayQueryAt < :queriedBefore)
@@ -38,6 +39,7 @@ public interface PaymentRepository
             """)
     List<UUID> findChargeIdsToReconcile(@Param("createdBefore") LocalDateTime createdBefore,
                                         @Param("queriedBefore") LocalDateTime queriedBefore,
+                                        @Param("failedNotBefore") LocalDateTime failedNotBefore,
                                         Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

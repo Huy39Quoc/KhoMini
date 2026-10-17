@@ -414,6 +414,16 @@ public class FacilityOperationsServiceImpl
             );
         }
 
+        // Phí hư hại chỉ được trừ trong phạm vi tiền cọc đang giữ; kiểm tra trước khi đổi dữ liệu.
+        BigDecimal damageFeeInput = request.getDamageFee();
+        if (damageFeeInput != null) {
+            BigDecimal depositHeld = booking.getDepositPaid() != null
+                    ? booking.getDepositPaid() : BigDecimal.ZERO;
+            if (damageFeeInput.signum() < 0 || damageFeeInput.compareTo(depositHeld) > 0) {
+                throw new AppException(ErrorCode.DAMAGE_FEE_EXCEEDS_DEPOSIT);
+            }
+        }
+
         // Reconcile a missed nightly accrual under the booking lock. Commit the
         // new debt even when the return is rejected, so the customer can pay it.
         if (overdueScheduler.accrueOutstandingForCheckout(booking, LocalDateTime.now())) {
@@ -454,11 +464,6 @@ public class FacilityOperationsServiceImpl
             message = "Check-out completed. Deposit refund requested: " + requestedRefund.toPlainString()
                     + (request.getDamageFee() != null && request.getDamageFee().signum() > 0
                         ? " (Damage fee deducted: " + request.getDamageFee().toPlainString() + ")" : "");
-        } else if (request.getDamageFee() != null && booking.getDepositPaid() != null
-                && request.getDamageFee().compareTo(booking.getDepositPaid()) > 0) {
-            BigDecimal extraDebt = request.getDamageFee().subtract(booking.getDepositPaid());
-            message = "Check-out completed. Deposit fully absorbed by damage fee. Extra compensation required: "
-                    + extraDebt.toPlainString();
         } else if (request.getDamageFee() != null && request.getDamageFee().signum() > 0) {
             message = "Check-out completed. Deposit fully absorbed by damage fee (0 refund).";
         } else {

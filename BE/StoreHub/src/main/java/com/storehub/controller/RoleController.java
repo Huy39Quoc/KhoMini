@@ -23,7 +23,7 @@ public class RoleController {
     private final RoleService roleService;
 
     @GetMapping("{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER') and hasAuthority('ROLE_VIEW')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_VIEW')")
     public ResponseEntity<ApiResponse<RoleResponse>> getById(@PathVariable UUID id){
         log.info("Get role by id : {}",id);
         RoleResponse response=roleService.getById(id);
@@ -58,7 +58,7 @@ public class RoleController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER') and hasAuthority('ROLE_VIEW')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_VIEW')")
     public ResponseEntity<ApiResponse<PageResponse<RoleResponse>>> getAll(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean isActive,

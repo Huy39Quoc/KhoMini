@@ -366,7 +366,7 @@ class _PaymentScreenState extends State<PaymentScreen>
             ),
           ),
           const SizedBox(height: 24),
-          const Text('Booking Confirmed! 🎉',
+          const Text('Đặt chỗ thành công! 🎉',
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 22,
@@ -374,7 +374,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                   color: AppColors.textPrimary)),
           const SizedBox(height: 8),
           const Text(
-              'Your storage unit has been confirmed and reserved.\nPlease visit the facility on your scheduled date to check in.',
+              'Bạn đã thanh toán và ngăn kho đã được giữ cho bạn.\nQuản lý cơ sở sẽ xác nhận ngăn kho; hãy đến cơ sở đúng ngày giờ hẹn để nhân viên bàn giao. Theo dõi tại "Kho của tôi" > "Chờ nhận kho".',
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 13, color: AppColors.textSecondary, height: 1.5)),
@@ -390,7 +390,7 @@ class _PaymentScreenState extends State<PaymentScreen>
             ),
             child: Column(
               children: [
-                const Text('Your booking code',
+                const Text('Mã đặt chỗ',
                     style: TextStyle(color: Colors.white70, fontSize: 13)),
                 const SizedBox(height: 8),
                 Text(widget.bookingCode,
@@ -404,7 +404,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: widget.bookingCode));
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Booking code copied'),
+                        content: Text('Đã sao chép mã đặt chỗ'),
                         backgroundColor: AppColors.success));
                   },
                   child: Container(

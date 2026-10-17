@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
-import '../../services/admin_api_service.dart';
 import '../../services/facility_admin_api_service.dart';
-import '../admin/role_permission_screen.dart';
 import '../common/profile_screen.dart';
 import '../common/transaction_history_screen.dart';
 import 'facility_management_screen.dart';
@@ -11,6 +9,9 @@ import 'reports_screen.dart';
 import 'revenue_chart_card.dart';
 import 'unit_price_screen.dart';
 
+/// Màn hình chính của Business Operations Manager: giám sát doanh thu toàn hệ thống,
+/// quản lý danh sách cơ sở, chính sách thuê và giá/phí. (Quản lý tài khoản và phân quyền
+/// là việc của System Administrator.)
 class OperationsDashboardScreen extends StatefulWidget {
   final UserModel user;
   const OperationsDashboardScreen({super.key, required this.user});
@@ -21,22 +22,14 @@ class OperationsDashboardScreen extends StatefulWidget {
 }
 
 class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
-  final _adminApiService = AdminApiService();
   final _reportsApi = FacilityAdminApiService();
   late Future<Map<String, dynamic>> _revenueFuture;
   late DateTime _revenueFrom;
   late DateTime _revenueTo;
-  bool _isLoading = true;
-  int _userCount = 0;
-  int _activeUsers = 0;
-  int _totalRoles = 0;
-  int _totalPermissions = 0;
-  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _fetchLiveMetrics();
     _loadRevenue();
   }
 
@@ -50,50 +43,22 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
     });
   }
 
-  Future<void> _fetchLiveMetrics() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final results = await Future.wait([
-        _adminApiService.getUserSummary(),
-        _adminApiService.getRoles(),
-        _adminApiService.getPermissions(),
-      ]);
-      final summary = results[0] as ({int total, int active});
-      final roles = results[1] as List<dynamic>;
-      final permissions = results[2] as List<dynamic>;
-      final total = summary.total;
-      final active = summary.active;
-
-      if (!mounted) return;
-      setState(() {
-        _userCount = total;
-        _activeUsers = active;
-        _totalRoles = roles.length;
-        _totalPermissions = permissions.length;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-        _isLoading = false;
-      });
-    }
+  void _open(Widget page) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
   @override
   Widget build(BuildContext context) {
+    final name = widget.user.fullName.isNotEmpty
+        ? widget.user.fullName
+        : widget.user.username;
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Operations Console'),
+        title: const Text('Quản lý kinh doanh'),
         actions: [
           IconButton(
-            tooltip: 'Profile',
+            tooltip: 'Tài khoản',
             icon: CircleAvatar(
               radius: 15,
               backgroundColor: AppColors.primaryContainer,
@@ -107,270 +72,109 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                     fontWeight: FontWeight.bold),
               ),
             ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => ProfileScreen(user: widget.user)),
-              );
-            },
+            onPressed: () => _open(ProfileScreen(user: widget.user)),
           ),
           const SizedBox(width: 6),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: () async {
-                _loadRevenue();
-                await _fetchLiveMetrics();
+      body: RefreshIndicator(
+        onRefresh: () async => _loadRevenue(),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text('Xin chào, $name',
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            const Text('Doanh thu tháng này của toàn hệ thống.',
+                style:
+                    TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+            const SizedBox(height: 14),
+            FutureBuilder<Map<String, dynamic>>(
+              future: _revenueFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const LinearProgressIndicator();
+                }
+                if (snapshot.hasError) {
+                  return ListTile(
+                    title: const Text('Không tải được biểu đồ doanh thu'),
+                    trailing: TextButton(
+                        onPressed: _loadRevenue, child: const Text('Thử lại')),
+                  );
+                }
+                return RevenueChartCard(
+                    report: snapshot.data ?? {},
+                    fromDate: _revenueFrom,
+                    toDate: _revenueTo);
               },
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Text(
-                      'Welcome back, ${widget.user.fullName.isNotEmpty ? widget.user.fullName : widget.user.username}',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 2),
-                  const Text('System-wide metrics at a glance.',
-                      style: TextStyle(
-                          fontSize: 12, color: AppColors.onSurfaceVariant)),
-                  const SizedBox(height: 16),
-                  if (_errorMessage != null)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: AppColors.errorContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(_errorMessage!,
-                          style: const TextStyle(color: AppColors.error)),
-                    ),
-                  const Text('System Overview',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 10),
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.5,
-                    children: [
-                      _statCard('Registered Users', '$_userCount', Icons.people,
-                          AppColors.primaryContainer),
-                      _statCard('Active Users', '$_activeUsers',
-                          Icons.verified_user, AppColors.success),
-                      _statCard('Roles Defined', '$_totalRoles', Icons.badge,
-                          AppColors.secondaryContainer),
-                      _statCard('Permissions', '$_totalPermissions',
-                          Icons.lock_outline, AppColors.secondary),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: _revenueFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done) {
-                        return const LinearProgressIndicator();
-                      }
-                      if (snapshot.hasError) {
-                        return ListTile(
-                          title: const Text('Could not load revenue chart'),
-                          trailing: TextButton(onPressed: _loadRevenue,
-                              child: const Text('Retry')),
-                        );
-                      }
-                      return RevenueChartCard(report: snapshot.data ?? {},
-                          fromDate: _revenueFrom, toDate: _revenueTo);
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  const Text('Management',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 10),
-                  Card(
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      leading: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.insert_chart_outlined_rounded,
-                            color: AppColors.primaryContainer),
-                      ),
-                      title: const Text('Revenue & Occupancy Reports',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text(
-                          'Real revenue and unit occupancy, system-wide and per facility',
-                          style: TextStyle(fontSize: 12)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const ReportsScreen()),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Card(
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      leading: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.warehouse_outlined,
-                            color: AppColors.primaryContainer),
-                      ),
-                      title: const Text('Facilities & Policies',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text(
-                          'Manage facilities and their rental policies',
-                          style: TextStyle(fontSize: 12)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const FacilityManagementScreen()),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Card(
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      leading: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.price_change_outlined,
-                            color: AppColors.primaryContainer),
-                      ),
-                      title: const Text('Unit Prices',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text(
-                          'Set monthly rent and deposit per unit type',
-                          style: TextStyle(fontSize: 12)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const UnitPriceScreen()),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Card(
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      leading: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.receipt_long_outlined,
-                            color: AppColors.primaryContainer),
-                      ),
-                      title: const Text('Transaction History',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text(
-                          'View all payment transactions across the system',
-                          style: TextStyle(fontSize: 12)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => TransactionHistoryScreen(
-                                    userRole: widget.user.roleName,
-                                  )),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Card(
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      leading: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.security,
-                            color: AppColors.primaryContainer),
-                      ),
-                      title: const Text('Roles & Permissions',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text(
-                          'View what each role can access (read-only)',
-                          style: TextStyle(fontSize: 12)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  const RolePermissionScreen(readOnly: true)),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
             ),
+            const SizedBox(height: 20),
+            const Text('Chức năng',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 10),
+            _menuCard(
+              icon: Icons.bar_chart_rounded,
+              color: AppColors.primaryContainer,
+              title: 'Báo cáo doanh thu & lấp đầy',
+              subtitle:
+                  'Theo cơ sở, loại kho và trạng thái thuê; xuất báo cáo.',
+              onTap: () => _open(const ReportsScreen()),
+            ),
+            _menuCard(
+              icon: Icons.apartment_rounded,
+              color: AppColors.secondaryContainer,
+              title: 'Cơ sở & chính sách thuê',
+              subtitle:
+                  'Thêm/sửa cơ sở; cọc, phí trễ hạn, hủy, gia hạn, trả kho.',
+              onTap: () => _open(const FacilityManagementScreen()),
+            ),
+            _menuCard(
+              icon: Icons.sell_outlined,
+              color: AppColors.secondary,
+              title: 'Giá thuê & tiền cọc',
+              subtitle: 'Giá thuê tháng và tiền cọc của từng loại kho.',
+              onTap: () => _open(const UnitPriceScreen()),
+            ),
+            _menuCard(
+              icon: Icons.receipt_long_outlined,
+              color: AppColors.success,
+              title: 'Lịch sử giao dịch',
+              subtitle: 'Mọi khoản thu và hoàn tiền trên toàn hệ thống.',
+              onTap: () => _open(
+                  TransactionHistoryScreen(userRole: widget.user.roleName)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _statCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.surfaceContainerHigh),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 22),
-          const Spacer(),
-          Text(value,
-              style:
-                  const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: AppColors.onSurfaceVariant)),
-        ],
+  Widget _menuCard({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 22),
+        ),
+        title: Text(title,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }

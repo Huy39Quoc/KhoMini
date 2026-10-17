@@ -32,7 +32,7 @@ public class RolePermissionController {
     private final RolePermissionService rolePermissionService;
 
     @GetMapping("{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER') and hasAuthority('ROLE_PERMISSION_VIEW')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_PERMISSION_VIEW')")
     @Operation(summary = "Lấy phân quyền theo ID")
     public ResponseEntity<ApiResponse<RolePermissionResponse>> getById(
             @PathVariable UUID id) {
@@ -99,7 +99,7 @@ public class RolePermissionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER') and hasAuthority('ROLE_PERMISSION_VIEW')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_PERMISSION_VIEW')")
     @Operation(summary = "Get all role-permission assignments with filtering and pagination")
     public ResponseEntity<ApiResponse<PageResponse<RolePermissionResponse>>> getAll(
             @RequestParam(required = false) UUID roleId,
@@ -126,7 +126,7 @@ public class RolePermissionController {
     }
 
     @GetMapping("/by-role/{roleId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER') and hasAuthority('ROLE_PERMISSION_VIEW')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('ROLE_PERMISSION_VIEW')")
     @Operation(summary = "Get all permissions assigned to a role")
     public ResponseEntity<ApiResponse<List<RolePermissionResponse>>> getByRoleId(
             @PathVariable UUID roleId) {

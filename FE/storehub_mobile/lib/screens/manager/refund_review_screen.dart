@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/utils/safe_dispose.dart';
 import '../../services/facility_ops_api_service.dart';
 
 class RefundReviewScreen extends StatefulWidget {
@@ -76,9 +77,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
         );
       }
     } finally {
-      date.dispose();
-      transactionNo.dispose();
-      amount.dispose();
+      disposeAfterRouteCloses([date, transactionNo, amount]);
     }
   }
 
@@ -214,8 +213,7 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
         );
       }
     } finally {
-      refController.dispose();
-      noteController.dispose();
+      disposeAfterRouteCloses([refController, noteController]);
     }
   }
 

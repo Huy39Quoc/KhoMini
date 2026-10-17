@@ -148,9 +148,18 @@ CREATE TABLE IF NOT EXISTS facilities
         FOREIGN KEY (manager_id) REFERENCES users(id)
 );
 
-ALTER TABLE users
-    ADD CONSTRAINT fk_users_facility
-    FOREIGN KEY (facility_id) REFERENCES facilities(id);
+-- Idempotent: DB cũ có thể đã có ràng buộc này.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'fk_users_facility' AND conrelid = 'users'::regclass
+    ) THEN
+        ALTER TABLE users
+            ADD CONSTRAINT fk_users_facility
+            FOREIGN KEY (facility_id) REFERENCES facilities(id);
+    END IF;
+END $$;
 
 
 -- =========================================================
@@ -342,6 +351,7 @@ CREATE TABLE IF NOT EXISTS payments
     status                  VARCHAR(30)   NOT NULL,
     payment_method          VARCHAR(50),
     payment_time            TIMESTAMP     NOT NULL,
+    note                    VARCHAR(100),
     fine_days               INTEGER,
     gateway_create_date     VARCHAR(14),
     gateway_transaction_no  VARCHAR(20),

@@ -74,13 +74,21 @@ class _AppointmentAssignmentScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Handover appointments')),
+      appBar: AppBar(title: const Text('Lịch hẹn nhận/trả kho')),
       body: Column(
         children: [
           ListTile(
             title: Text(DateFormat('dd/MM/yyyy').format(_date)),
             trailing: const Icon(Icons.calendar_today_outlined),
             onTap: _chooseDate,
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              'Chọn nhân viên phụ trách cho từng lịch hẹn. Lịch chưa phân công hiện cho '
+              'mọi nhân viên của cơ sở; lịch đã phân công chỉ nhân viên đó thấy và xử lý.',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
           ),
           Expanded(
             child: FutureBuilder<List<FacilityStaffModel>>(
@@ -103,7 +111,7 @@ class _AppointmentAssignmentScreenState
                     }
                     final appointments = scheduleSnapshot.data!;
                     if (appointments.isEmpty) {
-                      return const Center(child: Text('No appointments for this date.'));
+                      return const Center(child: Text('Không có lịch hẹn trong ngày này.'));
                     }
                     final staff = staffSnapshot.data!;
                     return RefreshIndicator(
@@ -127,15 +135,16 @@ class _AppointmentAssignmentScreenState
                                 children: [
                                   Text('${item.bookingCode} • ${item.unitCode}',
                                       style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  Text('${item.isCheckIn ? 'Check-in' : 'Check-out'} • '
+                                  Text('${item.isCheckIn ? 'Nhận kho' : 'Trả kho'} • '
                                       '${item.customerName} • '
                                       '${item.scheduledTime == null ? '-' : DateFormat('HH:mm').format(item.scheduledTime!)}'),
+                                  const SizedBox(height: 12),
                                   DropdownButtonFormField<String>(
                                     key: ValueKey('${item.bookingId}-${item.scheduleType}-${chosen ?? ''}'),
                                     initialValue: chosen ?? '',
-                                    decoration: const InputDecoration(labelText: 'Assigned staff'),
+                                    decoration: const InputDecoration(labelText: 'Nhân viên phụ trách'),
                                     items: [
-                                      const DropdownMenuItem(value: '', child: Text('Unassigned')),
+                                      const DropdownMenuItem(value: '', child: Text('Chưa phân công')),
                                       ...staff.map((s) => DropdownMenuItem(
                                             value: s.id,
                                             child: Text(s.fullName),

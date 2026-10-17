@@ -6,7 +6,11 @@ import '../../widgets/state_views.dart';
 import 'facility_edit_screen.dart';
 
 class FacilityManagementScreen extends StatefulWidget {
-  const FacilityManagementScreen({super.key});
+  /// true khi mở từ màn hình Admin: Admin chỉ GÁN quản lý cho cơ sở (không tạo/sửa cơ sở,
+  /// việc đó thuộc Business Manager).
+  final bool canAssignManager;
+
+  const FacilityManagementScreen({super.key, this.canAssignManager = false});
 
   @override
   State<FacilityManagementScreen> createState() =>
@@ -146,7 +150,10 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(title: const Text('Facilities')),
+      appBar: AppBar(
+        title: Text(
+            widget.canAssignManager ? 'Gán quản lý cơ sở' : 'Cơ sở & chính sách'),
+      ),
       body: Column(
         children: [
           Padding(
@@ -155,7 +162,7 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
               controller: _searchController,
               onSubmitted: (_) => _load(),
               decoration: InputDecoration(
-                hintText: 'Search by name, code, or city',
+                hintText: 'Tìm theo tên, mã hoặc thành phố',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: IconButton(
                     icon: const Icon(Icons.refresh), onPressed: _load),
@@ -170,7 +177,7 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const AppLoadingState(
-                        message: 'Loading facilities...');
+                        message: 'Đang tải danh sách cơ sở...');
                   }
                   if (snapshot.hasError) {
                     return AppErrorState(
@@ -185,19 +192,24 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                   if (facilities.isEmpty) {
                     return AppEmptyState(
                       icon: Icons.warehouse_outlined,
-                      title: 'No facilities yet',
-                      message: 'Tap + to create the first storage facility.',
-                      action: ElevatedButton.icon(
+                      title: 'Chưa có cơ sở nào',
+                      message: widget.canAssignManager
+                          ? 'Business Manager cần tạo cơ sở trước khi bạn gán quản lý.'
+                          : 'Bấm nút bên dưới để tạo cơ sở kho đầu tiên.',
+                      action: widget.canAssignManager
+                          ? null
+                          : ElevatedButton.icon(
                         onPressed: () async {
                           final created = await Navigator.push<bool>(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const FacilityEditScreen()),
+                                builder: (_) => FacilityEditScreen(
+                                    canAssignManager: widget.canAssignManager)),
                           );
                           if (created == true) _load();
                         },
                         icon: const Icon(Icons.add),
-                        label: const Text('New Facility'),
+                        label: const Text('Thêm cơ sở'),
                       ),
                     );
                   }
@@ -208,7 +220,7 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                       if (index == facilities.length) {
                         return Center(child: TextButton(
                           onPressed: _loadingMore ? null : _loadMore,
-                          child: Text(_loadingMore ? 'Loading...' : 'Load more facilities'),
+                          child: Text(_loadingMore ? 'Đang tải...' : 'Tải thêm cơ sở'),
                         ));
                       }
                       final f = facilities[index];
@@ -251,8 +263,8 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                                               f['managerName']
                                                   .toString()
                                                   .isNotEmpty)
-                                          ? 'Manager: ${f['managerName']}'
-                                          : 'No manager assigned',
+                                          ? 'Quản lý: ${f['managerName']}'
+                                          : 'Chưa gán quản lý',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -279,7 +291,7 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                                   _statusColor(status).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Text(status ?? '',
+                            child: Text(_statusLabel(status),
                                 style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
@@ -290,7 +302,10 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
                               context,
                               MaterialPageRoute(
                                   builder: (_) =>
-                                      FacilityEditScreen(facility: f)),
+                                      FacilityEditScreen(
+                                      facility: f,
+                                      canAssignManager: widget.canAssignManager,
+                                      assignOnly: widget.canAssignManager)),
                             );
                             if (!mounted) return;
                             _load();
@@ -305,17 +320,33 @@ class _FacilityManagementScreenState extends State<FacilityManagementScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: widget.canAssignManager
+          ? null
+          : FloatingActionButton.extended(
         onPressed: () async {
           final created = await Navigator.push<bool>(
             context,
-            MaterialPageRoute(builder: (_) => const FacilityEditScreen()),
+            MaterialPageRoute(builder: (_) => FacilityEditScreen(
+                                    canAssignManager: widget.canAssignManager)),
           );
           if (created == true) _load();
         },
         icon: const Icon(Icons.add),
-        label: const Text('New Facility'),
+        label: const Text('Thêm cơ sở'),
       ),
     );
+  }
+
+  String _statusLabel(String? status) {
+    switch (status) {
+      case 'ACTIVE':
+        return 'Hoạt động';
+      case 'INACTIVE':
+        return 'Tạm ngưng';
+      case 'MAINTENANCE':
+        return 'Bảo trì';
+      default:
+        return status ?? '';
+    }
   }
 }

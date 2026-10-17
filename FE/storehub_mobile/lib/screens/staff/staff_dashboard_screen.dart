@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'staff_ticket_screen.dart';
 import 'staff_units_screen.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/safe_dispose.dart';
 import '../../models/facility_operations_models.dart';
 import '../../models/user_model.dart';
 import '../../services/facility_ops_api_service.dart';
@@ -188,7 +189,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     ),
                     const SizedBox(height: 18),
                     const Text(
-                      'Unit condition',
+                      'Tình trạng ngăn kho',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -200,15 +201,15 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       items: const [
                         DropdownMenuItem(
                           value: 'Good / clean',
-                          child: Text('Good / clean'),
+                          child: Text('Tốt / sạch'),
                         ),
                         DropdownMenuItem(
                           value: 'Needs cleaning',
-                          child: Text('Needs cleaning'),
+                          child: Text('Cần vệ sinh'),
                         ),
                         DropdownMenuItem(
                           value: 'Damaged',
-                          child: Text('Damaged'),
+                          child: Text('Hư hỏng'),
                         ),
                       ],
                       onChanged: submitting
@@ -223,7 +224,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     ),
                     const SizedBox(height: 14),
                     const Text(
-                      'Lock condition',
+                      'Tình trạng khóa',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -236,17 +237,17 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                         DropdownMenuItem(
                           value: 'Locked & working',
                           child: Text(
-                            'Locked & working',
+                            'Khóa hoạt động tốt',
                           ),
                         ),
                         DropdownMenuItem(
                           value: 'Unlocked',
-                          child: Text('Unlocked'),
+                          child: Text('Chưa khóa'),
                         ),
                         DropdownMenuItem(
                           value: 'Damaged / needs repair',
                           child: Text(
-                            'Damaged / needs repair',
+                            'Hỏng / cần sửa',
                           ),
                         ),
                       ],
@@ -281,7 +282,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                     size: 18, color: Colors.orange.shade900),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Damage / Cleaning Deduction',
+                                  'Trừ phí hư hại / vệ sinh',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
@@ -292,7 +293,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'This fee will be deducted directly from the customer deposit. Extra charge will be issued if damage exceeds deposit.',
+                              'Khoản này được trừ trực tiếp vào tiền cọc của khách và không được vượt quá tiền cọc đang giữ.',
                               style: TextStyle(
                                   fontSize: 11,
                                   color: AppColors.onSurfaceVariant),
@@ -303,7 +304,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                               keyboardType: TextInputType.number,
                               enabled: !submitting,
                               decoration: const InputDecoration(
-                                labelText: 'Damage / Cleaning Fee (₫)',
+                                labelText: 'Phí hư hại / vệ sinh (₫)',
                                 prefixIcon: Icon(Icons.attach_money, size: 20),
                                 isDense: true,
                               ),
@@ -330,12 +331,12 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       maxLines: 3,
                       enabled: !submitting,
                       decoration: const InputDecoration(
-                        labelText: 'Notes (optional)',
+                        labelText: 'Ghi chú (không bắt buộc)',
                       ),
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Photo Evidence (Recommended)',
+                      'Ảnh bằng chứng (nên có)',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -491,7 +492,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       },
     );
 
-    notesController.dispose();
+    disposeAfterRouteCloses(
+        [notesController, damageFeeController, damageReasonController]);
   }
 
   Future<void> _openHandoverHistory(
@@ -529,7 +531,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Handover history',
+                            'Lịch sử bàn giao',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -562,7 +564,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const AppLoadingState(
-                        message: 'Loading handover history...',
+                        message: 'Đang tải lịch sử bàn giao...',
                       );
                     }
 
@@ -579,8 +581,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     if (records.isEmpty) {
                       return const AppEmptyState(
                         icon: Icons.history,
-                        title: 'No handover records',
-                        message: 'This booking has not been handed over yet.',
+                        title: 'Chưa có biên bản bàn giao',
+                        message: 'Booking này chưa được bàn giao.',
                       );
                     }
 
@@ -680,7 +682,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
             if (record.photos.isNotEmpty) ...[
               const SizedBox(height: 10),
               const Text(
-                'Photo Evidence:',
+                'Ảnh bằng chứng:',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -770,7 +772,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               ),
             ),
             IconButton(
-              tooltip: 'Handover history',
+              tooltip: 'Lịch sử bàn giao',
               onPressed: () {
                 _openHandoverHistory(item);
               },
@@ -832,11 +834,11 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Staff Operations'),
+        title: const Text('Nhân viên cơ sở'),
         actions: [
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
-              tooltip: 'Verify gate QR',
+              tooltip: 'Quét QR cổng',
               icon: const Icon(Icons.qr_code_scanner),
               onPressed: () => Navigator.push(
                 context,
@@ -845,52 +847,42 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               ),
             ),
           if (_facilityId != null && _facilityId!.isNotEmpty)
-            IconButton(
-              tooltip: 'Storage units',
-              icon: const Icon(Icons.inventory_2_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => StaffUnitsScreen(
-                      facilityId: _facilityId!,
+            PopupMenuButton<String>(
+              tooltip: 'Ngăn kho, hỗ trợ và giao dịch',
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                final facilityId = _facilityId!;
+                Widget page;
+                switch (value) {
+                  case 'units':
+                    page = StaffUnitsScreen(
+                      facilityId: facilityId,
                       facilityName: _facilityName ?? 'Facility',
-                    ),
-                  ),
-                );
-              },
-            ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            IconButton(
-              tooltip: 'Support tickets',
-              icon: const Icon(Icons.support_agent_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => StaffTicketScreen(
-                      facilityId: _facilityId!,
+                    );
+                    break;
+                  case 'tickets':
+                    page = StaffTicketScreen(
+                      facilityId: facilityId,
                       staffId: widget.user.id,
-                    ),
-                  ),
-                );
-              },
-            ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            IconButton(
-              tooltip: 'Facility Transactions',
-              icon: const Icon(Icons.receipt_long_outlined),
-              onPressed: () {
+                    );
+                    break;
+                  default:
+                    page = TransactionHistoryScreen(
+                      userRole: widget.user.roleName,
+                      facilityId: facilityId,
+                    );
+                }
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => TransactionHistoryScreen(
-                      userRole: widget.user.roleName,
-                      facilityId: _facilityId,
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => page),
                 );
               },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'units', child: Text('Ngăn kho')),
+                PopupMenuItem(value: 'tickets', child: Text('Yêu cầu hỗ trợ')),
+                PopupMenuItem(
+                    value: 'transactions', child: Text('Lịch sử giao dịch')),
+              ],
             ),
           IconButton(
             tooltip: 'Profile',
@@ -930,7 +922,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   Widget _buildBody() {
     if (_isLoadingFacility) {
       return const AppLoadingState(
-        message: 'Loading your facility...',
+        message: 'Đang tải cơ sở của bạn...',
       );
     }
 
@@ -944,8 +936,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     if (_facilityId == null || _facilityId!.isEmpty) {
       return const AppEmptyState(
         icon: Icons.storefront_outlined,
-        title: 'No facility assigned',
-        message: 'Ask an administrator to assign you to a facility.',
+        title: 'Chưa được gán cơ sở',
+        message: 'Hãy nhờ Facility Manager thêm bạn vào danh sách nhân viên của cơ sở.',
       );
     }
 
@@ -958,7 +950,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const AppLoadingState(
-                  message: 'Loading schedule...',
+                  message: 'Đang tải lịch...',
                 );
               }
 
@@ -979,8 +971,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     children: const [
                       AppEmptyState(
                         icon: Icons.event_available,
-                        title: 'Nothing scheduled',
-                        message: 'No check-ins or check-outs for this date.',
+                        title: 'Chưa có lịch bàn giao',
+                        message: 'Không có khách nhận hoặc trả kho trong ngày này. Khách chỉ hiện từ ngày bắt đầu thuê '
+                            '(nhận kho) hoặc theo giờ hẹn/ngày hết hạn (trả kho). Chọn ngày khác để xem.',
                       ),
                     ],
                   ),

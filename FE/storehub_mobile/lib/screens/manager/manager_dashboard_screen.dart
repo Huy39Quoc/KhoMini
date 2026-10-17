@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/safe_dispose.dart';
 import '../../models/facility_management_models.dart';
 import '../../models/unit_type_model.dart';
 import '../../models/user_model.dart';
@@ -675,7 +676,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       },
     );
 
-    searchController.dispose();
+    disposeAfterRouteCloses([searchController]);
   }
 
   Future<void> _removeStaff(

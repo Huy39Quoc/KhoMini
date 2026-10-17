@@ -25,7 +25,7 @@ public class UnitTypeController {
     private final UnitTypeManagementService unitTypeManagementService;
 
     @PutMapping("/{unitTypeId}/price")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('UNIT_TYPE_UPDATE')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('UNIT_TYPE_UPDATE')")
     @Operation(summary = "Cập nhật giá thuê tháng và tiền cọc của loại kho")
     public ResponseEntity<ApiResponse<UnitTypeCatalogResponse>> updatePrice(
             @PathVariable UUID unitTypeId,

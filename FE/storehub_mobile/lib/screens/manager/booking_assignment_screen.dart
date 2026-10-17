@@ -215,14 +215,14 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Confirmed Bookings'),
+        title: const Text('Xác nhận ngăn kho'),
       ),
       body: FutureBuilder<List<FacilityBookingModel>>(
         future: _bookingsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const AppLoadingState(
-              message: 'Loading confirmed bookings...',
+              message: 'Đang tải danh sách booking...',
             );
           }
 
@@ -243,8 +243,8 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                 children: const [
                   AppEmptyState(
                     icon: Icons.assignment_turned_in_outlined,
-                    title: 'No confirmed bookings',
-                    message: 'Confirmed bookings will appear here.',
+                    title: 'Chưa có booking cần xác nhận',
+                    message: 'Booking đã thanh toán sẽ hiện ở đây để bạn xác nhận ngăn kho.',
                   ),
                 ],
               ),
@@ -283,7 +283,7 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                               ),
                             ),
                             const Text(
-                              'CONFIRMED',
+                              'ĐÃ THANH TOÁN',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -304,9 +304,9 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                         const SizedBox(height: 10),
                         Text(
                           booking.unitAssignmentConfirmed
-                              ? 'Assigned unit: ${booking.unitCode} (${booking.unitType})'
-                              : 'Reserved capacity: ${booking.unitType}. '
-                                  'Suggested unit ${booking.unitCode} needs manager confirmation.',
+                              ? 'Đã xác nhận ngăn ${booking.unitCode} (${booking.unitType}). Chờ nhân viên bàn giao từ ngày bắt đầu thuê.'
+                              : 'Đã giữ chỗ loại ${booking.unitType}. '
+                                  'Ngăn đề xuất ${booking.unitCode}: hãy xác nhận hoặc đổi sang ngăn khác.',
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -328,7 +328,7 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                                   ? Icons.swap_horiz : Icons.assignment_turned_in_outlined,
                             ),
                             label: Text(booking.unitAssignmentConfirmed
-                                ? 'Change Unit' : 'Assign Unit'),
+                                ? 'Đổi ngăn' : 'Xác nhận ngăn'),
                           ),
                         ),
                       ],
