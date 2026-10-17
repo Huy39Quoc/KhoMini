@@ -16,4 +16,5 @@ public class UnitTypeCatalogResponse {
     private BigDecimal basePricePerMonth;
     private BigDecimal depositAmount;
     private Long availableUnitsCount;
+    private String imageUrl;
 }

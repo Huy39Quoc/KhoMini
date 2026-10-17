@@ -11,6 +11,9 @@ public final class PaymentNotes {
     public static final String DEPOSIT_REFUND =
             "DEPOSIT_REFUND";
 
+    public static final String EXTRA_CHARGE_REFUND =
+            "EXTRA_CHARGE_REFUND";
+
     private PaymentNotes() {
     }
 }

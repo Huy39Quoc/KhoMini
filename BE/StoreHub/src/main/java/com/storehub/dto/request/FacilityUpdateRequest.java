@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -39,4 +40,9 @@ public class FacilityUpdateRequest {
     private LocalTime closeTime;
 
     private String description;
+
+    private Boolean airConditioned24h;
+
+    private String imageUrl;
+    private List<String> images;
 }

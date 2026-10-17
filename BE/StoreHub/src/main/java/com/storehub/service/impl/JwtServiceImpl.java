@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -116,6 +117,10 @@ public class JwtServiceImpl implements JwtService {
         var builder = Jwts.builder()
                 .subject(email)
                 .claim("type", tokenType.name())
+                // Refresh and password-reset tokens are stored under a unique
+                // constraint; timestamps alone cannot distinguish requests
+                // made within the same second.
+                .id(UUID.randomUUID().toString())
                 .issuedAt(new Date())
                 .expiration(
                         new Date(System.currentTimeMillis() + expiration)

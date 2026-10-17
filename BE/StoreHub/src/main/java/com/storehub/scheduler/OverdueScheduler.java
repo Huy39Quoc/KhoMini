@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import static com.storehub.common.PaymentNotes.OVERDUE_LATE_FEE;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -80,6 +81,39 @@ public class OverdueScheduler {
                 );
             }
         }
+    }
+
+    /**
+     * Bring the late-fee ledger up to the return date while the caller holds the
+     * booking lock. A missed nightly run must not let a return close the booking
+     * before the newly accrued debt is paid. The caller commits this debt even
+     * when it rejects the return with OVERDUE_FEE_UNPAID_ON_RETURN.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public boolean accrueOutstandingForCheckout(Booking booking, LocalDateTime now) {
+        long overdueDays = ChronoUnit.DAYS.between(booking.getEndDate(), now.toLocalDate());
+        if (overdueDays > 0) {
+            UUID facilityId = booking.getStorageUnit().getFacility().getId();
+            // Missing policy must stop checkout rather than silently waive fees.
+            OverdueConfigResponse config = facilityPolicyService.getOverdueConfig(facilityId);
+            long chargeableDays = Math.max(0, overdueDays - config.graceDays());
+            if (chargeableDays > 0) {
+                if (booking.getOverdueDetectedAt() == null) {
+                    booking.setOverdueDetectedAt(now);
+                    activityLogService.recordSystem(ActivityAction.OVERDUE_DETECTED,
+                            "BOOKING", booking.getId(),
+                            "Booking " + booking.getBookingCode() + " became overdue after "
+                                    + config.graceDays() + " grace day(s)");
+                }
+                updateLateFee(booking, facilityId, chargeableDays, now);
+                bookingRepository.save(booking);
+            }
+        }
+        return paymentRepository.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        booking.getId(), PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
+                        List.of(PaymentStatus.PENDING, PaymentStatus.FAILED))
+                .stream().anyMatch(p -> p.getVoidedAt() == null
+                        && p.getAmount() != null && p.getAmount().signum() > 0);
     }
 
     private void processOneBooking(
@@ -144,7 +178,7 @@ public class OverdueScheduler {
 
             booking.setAccessCode(null);
             booking.setAccessPin(null);
-            booking.setQrAccessToken(null);
+            booking.setUnitLocked(true);
             booking.setAccessDisabledAt(now);
 
             activityLogService.recordSystem(
@@ -179,6 +213,29 @@ public class OverdueScheduler {
             long chargeableDays,
             LocalDateTime now
     ) {
+        // Migrate unpaid FAILED attempts from older releases before adding today's fee.
+        // Never change a URL already sent to VNPay: any late capture of the old
+        // reference must go through the existing voided-at refund path.
+        paymentRepository.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        booking.getId(), PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
+                        List.of(PaymentStatus.FAILED))
+                .stream().filter(p -> p.getVoidedAt() == null && p.getAmount() != null
+                        && p.getAmount().signum() > 0)
+                .forEach(failed -> {
+                    failed.setVoidedAt(now);
+                    paymentRepository.save(failed);
+                    paymentRepository.save(Payment.builder()
+                            .transactionId(createTransactionId())
+                            .booking(booking)
+                            .amount(failed.getAmount())
+                            .paymentType(PaymentType.EXTRA_CHARGE)
+                            .status(PaymentStatus.PENDING)
+                            .paymentMethod(failed.getPaymentMethod())
+                            .note(OVERDUE_LATE_FEE)
+                            .paymentTime(failed.getPaymentTime())
+                            .build());
+                });
+
         BigDecimal calculatedTotal = pricingService
                 .calculateLateFee(
                         facilityId,
@@ -204,6 +261,7 @@ public class OverdueScheduler {
                         PaymentStatus.PENDING,
                         OVERDUE_LATE_FEE
                 )
+                .filter(payment -> payment.getGatewayCreateDate() == null)
                 .orElseGet(() -> Payment.builder()
                         .transactionId(createTransactionId())
                         .booking(booking)

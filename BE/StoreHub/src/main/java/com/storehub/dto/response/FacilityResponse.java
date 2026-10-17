@@ -5,9 +5,11 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class FacilityResponse {
@@ -27,6 +29,20 @@ public class FacilityResponse {
     private LocalTime closeTime;
     private String description;
 
+    private Boolean airConditioned24h;
+    private String imageUrl;
+    private List<String> images;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public String getImageUrl() {
+        if (imageUrl != null && !imageUrl.isBlank()) {
+            return imageUrl;
+        }
+        if (images != null && !images.isEmpty()) {
+            return images.get(0);
+        }
+        return null;
+    }
 }

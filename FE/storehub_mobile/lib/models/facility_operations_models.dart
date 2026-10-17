@@ -24,6 +24,8 @@ class DailyScheduleModel {
   final String type;
   final DateTime? scheduledTime;
   final String scheduleType;
+  final String? assignedStaffId;
+  final String? assignedStaffName;
   final String bookingStatus;
 
   const DailyScheduleModel({
@@ -40,6 +42,8 @@ class DailyScheduleModel {
     required this.type,
     required this.scheduledTime,
     required this.scheduleType,
+    this.assignedStaffId,
+    this.assignedStaffName,
     required this.bookingStatus,
   });
 
@@ -61,6 +65,8 @@ class HandoverModel {
   final String staffName;
   final DateTime? recordedAt;
   final String message;
+  final num? damageFee;
+  final String? damageReason;
 
   const HandoverModel({
     required this.bookingId,
@@ -77,6 +83,8 @@ class HandoverModel {
     required this.staffName,
     required this.recordedAt,
     required this.message,
+    this.damageFee,
+    this.damageReason,
   });
 }
 
@@ -89,6 +97,9 @@ class HandoverRecordModel {
   final String staffId;
   final String staffName;
   final DateTime? recordedAt;
+  final num? damageFee;
+  final String? damageReason;
+  final List<String> photos;
 
   const HandoverRecordModel({
     required this.id,
@@ -99,5 +110,8 @@ class HandoverRecordModel {
     required this.staffId,
     required this.staffName,
     required this.recordedAt,
+    this.damageFee,
+    this.damageReason,
+    this.photos = const <String>[],
   });
 }

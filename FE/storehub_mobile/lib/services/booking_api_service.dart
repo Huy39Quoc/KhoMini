@@ -9,6 +9,20 @@ import '../core/network/http_client.dart';
 class BookingApiService {
   final Dio _dio = HttpClient.instance.dio;
 
+  Future<List<Map<String, dynamic>>> getPayableBookings() async {
+    try {
+      final response = await _dio.get(ApiEndpoints.myPendingBookings);
+      final body = response.data;
+      final list = body is Map ? body['data'] : null;
+      if (list is! List) throw const FormatException('Invalid booking list');
+      return list.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      final message = body is Map ? body['message'] : e.message;
+      throw Exception('Failed to load pending bookings: $message');
+    }
+  }
+
   /// POST /bookings - creates a real booking (status PENDING_PAYMENT).
   /// The BE recalculates the price itself from unitTypeId/startDate/
   /// rentalMonths (same PricingService used by /pricing/quote), and picks
@@ -17,7 +31,11 @@ class BookingApiService {
     required String facilityId,
     required String unitTypeId,
     required DateTime startDate,
+    required String checkInTime,
     required int rentalMonths,
+    bool prohibitedItemsConfirmed = true,
+    bool termsConfirmed = true,
+    String? termsVersion,
   }) async {
     try {
       final response = await _dio.post(
@@ -26,7 +44,12 @@ class BookingApiService {
           'facilityId': facilityId,
           'unitTypeId': unitTypeId,
           'startDate': _formatLocalDate(startDate),
+          'checkInTime': checkInTime,
           'rentalMonths': rentalMonths,
+          'prohibitedItemsConfirmed': prohibitedItemsConfirmed,
+          'termsConfirmed': termsConfirmed,
+          if (termsVersion != null && termsVersion.isNotEmpty)
+            'termsVersion': termsVersion,
         },
       );
       return _unwrapMap(response.data);
@@ -61,20 +84,18 @@ class BookingApiService {
     }
   }
 
-  /// POST /payments/confirm - marks the payment PAID, the booking
-  /// CONFIRMED, and the storage unit OCCUPIED on the BE.
-  Future<Map<String, dynamic>> confirmPayment({
+  /// GET /payments/{transactionId}/status - read-only. The payment becomes PAID
+  /// only when VNPay calls the server back; the client cannot confirm it.
+  Future<Map<String, dynamic>> getPaymentStatus({
     required String transactionId,
   }) async {
     try {
-      final response = await _dio.post(
-        ApiEndpoints.paymentConfirm,
-        data: {'transactionId': transactionId},
-      );
+      final response =
+          await _dio.get(ApiEndpoints.paymentStatus(transactionId));
       return _unwrapMap(response.data);
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to confirm payment: $message');
+      throw Exception('Failed to get payment status: $message');
     }
   }
 
@@ -109,6 +130,18 @@ class BookingApiService {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to join waitlist: $message');
     }
+  }
+
+  Future<List<Map<String, dynamic>>> getMyWaitlist() async {
+    final response = await _dio.get('${ApiEndpoints.waitlist}/mine');
+    final data = response.data;
+    final entries = data is Map ? data['data'] : null;
+    if (entries is! List) throw const FormatException('Invalid waitlist response');
+    return entries.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+  }
+
+  Future<void> leaveWaitlist(String id) async {
+    await _dio.delete('${ApiEndpoints.waitlist}/$id');
   }
 
   Map<String, dynamic> _unwrapMap(dynamic data) {

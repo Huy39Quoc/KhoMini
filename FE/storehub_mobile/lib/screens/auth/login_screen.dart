@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/constants/api_endpoints.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/network/http_client.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
 import '../common/role_dispatch_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String? initialResetToken;
+
+  const LoginScreen({super.key, this.initialResetToken});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -21,6 +26,177 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialResetToken != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showResetPasswordDialog(widget.initialResetToken);
+      });
+    }
+  }
+
+  bool _isNetworkError(String msg) {
+    final lower = msg.toLowerCase();
+    return lower.contains('timeout') ||
+        lower.contains('socket') ||
+        lower.contains('connection') ||
+        lower.contains('10.0.2.2') ||
+        lower.contains('network') ||
+        lower.contains('failed');
+  }
+
+  void _showServerConfigDialog() {
+    final customController = TextEditingController(text: ApiEndpoints.baseUrl);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.dns_outlined, color: AppColors.primary),
+                const SizedBox(width: 8),
+                const Text(
+                  'Cài đặt địa chỉ máy chủ (API)',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Hiện tại: ${ApiEndpoints.baseUrl}',
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Chọn cấu hình phù hợp với thiết bị của bạn:',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            if (!const bool.fromEnvironment('dart.vm.product')) ...[
+              _serverOptionTile(
+                ctx,
+                title: '📱 Máy thật Android (qua cáp USB)',
+                subtitle:
+                    'http://127.0.0.1:8080/api/v1 (Khuyên dùng khi cắm cáp)',
+                url: 'http://127.0.0.1:8080/api/v1',
+              ),
+              _serverOptionTile(
+                ctx,
+                title: '📶 Máy thật Android (qua Wi-Fi)',
+                subtitle: 'http://192.168.101.6:8080/api/v1 (Cùng mạng Wi-Fi)',
+                url: 'http://192.168.101.6:8080/api/v1',
+              ),
+              _serverOptionTile(
+                ctx,
+                title: '💻 Máy ảo Android Studio (Emulator)',
+                subtitle: 'http://10.0.2.2:8080/api/v1',
+                url: 'http://10.0.2.2:8080/api/v1',
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: customController,
+              decoration: const InputDecoration(
+                labelText: 'Hoặc tự nhập URL API của máy tính',
+                hintText: bool.fromEnvironment('dart.vm.product')
+                    ? 'https://api.example.com/api/v1'
+                    : 'http://192.168.x.x:8080/api/v1',
+                suffixIcon: Icon(Icons.edit_outlined),
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  if (await _applyServerUrl(customController.text.trim()) &&
+                      ctx.mounted) {
+                    Navigator.pop(ctx);
+                  }
+                },
+                child: const Text('Lưu & Áp dụng'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _serverOptionTile(BuildContext ctx,
+      {required String title, required String subtitle, required String url}) {
+    final isSelected = ApiEndpoints.baseUrl == url;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11)),
+      trailing: isSelected
+          ? const Icon(Icons.check_circle, color: AppColors.success, size: 20)
+          : const Icon(Icons.chevron_right, size: 18),
+      onTap: () async {
+        if (await _applyServerUrl(url) && ctx.mounted) {
+          Navigator.pop(ctx);
+        }
+      },
+    );
+  }
+
+  Future<bool> _applyServerUrl(String newUrl) async {
+    try {
+      HttpClient.instance.updateBaseUrl(newUrl);
+    } on FormatException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message.toString())),
+        );
+      }
+      return false;
+    } on StateError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message.toString())),
+        );
+      }
+      return false;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('custom_api_base_url', ApiEndpoints.baseUrl);
+    if (!mounted) return true;
+    setState(() {
+      _errorMessage = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã đổi địa chỉ máy chủ thành: ${ApiEndpoints.baseUrl}'),
+        backgroundColor: AppColors.success,
+      ),
+    );
+    return true;
+  }
 
   @override
   void dispose() {
@@ -45,7 +221,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // Extract user map whether returned directly or nested under data
       Map<String, dynamic>? userMap;
       if (res['user'] is Map<String, dynamic>) {
         userMap = res['user'] as Map<String, dynamic>;
@@ -58,6 +233,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (userMap != null) {
         final user = UserModel.fromJson(userMap);
+        if (!user.hasSupportedRole) {
+          throw Exception('Unsupported account role. Contact support.');
+        }
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -151,7 +329,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(message)),
                         );
-                        // Email chứa link đặt lại mật khẩu -> mở luôn bước nhập link/mã
                         _showResetPasswordDialog();
                       } catch (e) {
                         setDialogState(() => sending = false);
@@ -180,15 +357,14 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Lấy token từ link trong email (…/reset-password?token=XXX) hoặc chính chuỗi token.
   String _extractResetToken(String input) {
     final text = input.trim();
     final match = RegExp(r'[?&]token=([^&\s]+)').firstMatch(text);
     return match != null ? Uri.decodeComponent(match.group(1)!) : text;
   }
 
-  void _showResetPasswordDialog() {
-    final tokenController = TextEditingController();
+  void _showResetPasswordDialog([String? initialToken]) {
+    final tokenController = TextEditingController(text: initialToken ?? '');
     final passwordController = TextEditingController();
     final confirmController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -321,7 +497,6 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Brand header card
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -364,12 +539,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined,
+                          color: Colors.white70),
+                      tooltip: 'Cài đặt IP máy chủ',
+                      onPressed: _showServerConfigDialog,
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-
-              // Auth card
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -403,18 +582,55 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: AppColors.errorContainer,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.error_outline,
-                                  color: AppColors.error, size: 20),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  _errorMessage!,
-                                  style: const TextStyle(
-                                      color: AppColors.error, fontSize: 13),
-                                ),
+                              Row(
+                                children: [
+                                  const Icon(Icons.error_outline,
+                                      color: AppColors.error, size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _errorMessage!,
+                                      style: const TextStyle(
+                                          color: AppColors.error, fontSize: 13),
+                                    ),
+                                  ),
+                                ],
                               ),
+                              if (_isNetworkError(_errorMessage!)) ...[
+                                const SizedBox(height: 10),
+                                InkWell(
+                                  onTap: _showServerConfigDialog,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: AppColors.error
+                                              .withValues(alpha: 0.3)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.wifi_tethering,
+                                            size: 15, color: AppColors.error),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Đổi IP sang máy thật (127.0.0.1 / Wi-Fi)',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.error),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -434,7 +650,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         validator: (value) {
                           final v = value?.trim() ?? '';
-                          // BE only accepts login by a valid email (LoginRequest requires @Email)
                           if (v.isEmpty) {
                             return 'Email is required';
                           }

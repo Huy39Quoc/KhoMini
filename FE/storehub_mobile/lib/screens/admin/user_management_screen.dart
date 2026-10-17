@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/admin_api_service.dart';
+import '../../models/paged_result.dart';
+import 'dart:async';
 import '../../widgets/state_views.dart';
 
 class UserManagementScreen extends StatefulWidget {
@@ -12,10 +14,15 @@ class UserManagementScreen extends StatefulWidget {
 
 class _UserManagementScreenState extends State<UserManagementScreen> {
   final AdminApiService _adminService = AdminApiService();
-  late Future<List<dynamic>> _usersFuture;
+  late Future<PagedResult<Map<String, dynamic>>> _usersFuture;
+  final List<Map<String, dynamic>> _additional = [];
+  int _nextPage = 1;
+  bool _lastPage = false;
+  bool _loadingMore = false;
+  Timer? _searchTimer;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
-  String _statusFilter = 'ALL'; // ALL, ACTIVE, INACTIVE
+  String _statusFilter = 'ALL';
 
   @override
   void initState() {
@@ -25,20 +32,45 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   void _loadUsers() {
     setState(() {
-      _usersFuture = _adminService.getUsers();
+      _additional.clear();
+      _nextPage = 1;
+      _lastPage = false;
+      _usersFuture = _adminService.getUsersPage(search: _query,
+          isActive: _statusFilter == 'ALL' ? null : _statusFilter == 'ACTIVE');
     });
   }
 
-  // Trước đây danh sách role bị hard-code cứng bằng tên (không đảm bảo khớp
-  // với dữ liệu role thật trong DB) và gọi một endpoint không tồn tại
-  // (PUT /users/{id}/role). Giờ lấy danh sách role thật từ GET /roles, và
-  // cập nhật qua đúng endpoint PUT /users/{id} với {roleId, phone}.
+  Future<void> _loadMore() async {
+    if (_loadingMore || _lastPage) return;
+    final currentLoad = _usersFuture;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await _adminService.getUsersPage(page: _nextPage, search: _query,
+          isActive: _statusFilter == 'ALL' ? null : _statusFilter == 'ACTIVE');
+      if (!mounted || !identical(currentLoad, _usersFuture)) return;
+      setState(() {
+        _additional.addAll(page.content);
+        _nextPage++;
+        _lastPage = page.last;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
   Future<void> _showAssignRoleSheet(
       String userId, String username, String currentPhone) async {
     List<dynamic> roles;
@@ -169,7 +201,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: TextField(
               controller: _searchController,
-              onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+              onChanged: (v) {
+                _query = v.trim();
+                _searchTimer?.cancel();
+                _searchTimer = Timer(const Duration(milliseconds: 350), _loadUsers);
+              },
               decoration: const InputDecoration(
                 hintText: 'Search by name, username, or email',
                 prefixIcon: Icon(Icons.search),
@@ -192,7 +228,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async => _loadUsers(),
-              child: FutureBuilder<List<dynamic>>(
+              child: FutureBuilder<PagedResult<Map<String, dynamic>>>(
                 future: _usersFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -211,22 +247,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     );
                   }
 
-                  var users = (snapshot.data ?? []).whereType<Map>().toList();
-                  if (_statusFilter == 'ACTIVE') {
-                    users = users.where((u) => u['isActive'] == true).toList();
-                  } else if (_statusFilter == 'INACTIVE') {
-                    users = users.where((u) => u['isActive'] != true).toList();
-                  }
-                  if (_query.isNotEmpty) {
-                    users = users.where((u) {
-                      final haystack = [
-                        u['username'],
-                        u['email'],
-                        u['fullName'],
-                      ].whereType<String>().join(' ').toLowerCase();
-                      return haystack.contains(_query);
-                    }).toList();
-                  }
+                  final users = [...?snapshot.data?.content, ..._additional];
+                  final hasMore = snapshot.data != null && !snapshot.data!.last && !_lastPage;
 
                   if (users.isEmpty) {
                     return ListView(
@@ -242,8 +264,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
                   return ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                    itemCount: users.length,
+                    itemCount: users.length + (hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == users.length) {
+                        return Center(child: TextButton(
+                          onPressed: _loadingMore ? null : _loadMore,
+                          child: Text(_loadingMore ? 'Loading...' : 'Load more users'),
+                        ));
+                      }
                       final user = users[index];
                       final userId = user['id']?.toString() ?? '';
                       final username =
@@ -317,7 +345,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return ChoiceChip(
       label: Text(label),
       selected: selected,
-      onSelected: (_) => setState(() => _statusFilter = value),
+      onSelected: (_) {
+        _statusFilter = value;
+        _loadUsers();
+      },
     );
   }
 }

@@ -19,6 +19,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/bookings")
@@ -38,7 +39,7 @@ public class BookingController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('BOOKING_CREATE')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Tạo đơn đặt chỗ kho mới (trạng thái PENDING_PAYMENT, hết hạn sau 30 phút)")
     public ResponseEntity<ApiResponse<BookingResponse>> createBooking(
@@ -51,7 +52,7 @@ public class BookingController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('BOOKING_CANCEL')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Hủy đơn đặt chỗ đang PENDING_PAYMENT – trả kho về AVAILABLE và notify waitlist")
     public ResponseEntity<ApiResponse<Void>> cancelBooking(
@@ -60,5 +61,16 @@ public class BookingController {
     ) {
         bookingService.cancelBooking(id, userDetails.getUsername());
         return ResponseEntity.ok(ApiResponse.success("Booking cancelled successfully", null));
+    }
+
+    @GetMapping("/my-pending")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('BOOKING_VIEW')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Các booking còn hạn đang chờ thanh toán của khách hiện tại")
+    public ResponseEntity<ApiResponse<List<BookingResponse>>> getPayableBookings(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Payable bookings retrieved",
+                bookingService.getPayableBookings(userDetails.getUsername())));
     }
 }

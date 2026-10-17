@@ -1,18 +1,14 @@
-/// Matches BE FacilityResponse: { id, name, code, address, city,
-/// contactPhone, email, managerId, managerName, status, openTime,
-/// closeTime, description, createdAt, updatedAt }. Area/price/availability
-/// still aren't facility fields - those come from aggregating GET
-/// /catalog/unit-types?facilityId=... (see withUnitTypeStats), and stay
-/// null ("not loaded yet") rather than silently defaulting to 0.
 class FacilityModel {
   final String id;
   final String name;
   final String address;
   final String city;
   final String contactPhone;
-  final String status; // ACTIVE, INACTIVE, MAINTENANCE
+  final String status;
+  final bool airConditioned24h;
+  final String? imageUrl;
+  final List<String> images;
 
-  // Derived from unit types (nullable = not computed / no unit types yet)
   final double? minAreaSqm;
   final double? maxAreaSqm;
   final double? minPricePerMonth;
@@ -26,6 +22,9 @@ class FacilityModel {
     required this.city,
     this.contactPhone = '',
     this.status = 'ACTIVE',
+    this.airConditioned24h = false,
+    this.imageUrl,
+    this.images = const [],
     this.minAreaSqm,
     this.maxAreaSqm,
     this.minPricePerMonth,
@@ -34,6 +33,25 @@ class FacilityModel {
   });
 
   factory FacilityModel.fromJson(Map<String, dynamic> json) {
+    List<String> parsedImages = [];
+    if (json['images'] is List) {
+      parsedImages = (json['images'] as List)
+          .map((e) => e?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } else if (json['images'] is String && (json['images'] as String).isNotEmpty) {
+      parsedImages = (json['images'] as String)
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+
+    final imgUrl = json['imageUrl']?.toString();
+    if (parsedImages.isEmpty && imgUrl != null && imgUrl.isNotEmpty) {
+      parsedImages = [imgUrl];
+    }
+
     return FacilityModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
@@ -41,17 +59,21 @@ class FacilityModel {
       city: json['city']?.toString() ?? '',
       contactPhone: json['contactPhone']?.toString() ?? '',
       status: json['status']?.toString() ?? 'ACTIVE',
+      airConditioned24h: json['airConditioned24h'] == true,
+      imageUrl: imgUrl,
+      images: parsedImages,
     );
   }
+
+  List<String> get allImages => images.isNotEmpty
+      ? images
+      : (imageUrl != null && imageUrl!.isNotEmpty ? [imageUrl!] : const []);
 
   bool get isBookable => status == 'ACTIVE';
 
   String get fullAddress =>
       [address, city].where((s) => s.isNotEmpty).join(', ');
 
-  /// Returns a copy of this facility with real stats computed from its
-  /// unit types (as returned by GET /catalog/unit-types?facilityId=...:
-  /// areaSqm, basePricePerMonth, availableUnitsCount per type).
   FacilityModel withUnitTypeStats(List<dynamic> unitTypes) {
     if (unitTypes.isEmpty) {
       return FacilityModel(
@@ -61,6 +83,9 @@ class FacilityModel {
         city: city,
         contactPhone: contactPhone,
         status: status,
+        airConditioned24h: airConditioned24h,
+        imageUrl: imageUrl,
+        images: images,
         unitTypeCount: 0,
         availableUnits: 0,
       );
@@ -73,9 +98,6 @@ class FacilityModel {
       if (raw is! Map) continue;
       final area = (raw['areaSqm'] as num?)?.toDouble();
       final price = (raw['basePricePerMonth'] as num?)?.toDouble();
-      // Note: this field has been observed coming back as a UUID string
-      // instead of a count on some BE builds (likely an upstream bug) - the
-      // `as num?` cast safely yields null / 0 rather than crashing.
       final available = (raw['availableUnitsCount'] as num?)?.toInt() ?? 0;
 
       if (area != null) {
@@ -96,6 +118,9 @@ class FacilityModel {
       city: city,
       contactPhone: contactPhone,
       status: status,
+      airConditioned24h: airConditioned24h,
+      imageUrl: imageUrl,
+      images: images,
       minAreaSqm: minArea,
       maxAreaSqm: maxArea,
       minPricePerMonth: minPrice,

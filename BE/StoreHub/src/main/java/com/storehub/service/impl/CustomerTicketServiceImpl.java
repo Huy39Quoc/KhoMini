@@ -33,17 +33,18 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final ActivityLogService activityLogService;
+    private final com.storehub.service.CloudinaryService cloudinaryService;
 
     @Override
     @Transactional
     public TicketResponse createTicket(String customerEmail, CreateTicketRequest request) {
         User customer = resolveCustomer(customerEmail);
-        Booking booking = null;
-
-        if (request.getBookingId() != null) {
-            booking = bookingRepository.findByIdAndCustomerId(request.getBookingId(), customer.getId())
-                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+        if (request.getBookingId() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
         }
+        Booking booking = bookingRepository.findByIdAndCustomerId(
+                        request.getBookingId(), customer.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         String ticketCode = "TK-" + System.currentTimeMillis() + "-"
                 + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
@@ -57,6 +58,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
                 .description(request.getDescription())
                 .status(TicketStatus.OPEN)
                 .priority("MEDIUM")
+                .photos(request.getPhotos())
                 .build();
 
         SupportTicket savedTicket = ticketRepository.save(ticket);
@@ -73,17 +75,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
         User customer = resolveCustomer(customerEmail);
         Page<SupportTicket> ticketPage = ticketRepository.findAllByCustomerId(customer.getId(), pageable);
 
-        List<TicketResponse> responses = ticketPage.getContent().stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-
-        return PageResponse.<TicketResponse>builder()
-                .page(ticketPage.getNumber())
-                .size(ticketPage.getSize())
-                .totalElements(ticketPage.getTotalElements())
-                .totalPages(ticketPage.getTotalPages())
-                .content(responses)
-                .build();
+        return PageResponse.from(ticketPage.map(this::mapToResponse));
     }
 
     @Override
@@ -93,6 +85,20 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
         SupportTicket ticket = ticketRepository.findByIdAndCustomerId(ticketId, customer.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TICKET_NOT_FOUND));
         return mapToResponse(ticket);
+    }
+
+    @Override
+    public List<String> uploadTicketPhotos(org.springframework.web.multipart.MultipartFile[] files) {
+        if (files == null || files.length == 0) {
+            return java.util.Collections.emptyList();
+        }
+        List<String> urls = new java.util.ArrayList<>();
+        for (org.springframework.web.multipart.MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                urls.add(cloudinaryService.uploadImage(file, "tickets"));
+            }
+        }
+        return urls;
     }
 
     private User resolveCustomer(String email) {
@@ -114,6 +120,13 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
                 .assignedStaffId(t.getAssignedStaff() != null ? t.getAssignedStaff().getId() : null)
                 .assignedStaffName(t.getAssignedStaff() != null ? t.getAssignedStaff().getFullName() : null)
                 .resolutionNote(t.getResolutionNote())
+                .customerName(t.getCustomer() != null ? t.getCustomer().getFullName() : null)
+                .customerEmail(t.getCustomer() != null ? t.getCustomer().getEmail() : null)
+                .customerPhone(t.getCustomer() != null ? t.getCustomer().getPhone() : null)
+                .unitCode(t.getBooking() != null && t.getBooking().getStorageUnit() != null
+                        ? t.getBooking().getStorageUnit().getUnitCode()
+                        : null)
+                .photos(t.getPhotos())
                 .createdAt(t.getCreatedAt())
                 .build();
     }

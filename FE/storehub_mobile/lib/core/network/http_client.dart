@@ -1,23 +1,25 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_endpoints.dart';
+import 'token_store.dart';
 
 class HttpClient {
   static final HttpClient _instance = HttpClient._internal();
   late final Dio dio;
 
-  // Dùng riêng một Dio "trần" (không gắn interceptor) để gọi refresh-token,
-  // tránh việc request refresh cũng bị interceptor 401 bắt lại -> vòng lặp vô hạn.
   late final Dio _plainDio;
 
-  // Gom các request đang chờ refresh xong để tránh gọi refresh-token nhiều lần
-  // cùng lúc khi nhiều API 401 song song.
   bool _isRefreshing = false;
   final List<void Function(String?)> _pendingCallbacks = [];
 
   factory HttpClient() {
     return _instance;
+  }
+
+  void updateBaseUrl(String newUrl) {
+    ApiEndpoints.setBaseUrl(newUrl);
+    dio.options.baseUrl = ApiEndpoints.baseUrl;
+    _plainDio.options.baseUrl = ApiEndpoints.baseUrl;
   }
 
   HttpClient._internal() {
@@ -41,18 +43,14 @@ class HttpClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final prefs = await SharedPreferences.getInstance();
-          final token = prefs.getString('jwt_token');
+          final token = await TokenStore.instance.readAccessToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
+          } else {
+            options.headers.remove('Authorization');
           }
           return handler.next(options);
         },
-        // Access token của BE là JWT ngắn hạn. Trước đây khi hết hạn, mọi
-        // API sẽ lỗi 401 vĩnh viễn cho tới khi người dùng tự đăng xuất/đăng
-        // nhập lại (trước cả khi sửa logout thì coi như bị kẹt hoàn toàn).
-        // Giờ tự động dùng refresh_token để lấy access token mới và gọi
-        // lại đúng request đó một lần.
         onError: (error, handler) async {
           final isUnauthorized = error.response?.statusCode == 401;
           final isRefreshCall =
@@ -64,11 +62,6 @@ class HttpClient {
 
           final newToken = await _refreshAccessToken();
           if (newToken == null) {
-            // Refresh thất bại (refresh token cũng hết hạn/không có) ->
-            // dọn sạch session cục bộ để lần vào app tiếp theo quay lại login.
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.remove('jwt_token');
-            await prefs.remove('refresh_token');
             return handler.next(error);
           }
 
@@ -87,7 +80,6 @@ class HttpClient {
 
   Future<String?> _refreshAccessToken() async {
     if (_isRefreshing) {
-      // Đã có 1 lệnh refresh đang chạy, đợi kết quả của nó thay vì gọi thêm.
       final completer = Completer<String?>();
       _pendingCallbacks.add((token) => completer.complete(token));
       return completer.future;
@@ -95,9 +87,9 @@ class HttpClient {
 
     _isRefreshing = true;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final refreshToken = prefs.getString('refresh_token');
+      final refreshToken = await TokenStore.instance.readRefreshToken();
       if (refreshToken == null || refreshToken.isEmpty) {
+        await TokenStore.instance.clear();
         _notifyPending(null);
         return null;
       }
@@ -116,14 +108,18 @@ class HttpClient {
         return null;
       }
 
-      await prefs.setString('jwt_token', newAccessToken);
-      if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
-        await prefs.setString('refresh_token', newRefreshToken);
-      }
+      await TokenStore.instance.saveRefresh(newAccessToken, newRefreshToken);
 
       _notifyPending(newAccessToken);
       return newAccessToken;
-    } on DioException {
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 400 || status == 401 || status == 403) {
+        await TokenStore.instance.clear();
+      }
+      _notifyPending(null);
+      return null;
+    } catch (_) {
       _notifyPending(null);
       return null;
     } finally {
@@ -140,14 +136,12 @@ class HttpClient {
 
   static HttpClient get instance => _instance;
 
-  // Wrapper cho phương thức GET
   Future<Response> get(String path,
       {Map<String, dynamic>? queryParameters, Options? options}) async {
     return await dio.get(path,
         queryParameters: queryParameters, options: options);
   }
 
-  // Wrapper cho phương thức POST
   Future<Response> post(String path,
       {dynamic data,
       Map<String, dynamic>? queryParameters,
@@ -156,7 +150,6 @@ class HttpClient {
         data: data, queryParameters: queryParameters, options: options);
   }
 
-  // Wrapper cho phương thức PUT
   Future<Response> put(String path,
       {dynamic data,
       Map<String, dynamic>? queryParameters,
@@ -165,7 +158,6 @@ class HttpClient {
         data: data, queryParameters: queryParameters, options: options);
   }
 
-  // Wrapper cho phương thức DELETE
   Future<Response> delete(String path,
       {dynamic data,
       Map<String, dynamic>? queryParameters,

@@ -1,16 +1,11 @@
 import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
+import '../models/paged_result.dart';
 
 class AdminApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  // BE (GET /users) trả về danh sách có phân trang: { data: { content: [...] } }.
-  // Trước đây chỉ kiểm tra data['data'] is List (luôn false) nên danh sách
-  // người dùng luôn hiện trống.
-  // BE (GET /users) chỉ trả về 1 trang (mặc định 10 bản ghi). Trước đây
-  // lấy .length của trang đó làm "tổng số user" là sai; endpoint có sẵn
-  // "totalElements" trong phần phân trang nên đọc trực tiếp từ đó.
   Future<int> getTotalUsersCount() async {
     try {
       final response = await _dio.get(
@@ -29,9 +24,6 @@ class AdminApiService {
     }
   }
 
-  // GET /users/summary: tổng số user + số user đang active (đếm toàn hệ thống ở BE).
-  // Trước đây dashboard đếm "active" từ trang 10 user đầu tiên nên sai số liệu,
-  // và Business Manager không được phép gọi GET /users nên dashboard báo lỗi.
   Future<({int total, int active})> getUserSummary() async {
     try {
       final response = await _dio.get(ApiEndpoints.usersSummary);
@@ -53,16 +45,31 @@ class AdminApiService {
   }
 
   Future<List<dynamic>> getUsers() async {
+    final all = <dynamic>[];
+    var page = 0;
+    while (true) {
+      final batch = await getUsersPage(page: page++);
+      all.addAll(batch.content);
+      if (batch.last) return all;
+    }
+  }
+
+  Future<PagedResult<Map<String, dynamic>>> getUsersPage({int page = 0,
+      String search = '', bool? isActive}) async {
     try {
-      final response = await _dio.get(ApiEndpoints.users);
-      return _extractList(response.data);
+      final response = await _dio.get(ApiEndpoints.users, queryParameters: {
+        'page': page, 'size': 20,
+        if (search.isNotEmpty) 'search': search,
+        if (isActive != null) 'isActive': isActive,
+      });
+      return PagedResult.fromApi(response.data,
+          (item) => Map<String, dynamic>.from(item as Map));
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to load users: $message');
     }
   }
 
-  // BE (GET /roles) cũng trả về dữ liệu phân trang tương tự.
   Future<List<dynamic>> getRoles() async {
     try {
       final response = await _dio.get(ApiEndpoints.roles);
@@ -89,7 +96,6 @@ class AdminApiService {
     return [];
   }
 
-  // BE định nghĩa endpoint này là PATCH, trước đây FE gọi bằng PUT -> lỗi 405.
   Future<void> toggleUserActive(String userId) async {
     try {
       await _dio.patch(ApiEndpoints.toggleUserActive(userId));
@@ -99,17 +105,18 @@ class AdminApiService {
     }
   }
 
-  // ---- RBAC: Permissions & Role-Permissions ----
-  // These BE endpoints (PermissionController, RolePermissionController)
-  // existed already but had no FE screen calling them at all.
-
   Future<List<dynamic>> getPermissions() async {
     try {
-      final response = await _dio.get(
-        ApiEndpoints.permissions,
-        queryParameters: {'size': 200},
-      );
-      return _extractList(response.data);
+      final permissions = <dynamic>[];
+      var page = 0;
+      while (true) {
+        final response = await _dio.get(ApiEndpoints.permissions,
+            queryParameters: {'page': page++, 'size': 50});
+        final batch = PagedResult.fromApi(response.data,
+            (item) => Map<String, dynamic>.from(item as Map));
+        permissions.addAll(batch.content);
+        if (batch.last) return permissions;
+      }
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to load permissions: $message');
@@ -120,7 +127,6 @@ class AdminApiService {
     try {
       final response =
           await _dio.get(ApiEndpoints.rolePermissionsByRole(roleId));
-      // This endpoint returns a plain List (not a paginated PageResponse).
       final data = response.data;
       if (data is Map && data['data'] is List) return data['data'];
       if (data is List) return data;
@@ -172,10 +178,6 @@ class AdminApiService {
     }
   }
 
-  // Trước đây gọi PUT /users/{id}/role - endpoint này KHÔNG tồn tại trên BE
-  // (luôn lỗi 404). BE chỉ hỗ trợ đổi role thông qua PUT /users/{id} với
-  // UserUpdateRequest {roleId, phone, ...}, trong đó "phone" là bắt buộc
-  // nên phải truyền lại số điện thoại hiện tại của user.
   Future<void> updateUserRole(
     String userId,
     String roleId,

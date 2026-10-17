@@ -45,7 +45,7 @@ public class FacilityPolicyController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('POLICY_CREATE')")
     @Operation(summary = "Create a new facility policy")
     public ResponseEntity<ApiResponse<FacilityPolicyResponse>> create(
             @Valid @RequestBody FacilityPolicyCreateRequest request) {
@@ -57,7 +57,7 @@ public class FacilityPolicyController {
     }
 
     @PutMapping("{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('POLICY_UPDATE')")
     @Operation(summary = "Update an existing facility policy")
     public ResponseEntity<ApiResponse<FacilityPolicyResponse>> update(
             @PathVariable UUID id,
@@ -70,7 +70,7 @@ public class FacilityPolicyController {
     }
 
     @DeleteMapping("{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('POLICY_DELETE')")
     @Operation(summary = "Delete a facility policy")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         facilityPolicyService.delete(id);

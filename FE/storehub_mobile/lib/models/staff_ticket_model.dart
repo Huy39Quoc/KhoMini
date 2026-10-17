@@ -1,5 +1,6 @@
 class StaffTicketModel {
   final String id;
+  final String bookingId;
   final String ticketCode;
   final String bookingCode;
   final String category;
@@ -15,9 +16,11 @@ class StaffTicketModel {
   final String customerEmail;
   final String customerPhone;
   final String unitCode;
+  final List<String> photos;
 
   const StaffTicketModel({
     required this.id,
+    this.bookingId = '',
     required this.ticketCode,
     required this.bookingCode,
     required this.category,
@@ -33,6 +36,7 @@ class StaffTicketModel {
     this.customerEmail = '',
     this.customerPhone = '',
     this.unitCode = '',
+    this.photos = const <String>[],
   });
 
   bool get isOpen => status == 'OPEN';

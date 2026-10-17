@@ -7,6 +7,7 @@ import com.storehub.dto.response.FacilityStaffResponse;
 import com.storehub.dto.response.FacilityUnitResponse;
 import com.storehub.dto.response.FacilityBookingResponse;
 import com.storehub.dto.response.FacilityContractResponse;
+import com.storehub.dto.response.AssignableStaffResponse;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,6 +57,11 @@ public interface FacilityManagementService {
             String managerEmail
     );
 
+    List<AssignableStaffResponse> assignableStaff(
+            UUID facilityId,
+            String managerEmail
+    );
+
     void unassignStaff(
             UUID facilityId,
             UUID userId,
@@ -69,6 +75,13 @@ public interface FacilityManagementService {
 
     List<FacilityContractResponse> contracts(
             UUID facilityId,
+            String managerEmail
+    );
+
+    // Duyệt niêm phong cho hợp đồng quá hạn đang ở trạng thái "chờ niêm phong".
+    FacilityContractResponse approveSealing(
+            UUID facilityId,
+            UUID bookingId,
             String managerEmail
     );
 }

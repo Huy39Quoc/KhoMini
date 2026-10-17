@@ -10,6 +10,19 @@ import '../models/facility_management_models.dart';
 class FacilityOpsApiService {
   final Dio _dio = HttpClient.instance.dio;
 
+  Future<Map<String, dynamic>> verifyGatePass({
+    required String facilityId,
+    required String token,
+  }) async {
+    try {
+      final response = await _dio.post(ApiEndpoints.verifyGatePass,
+          queryParameters: {'facilityId': facilityId}, data: {'token': token});
+      return _unwrap(response.data);
+    } on DioException catch (e) {
+      throw _err(e, 'verify gate pass');
+    }
+  }
+
   Map<String, dynamic> _unwrap(dynamic data) {
     if (data is Map && data['data'] is Map) {
       return Map<String, dynamic>.from(data['data']);
@@ -52,26 +65,6 @@ class FacilityOpsApiService {
     return Exception(
       'Failed to $action: ${message ?? 'Unknown error'}',
     );
-  }
-
-  List<dynamic> _unwrapPageContent(dynamic data) {
-    if (data is Map) {
-      final payload = data['data'];
-
-      if (payload is Map && payload['content'] is List) {
-        return List<dynamic>.from(
-          payload['content'],
-        );
-      }
-
-      if (data['content'] is List) {
-        return List<dynamic>.from(
-          data['content'],
-        );
-      }
-    }
-
-    return _unwrapList(data);
   }
 
   // =========================================================
@@ -211,20 +204,13 @@ class FacilityOpsApiService {
     }
   }
 
-  Future<List<AssignableUserModel>> getAssignableUsers() async {
+  Future<List<AssignableUserModel>> getAssignableUsers(String facilityId) async {
     try {
       final response = await _dio.get(
-        ApiEndpoints.users,
-        queryParameters: {
-          'page': 0,
-          'size': 200,
-          'isActive': true,
-          'sortBy': 'fullName',
-          'sortDir': 'asc',
-        },
+        ApiEndpoints.facilityAssignableStaff(facilityId),
       );
 
-      return _unwrapPageContent(response.data)
+      return _unwrapList(response.data)
           .map(FacilityManagementMapper.asJsonMap)
           .map(
             FacilityManagementMapper.assignableUserFromJson,
@@ -315,7 +301,7 @@ class FacilityOpsApiService {
     }
   }
   /// Hợp đồng đang CONFIRMED / ACTIVE của cơ sở (Facility Manager theo dõi).
-  Future<List<Map<String, dynamic>>> getFacilityContracts(
+  Future<List<FacilityContractModel>> getFacilityContracts(
     String facilityId,
   ) async {
     try {
@@ -325,9 +311,34 @@ class FacilityOpsApiService {
 
       return _unwrapList(response.data)
           .map(FacilityManagementMapper.asJsonMap)
+          .map(FacilityManagementMapper.contractFromJson)
           .toList();
     } on DioException catch (error) {
       throw _err(error, 'load facility contracts');
+    }
+  }
+
+  /// Facility Manager duyệt niêm phong cho hợp đồng quá hạn đang "chờ niêm phong".
+  Future<void> approveSealing(String facilityId, String bookingId) async {
+    try {
+      await _dio.put(ApiEndpoints.approveSealing(facilityId, bookingId));
+    } on DioException catch (error) {
+      throw _err(error, 'approve sealing');
+    }
+  }
+
+  /// Staff cấp lại PIN cho khách quên mã (sau khi xác minh khách tại quầy).
+  /// Trả về PIN mới - server chỉ trả đúng một lần.
+  Future<String> resetCustomerPin(String bookingId, String facilityId) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.resetCustomerPin(bookingId),
+        queryParameters: {'facilityId': facilityId},
+      );
+      final data = _unwrap(response.data);
+      return data['generatedPin']?.toString() ?? '';
+    } on DioException catch (error) {
+      throw _err(error, 'reset customer PIN');
     }
   }
 
@@ -376,12 +387,94 @@ class FacilityOpsApiService {
     }
   }
 
+  Future<void> assignAppointment({
+    required String facilityId,
+    required DailyScheduleModel appointment,
+    String? staffId,
+  }) async {
+    try {
+      await _dio.put(
+        ApiEndpoints.appointmentAssignment(appointment.bookingId),
+        queryParameters: {'facilityId': facilityId},
+        data: {'scheduleType': appointment.scheduleType, 'staffId': staffId},
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'assign appointment');
+    }
+  }
+
+  Future<Map<String, dynamic>> getFacilityRefunds(String facilityId,
+      {int page = 0, int size = 20}) async {
+    try {
+      final response = await _dio.get(ApiEndpoints.facilityRefunds(facilityId),
+          queryParameters: {'page': page, 'size': size});
+      return _unwrap(response.data);
+    } on DioException catch (error) {
+      throw _err(error, 'load refunds');
+    }
+  }
+
+  Future<void> provideRefundDetails(String facilityId, String refundId,
+      String transactionDate, String transactionNo, num originalAmount) async {
+    try {
+      await _dio.put('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/gateway-details',
+          data: {
+            'transactionDate': transactionDate,
+            'transactionNo': transactionNo.isEmpty ? null : transactionNo,
+            'originalAmount': originalAmount,
+          });
+    } on DioException catch (error) {
+      throw _err(error, 'provide original payment details');
+    }
+  }
+
+  Future<void> retryRejectedRefund(String facilityId, String refundId) async {
+    try {
+      await _dio.post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/retry');
+    } on DioException catch (error) {
+      throw _err(error, 'retry rejected refund');
+    }
+  }
+
+  Future<void> reconcileRefund(String facilityId, String refundId) async {
+    try {
+      await _dio.post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/reconcile');
+    } on DioException catch (error) {
+      throw _err(error, 'check refund with VNPay');
+    }
+  }
+
+  Future<List<String>> uploadHandoverPhotos(List<String> filePaths) async {
+    if (filePaths.isEmpty) return [];
+    try {
+      final formData = FormData();
+      for (final path in filePaths) {
+        final fileName = path.split(RegExp(r'[/\\]')).last;
+        formData.files.add(MapEntry(
+          'files',
+          await MultipartFile.fromFile(path, filename: fileName),
+        ));
+      }
+      final response = await _dio.post(
+        ApiEndpoints.facilityOpsUploadPhotos,
+        data: formData,
+      );
+      if (response.data is Map && response.data['data'] is List) {
+        return (response.data['data'] as List).map((e) => e.toString()).toList();
+      }
+      return [];
+    } on DioException catch (error) {
+      throw _err(error, 'upload handover photos');
+    }
+  }
+
   Future<HandoverModel> checkIn({
     required String bookingId,
     required String facilityId,
     required String unitCondition,
     required String lockCondition,
     String? notes,
+    List<String>? photos,
   }) async {
     try {
       final response = await _dio.post(
@@ -393,6 +486,7 @@ class FacilityOpsApiService {
           unitCondition: unitCondition,
           lockCondition: lockCondition,
           notes: notes,
+          photos: photos,
         ),
       );
 
@@ -404,12 +498,32 @@ class FacilityOpsApiService {
     }
   }
 
+  Future<void> confirmBankTransfer(String facilityId, String refundId, {
+    required String transferReference,
+    String? notes,
+  }) async {
+    try {
+      await _dio.post(
+        '${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/confirm-bank-transfer',
+        data: {
+          'transferReference': transferReference.trim(),
+          if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+        },
+      );
+    } on DioException catch (error) {
+      throw _err(error, 'confirm bank transfer refund');
+    }
+  }
+
   Future<HandoverModel> checkOut({
     required String bookingId,
     required String facilityId,
     required String unitCondition,
     required String lockCondition,
     String? notes,
+    num? damageFee,
+    String? damageReason,
+    List<String>? photos,
   }) async {
     try {
       final response = await _dio.post(
@@ -421,6 +535,9 @@ class FacilityOpsApiService {
           unitCondition: unitCondition,
           lockCondition: lockCondition,
           notes: notes,
+          damageFee: damageFee,
+          damageReason: damageReason,
+          photos: photos,
         ),
       );
 

@@ -6,8 +6,6 @@ import '../../services/catalog_api_service.dart';
 import '../../services/facility_admin_api_service.dart';
 import '../../widgets/state_views.dart';
 
-/// Business Operations Manager: chỉnh giá thuê tháng và tiền cọc theo loại kho
-/// (PUT /unit-types/{id}/price).
 class UnitPriceScreen extends StatefulWidget {
   const UnitPriceScreen({super.key});
 
@@ -19,7 +17,7 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
   final CatalogApiService _catalog = CatalogApiService();
   final FacilityAdminApiService _admin = FacilityAdminApiService();
   final NumberFormat _currency =
-      NumberFormat.currency(locale: 'en_US', symbol: '\$');
+      NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
   late Future<List<dynamic>> _future;
 
@@ -41,93 +39,31 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
   }
 
   Future<void> _edit(Map<String, dynamic> unitType) async {
-    final priceController = TextEditingController(
-      text: _num(unitType['basePricePerMonth']).toStringAsFixed(2),
-    );
-    final depositController = TextEditingController(
-      text: _num(unitType['depositAmount']).toStringAsFixed(2),
-    );
-    final formKey = GlobalKey<FormState>();
+    final rawPrice = _num(unitType['basePricePerMonth']);
+    final rawDeposit = _num(unitType['depositAmount']);
 
-    final confirmed = await showDialog<bool>(
+    final result = await showDialog<_PriceEditResult>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(unitType['typeName']?.toString() ?? 'Unit type'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: priceController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Monthly rent (\$)',
-                  ),
-                  validator: (value) {
-                    final parsed = double.tryParse(value ?? '');
-                    if (parsed == null || parsed <= 0) {
-                      return 'Enter an amount greater than 0';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: depositController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Deposit amount (\$)',
-                  ),
-                  validator: (value) {
-                    final parsed = double.tryParse(value ?? '');
-                    if (parsed == null || parsed < 0) {
-                      return 'Enter 0 or more';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
+      barrierDismissible: true,
+      builder: (dialogContext) => _EditPriceDialog(
+        title: 'Chỉnh sửa giá - ${unitType['typeName'] ?? 'Loại kho'}',
+        initialPrice: rawPrice,
+        initialDeposit: rawDeposit,
+      ),
     );
 
-    final price = double.tryParse(priceController.text);
-    final deposit = double.tryParse(depositController.text);
-    priceController.dispose();
-    depositController.dispose();
-
-    if (confirmed != true || price == null || deposit == null) return;
+    if (result == null || !mounted) return;
 
     try {
       await _admin.updateUnitTypePrice(
         unitTypeId: unitType['id'].toString(),
-        basePricePerMonth: price,
-        depositAmount: deposit,
+        basePricePerMonth: result.price,
+        depositAmount: result.deposit,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Price updated'),
+          content: Text('Đã cập nhật giá thành công!'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -136,7 +72,7 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
+          content: Text('Cập nhật thất bại: ${e.toString().replaceAll('Exception: ', '')}'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -182,7 +118,6 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
               try {
                 await _future;
               } catch (_) {
-                // FutureBuilder hiển thị lỗi.
               }
             },
             child: ListView.builder(
@@ -220,3 +155,127 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
     );
   }
 }
+
+class _PriceEditResult {
+  final double price;
+  final double deposit;
+  const _PriceEditResult({required this.price, required this.deposit});
+}
+
+class _EditPriceDialog extends StatefulWidget {
+  final String title;
+  final double initialPrice;
+  final double initialDeposit;
+
+  const _EditPriceDialog({
+    required this.title,
+    required this.initialPrice,
+    required this.initialDeposit,
+  });
+
+  @override
+  State<_EditPriceDialog> createState() => _EditPriceDialogState();
+}
+
+class _EditPriceDialogState extends State<_EditPriceDialog> {
+  late final TextEditingController _priceController;
+  late final TextEditingController _depositController;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _priceController = TextEditingController(
+      text: widget.initialPrice.round().toString(),
+    );
+    _depositController = TextEditingController(
+      text: widget.initialDeposit.round().toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _priceController.dispose();
+    _depositController.dispose();
+    super.dispose();
+  }
+
+  double? _parseAmount(String? value) {
+    if (value == null) return null;
+    var cleaned = value.trim().replaceAll(',', '').replaceAll(' ', '');
+    if (RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(cleaned)) {
+      cleaned = cleaned.replaceAll('.', '');
+    }
+    return double.tryParse(cleaned);
+  }
+
+  void _submit() {
+    if (_formKey.currentState?.validate() ?? false) {
+      final price = _parseAmount(_priceController.text);
+      final deposit = _parseAmount(_depositController.text);
+      if (price != null && deposit != null) {
+        Navigator.pop(
+          context,
+          _PriceEditResult(price: price, deposit: deposit),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _priceController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Giá thuê tháng (₫)',
+                hintText: 'Ví dụ: 1200000',
+              ),
+              validator: (value) {
+                final parsed = _parseAmount(value);
+                if (parsed == null || parsed <= 0) {
+                  return 'Vui lòng nhập giá lớn hơn 0';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _depositController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Tiền cọc (₫)',
+                hintText: 'Ví dụ: 1200000',
+              ),
+              validator: (value) {
+                final parsed = _parseAmount(value);
+                if (parsed == null || parsed < 0) {
+                  return 'Vui lòng nhập tiền cọc từ 0 trở lên';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Hủy'),
+        ),
+        ElevatedButton(
+          onPressed: _submit,
+          child: const Text('Lưu'),
+        ),
+      ],
+    );
+  }
+}
+

@@ -41,5 +41,9 @@ public class DailyScheduleResponse {
 
     private String scheduleType;
 
+    private UUID assignedStaffId;
+
+    private String assignedStaffName;
+
     private BookingStatus bookingStatus;
 }

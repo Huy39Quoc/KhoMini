@@ -29,8 +29,17 @@ public class Booking extends BaseEntity {
     @JoinColumn(name = "storage_unit_id", nullable = false)
     private StorageUnit storageUnit;
 
+    // A unit is held for capacity, but the manager must confirm the physical
+    // assignment (or choose another unit) before staff may check the customer in.
+    @Column(name = "unit_assignment_confirmed", nullable = false)
+    @Builder.Default
+    private Boolean unitAssignmentConfirmed = false;
+
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
+
+    @Column(name = "scheduled_check_in_time")
+    private LocalDateTime scheduledCheckInTime;
 
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
@@ -40,6 +49,12 @@ public class Booking extends BaseEntity {
 
     @Column(name = "total_rental_fee", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalRentalFee;
+
+    @Column(name = "quoted_deposit_amount", precision = 12, scale = 2)
+    private BigDecimal quotedDepositAmount;
+
+    @Column(name = "quoted_management_fee", precision = 12, scale = 2)
+    private BigDecimal quotedManagementFee;
 
     @Column(name = "deposit_paid", nullable = false, precision = 12, scale = 2)
     private BigDecimal depositPaid;
@@ -51,11 +66,16 @@ public class Booking extends BaseEntity {
     @Column(name = "access_code", length = 20)
     private String accessCode;
 
-    @Column(name = "access_pin", length = 10)
+    // Mã PIN mở khóa, lưu dạng băm BCrypt (không bao giờ lưu/trả về PIN dạng chữ rõ).
+    @Column(name = "access_pin", length = 100)
     private String accessPin;
 
-    @Column(name = "qr_access_token", length = 255)
-    private String qrAccessToken;
+    @Column(name = "pin_failed_attempts", nullable = false)
+    @Builder.Default
+    private Integer pinFailedAttempts = 0;
+
+    @Column(name = "pin_locked_until")
+    private LocalDateTime pinLockedUntil;
 
     @Column(name = "pin_updated_at")
     private LocalDateTime pinUpdatedAt;
@@ -68,6 +88,17 @@ public class Booking extends BaseEntity {
 
     @Column(name = "return_time")
     private LocalDateTime returnTime;
+
+    @Column(name = "scheduled_return_time")
+    private LocalDateTime scheduledReturnTime;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_check_in_staff_id")
+    private User assignedCheckInStaff;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_check_out_staff_id")
+    private User assignedCheckOutStaff;
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
@@ -99,4 +130,32 @@ public class Booking extends BaseEntity {
 
     @Column(name = "sealing_pending_at")
     private LocalDateTime sealingPendingAt;
+
+    // Facility Manager đã duyệt niêm phong cho hợp đồng quá hạn
+    @Column(name = "sealing_approved_at")
+    private LocalDateTime sealingApprovedAt;
+
+    @Column(name = "refund_bank_code", length = 50)
+    private String refundBankCode;
+
+    @Column(name = "refund_account_number", length = 50)
+    private String refundAccountNumber;
+
+    @Column(name = "refund_account_name", length = 100)
+    private String refundAccountName;
+
+    // --- Thỏa thuận pháp lý & Cam kết hàng cấm (Legal Agreement & Prohibited Items) ---
+    @Column(name = "prohibited_items_accepted", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private Boolean prohibitedItemsAccepted = false;
+
+    @Column(name = "terms_accepted", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private Boolean termsAccepted = false;
+
+    @Column(name = "terms_accepted_at")
+    private LocalDateTime termsAcceptedAt;
+
+    @Column(name = "terms_version", length = 30)
+    private String termsVersion;
 }

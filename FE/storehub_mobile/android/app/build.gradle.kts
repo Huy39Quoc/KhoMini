@@ -4,6 +4,24 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val releaseSigningRequested = gradle.startParameter.taskNames.any {
+    it.contains("Release", ignoreCase = true)
+}
+val releaseKeystorePath = System.getenv("STOREHUB_KEYSTORE_PATH")
+val releaseKeystorePassword = System.getenv("STOREHUB_KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("STOREHUB_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("STOREHUB_KEY_PASSWORD")
+
+if (releaseSigningRequested) {
+    require(!releaseKeystorePath.isNullOrBlank() &&
+            !releaseKeystorePassword.isNullOrBlank() &&
+            !releaseKeyAlias.isNullOrBlank() &&
+            !releaseKeyPassword.isNullOrBlank()) {
+        "Release signing requires STOREHUB_KEYSTORE_PATH, STOREHUB_KEYSTORE_PASSWORD, " +
+            "STOREHUB_KEY_ALIAS and STOREHUB_KEY_PASSWORD"
+    }
+}
+
 android {
     namespace = "com.example.storehub_mobile"
     compileSdk = flutter.compileSdkVersion
@@ -15,8 +33,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.storehub_mobile"
+        applicationId = "com.huy39quoc.khomini"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -29,11 +46,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (!releaseKeystorePath.isNullOrBlank()) {
+                storeFile = file(releaseKeystorePath)
+            }
+            storePassword = releaseKeystorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

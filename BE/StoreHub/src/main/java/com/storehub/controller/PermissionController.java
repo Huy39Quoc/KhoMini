@@ -28,7 +28,7 @@ public class PermissionController {
     private final PermissionService permissionService;
 
     @GetMapping("{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERMISSION_VIEW')")
     @Operation(summary = "Lấy quyền theo ID")
     public ResponseEntity<ApiResponse<PermissionResponse>> getById(@PathVariable UUID id) {
         PermissionResponse response = permissionService.getById(id);
@@ -36,7 +36,7 @@ public class PermissionController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERMISSION_CREATE')")
     @Operation(summary = "Create a new permission")
     public ResponseEntity<ApiResponse<PermissionResponse>> create(
             @Valid @RequestBody PermissionCreateRequest request) {
@@ -48,7 +48,7 @@ public class PermissionController {
     }
 
     @PutMapping("{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERMISSION_UPDATE')")
     @Operation(summary = "Update an existing permission")
     public ResponseEntity<ApiResponse<PermissionResponse>> update(
             @PathVariable UUID id,
@@ -61,7 +61,7 @@ public class PermissionController {
     }
 
     @DeleteMapping("{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERMISSION_DELETE')")
     @Operation(summary = "Delete a permission")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         permissionService.delete(id);
@@ -71,7 +71,7 @@ public class PermissionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'FACILITY_MANAGER', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERMISSION_VIEW')")
     @Operation(summary = "Get all permissions with filtering and pagination")
     public ResponseEntity<ApiResponse<PageResponse<PermissionResponse>>> getAll(
             @RequestParam(required = false) String search,

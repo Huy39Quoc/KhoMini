@@ -1,11 +1,8 @@
 import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
+import '../models/paged_result.dart';
 
-/// Wires FacilityController, FacilityPolicyController, ReportController and
-/// ActivityLogController - these were merged onto the BE after the
-/// operations/admin dashboards were first built, so the FE never had real
-/// revenue/occupancy numbers or a facility/policy manager until now.
 class FacilityAdminApiService {
   final Dio _dio = HttpClient.instance.dio;
 
@@ -23,25 +20,29 @@ class FacilityAdminApiService {
     return Exception('Failed to $action: $message');
   }
 
-  // ===== Facilities (FacilityController) =====
-
   Future<List<dynamic>> getFacilities({String? search}) async {
+    final all = <dynamic>[];
+    var page = 0;
+    while (true) {
+      final batch = await getFacilitiesPage(search: search, page: page++);
+      all.addAll(batch.content);
+      if (batch.last) return all;
+    }
+  }
+
+  Future<PagedResult<Map<String, dynamic>>> getFacilitiesPage(
+      {String? search, int page = 0}) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.facilitiesAdmin,
         queryParameters: {
-          'size': 200,
+          'page': page,
+          'size': 20,
           if (search != null && search.isNotEmpty) 'search': search,
         },
       );
-      final data = response.data;
-      if (data is Map &&
-          data['data'] is Map &&
-          data['data']['content'] is List) {
-        return data['data']['content'];
-      }
-      if (data is Map && data['content'] is List) return data['content'];
-      return [];
+      return PagedResult.fromApi(response.data,
+          (item) => Map<String, dynamic>.from(item as Map));
     } on DioException catch (e) {
       throw _err(e, 'load facilities');
     }
@@ -68,6 +69,57 @@ class FacilityAdminApiService {
     }
   }
 
+  Future<String> uploadFacilityImage(String filePath, {String? facilityId}) async {
+    try {
+      final fileName = filePath.split(RegExp(r'[/\\]')).last;
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      });
+
+      final url = (facilityId != null && facilityId.isNotEmpty)
+          ? '${ApiEndpoints.facilitiesAdmin}/$facilityId/image'
+          : '${ApiEndpoints.facilitiesAdmin}/upload-image';
+
+      final response = await _dio.post(url, data: formData);
+      if (response.data is Map && response.data['data'] != null) {
+        return response.data['data'].toString();
+      }
+      return '';
+    } on DioException catch (e) {
+      throw _err(e, 'upload image');
+    }
+  }
+
+  Future<List<String>> uploadFacilityImages(List<String> filePaths) async {
+    if (filePaths.isEmpty) return [];
+    try {
+      final multipartFiles = <MultipartFile>[];
+      for (final path in filePaths) {
+        final fileName = path.split(RegExp(r'[/\\]')).last;
+        multipartFiles.add(await MultipartFile.fromFile(path, filename: fileName));
+      }
+      final formData = FormData();
+      for (final mf in multipartFiles) {
+        formData.files.add(MapEntry('files', mf));
+      }
+      final response = await _dio.post(
+        '${ApiEndpoints.facilitiesAdmin}/upload-images',
+        data: formData,
+      );
+      if (response.data is Map && response.data['data'] is List) {
+        return (response.data['data'] as List).map((e) => e.toString()).toList();
+      }
+      return [];
+    } catch (_) {
+      final results = <String>[];
+      for (final p in filePaths) {
+        final url = await uploadFacilityImage(p);
+        if (url.isNotEmpty) results.add(url);
+      }
+      return results;
+    }
+  }
+
   Future<void> deleteFacility(String id) async {
     try {
       await _dio.delete(ApiEndpoints.facilityDetail(id));
@@ -75,8 +127,6 @@ class FacilityAdminApiService {
       throw _err(e, 'delete facility');
     }
   }
-
-  // ===== Facility Policies (FacilityPolicyController) =====
 
   Future<List<dynamic>> getFacilityPolicies({String? search}) async {
     try {
@@ -134,8 +184,6 @@ class FacilityAdminApiService {
     }
   }
 
-  // ===== Reports (ReportController) =====
-
   Future<Map<String, dynamic>> getRevenueReport(
       {DateTime? fromDate, DateTime? toDate}) async {
     try {
@@ -161,7 +209,6 @@ class FacilityAdminApiService {
     }
   }
 
-  /// type = 'revenue' | 'occupancy' -> nội dung CSV.
   Future<String> exportReport({
     required String type,
     DateTime? fromDate,
@@ -186,8 +233,6 @@ class FacilityAdminApiService {
     }
   }
 
-  // ===== Unit type pricing (UnitTypeController) =====
-
   Future<Map<String, dynamic>> updateUnitTypePrice({
     required String unitTypeId,
     required double basePricePerMonth,
@@ -206,8 +251,6 @@ class FacilityAdminApiService {
       throw _err(e, 'update the unit type price');
     }
   }
-
-  // ===== Activity Log (ActivityLogController) =====
 
   Future<List<dynamic>> getActivityLogs({
     String? search,

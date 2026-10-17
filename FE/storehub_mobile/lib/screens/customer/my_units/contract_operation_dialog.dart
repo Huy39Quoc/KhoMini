@@ -1,6 +1,6 @@
+import '../payment/vnpay_checkout_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/my_unit_model.dart';
 import '../../../services/storage_api_service.dart';
@@ -11,7 +11,7 @@ class ContractOperationDialog extends StatefulWidget {
   final bool resumePending;
 
   /// true = khách bấm "Pay late fee": dialog tải khoản phí trễ hạn đang chờ
-  /// (GET /payments/bookings/{id}/overdue) và cho thanh toán bằng QR.
+  /// (GET /payments/bookings/{id}/overdue) và cho thanh toán qua VNPay Sandbox.
   final bool payOverdue;
 
   const ContractOperationDialog({
@@ -28,16 +28,21 @@ class ContractOperationDialog extends StatefulWidget {
 }
 
 class _ContractOperationDialogState extends State<ContractOperationDialog> {
+  static const bool _sandboxMode = bool.fromEnvironment('VNPAY_SANDBOX') ||
+      !bool.fromEnvironment('dart.vm.product');
   final StorageApiService _storageService = StorageApiService();
   final TextEditingController _notesController = TextEditingController();
-  final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
+  final TextEditingController _bankCodeController = TextEditingController();
+  final TextEditingController _accountNumberController = TextEditingController();
+  final TextEditingController _accountNameController = TextEditingController();
+  final _currency = NumberFormat.currency(
+      locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('MMM d, yyyy');
   final _dateTimeFmt = DateFormat('MMM d, yyyy • h:mm a');
 
   int _extraMonths = 3;
   DateTime? _scheduledReturnTime;
   bool _isLoading = false;
-  bool _isConfirmingPayment = false;
   bool _isResuming = false;
   bool _isCancellingExtension = false;
   String? _resumeError;
@@ -70,6 +75,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         });
         return;
       }
+      if (payment['status'] == 'PAID') {
+        setState(() {
+          _isResuming = false;
+          _paymentConfirmed = payment;
+          _result = {'paymentRequired': false};
+        });
+        return;
+      }
       setState(() {
         _isResuming = false;
         _result = {
@@ -95,8 +108,9 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel extension request?'),
         content: const Text(
-          'The pending extension and its payment code will be cancelled. '
-          'You can request a new extension at any time.',
+          'The extension request will be cancelled. If VNPay later collects '
+          'payment from the old link, a refund will be requested. '
+          'You can request a new extension afterward.',
           style: TextStyle(fontSize: 13),
         ),
         actions: [
@@ -153,6 +167,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         });
         return;
       }
+      if (payment['status'] == 'PAID') {
+        setState(() {
+          _isResuming = false;
+          _paymentConfirmed = payment;
+          _result = {'paymentRequired': false};
+        });
+        return;
+      }
       setState(() {
         _isResuming = false;
         _result = {
@@ -160,14 +182,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           'transactionId': payment['transactionId'],
           'qrCodeUrl': payment['qrCodeUrl'],
           'additionalFee': payment['amount'],
-          'newEndDate': widget.unit.endDate != null &&
-                  widget.unit.pendingExtraMonths != null
-              ? DateTime(
-                  widget.unit.endDate!.year,
-                  widget.unit.endDate!.month + widget.unit.pendingExtraMonths!,
-                  widget.unit.endDate!.day,
-                ).toIso8601String()
-              : null,
+          'newEndDate': widget.unit.pendingNewEndDate
+              ?.toIso8601String().substring(0, 10),
           'updatedTotalFee': widget.unit.totalRentalFee +
               (widget.unit.pendingExtensionFee ?? 0),
         };
@@ -184,6 +200,9 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   @override
   void dispose() {
     _notesController.dispose();
+    _bankCodeController.dispose();
+    _accountNumberController.dispose();
+    _accountNameController.dispose();
     super.dispose();
   }
 
@@ -234,6 +253,9 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           widget.unit.bookingId,
           _scheduledReturnTime!,
           notes: _notesController.text,
+          bankCode: _bankCodeController.text,
+          bankAccountNumber: _accountNumberController.text,
+          bankAccountName: _accountNameController.text,
         );
       }
 
@@ -264,28 +286,43 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       _result!['paymentRequired'] == true &&
       _paymentConfirmed == null;
 
-  Future<void> _confirmExtensionPayment() async {
-    final transactionId = _result?['transactionId']?.toString();
-    if (transactionId == null || transactionId.isEmpty) return;
-
-    setState(() => _isConfirmingPayment = true);
+  /// Mở VNPay Sandbox trong app. Giao dịch chỉ thành PAID khi VNPay gọi về server;
+  /// khách không thể tự bấm "đã trả".
+  Future<void> _payWithVnpay() async {
+    // Re-read the attempt: a previously displayed URL can have expired.
     try {
-      final confirmed =
-          await _storageService.confirmExtensionPayment(transactionId);
-      if (!mounted) return;
-      setState(() {
-        _paymentConfirmed = confirmed;
-        _isConfirmingPayment = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isConfirmingPayment = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: AppColors.error,
+      if (widget.payOverdue) {
+        await _loadOverduePayment();
+      } else {
+        await _loadPendingExtensionPayment();
+      }
+    } catch (_) {
+      return;
+    }
+    if (!mounted || _paymentConfirmed != null || _resumeError != null) return;
+    final result = _result;
+    if (result == null) return;
+    final transactionId = result['transactionId']?.toString() ?? '';
+    final paymentUrl =
+        (result['paymentUrl'] ?? result['qrCodeUrl'])?.toString() ?? '';
+    if (transactionId.isEmpty || paymentUrl.isEmpty) return;
+    final fee = num.tryParse(result['additionalFee']?.toString() ?? '') ?? 0;
+
+    final paid = await Navigator.push<Map<String, dynamic>?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VnpayCheckoutScreen(
+          paymentUrl: paymentUrl,
+          transactionId: transactionId,
+          amount: fee.toDouble(),
+          title: widget.payOverdue ? 'Late fee • VNPay Sandbox' : 'Extension • VNPay Sandbox',
+          fetchStatus: _storageService.getPaymentStatus,
         ),
-      );
+      ),
+    );
+    if (!mounted) return;
+    if (paid != null) {
+      setState(() => _paymentConfirmed = paid);
     }
   }
 
@@ -441,6 +478,68 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           ),
         ),
         const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.shade100),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.account_balance, size: 18, color: Colors.blue.shade800),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Bank Information for Deposit Refund',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.blue.shade900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Enter your bank account so the manager can transfer your deposit refund upon inspection.',
+                style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _bankCodeController,
+                decoration: const InputDecoration(
+                  labelText: 'Bank Name / Code (e.g. MBBank, VCB)',
+                  prefixIcon: Icon(Icons.account_balance_outlined, size: 20),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _accountNumberController,
+                decoration: const InputDecoration(
+                  labelText: 'Account Number',
+                  prefixIcon: Icon(Icons.numbers, size: 20),
+                  isDense: true,
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _accountNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Account Holder Name',
+                  prefixIcon: Icon(Icons.person_outline, size: 20),
+                  isDense: true,
+                ),
+                textCapitalization: TextCapitalization.characters,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         TextField(
           controller: _notesController,
           decoration: const InputDecoration(
@@ -454,7 +553,6 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
 
   Widget _buildExtensionPaymentDialog() {
     final result = _result!;
-    final paymentUrl = (result['paymentUrl'] ?? result['qrCodeUrl'])?.toString() ?? '';
     final transactionId = result['transactionId']?.toString() ?? '';
     final fee = num.tryParse(result['additionalFee']?.toString() ?? '') ?? 0;
 
@@ -481,55 +579,31 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               style: const TextStyle(
                   fontSize: 12, color: AppColors.onSurfaceVariant),
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: const Column(
-                children: [
-                  Text('VNPAY SANDBOX TEST CARD',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF003087))),
-                  SizedBox(height: 6),
-                  Text('Bank: NCB | Card: 9704198526191432198',
-                      style: TextStyle(fontSize: 11)),
-                  Text('Name: NGUYEN VAN A | Date: 07/15 | OTP: 123456',
-                      style: TextStyle(fontSize: 11)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton.icon(
-                onPressed: paymentUrl.isEmpty
-                    ? null
-                    : () async {
-                        final uri = Uri.parse(paymentUrl);
-                        if (!await launchUrl(uri,
-                            mode: LaunchMode.externalApplication)) {
-                          await launchUrl(uri,
-                              mode: LaunchMode.inAppBrowserView);
-                        }
-                      },
-                icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('Open VNPay Gateway',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0057B7),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+            if (_sandboxMode) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: const Column(
+                  children: [
+                    Text('VNPAY SANDBOX TEST CARD',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF003087))),
+                    SizedBox(height: 6),
+                    Text('Bank: NCB | Card: 9704198526191432198',
+                        style: TextStyle(fontSize: 11)),
+                    Text('Name: NGUYEN VAN A | Date: 07/15 | OTP: 123456',
+                        style: TextStyle(fontSize: 11)),
+                  ],
                 ),
               ),
-            ),
+            ],
             const SizedBox(height: 8),
             Text('Transaction code: $transactionId',
                 style: const TextStyle(
@@ -540,9 +614,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       actions: [
         if (!widget.payOverdue)
           TextButton(
-            onPressed: (_isConfirmingPayment || _isCancellingExtension)
-                ? null
-                : _cancelExtension,
+            onPressed: _isCancellingExtension ? null : _cancelExtension,
             child: _isCancellingExtension
                 ? const SizedBox(
                     width: 16,
@@ -554,23 +626,14 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           ),
         TextButton(
           // true: server có thể đã tạo yêu cầu gia hạn treo -> màn danh sách cần tải lại
-          onPressed: (_isConfirmingPayment || _isCancellingExtension)
+          onPressed: _isCancellingExtension
               ? null
               : () => Navigator.pop(context, true),
           child: const Text('Close'),
         ),
         ElevatedButton(
-          onPressed: (_isConfirmingPayment || _isCancellingExtension)
-              ? null
-              : _confirmExtensionPayment,
-          child: _isConfirmingPayment
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                )
-              : const Text("I've paid"),
+          onPressed: _isCancellingExtension ? null : _payWithVnpay,
+          child: const Text('Pay with VNPay'),
         ),
       ],
     );

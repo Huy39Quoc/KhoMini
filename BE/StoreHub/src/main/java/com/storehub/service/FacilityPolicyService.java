@@ -30,6 +30,12 @@ public interface FacilityPolicyService {
     // (mac dinh true neu co so chua thiet lap chinh sach nay).
     boolean isMinRentalMonthsSatisfied(UUID facilityId, int rentalMonths);
 
+    // Kiem tra ngay bat dau thue (startDate) co nam trong khoang thoi gian dat truoc cho phep khong
+    boolean isAdvanceReservationAllowed(UUID facilityId, LocalDate startDate);
+
+    // Lay so ngay toi da cho phep dat truoc cua co so
+    int getMaxAdvanceReservationDays(UUID facilityId);
+
     FacilityPolicyResponse getByFacilityId(UUID facilityId);
 
     FacilityPolicyResponse create(FacilityPolicyCreateRequest request);

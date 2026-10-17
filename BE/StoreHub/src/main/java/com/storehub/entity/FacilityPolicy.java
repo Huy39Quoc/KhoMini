@@ -33,6 +33,11 @@ public class FacilityPolicy extends BaseEntity {
     @Builder.Default
     private Integer minimumRentalMonths = 1;
 
+    // Số ngày tối đa cho phép đặt chỗ trước ngày bắt đầu thuê (tránh giam kho ảo)
+    @Column(name = "max_advance_reservation_days", nullable = false, columnDefinition = "integer default 14")
+    @Builder.Default
+    private Integer maxAdvanceReservationDays = 14;
+
     // --- Cancellation ---
     @Column(name = "cancellation_full_refund_hours", nullable = false)
     @Builder.Default
@@ -80,5 +85,31 @@ public class FacilityPolicy extends BaseEntity {
     @Builder.Default
     // sau bao nhiêu ngày overdue thì unit có thể bị niêm phong(sealing)
     private Integer overdueSealingDays = 7;
+
+    // --- Phí phụ & giảm giá (do Business Operations Manager cấu hình) ---
+    // Phí quản lý theo tháng (0 = miễn phí quản lý)
+    @Column(name = "management_fee_per_month", nullable = false, precision = 12, scale = 0)
+    @Builder.Default
+    private BigDecimal managementFeePerMonth = BigDecimal.valueOf(50000);
+
+    // Thuê từ N tháng trở lên được giảm tiền thuê (0 = không áp dụng giảm giá)
+    @Column(name = "long_term_discount_min_months", nullable = false)
+    @Builder.Default
+    private Integer longTermDiscountMinMonths = 0;
+
+    @Column(name = "long_term_discount_percent", nullable = false)
+    @Builder.Default
+    private Double longTermDiscountPercent = 0.0;
+
+    // --- Cam kết pháp lý & Danh mục hàng cấm (Legal Agreement & Prohibited Items) ---
+    @Column(name = "prohibited_items", columnDefinition = "TEXT")
+    private String prohibitedItems;
+
+    @Column(name = "terms_and_conditions", columnDefinition = "TEXT")
+    private String termsAndConditions;
+
+    @Column(name = "terms_version", length = 30)
+    @Builder.Default
+    private String termsVersion = "v2026.1";
 
 }

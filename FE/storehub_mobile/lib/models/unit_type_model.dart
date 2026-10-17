@@ -6,6 +6,7 @@ class UnitTypeModel {
   final double pricePerMonth;
   final String? description;
   final int availableUnits;
+  final String? imageUrl;
 
   UnitTypeModel({
     required this.id,
@@ -15,11 +16,9 @@ class UnitTypeModel {
     required this.pricePerMonth,
     this.description,
     required this.availableUnits,
+    this.imageUrl,
   });
 
-  // Khớp với BE UnitTypeCatalogResponse: { id, typeName, dimensions, areaSqm,
-  // basePricePerMonth, depositAmount, availableUnitsCount } - trước đây đọc
-  // sai tên field (name/pricePerMonth/availableUnits) nên luôn ra giá trị 0.
   factory UnitTypeModel.fromJson(Map<String, dynamic> json) {
     return UnitTypeModel(
       id: json['id']?.toString() ?? '',
@@ -33,6 +32,7 @@ class UnitTypeModel {
       availableUnits: (json['availableUnitsCount'] as num?)?.toInt() ??
           (json['availableUnits'] as num?)?.toInt() ??
           0,
+      imageUrl: json['imageUrl']?.toString(),
     );
   }
 }

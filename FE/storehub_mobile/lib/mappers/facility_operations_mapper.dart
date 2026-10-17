@@ -30,6 +30,8 @@ class FacilityOperationsMapper {
       type: _text(json['type']),
       scheduledTime: _dateTime(json['scheduledTime']),
       scheduleType: _text(json['scheduleType']),
+      assignedStaffId: json['assignedStaffId']?.toString(),
+      assignedStaffName: json['assignedStaffName']?.toString(),
       bookingStatus: _text(json['bookingStatus']),
     );
   }
@@ -50,6 +52,8 @@ class FacilityOperationsMapper {
       staffName: _text(json['staffName']),
       recordedAt: _dateTime(json['recordedAt']),
       message: _text(json['message']),
+      damageFee: json['damageFee'] as num?,
+      damageReason: json['damageReason']?.toString(),
     );
   }
 
@@ -65,6 +69,11 @@ class FacilityOperationsMapper {
       staffId: _text(json['staffId']),
       staffName: _text(json['staffName']),
       recordedAt: _dateTime(json['recordedAt']),
+      damageFee: json['damageFee'] as num?,
+      damageReason: json['damageReason']?.toString(),
+      photos: (json['photos'] is List)
+          ? (json['photos'] as List).map((e) => e.toString()).toList()
+          : const <String>[],
     );
   }
 
@@ -72,14 +81,24 @@ class FacilityOperationsMapper {
     required String unitCondition,
     required String lockCondition,
     String? notes,
+    num? damageFee,
+    String? damageReason,
+    List<String>? photos,
   }) {
     final normalizedNotes = notes?.trim();
+    final normalizedReason = damageReason?.trim();
 
     return {
       'unitCondition': unitCondition.trim(),
       'lockCondition': lockCondition.trim(),
       if (normalizedNotes != null && normalizedNotes.isNotEmpty)
         'notes': normalizedNotes,
+      if (damageFee != null && damageFee > 0)
+        'damageFee': damageFee,
+      if (normalizedReason != null && normalizedReason.isNotEmpty)
+        'damageReason': normalizedReason,
+      if (photos != null && photos.isNotEmpty)
+        'photos': photos,
     };
   }
 

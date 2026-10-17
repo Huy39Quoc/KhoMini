@@ -4,9 +4,6 @@ import '../../core/constants/app_colors.dart';
 import '../../services/facility_admin_api_service.dart';
 import '../../widgets/state_views.dart';
 
-/// Wires GET /activity-logs and GET /activity-logs/login-history
-/// (ActivityLogController) - the login history / audit trail feature from
-/// Member 1's original scope, previously entity-only with no API.
 class ActivityLogScreen extends StatefulWidget {
   const ActivityLogScreen({super.key});
 
@@ -38,11 +35,6 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
   }
 
   void _loadAll() {
-    // FIX: setState(() => _allLogsFuture = ...) trước đây khiến callback
-    // "trả về" chính giá trị Future vừa gán (vì đây là 1 assignment
-    // expression), làm Flutter tưởng callback là async -> lỗi đỏ toàn màn
-    // hình "setState() callback argument returned a Future". Đổi sang
-    // block-body { } để statement gán không có giá trị trả về (void).
     setState(() {
       _allLogsFuture = _service.getActivityLogs();
     });

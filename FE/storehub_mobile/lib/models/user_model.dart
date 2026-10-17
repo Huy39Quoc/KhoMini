@@ -15,8 +15,13 @@ class UserModel {
     required this.roleName,
   });
 
-  // Getter cho các màn hình dùng u.role
   String get role => roleName;
+
+  bool get hasSupportedRole => const {
+        'ADMIN', 'SYSTEM_ADMIN', 'BUSINESS_MANAGER',
+        'BUSINESS_OPERATIONS_MANAGER', 'OPERATIONS_MANAGER',
+        'FACILITY_MANAGER', 'FACILITY_STAFF', 'STAFF', 'CUSTOMER'
+      }.contains(roleName.toUpperCase().replaceAll('ROLE_', ''));
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(

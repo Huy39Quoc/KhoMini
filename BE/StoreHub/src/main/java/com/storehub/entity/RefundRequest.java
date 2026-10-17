@@ -1,0 +1,73 @@
+package com.storehub.entity;
+
+import com.storehub.enums.RefundStatus;
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "refund_requests")
+@Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+public class RefundRequest extends BaseEntity {
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "booking_id", nullable = false)
+    private Booking booking;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "original_payment_id", nullable = false)
+    private Payment originalPayment;
+
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "refund_payment_id", nullable = false, unique = true)
+    private Payment refundPayment;
+
+    @Column(name = "request_id", nullable = false, unique = true, length = 32)
+    private String requestId;
+
+    @Column(name = "amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal amount;
+
+    @Column(name = "deposit_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal depositAmount;
+
+    @Column(name = "rental_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal rentalAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 30)
+    private RefundStatus status;
+
+    @Column(name = "gateway_response_code", length = 10)
+    private String gatewayResponseCode;
+
+    @Column(name = "gateway_transaction_status", length = 10)
+    private String gatewayTransactionStatus;
+
+    @Column(name = "updated_status_at")
+    private LocalDateTime updatedStatusAt;
+
+    // Snapshot of the facility's refund SLA at request creation.
+    @Column(name = "due_at", nullable = false)
+    private LocalDateTime dueAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    @Column(name = "damage_deduction", precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal damageDeduction = BigDecimal.ZERO;
+
+    @Column(name = "bank_code", length = 50)
+    private String bankCode;
+
+    @Column(name = "bank_account_number", length = 50)
+    private String bankAccountNumber;
+
+    @Column(name = "bank_account_name", length = 100)
+    private String bankAccountName;
+
+    @Column(name = "transfer_reference", length = 100)
+    private String transferReference;
+}

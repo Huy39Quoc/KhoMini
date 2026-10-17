@@ -7,6 +7,10 @@ import com.storehub.dto.response.DailyScheduleResponse;
 import com.storehub.dto.response.HandoverRecordResponse;
 import com.storehub.dto.response.HandoverResponse;
 import com.storehub.service.FacilityOperationsService;
+import com.storehub.service.GatePassService;
+import com.storehub.dto.request.GatePassVerificationRequest;
+import com.storehub.dto.response.GatePassVerificationResponse;
+import com.storehub.dto.request.AppointmentAssignmentRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,9 +37,35 @@ import java.util.UUID;
 public class FacilityOperationsController {
 
     private final FacilityOperationsService facilityOperationsService;
+    private final GatePassService gatePassService;
+
+    @PostMapping("/gate-pass/verify")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('ACCESS_CREDENTIAL_VIEW')")
+    @Operation(summary = "Kiểm tra và sử dụng một lần QR ra cổng tại cơ sở được phân công")
+    public ResponseEntity<ApiResponse<GatePassVerificationResponse>> verifyGatePass(
+            @RequestParam UUID facilityId,
+            @RequestBody @Valid GatePassVerificationRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Gate pass accepted",
+                gatePassService.verify(userDetails.getUsername(), facilityId, request.getToken())));
+    }
+
+    @PutMapping("/{bookingId}/appointment-assignment")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('BOOKING_UPDATE')")
+    public ResponseEntity<ApiResponse<DailyScheduleResponse>> assignAppointment(
+            @PathVariable UUID bookingId,
+            @RequestParam UUID facilityId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody @Valid AppointmentAssignmentRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Appointment assignment updated",
+                facilityOperationsService.assignAppointment(bookingId, facilityId,
+                        userDetails.getUsername(), request.getScheduleType(), request.getStaffId())));
+    }
 
     @GetMapping("/daily-schedule")
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('BOOKING_VIEW')")
     @Operation(summary = "Get daily check-in and check-out schedule")
     public ResponseEntity<ApiResponse<List<DailyScheduleResponse>>> getDailySchedule(
             @RequestParam UUID facilityId,
@@ -58,8 +88,28 @@ public class FacilityOperationsController {
         );
     }
 
+    @PostMapping("/{bookingId}/reset-pin")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('ACCESS_CREDENTIAL_UPDATE')")
+    @Operation(summary = "Cấp lại PIN cho khách quên mã (xác minh khách tại quầy). PIN mới chỉ trả về một lần")
+    public ResponseEntity<ApiResponse<com.storehub.dto.response.SmartAccessResponse>> resetCustomerPin(
+            @PathVariable UUID bookingId,
+            @RequestParam UUID facilityId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "PIN reset successfully",
+                        facilityOperationsService.resetCustomerPin(
+                                bookingId,
+                                facilityId,
+                                userDetails.getUsername()
+                        )
+                )
+        );
+    }
+
     @GetMapping("/{bookingId}/handover-records")
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('HANDOVER_VIEW')")
     @Operation(summary = "Get handover history of a booking")
     public ResponseEntity<ApiResponse<List<HandoverRecordResponse>>> getHandoverHistory(
             @PathVariable UUID bookingId,
@@ -83,7 +133,7 @@ public class FacilityOperationsController {
 
 
     @PostMapping("/{bookingId}/check-in")
-    @PreAuthorize("hasRole('STAFF')")
+    @PreAuthorize("hasRole('STAFF') and hasAuthority('HANDOVER_CREATE')")
     @Operation(
             summary = "Check-in customer and hand over storage unit"
     )
@@ -112,7 +162,7 @@ public class FacilityOperationsController {
     }
 
     @PostMapping("/{bookingId}/check-out")
-    @PreAuthorize("hasRole('STAFF')")
+    @PreAuthorize("hasRole('STAFF') and hasAuthority('HANDOVER_CREATE')")
     @Operation(
             summary = "Inspect returned storage unit and complete check-out"
     )
@@ -141,7 +191,7 @@ public class FacilityOperationsController {
     }
 
     @PatchMapping("/units/{unitId}/status")
-    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER')")
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('STORAGE_UNIT_UPDATE')")
     @Operation(summary = "Update storage unit status")
     public ResponseEntity<ApiResponse<String>> updateUnitStatus(
             @PathVariable UUID unitId,
@@ -163,5 +213,15 @@ public class FacilityOperationsController {
                         .data(result)
                         .build()
         );
+    }
+
+    @PostMapping(value = "/upload-photos", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('HANDOVER_CREATE')")
+    @Operation(summary = "Upload photos for handover evidence")
+    public ResponseEntity<ApiResponse<List<String>>> uploadHandoverPhotos(
+            @RequestParam("files") org.springframework.web.multipart.MultipartFile[] files
+    ) {
+        List<String> urls = facilityOperationsService.uploadHandoverPhotos(files);
+        return ResponseEntity.ok(ApiResponse.success("Photos uploaded successfully", urls));
     }
 }

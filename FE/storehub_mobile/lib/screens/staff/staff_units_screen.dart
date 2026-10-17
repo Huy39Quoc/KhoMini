@@ -5,8 +5,6 @@ import '../../models/facility_management_models.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 
-/// Facility Staff: xem trạng thái các ngăn kho và đánh dấu
-/// "cần kiểm tra / bảo trì" hoặc "đã sẵn sàng" sau khi kiểm tra.
 class StaffUnitsScreen extends StatefulWidget {
   final String facilityId;
   final String facilityName;
@@ -119,7 +117,6 @@ class _StaffUnitsScreenState extends State<StaffUnitsScreen> {
               try {
                 await _future;
               } catch (_) {
-                // FutureBuilder hiển thị lỗi.
               }
             },
             child: ListView.builder(

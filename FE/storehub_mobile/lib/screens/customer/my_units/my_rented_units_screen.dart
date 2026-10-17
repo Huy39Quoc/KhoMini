@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/booking_api_service.dart';
+import '../../../services/auth_api_service.dart';
 import '../../../services/storage_api_service.dart';
 import '../../../models/my_unit_model.dart';
 import '../../../widgets/state_views.dart';
 import '../tickets/create_ticket_screen.dart';
 import 'contract_operation_dialog.dart';
 import 'smart_key_screen.dart';
+import '../../../models/facility_operations_models.dart';
+import '../../../widgets/photo_preview_dialog.dart';
 
 class MyRentedUnitsScreen extends StatefulWidget {
   const MyRentedUnitsScreen({super.key});
@@ -20,8 +22,10 @@ class MyRentedUnitsScreen extends StatefulWidget {
 class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   final StorageApiService _storageService = StorageApiService();
   final BookingApiService _bookingService = BookingApiService();
-  late Future<List<MyUnitModel>> _unitsFuture;
-  final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
+  late Future<({List<MyUnitModel> active, List<MyUnitModel> awaiting})> _unitsFuture;
+  bool _showAwaiting = false;
+  final _currency = NumberFormat.currency(
+      locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('MMM d, yyyy');
   final _dateTimeFmt = DateFormat('MMM d, yyyy • h:mm a');
 
@@ -38,13 +42,19 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
 
   void _loadUnits() {
     setState(() {
-      _unitsFuture = _storageService.getMyRentedUnits().then((response) {
-        return response.map((item) {
-          if (item is MyUnitModel) return item;
-          return MyUnitModel.fromJson(item as Map<String, dynamic>);
-        }).toList();
-      });
+      _unitsFuture = _fetchUnits();
     });
+  }
+
+  Future<({List<MyUnitModel> active, List<MyUnitModel> awaiting})> _fetchUnits() async {
+    final results = await Future.wait([
+      _storageService.getMyRentedUnits(),
+      _storageService.getAwaitingHandover(),
+    ]);
+    List<MyUnitModel> parse(List<dynamic> items) => items
+        .map((item) => MyUnitModel.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
+    return (active: parse(results[0]), awaiting: parse(results[1]));
   }
 
   void _showUnitActions(MyUnitModel unit) {
@@ -64,7 +74,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Unit ${unit.unitCode}',
+                    unit.displayUnit,
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.bold),
                   ),
@@ -80,13 +90,13 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   child:
                       const Icon(Icons.key, color: AppColors.primaryContainer),
                 ),
-                title: const Text('Smart Access (PIN / QR)'),
+                title: const Text('Smart Access (PIN & Gate QR)'),
                 enabled: unit.hasActiveAccess,
                 subtitle: unit.hasActiveAccess
                     ? null
                     : Text(unit.accessDisabled
-                        ? 'Access disabled - rental is overdue'
-                        : 'Available after check-in at the facility'),
+                        ? 'Đã khóa truy cập vì quá hạn thuê'
+                        : 'Dùng được sau khi nhân viên bàn giao tại cơ sở'),
                 onTap: unit.hasActiveAccess
                     ? () {
                         Navigator.pop(ctx);
@@ -135,7 +145,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 title: const Text('Extend Rental'),
                 enabled: _canExtend(unit),
                 subtitle: !unit.isActive
-                    ? const Text('Available after check-in at the facility')
+                    ? const Text('Dùng được sau khi nhân viên bàn giao tại cơ sở')
                     : unit.hasPendingExtension
                         ? const Text('Resume or cancel your pending extension')
                         : unit.hasLateFeeDue
@@ -170,7 +180,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                         ? Text(
                             'Currently ${_dateTimeFmt.format(unit.scheduledReturnTime!)}')
                         : null)
-                    : const Text('Available after check-in at the facility'),
+                    : const Text('Dùng được sau khi nhân viên bàn giao tại cơ sở'),
                 onTap: unit.isActive
                     ? () {
                         Navigator.pop(ctx);
@@ -204,6 +214,23 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     color: AppColors.surfaceContainer,
                     borderRadius: BorderRadius.circular(10),
                   ),
+                  child: const Icon(Icons.history_edu_outlined,
+                      color: AppColors.primaryContainer),
+                ),
+                title: const Text('Handover Records & Photos'),
+                subtitle: const Text('View condition & photos from check-in/return'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openCustomerHandoverHistory(unit);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: const Icon(Icons.report_problem_outlined,
                       color: AppColors.secondary),
                 ),
@@ -216,7 +243,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       builder: (_) => CreateTicketScreen(
                         preselectedBookingId: unit.bookingId,
                         preselectedUnitLabel:
-                            '${unit.unitCode} • ${unit.facilityName}',
+                            '${unit.displayUnit} • ${unit.facilityName}',
                       ),
                     ),
                   );
@@ -230,13 +257,203 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
     );
   }
 
+  Future<void> _openCustomerHandoverHistory(MyUnitModel unit) async {
+    final historyFuture =
+        _storageService.getCustomerHandoverRecords(unit.bookingId);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SizedBox(
+          height: MediaQuery.of(sheetContext).size.height * 0.75,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history_edu,
+                        color: AppColors.primaryContainer),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Handover Records • Unit ${unit.unitCode}',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(sheetContext),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: FutureBuilder<List<HandoverRecordModel>>(
+                  future: historyFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const AppLoadingState(
+                        message: 'Loading handover records...',
+                      );
+                    }
+                    if (snapshot.hasError) {
+                      return AppErrorState(
+                        message: snapshot.error
+                            .toString()
+                            .replaceAll('Exception: ', ''),
+                      );
+                    }
+
+                    final records = snapshot.data ?? <HandoverRecordModel>[];
+                    if (records.isEmpty) {
+                      return const AppEmptyState(
+                        icon: Icons.history,
+                        title: 'No handover records yet',
+                        message:
+                            'Handover records with photos will appear here after staff check-in.',
+                      );
+                    }
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: records.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final record = records[index];
+                        final isCheckIn =
+                            record.recordType.toUpperCase() == 'CHECK_IN';
+                        final recordedTime = record.recordedAt == null
+                            ? ''
+                            : _dateTimeFmt.format(record.recordedAt!);
+
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: isCheckIn
+                                          ? AppColors.success
+                                              .withValues(alpha: 0.15)
+                                          : AppColors.secondaryContainer
+                                              .withValues(alpha: 0.15),
+                                      child: Icon(
+                                        isCheckIn ? Icons.login : Icons.logout,
+                                        color: isCheckIn
+                                            ? AppColors.success
+                                            : AppColors.secondaryContainer,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            isCheckIn
+                                                ? 'Check-in Handover'
+                                                : 'Return / Check-out Handover',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                          if (recordedTime.isNotEmpty)
+                                            Text(
+                                              recordedTime,
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppColors
+                                                      .onSurfaceVariant),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                if (record.unitCondition.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      'Condition: ${record.unitCondition}',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                if (record.damageFee != null &&
+                                    record.damageFee! > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      'Deduction: ${_currency.format(record.damageFee)}${record.damageReason != null ? " (${record.damageReason})" : ""}',
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.error,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                if (record.notes.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      'Notes: ${record.notes}',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ),
+                                if (record.staffName.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Text(
+                                      'Inspected by: ${record.staffName}',
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.onSurfaceVariant),
+                                    ),
+                                  ),
+                                if (record.photos.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  const Text(
+                                    'Photo Evidence:',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  PhotoThumbnailGrid(
+                                      photos: record.photos, size: 70),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _confirmCancelBooking(MyUnitModel unit) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Cancel booking?'),
         content: Text(
-          'Booking ${unit.bookingCode} (unit ${unit.unitCode}) will be '
+          'Booking ${unit.bookingCode} (${unit.displayUnit}) will be '
           'cancelled and the unit released. Your deposit is refunded '
           'according to the facility cancellation policy.',
         ),
@@ -297,8 +514,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   }
 
   void _logout(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await AuthApiService().logout();
 
     if (!context.mounted) return;
     Navigator.pushNamedAndRemoveUntil(
@@ -346,7 +562,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async => _loadUnits(),
-        child: FutureBuilder<List<MyUnitModel>>(
+        child: FutureBuilder<({List<MyUnitModel> active, List<MyUnitModel> awaiting})>(
           future: _unitsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -361,20 +577,11 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                 ],
               );
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return ListView(
-                children: const [
-                  AppEmptyState(
-                    icon: Icons.inventory_2_outlined,
-                    title: 'No rented storage units yet',
-                    message: 'Units you rent will show up here.',
-                  ),
-                ],
-              );
             }
 
-            final units = snapshot.data!;
-            final activeCount = units.where((u) => u.status == 'ACTIVE').length;
+            final active = snapshot.data?.active ?? <MyUnitModel>[];
+            final awaiting = snapshot.data?.awaiting ?? <MyUnitModel>[];
+            final units = _showAwaiting ? awaiting : active;
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -402,15 +609,18 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '$activeCount active of ${units.length} unit${units.length == 1 ? '' : 's'}',
+                              '${active.length} đang thuê • ${awaiting.length} chờ nhận kho',
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14),
                             ),
-                            const Text(
-                              'Tap a unit to access its smart key, extend, or report an issue',
-                              style: TextStyle(
+                            Text(
+                              _showAwaiting
+                                  ? 'Bạn đã thanh toán. Hãy đến cơ sở đúng ngày giờ hẹn: nhân viên sẽ kiểm tra và bàn giao ngăn kho, '
+                                      'sau đó booking chuyển sang "Đang thuê".'
+                                  : 'Bấm vào ngăn kho để xem khóa thông minh, QR cổng, gia hạn/trả kho và hỗ trợ.',
+                              style: const TextStyle(
                                   color: Colors.white70, fontSize: 11),
                             ),
                           ],
@@ -420,6 +630,30 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: Text('Đang thuê (${active.length})'),
+                      selected: !_showAwaiting,
+                      onSelected: (_) => setState(() => _showAwaiting = false),
+                    ),
+                    ChoiceChip(
+                      label: Text('Chờ nhận kho (${awaiting.length})'),
+                      selected: _showAwaiting,
+                      onSelected: (_) => setState(() => _showAwaiting = true),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (units.isEmpty)
+                  AppEmptyState(
+                    icon: Icons.inventory_2_outlined,
+                    title: _showAwaiting ? 'Chưa có lịch nhận kho' : 'Chưa có kho đang thuê',
+                    message: _showAwaiting
+                        ? 'Booking đã thanh toán sẽ hiện ở đây cho đến khi nhân viên bàn giao.'
+                        : 'Ngăn kho sẽ hiện ở đây sau khi nhân viên hoàn tất bàn giao.',
+                  ),
                 ...units.map((unit) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _buildUnitCard(unit),
@@ -450,7 +684,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Unit ${unit.unitCode}',
+                        Text(unit.displayUnit,
                             style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
                         Text(

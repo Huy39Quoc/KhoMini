@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
 import '../auth/login_screen.dart';
+import 'transaction_history_screen.dart';
 
 const Map<String, String> _kRoleLabels = {
   'ADMIN': 'System Administrator',
@@ -12,13 +13,10 @@ const Map<String, String> _kRoleLabels = {
   'CUSTOMER': 'Storage Customer',
 };
 
-/// Shared across every role. Shows the logged-in account's real info (from
-/// the JWT-derived UserModel, no separate "me" endpoint exists on the BE)
-/// and wires the real PUT /auth/change-password endpoint, which previously
-/// had no screen calling it at all.
 class ProfileScreen extends StatefulWidget {
   final UserModel user;
-  const ProfileScreen({super.key, required this.user});
+  final String? facilityId;
+  const ProfileScreen({super.key, required this.user, this.facilityId});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -131,7 +129,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Account header card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -178,7 +175,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Account details
             Card(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -194,6 +190,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.receipt_long_outlined, color: AppColors.primaryContainer),
+                title: const Text('Transaction History',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('View payment history & receipts',
+                    style: TextStyle(fontSize: 12)),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TransactionHistoryScreen(
+                        userRole: user.roleName,
+                        facilityId: widget.facilityId,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 20),

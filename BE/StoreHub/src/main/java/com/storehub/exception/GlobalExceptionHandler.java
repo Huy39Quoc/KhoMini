@@ -37,6 +37,13 @@ public class GlobalExceptionHandler {
     }
 
 
+    // Xóa bản ghi đang được dữ liệu khác tham chiếu -> trả 409 rõ ràng thay vì 500
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(
+            org.springframework.dao.DataIntegrityViolationException ex) {
+        return handleAppException(new AppException(ErrorCode.RESOURCE_IN_USE));
+    }
+
     // =========================
     // Validation Exception
     // =========================

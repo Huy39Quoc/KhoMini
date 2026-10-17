@@ -1,45 +1,55 @@
 import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
+import '../models/paged_result.dart';
 
 class TicketApiService {
   final Dio _dio = HttpClient.instance.dio;
 
-  // BE trả về danh sách có phân trang: { data: { content: [...], page, ... } },
-  // trước đây chỉ kiểm tra data['data'] is List (luôn false vì đó là Map)
-  // nên màn hình danh sách ticket luôn hiện trống dù đã có ticket.
-  Future<List<dynamic>> getMyTickets() async {
+  Future<PagedResult<Map<String, dynamic>>> getMyTickets({int page = 0}) async {
     try {
-      final response = await _dio.get(ApiEndpoints.tickets);
-      final data = response.data;
-      if (data is List) {
-        return data;
-      } else if (data is Map) {
-        if (data['data'] is Map && data['data']['content'] is List) {
-          return data['data']['content'];
-        } else if (data['content'] is List) {
-          return data['content'];
-        } else if (data['result'] is List) {
-          return data['result'];
-        } else if (data['data'] is List) {
-          return data['data'];
-        }
-      }
-      return [];
+      final response = await _dio.get(ApiEndpoints.tickets,
+          queryParameters: {'page': page, 'size': 20, 'sort': 'createdAt,desc'});
+      return PagedResult.fromApi(response.data,
+          (item) => Map<String, dynamic>.from(item as Map));
     } on DioException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Failed to load tickets: $message');
     }
   }
 
-  // BE (CreateTicketRequest) bắt buộc "title" (trước đây không gửi) và
-  // dùng field "bookingId" chứ không phải "unitId".
+  Future<List<String>> uploadTicketPhotos(List<String> filePaths) async {
+    if (filePaths.isEmpty) return [];
+    try {
+      final formData = FormData();
+      for (final path in filePaths) {
+        final fileName = path.split(RegExp(r'[/\\]')).last;
+        formData.files.add(MapEntry(
+          'files',
+          await MultipartFile.fromFile(path, filename: fileName),
+        ));
+      }
+      final response = await _dio.post(
+        ApiEndpoints.customerTicketsUploadPhotos,
+        data: formData,
+      );
+      if (response.data is Map && response.data['data'] is List) {
+        return (response.data['data'] as List).map((e) => e.toString()).toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      final message = e.response?.data?['message'] ?? e.message;
+      throw Exception('Failed to upload photos: $message');
+    }
+  }
+
   Future<void> createTicket(
     String category,
     String title,
     String description,
-    String? bookingId,
-  ) async {
+    String bookingId, {
+    List<String>? photos,
+  }) async {
     try {
       await _dio.post(
         ApiEndpoints.tickets,
@@ -47,7 +57,8 @@ class TicketApiService {
           'category': category,
           'title': title,
           'description': description,
-          if (bookingId != null && bookingId.isNotEmpty) 'bookingId': bookingId,
+          'bookingId': bookingId,
+          if (photos != null && photos.isNotEmpty) 'photos': photos,
         },
       );
     } on DioException catch (e) {
@@ -56,9 +67,6 @@ class TicketApiService {
     }
   }
 
-  // Trước đây hàm này trả nguyên cả bọc {success, message, data: {...}}
-  // thay vì bóc "data" ra - y hệt lỗi từng gặp ở getSmartAccess. Đây cũng
-  // là lý do màn hình chi tiết ticket chưa từng được nối dù API đã có sẵn.
   Future<Map<String, dynamic>> getTicketDetail(String ticketId) async {
     try {
       final response = await _dio.get(ApiEndpoints.ticketDetail(ticketId));

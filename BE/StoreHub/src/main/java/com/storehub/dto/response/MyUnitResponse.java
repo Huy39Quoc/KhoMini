@@ -21,6 +21,7 @@ public class MyUnitResponse {
     private String facilityName;
     private String facilityAddress;
     private String unitCode;
+    private boolean unitAssignmentConfirmed;
     private String unitTypeName;
     private String dimensions;
     private Double areaSqm;
@@ -33,6 +34,7 @@ public class MyUnitResponse {
     private boolean activeAccess;
     private boolean hasPendingExtension;
     private Integer pendingExtraMonths;
+    private LocalDate pendingNewEndDate;
     private BigDecimal pendingExtensionFee;
 
     // --- Quá hạn (điền bởi CustomerStorageServiceImpl) ---
@@ -40,7 +42,7 @@ public class MyUnitResponse {
     private long overdueDays;
     // Tổng phí trễ hạn đang chờ thanh toán (0 nếu không có)
     private BigDecimal overdueFeeOutstanding;
-    // true = mã PIN/QR đã bị thu hồi do quá hạn
+    // true = mã PIN đã bị thu hồi do quá hạn
     private boolean accessDisabled;
 
     // Lịch hẹn trả kho khách đã gửi (null nếu chưa gửi yêu cầu)

@@ -149,10 +149,18 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.TOKEN_EXPIRED);
         }
 
+        User user = storedToken.getUser();
+        if (user == null || !Boolean.TRUE.equals(user.getIsActive())) {
+            throw new AppException(ErrorCode.USER_INACTIVE);
+        }
+        if (user.getRole() == null
+                || !Boolean.TRUE.equals(user.getRole().getIsActive())) {
+            throw new AppException(ErrorCode.ROLE_INACTIVE);
+        }
+
         storedToken.setLastUsedAt(LocalDateTime.now());
         refreshTokenRepository.save(storedToken);
 
-        User user = storedToken.getUser();
         String newAccessToken = jwtService.generateAccessToken(user);
         UserResponse userResponse = userMapper.toResponse(user);
 

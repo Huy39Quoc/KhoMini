@@ -64,4 +64,32 @@ WHERE r.name = 'CUSTOMER'
        'RENEWAL_VIEW','RENEWAL_CREATE',
        'PAYMENT_VIEW','PAYMENT_CREATE',
        'SUPPORT_VIEW','SUPPORT_CREATE')
-ON CONFLICT (role_id, permission_id) DO NOTHING;
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- BUSINESS_MANAGER: Dashboard read access (from V27)
+INSERT INTO role_permissions (id, created_at, updated_at, role_id, permission_id, is_active, description)
+SELECT gen_random_uuid(), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+       r.id, p.id, TRUE, 'Dashboard read access'
+FROM roles r CROSS JOIN permissions p
+WHERE r.name = 'BUSINESS_MANAGER'
+  AND p.name IN ('USER_VIEW', 'ROLE_VIEW', 'PERMISSION_VIEW', 'ROLE_PERMISSION_VIEW')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- FACILITY_MANAGER: Read role configuration (from V27)
+INSERT INTO role_permissions (id, created_at, updated_at, role_id, permission_id, is_active, description)
+SELECT gen_random_uuid(), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+       r.id, p.id, TRUE, 'Read role configuration'
+FROM roles r CROSS JOIN permissions p
+WHERE r.name = 'FACILITY_MANAGER'
+  AND p.name IN ('ROLE_VIEW', 'PERMISSION_VIEW', 'ROLE_PERMISSION_VIEW')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- STAFF & CUSTOMER: Operational access permissions (from V29)
+INSERT INTO role_permissions (id, created_at, updated_at, role_id, permission_id, is_active, description)
+SELECT gen_random_uuid(), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+       r.id, p.id, TRUE, 'Operational access permission'
+FROM roles r, permissions p
+WHERE (r.name = 'STAFF' AND p.name = 'ACCESS_CREDENTIAL_UPDATE')
+   OR (r.name = 'CUSTOMER' AND p.name IN ('ACCESS_CREDENTIAL_UPDATE', 'CONTRACT_UPDATE'))
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+

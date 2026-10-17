@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
 import '../common/profile_screen.dart';
+import '../common/transaction_history_screen.dart';
 import 'activity_log_screen.dart';
 import '../operations/facility_management_screen.dart';
 import 'role_permission_screen.dart';
@@ -71,7 +72,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('System Administration'),
+        title: const Text('Quản trị hệ thống'),
         actions: [
           IconButton(
             tooltip: 'Profile',
@@ -107,12 +108,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 padding: const EdgeInsets.all(16.0),
                 children: [
                   Text(
-                      'Welcome back, ${widget.user.fullName.isNotEmpty ? widget.user.fullName : widget.user.username}',
+                      'Xin chào, ${widget.user.fullName.isNotEmpty ? widget.user.fullName : widget.user.username}',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
                   const Text(
-                      'Here is what is happening across the platform today.',
+                      'Quản trị tài khoản, vai trò và quyền truy cập theo cơ sở.',
                       style: TextStyle(
                           fontSize: 12, color: AppColors.onSurfaceVariant)),
                   const SizedBox(height: 16),
@@ -129,7 +130,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           style: const TextStyle(color: AppColors.error)),
                     ),
 
-                  // Real stats bento grid
                   GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
@@ -138,26 +138,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     crossAxisSpacing: 12,
                     childAspectRatio: 1.5,
                     children: [
-                      _statCard('Total Users', '$_totalUsers', Icons.people,
+                      _statCard('Tổng người dùng', '$_totalUsers', Icons.people,
                           AppColors.primaryContainer),
-                      _statCard('Active Users', '$_activeUsers',
+                      _statCard('Đang hoạt động', '$_activeUsers',
                           Icons.verified_user, AppColors.success),
-                      _statCard('Roles', '$_totalRoles', Icons.badge,
+                      _statCard('Vai trò', '$_totalRoles', Icons.badge,
                           AppColors.secondaryContainer),
-                      _statCard('Permissions', '$_totalPermissions',
+                      _statCard('Quyền hạn', '$_totalPermissions',
                           Icons.lock_outline, AppColors.secondary),
                     ],
                   ),
                   const SizedBox(height: 20),
 
-                  const Text('Management',
+                  const Text('Chức năng quản trị',
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 10),
                   _actionTile(
                     icon: Icons.manage_accounts,
-                    title: 'Users & Role Assignment',
-                    subtitle: 'View accounts and assign a role to each user',
+                    title: 'Người dùng & vai trò',
+                    subtitle: 'Xem tài khoản và gán vai trò cho từng người dùng',
                     onTap: () {
                       Navigator.push(
                         context,
@@ -169,8 +169,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const SizedBox(height: 10),
                   _actionTile(
                     icon: Icons.security,
-                    title: 'Roles & Permissions (RBAC)',
-                    subtitle: 'Control exactly what each role can access',
+                    title: 'Vai trò & quyền hạn',
+                    subtitle: 'Cấu hình quyền của từng vai trò',
                     onTap: () {
                       Navigator.push(
                         context,
@@ -182,22 +182,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const SizedBox(height: 10),
                   _actionTile(
                     icon: Icons.store_outlined,
-                    title: 'Facility Management',
+                    title: 'Gán quản lý cho cơ sở',
                     subtitle:
-                        'Create facilities and assign a Facility Manager',
+                        'Chọn Facility Manager phụ trách từng cơ sở (quyết định ai xem được dữ liệu cơ sở nào)',
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const FacilityManagementScreen()),
+                            builder: (_) => const FacilityManagementScreen(
+                                canAssignManager: true)),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _actionTile(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'Lịch sử giao dịch',
+                    subtitle: 'Xem toàn bộ giao dịch trên hệ thống (chỉ đọc)',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => TransactionHistoryScreen(
+                                  userRole: widget.user.roleName,
+                                )),
                       );
                     },
                   ),
                   const SizedBox(height: 10),
                   _actionTile(
                     icon: Icons.history,
-                    title: 'Activity Log',
-                    subtitle: 'Login history and system-wide audit trail',
+                    title: 'Nhật ký hoạt động',
+                    subtitle: 'Lịch sử đăng nhập và thao tác dữ liệu trong hệ thống',
                     onTap: () {
                       Navigator.push(
                         context,

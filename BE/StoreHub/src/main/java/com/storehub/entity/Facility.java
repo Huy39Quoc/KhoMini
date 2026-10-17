@@ -1,10 +1,14 @@
 package com.storehub.entity;
 
 import com.storehub.enums.FacilityStatus;
+import com.storehub.util.StringListAttributeConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Entity
 @Table(name = "facilities")
@@ -52,4 +56,33 @@ public class Facility extends BaseEntity {
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+
+    // Applies to every storage unit in this facility. Existing facilities default to false
+    // until an administrator confirms that cooling is available around the clock.
+    @Column(name = "air_conditioned_24h", nullable = false)
+    @Builder.Default
+    private Boolean airConditioned24h = false;
+
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    @Convert(converter = StringListAttributeConverter.class)
+    @Column(name = "images", columnDefinition = "TEXT")
+    @Builder.Default
+    private List<String> images = new ArrayList<>();
+
+    public List<String> getImageList() {
+        if (images != null && !images.isEmpty()) {
+            return images;
+        }
+        if (imageUrl != null && !imageUrl.isBlank()) {
+            return List.of(imageUrl);
+        }
+        return Collections.emptyList();
+    }
+
+    @Deprecated
+    public void assignImages(List<String> list) {
+        this.images = list != null ? list : new ArrayList<>();
+    }
 }

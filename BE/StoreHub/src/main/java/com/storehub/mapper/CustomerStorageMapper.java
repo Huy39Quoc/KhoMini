@@ -20,6 +20,7 @@ public interface CustomerStorageMapper {
     @Mapping(target = "facilityName", source = "storageUnit.facility.name", defaultValue = "Unassigned Facility")
     @Mapping(target = "facilityAddress", source = "storageUnit.facility.address", defaultValue = "")
     @Mapping(target = "unitCode", source = "storageUnit.unitCode", defaultValue = "Unassigned")
+    @Mapping(target = "unitAssignmentConfirmed", expression = "java(Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()))")
     @Mapping(target = "unitTypeName", source = "storageUnit.unitType.typeName", defaultValue = "")
     @Mapping(target = "dimensions", source = "storageUnit.unitType.dimensions", defaultValue = "")
     @Mapping(target = "areaSqm", source = "storageUnit.unitType.areaSqm")
@@ -28,16 +29,17 @@ public interface CustomerStorageMapper {
     @Mapping(target = "overdue", expression = "java(booking.getOverdueDetectedAt() != null)")
     @Mapping(target = "overdueDays", ignore = true)
     @Mapping(target = "overdueFeeOutstanding", ignore = true)
-    @Mapping(target = "scheduledReturnTime", source = "returnTime")
+    @Mapping(target = "scheduledReturnTime", source = "scheduledReturnTime")
     @Mapping(target = "hasPendingExtension", expression = "java(booking.getPendingExtraMonths() != null)")
+    @Mapping(target = "pendingNewEndDate", expression = "java(booking.getPendingExtraMonths() != null && booking.getEndDate() != null ? booking.getEndDate().plusMonths(booking.getPendingExtraMonths()) : null)")
     MyUnitResponse toMyUnitResponse(Booking booking);
 
     @Mapping(target = "bookingId", source = "id")
     @Mapping(target = "unitCode", source = "storageUnit.unitCode", defaultValue = "Unassigned")
-    @Mapping(target = "qrCodeToken", source = "qrAccessToken")
     @Mapping(target = "locked", expression = "java(Boolean.TRUE.equals(booking.getUnitLocked()))")
-    // tokenExpiresAt là quy tắc nghiệp vụ (5 phút kể từ lúc gọi API), không
-    // phải dữ liệu lấy từ entity, nên tính ngay tại đây bằng expression.
-    @Mapping(target = "tokenExpiresAt", expression = "java(java.time.LocalDateTime.now().plusMinutes(5))")
+    @Mapping(target = "pinSet", expression = "java(booking.getAccessPin() != null && !booking.getAccessPin().isBlank())")
+    @Mapping(target = "pinLockedUntil", expression = "java(booking.getPinLockedUntil() != null && booking.getPinLockedUntil().isAfter(java.time.LocalDateTime.now()) ? booking.getPinLockedUntil() : null)")
+    @Mapping(target = "attemptsRemaining", ignore = true)
+    @Mapping(target = "generatedPin", ignore = true)
     SmartAccessResponse toSmartAccessResponse(Booking booking);
 }

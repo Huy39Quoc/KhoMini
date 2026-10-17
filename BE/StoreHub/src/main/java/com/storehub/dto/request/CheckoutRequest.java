@@ -18,4 +18,32 @@ public class CheckoutRequest {
     private LocalDateTime scheduledReturnTime;
 
     private String notes;
+
+    private String bankCode;
+    private String bankAccountNumber;
+    private String bankAccountName;
+
+    public String getRefundBankCode() {
+        return bankCode;
+    }
+
+    public void setRefundBankCode(String refundBankCode) {
+        this.bankCode = refundBankCode;
+    }
+
+    public String getRefundAccountNumber() {
+        return bankAccountNumber;
+    }
+
+    public void setRefundAccountNumber(String refundAccountNumber) {
+        this.bankAccountNumber = refundAccountNumber;
+    }
+
+    public String getRefundAccountName() {
+        return bankAccountName;
+    }
+
+    public void setRefundAccountName(String refundAccountName) {
+        this.bankAccountName = refundAccountName;
+    }
 }

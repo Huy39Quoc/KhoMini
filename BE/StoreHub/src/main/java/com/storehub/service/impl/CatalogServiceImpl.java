@@ -5,6 +5,7 @@ import com.storehub.dto.response.FacilityResponse;
 import com.storehub.dto.response.UnitTypeCatalogResponse;
 import com.storehub.entity.Facility;
 import com.storehub.entity.UnitType;
+import com.storehub.enums.FacilityStatus;
 import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.UnitTypeRepository;
 import com.storehub.service.CatalogService;
@@ -35,7 +36,7 @@ public class CatalogServiceImpl implements CatalogService {
     @Override
     @Transactional(readOnly = true)
     public List<FacilityResponse> getAllFacilities() {
-        return facilityRepository.findAllByOrderByCreatedAtAsc()
+        return facilityRepository.findByStatusOrderByCreatedAtAsc(FacilityStatus.ACTIVE)
                 .stream()
                 .map(this::mapToFacilityResponse)
                 .collect(Collectors.toList());
@@ -56,6 +57,7 @@ public class CatalogServiceImpl implements CatalogService {
                     .basePricePerMonth(ut.getBasePricePerMonth())
                     .depositAmount(ut.getDepositAmount())
                     .availableUnitsCount(count)
+                    .imageUrl(ut.getImageUrl())
                     .build();
         }).collect(Collectors.toList());
     }
@@ -67,6 +69,8 @@ public class CatalogServiceImpl implements CatalogService {
                 .address(f.getAddress())
                 .city(f.getCity())
                 .contactPhone(f.getContactPhone())
+                .airConditioned24h(Boolean.TRUE.equals(f.getAirConditioned24h()))
+                .imageUrl(f.getImageUrl())
                 .createdAt(f.getCreatedAt())
                 .build();
     }

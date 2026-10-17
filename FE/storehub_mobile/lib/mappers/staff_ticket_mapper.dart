@@ -8,6 +8,7 @@ class StaffTicketMapper {
   ) {
     return StaffTicketModel(
       id: _text(json['id']),
+      bookingId: _text(json['bookingId']),
       ticketCode: _text(json['ticketCode']),
       bookingCode: _text(json['bookingCode']),
       category: _text(json['category']),
@@ -23,6 +24,9 @@ class StaffTicketMapper {
       customerEmail: _text(json['customerEmail']),
       customerPhone: _text(json['customerPhone']),
       unitCode: _text(json['unitCode']),
+      photos: (json['photos'] is List)
+          ? (json['photos'] as List).map((e) => e.toString()).toList()
+          : const <String>[],
     );
   }
 

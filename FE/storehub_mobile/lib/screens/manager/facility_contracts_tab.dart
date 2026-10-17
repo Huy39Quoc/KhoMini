@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../models/facility_management_models.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 
@@ -22,9 +23,9 @@ class FacilityContractsTab extends StatefulWidget {
 class _FacilityContractsTabState extends State<FacilityContractsTab> {
   final FacilityOpsApiService _service = FacilityOpsApiService();
   final NumberFormat _currency =
-      NumberFormat.currency(locale: 'en_US', symbol: '\$');
+      NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
-  late Future<List<Map<String, dynamic>>> _future;
+  late Future<List<FacilityContractModel>> _future;
   String _filter = 'ALL';
 
   @override
@@ -48,21 +49,53 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
     }
   }
 
-  double _num(dynamic value) {
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? 0;
+  Future<void> _approveSealing(FacilityContractModel item) async {
+    final code = item.bookingCode;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Duyệt niêm phong?'),
+        content: Text(
+            'Approve sealing of unit ${item.unitCode} for booking $code. '
+            'The customer is overdue and access has been disabled.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Duyệt')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _service.approveSealing(widget.facilityId, item.bookingId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Đã duyệt niêm phong'),
+            backgroundColor: AppColors.success),
+      );
+      _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: AppColors.error),
+      );
+    }
   }
 
-  String _text(dynamic value) => value?.toString() ?? '';
-
-  bool _matches(Map<String, dynamic> item) {
+  bool _matches(FacilityContractModel item) {
     switch (_filter) {
       case 'CONFIRMED':
-        return _text(item['status']) == 'CONFIRMED';
+        return item.status == 'CONFIRMED';
       case 'ACTIVE':
-        return _text(item['status']) == 'ACTIVE';
+        return item.status == 'ACTIVE';
       case 'OVERDUE':
-        return item['overdue'] == true;
+        return item.overdue;
       default:
         return true;
     }
@@ -70,11 +103,11 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
+    return FutureBuilder<List<FacilityContractModel>>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const AppLoadingState(message: 'Loading contracts...');
+          return const AppLoadingState(message: 'Đang tải hợp đồng...');
         }
 
         if (snapshot.hasError) {
@@ -84,7 +117,7 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
           );
         }
 
-        final all = snapshot.data ?? <Map<String, dynamic>>[];
+        final all = snapshot.data ?? <FacilityContractModel>[];
         final items = all.where(_matches).toList();
 
         return Column(
@@ -95,10 +128,10 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
               child: Row(
                 children: [
                   for (final option in const [
-                    ['ALL', 'All'],
-                    ['CONFIRMED', 'Awaiting check-in'],
-                    ['ACTIVE', 'Active'],
-                    ['OVERDUE', 'Overdue'],
+                    ['ALL', 'Tất cả'],
+                    ['CONFIRMED', 'Chờ nhận kho'],
+                    ['ACTIVE', 'Đang thuê'],
+                    ['OVERDUE', 'Quá hạn'],
                   ])
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -122,8 +155,8 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
                         children: const [
                           AppEmptyState(
                             icon: Icons.description_outlined,
-                            title: 'No contracts',
-                            message: 'No rental contracts match this filter.',
+                            title: 'Chưa có hợp đồng',
+                            message: 'Không có hợp đồng nào phù hợp bộ lọc.',
                           ),
                         ],
                       )
@@ -160,13 +193,13 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
     );
   }
 
-  Widget _buildCard(Map<String, dynamic> item) {
-    final status = _text(item['status']);
-    final overdue = item['overdue'] == true;
-    final accessDisabled = item['accessDisabled'] == true;
-    final sealingPending = item['sealingPending'] == true;
-    final pendingExtension = item['pendingExtensionFee'];
-    final months = _text(item['rentalMonths']);
+  Widget _buildCard(FacilityContractModel item) {
+    final status = item.status;
+    final overdue = item.overdue;
+    final accessDisabled = item.accessDisabled;
+    final sealingPending = item.sealingPending;
+    final sealingApproved = item.sealingApproved;
+    final pendingExtension = item.pendingExtensionFee;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -179,7 +212,7 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
               children: [
                 Expanded(
                   child: Text(
-                    _text(item['bookingCode']),
+                    item.bookingCode,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -187,23 +220,23 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
                   ),
                 ),
                 _chip(
-                  status == 'ACTIVE' ? 'ACTIVE' : 'AWAITING CHECK-IN',
+                  status == 'ACTIVE' ? 'ĐANG THUÊ' : 'CHỜ NHẬN KHO',
                   status == 'ACTIVE' ? AppColors.success : AppColors.warning,
                 ),
                 if (overdue) ...[
                   const SizedBox(width: 6),
-                  _chip('OVERDUE', AppColors.error),
+                  _chip('QUÁ HẠN', AppColors.error),
                 ],
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              '${_text(item['customerName'])} • ${_text(item['customerEmail'])}',
+              '${item.customerName} • ${item.customerEmail}',
               style: const TextStyle(fontSize: 12),
             ),
             const SizedBox(height: 4),
             Text(
-              'Unit ${_text(item['unitCode'])} • ${_text(item['unitType'])}',
+              'Ngăn ${item.unitCode} • ${item.unitType}',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.onSurfaceVariant,
@@ -211,8 +244,8 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${_text(item['startDate'])} → ${_text(item['endDate'])}'
-              '${months.isNotEmpty ? ' ($months months)' : ''}',
+              '${item.startDate} → ${item.endDate}'
+              '${item.rentalMonths > 0 ? ' (${item.rentalMonths} tháng)' : ''}',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.onSurfaceVariant,
@@ -220,15 +253,15 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Deposit paid ${_currency.format(_num(item['depositPaid']))}'
-              ' • Rental total ${_currency.format(_num(item['totalRentalFee']))}',
+              'Đã cọc ${_currency.format(item.depositPaid)}'
+              ' • Tổng tiền thuê ${_currency.format(item.totalRentalFee)}',
               style: const TextStyle(fontSize: 12),
             ),
             if (pendingExtension != null) ...[
               const SizedBox(height: 4),
               Text(
-                'Extension awaiting payment: '
-                '${_currency.format(_num(pendingExtension))}',
+                'Gia hạn chờ thanh toán: '
+                '${_currency.format(pendingExtension)}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: AppColors.warning,
@@ -238,8 +271,8 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
             if (overdue) ...[
               const SizedBox(height: 8),
               Text(
-                'Overdue ${_text(item['overdueDays'])} day(s) • '
-                'late fee accrued ${_currency.format(_num(item['overdueFeeAccrued']))}',
+                'Overdue ${item.overdueDays} day(s) • '
+                'late fee accrued ${_currency.format(item.overdueFeeAccrued)}',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -253,9 +286,22 @@ class _FacilityContractsTabState extends State<FacilityContractsTab> {
                   children: [
                     if (accessDisabled)
                       _chip('ACCESS DISABLED', AppColors.error),
-                    if (sealingPending)
+                    if (sealingPending && !sealingApproved)
                       _chip('SEALING PENDING', AppColors.error),
+                    if (sealingApproved)
+                      _chip('SEALING APPROVED', AppColors.success),
                   ],
+                ),
+              ],
+              if (sealingPending && !sealingApproved) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _approveSealing(item),
+                    icon: const Icon(Icons.verified_outlined),
+                    label: const Text('Duyệt niêm phong'),
+                  ),
                 ),
               ],
             ],

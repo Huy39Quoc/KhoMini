@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/ticket_api_service.dart';
+import '../../../models/paged_result.dart';
 import '../../../widgets/state_views.dart';
 import 'create_ticket_screen.dart';
 import 'ticket_detail_screen.dart';
@@ -14,7 +15,11 @@ class TicketListScreen extends StatefulWidget {
 
 class _TicketListScreenState extends State<TicketListScreen> {
   final TicketApiService _ticketApiService = TicketApiService();
-  late Future<List<dynamic>> _ticketsFuture;
+  late Future<PagedResult<Map<String, dynamic>>> _ticketsFuture;
+  final List<Map<String, dynamic>> _additional = [];
+  int _nextPage = 1;
+  bool _lastPage = false;
+  bool _loadingMore = false;
 
   @override
   void initState() {
@@ -24,8 +29,34 @@ class _TicketListScreenState extends State<TicketListScreen> {
 
   void _loadTickets() {
     setState(() {
+      _additional.clear();
+      _nextPage = 1;
+      _lastPage = false;
       _ticketsFuture = _ticketApiService.getMyTickets();
     });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _lastPage) return;
+    final currentLoad = _ticketsFuture;
+    setState(() => _loadingMore = true);
+    try {
+      final result = await _ticketApiService.getMyTickets(page: _nextPage);
+      if (!mounted || !identical(currentLoad, _ticketsFuture)) return;
+      setState(() {
+        _additional.addAll(result.content);
+        _nextPage++;
+        _lastPage = result.last;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
   }
 
   static const Map<String, String> _categoryLabels = {
@@ -65,7 +96,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async => _loadTickets(),
-        child: FutureBuilder<List<dynamic>>(
+        child: FutureBuilder<PagedResult<Map<String, dynamic>>>(
           future: _ticketsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -80,7 +111,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
                   ),
                 ],
               );
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            } else if (!snapshot.hasData || snapshot.data!.content.isEmpty) {
               return ListView(
                 children: const [
                   AppEmptyState(
@@ -93,12 +124,19 @@ class _TicketListScreenState extends State<TicketListScreen> {
               );
             }
 
-            final tickets = snapshot.data!;
+            final tickets = [...snapshot.data!.content, ..._additional];
+            final hasMore = !snapshot.data!.last && !_lastPage;
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
-              itemCount: tickets.length,
+              itemCount: tickets.length + (hasMore ? 1 : 0),
               itemBuilder: (context, index) {
-                final ticket = tickets[index] as Map;
+                if (index == tickets.length) {
+                  return Center(child: TextButton(
+                    onPressed: _loadingMore ? null : _loadMore,
+                    child: Text(_loadingMore ? 'Loading...' : 'Load more tickets'),
+                  ));
+                }
+                final ticket = tickets[index];
                 final category = ticket['category']?.toString();
                 final status = ticket['status']?.toString();
                 final priority = ticket['priority']?.toString();

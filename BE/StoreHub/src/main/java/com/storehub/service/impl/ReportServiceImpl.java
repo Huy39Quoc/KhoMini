@@ -1,13 +1,18 @@
 package com.storehub.service.impl;
 
 import com.storehub.dto.response.*;
+import com.storehub.entity.Facility;
+import com.storehub.entity.UnitType;
 import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.enums.BookingStatus;
 import com.storehub.repository.BookingRepository;
+import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.PaymentRepository;
+import com.storehub.repository.RefundRequestRepository;
 import com.storehub.repository.StorageUnitRepository;
+import com.storehub.repository.UnitTypeRepository;
 import com.storehub.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,9 +31,17 @@ import java.util.*;
 @Transactional(readOnly = true) // reports only read data, never mutate it
 public class ReportServiceImpl implements ReportService {
 
+    private static final LocalDateTime REPORT_RANGE_START =
+            LocalDate.of(1970, 1, 1).atStartOfDay();
+    private static final LocalDateTime REPORT_RANGE_END =
+            LocalDate.of(9999, 12, 31).atTime(LocalTime.MAX);
+
     private final PaymentRepository paymentRepository;
+    private final RefundRequestRepository refundRequestRepository;
     private final StorageUnitRepository storageUnitRepository;
     private final BookingRepository bookingRepository;
+    private final FacilityRepository facilityRepository;
+    private final UnitTypeRepository unitTypeRepository;
 
     @Override
     public RevenueReportResponse getRevenueReport(LocalDate fromDate, LocalDate toDate) {
@@ -36,11 +49,15 @@ public class ReportServiceImpl implements ReportService {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
-        LocalDateTime from = fromDate != null ? fromDate.atStartOfDay() : null;
-        LocalDateTime to = toDate != null ? toDate.atTime(LocalTime.MAX) : null;
+        LocalDateTime from = fromDate != null ? fromDate.atStartOfDay() : REPORT_RANGE_START;
+        LocalDateTime to = toDate != null ? toDate.atTime(LocalTime.MAX) : REPORT_RANGE_END;
 
-        List<FacilityRevenueResponse> byFacility = paymentRepository.sumRevenueByFacility(from, to);
+        List<FacilityRevenueResponse> captured = paymentRepository.sumRevenueByFacility(from, to);
+        List<FacilityRevenueResponse> refunded = refundRequestRepository.sumCompletedRefundsByFacility(from, to);
         SystemRevenueSummaryResponse systemSummary = paymentRepository.sumSystemRevenue(from, to);
+        SystemRevenueSummaryResponse systemRefunds = refundRequestRepository.sumCompletedRefundsSystem(from, to);
+        BigDecimal overdueRevenue = paymentRepository.sumOverdueRevenue(from, to);
+        BigDecimal overdueRefunds = refundRequestRepository.sumCompletedOverdueRefunds(from, to);
         if (systemSummary == null) {
             systemSummary = SystemRevenueSummaryResponse.builder()
                     .totalRevenue(BigDecimal.ZERO)
@@ -51,21 +68,68 @@ public class ReportServiceImpl implements ReportService {
                     .build();
         }
 
+        if (systemRefunds != null) {
+            systemSummary.setTotalRevenue(value(systemSummary.getTotalRevenue()).subtract(value(systemRefunds.getTotalRevenue())));
+            systemSummary.setDepositRevenue(value(systemSummary.getDepositRevenue()).subtract(value(systemRefunds.getDepositRevenue())));
+            systemSummary.setRentalFeeRevenue(value(systemSummary.getRentalFeeRevenue()).subtract(value(systemRefunds.getRentalFeeRevenue())));
+            systemSummary.setExtraChargeRevenue(value(systemSummary.getExtraChargeRevenue()).subtract(value(systemRefunds.getExtraChargeRevenue())));
+        }
+
+        Map<UUID, FacilityRevenueResponse> facilityTotals = new LinkedHashMap<>();
+        for (Facility f : facilityRepository.findAllByOrderByCreatedAtAsc()) {
+            facilityTotals.put(f.getId(), FacilityRevenueResponse.builder()
+                    .facilityId(f.getId())
+                    .facilityName(f.getName())
+                    .totalRevenue(BigDecimal.ZERO)
+                    .depositRevenue(BigDecimal.ZERO)
+                    .rentalFeeRevenue(BigDecimal.ZERO)
+                    .extraChargeRevenue(BigDecimal.ZERO)
+                    .paymentCount(0L)
+                    .build());
+        }
+        for (FacilityRevenueResponse charge : captured) {
+            facilityTotals.put(charge.getFacilityId(), charge);
+        }
+        for (FacilityRevenueResponse refund : refunded) {
+            FacilityRevenueResponse total = facilityTotals.computeIfAbsent(refund.getFacilityId(), id ->
+                    FacilityRevenueResponse.builder().facilityId(id).facilityName(refund.getFacilityName())
+                            .totalRevenue(BigDecimal.ZERO).depositRevenue(BigDecimal.ZERO)
+                            .rentalFeeRevenue(BigDecimal.ZERO).extraChargeRevenue(BigDecimal.ZERO)
+                            .paymentCount(0L).build());
+            total.setTotalRevenue(value(total.getTotalRevenue()).subtract(value(refund.getTotalRevenue())));
+            total.setDepositRevenue(value(total.getDepositRevenue()).subtract(value(refund.getDepositRevenue())));
+            total.setRentalFeeRevenue(value(total.getRentalFeeRevenue()).subtract(value(refund.getRentalFeeRevenue())));
+            total.setExtraChargeRevenue(value(total.getExtraChargeRevenue()).subtract(value(refund.getExtraChargeRevenue())));
+        }
+        List<FacilityRevenueResponse> byFacility = facilityTotals.values().stream()
+                .sorted(Comparator.comparing(FacilityRevenueResponse::getFacilityName))
+                .toList();
+
         return RevenueReportResponse.builder()
                 .fromDate(fromDate)
                 .toDate(toDate)
                 .systemSummary(systemSummary)
                 .byFacility(byFacility)
+                .overdue(value(overdueRevenue).subtract(value(overdueRefunds)))
                 .build();
+    }
+
+    private static BigDecimal value(BigDecimal amount) {
+        return amount == null ? BigDecimal.ZERO : amount;
     }
 
     @Override
     public OccupancyReportResponse getOccupancyReport() {
-        List<Object[]> rows = storageUnitRepository.countUnitsGroupedByFacilityAndStatus();
-
         Map<UUID, String> facilityNames = new LinkedHashMap<>();
         // bucket layout per facility: [total, occupied, available, reserved, maintenance]
         Map<UUID, long[]> counts = new LinkedHashMap<>();
+
+        for (Facility f : facilityRepository.findAllByOrderByCreatedAtAsc()) {
+            facilityNames.put(f.getId(), f.getName());
+            counts.put(f.getId(), new long[5]);
+        }
+
+        List<Object[]> rows = storageUnitRepository.countUnitsGroupedByFacilityAndStatus();
 
         for (Object[] row : rows) {
             UUID facilityId = (UUID) row[0];
@@ -153,6 +217,11 @@ public class ReportServiceImpl implements ReportService {
         Map<UUID, String> names = new LinkedHashMap<>();
         // bucket layout: [total, occupied, available, reserved, maintenance]
         Map<UUID, long[]> counts = new LinkedHashMap<>();
+
+        for (UnitType ut : unitTypeRepository.findAll()) {
+            names.put(ut.getId(), ut.getTypeName());
+            counts.put(ut.getId(), new long[5]);
+        }
 
         for (Object[] row : storageUnitRepository.countUnitsGroupedByUnitTypeAndStatus()) {
             UUID unitTypeId = (UUID) row[0];

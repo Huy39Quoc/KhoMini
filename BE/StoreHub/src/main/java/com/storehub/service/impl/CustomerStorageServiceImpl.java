@@ -2,8 +2,12 @@ package com.storehub.service.impl;
 
 import com.storehub.dto.request.CheckoutRequest;
 import com.storehub.dto.request.ExtendRentalRequest;
+import com.storehub.dto.request.ResetPinRequest;
+import com.storehub.dto.request.SetupPinRequest;
+import com.storehub.dto.request.UnlockRequest;
 import com.storehub.dto.request.UpdatePinRequest;
 import com.storehub.dto.response.ContractOperationResponse;
+import com.storehub.dto.response.HandoverRecordResponse;
 import com.storehub.dto.response.MyUnitResponse;
 import com.storehub.dto.response.SmartAccessResponse;
 import com.storehub.entity.Booking;
@@ -30,6 +34,7 @@ import com.storehub.service.FacilityPolicyService;
 import com.storehub.service.PaymentService;
 import com.storehub.service.PricingService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +42,6 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -55,21 +59,38 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     private final FacilityPolicyService facilityPolicyService;
     private final PaymentService paymentService;
     private final CustomerStorageMapper customerStorageMapper;
+    private final PasswordEncoder passwordEncoder;
+    private final com.storehub.repository.HandoverRecordRepository handoverRecordRepository;
 
     @Override
     @Transactional
     public List<MyUnitResponse> getMyRentedUnits(String customerEmail) {
         UUID customerId = resolveCustomerId(customerEmail);
 
-        List<BookingStatus> activeStatuses = Arrays.asList(
-                BookingStatus.CONFIRMED,
-                BookingStatus.ACTIVE
-        );
-
-        List<Booking> bookings = bookingRepository.findActiveBookingsByCustomerId(customerId, activeStatuses);
+        List<Booking> bookings = bookingRepository.findActiveBookingsByCustomerId(
+                customerId, List.of(BookingStatus.ACTIVE));
         bookings.forEach(this::reconcileOverdueState);
         return bookings.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MyUnitResponse> getAwaitingHandover(String customerEmail) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        return bookingRepository.findActiveBookingsByCustomerId(
+                        customerId, List.of(BookingStatus.CONFIRMED))
+                .stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    // ===================== SMART ACCESS (mở/đóng khóa bằng PIN) =====================
+    // Quy ước:
+    //  - PIN 6 số do HỆ THỐNG CẤP hoặc KHÁCH TỰ ĐẶT; server chỉ lưu bản băm BCrypt.
+    //  - Mở khóa bắt buộc nhập đúng PIN. Đóng khóa không cần PIN (luôn an toàn).
+    //  - Sai PIN 5 lần -> khóa tạm 15 phút. Quên PIN -> đặt lại bằng mật khẩu tài khoản.
+    //  - Mỗi lần đổi/đặt lại PIN, cửa tự về trạng thái đã khóa.
+
+    private static final int MAX_PIN_ATTEMPTS = 5;
+    private static final int PIN_LOCKOUT_MINUTES = 15;
 
     @Override
     @Transactional
@@ -77,44 +98,102 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         Booking booking = validateActiveBooking(bookingId, resolveCustomerId(customerEmail));
         reconcileOverdueState(booking);
         requireAccessEnabled(booking);
-
-        boolean isNewPin = false;
-        if (booking.getAccessPin() == null || booking.getAccessPin().isBlank()) {
-            booking.setAccessPin(generateRandomPin());
-            booking.setPinUpdatedAt(LocalDateTime.now());
-            isNewPin = true;
-        }
-
-        String qrToken = "ACCESS:" + booking.getId() + ":" + UUID.randomUUID() + ":" + System.currentTimeMillis();
-        booking.setQrAccessToken(qrToken);
-        bookingRepository.save(booking);
-
-        if (isNewPin) {
-            UUID customerId = resolveCustomerId(customerEmail);
-            activityLogService.record(customerId, ActivityAction.ACCESS_CREDENTIAL_ISSUE, "BOOKING", booking.getId(),
-                    "Issued initial access PIN for booking " + booking.getBookingCode(), null, null);
-        }
-
-        return customerStorageMapper.toSmartAccessResponse(booking);
+        return buildAccessResponse(booking, null);
     }
 
     @Override
     @Transactional
-    public SmartAccessResponse updateAccessPin(UUID bookingId, String customerEmail, UpdatePinRequest request) {
-        Booking booking = validateActiveBooking(bookingId, resolveCustomerId(customerEmail));
+    public SmartAccessResponse setupPin(UUID bookingId, String customerEmail, SetupPinRequest request) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        Booking booking = validateActiveBooking(bookingId, customerId);
         requireAccessEnabled(booking);
 
-        booking.setAccessPin(request.getNewPin());
-        booking.setPinUpdatedAt(LocalDateTime.now());
+        if (hasPin(booking)) {
+            throw new AppException(ErrorCode.PIN_ALREADY_SET);
+        }
+
+        String plainPin = request.getNewPin();
+        boolean generated = plainPin == null || plainPin.isBlank();
+        if (generated) {
+            plainPin = generateRandomPin();
+        }
+        storeNewPin(booking, plainPin);
         bookingRepository.save(booking);
 
-        UUID customerId = resolveCustomerId(customerEmail);
-        activityLogService.record(customerId, ActivityAction.ACCESS_CREDENTIAL_UPDATE, "BOOKING", booking.getId(),
-                "Updated access PIN for booking " + booking.getBookingCode(), null, null);
+        activityLogService.record(customerId, ActivityAction.ACCESS_CREDENTIAL_ISSUE, "BOOKING", booking.getId(),
+                (generated ? "System issued" : "Customer set") + " access PIN for booking " + booking.getBookingCode(),
+                null, null);
 
-        return customerStorageMapper.toSmartAccessResponse(booking);
+        return buildAccessResponse(booking, generated ? plainPin : null);
     }
 
+    // noRollbackFor: bộ đếm nhập sai phải được lưu dù request này kết thúc bằng lỗi.
+    @Override
+    @Transactional(noRollbackFor = AppException.class)
+    public SmartAccessResponse updateAccessPin(UUID bookingId, String customerEmail, UpdatePinRequest request) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        Booking booking = validateActiveBooking(bookingId, customerId);
+        requireAccessEnabled(booking);
+
+        verifyPinOrCount(booking, request.getCurrentPin());
+
+        storeNewPin(booking, request.getNewPin());
+        bookingRepository.save(booking);
+
+        activityLogService.record(customerId, ActivityAction.ACCESS_CREDENTIAL_UPDATE, "BOOKING", booking.getId(),
+                "Changed access PIN for booking " + booking.getBookingCode(), null, null);
+
+        return buildAccessResponse(booking, null);
+    }
+
+    @Override
+    @Transactional
+    public SmartAccessResponse resetPin(UUID bookingId, String customerEmail, ResetPinRequest request) {
+        User user = userRepository.findByEmail(customerEmail)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        Booking booking = validateActiveBooking(bookingId, user.getId());
+        requireAccessEnabled(booking);
+
+        if (request.getPassword() == null
+                || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new AppException(ErrorCode.PIN_RESET_PASSWORD_INCORRECT);
+        }
+
+        String plainPin = request.getNewPin();
+        boolean generated = plainPin == null || plainPin.isBlank();
+        if (generated) {
+            plainPin = generateRandomPin();
+        }
+        storeNewPin(booking, plainPin);
+        bookingRepository.save(booking);
+
+        activityLogService.record(user.getId(), ActivityAction.ACCESS_CREDENTIAL_UPDATE, "BOOKING", booking.getId(),
+                "Reset forgotten access PIN for booking " + booking.getBookingCode()
+                        + (generated ? " (system generated)" : " (customer chosen)"),
+                null, null);
+
+        return buildAccessResponse(booking, generated ? plainPin : null);
+    }
+
+    @Override
+    @Transactional(noRollbackFor = AppException.class)
+    public SmartAccessResponse unlockWithPin(UUID bookingId, String customerEmail, UnlockRequest request) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        Booking booking = validateActiveBooking(bookingId, customerId);
+        requireAccessEnabled(booking);
+
+        verifyPinOrCount(booking, request.getPin());
+
+        booking.setUnitLocked(false);
+        bookingRepository.save(booking);
+
+        activityLogService.record(customerId, ActivityAction.UNIT_UNLOCKED, "BOOKING", booking.getId(),
+                "Unlocked storage unit with PIN for booking " + booking.getBookingCode(), null, null);
+
+        return buildAccessResponse(booking, null);
+    }
+
+    // Đóng khóa: không cần PIN.
     @Override
     @Transactional
     public SmartAccessResponse setLockState(UUID bookingId, String customerEmail, boolean locked) {
@@ -122,15 +201,68 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         Booking booking = validateActiveBooking(bookingId, customerId);
         requireAccessEnabled(booking);
 
-        booking.setUnitLocked(locked);
+        if (!locked) {
+            // Mở khóa bắt buộc đi qua unlockWithPin.
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        booking.setUnitLocked(true);
         bookingRepository.save(booking);
 
-        activityLogService.record(customerId, locked ? ActivityAction.UNIT_LOCKED : ActivityAction.UNIT_UNLOCKED,
+        activityLogService.record(customerId, ActivityAction.UNIT_LOCKED,
                 "BOOKING", booking.getId(),
-                (locked ? "Locked" : "Unlocked") + " storage unit for booking " + booking.getBookingCode(),
+                "Locked storage unit for booking " + booking.getBookingCode(),
                 null, null);
 
-        return customerStorageMapper.toSmartAccessResponse(booking);
+        return buildAccessResponse(booking, null);
+    }
+
+    private boolean hasPin(Booking booking) {
+        return booking.getAccessPin() != null && !booking.getAccessPin().isBlank();
+    }
+
+    // Lưu PIN mới (băm), xóa bộ đếm sai, và đóng cửa lại cho an toàn.
+    private void storeNewPin(Booking booking, String plainPin) {
+        booking.setAccessPin(passwordEncoder.encode(plainPin));
+        booking.setPinUpdatedAt(LocalDateTime.now());
+        booking.setPinFailedAttempts(0);
+        booking.setPinLockedUntil(null);
+        booking.setUnitLocked(true);
+    }
+
+    // Kiểm tra PIN: đang bị khóa tạm -> từ chối; sai -> tăng bộ đếm (đủ 5 lần thì khóa 15 phút).
+    private void verifyPinOrCount(Booking booking, String plainPin) {
+        if (!hasPin(booking)) {
+            throw new AppException(ErrorCode.PIN_NOT_SET);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (booking.getPinLockedUntil() != null && now.isBefore(booking.getPinLockedUntil())) {
+            throw new AppException(ErrorCode.PIN_TEMPORARILY_LOCKED);
+        }
+        if (plainPin != null && passwordEncoder.matches(plainPin, booking.getAccessPin())) {
+            booking.setPinFailedAttempts(0);
+            booking.setPinLockedUntil(null);
+            return;
+        }
+
+        int failed = (booking.getPinFailedAttempts() == null ? 0 : booking.getPinFailedAttempts()) + 1;
+        if (failed >= MAX_PIN_ATTEMPTS) {
+            booking.setPinFailedAttempts(0);
+            booking.setPinLockedUntil(now.plusMinutes(PIN_LOCKOUT_MINUTES));
+        } else {
+            booking.setPinFailedAttempts(failed);
+        }
+        bookingRepository.save(booking);
+        throw new AppException(failed >= MAX_PIN_ATTEMPTS
+                ? ErrorCode.PIN_TEMPORARILY_LOCKED
+                : ErrorCode.PIN_INCORRECT);
+    }
+
+    private SmartAccessResponse buildAccessResponse(Booking booking, String generatedPin) {
+        SmartAccessResponse response = customerStorageMapper.toSmartAccessResponse(booking);
+        int failed = booking.getPinFailedAttempts() == null ? 0 : booking.getPinFailedAttempts();
+        response.setAttemptsRemaining(Math.max(0, MAX_PIN_ATTEMPTS - failed));
+        response.setGeneratedPin(generatedPin);
+        return response;
     }
 
     @Override
@@ -205,11 +337,32 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         }
         UUID facilityId = booking.getStorageUnit().getFacility().getId();
 
+        var facility = booking.getStorageUnit().getFacility();
+        var returnTime = request.getScheduledReturnTime().toLocalTime();
+        if (facility.getOpenTime() == null || facility.getCloseTime() == null
+                || returnTime.isBefore(facility.getOpenTime())
+                || !returnTime.isBefore(facility.getCloseTime())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
         if (!facilityPolicyService.isReturnNoticeSatisfied(facilityId, request.getScheduledReturnTime())) {
             throw new AppException(ErrorCode.RETURN_NOTICE_NOT_SATISFIED);
         }
 
-        booking.setReturnTime(request.getScheduledReturnTime());
+        if (!request.getScheduledReturnTime().equals(booking.getScheduledReturnTime())) {
+            // Lịch cũ đã giao cho nhân viên không tự động chuyển sang giờ mới.
+            booking.setAssignedCheckOutStaff(null);
+        }
+        booking.setScheduledReturnTime(request.getScheduledReturnTime());
+        if (request.getBankCode() != null && !request.getBankCode().isBlank()) {
+            booking.setRefundBankCode(request.getBankCode().trim());
+        }
+        if (request.getBankAccountNumber() != null && !request.getBankAccountNumber().isBlank()) {
+            booking.setRefundAccountNumber(request.getBankAccountNumber().trim());
+        }
+        if (request.getBankAccountName() != null && !request.getBankAccountName().isBlank()) {
+            booking.setRefundAccountName(request.getBankAccountName().trim());
+        }
         bookingRepository.save(booking);
 
         activityLogService.record(customerId, ActivityAction.CHECKOUT_REQUEST, "BOOKING", booking.getId(),
@@ -222,7 +375,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
                 .status(booking.getStatus())
-                .scheduledReturnTime(booking.getReturnTime())
+                .scheduledReturnTime(booking.getScheduledReturnTime())
                 .message("Checkout request submitted successfully. Staff will contact you for handover inspection.")
                 .build();
     }
@@ -246,10 +399,11 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         int cancelledMonths = booking.getPendingExtraMonths();
 
         // Đóng giao dịch gia hạn đang treo để không còn thanh toán được QR cũ
-        paymentRepository
-                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
-                        booking.getId(), PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, RENTAL_EXTENSION)
-                .ifPresent(payment -> {
+        paymentRepository.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        booking.getId(), PaymentType.EXTRA_CHARGE, RENTAL_EXTENSION,
+                        List.of(PaymentStatus.PENDING, PaymentStatus.FAILED))
+                .forEach(payment -> {
+                    payment.setVoidedAt(LocalDateTime.now());
                     payment.setStatus(PaymentStatus.FAILED);
                     paymentRepository.save(payment);
                 });
@@ -276,7 +430,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     }
 
     // Sau khi gia hạn (do PaymentService xác nhận) mà ngày hết hạn mới đã ở tương lai thì
-    // hợp đồng hết quá hạn: gỡ cờ quá hạn và mở lại truy cập (PIN/QR được cấp lại ở lần
+    // hợp đồng hết quá hạn: gỡ cờ quá hạn và mở lại truy cập (PIN được cấp/đặt lại ở lần
     // xem Smart Key kế tiếp). Đặt ở đây để không phải sửa luồng thanh toán của Flow 1.
     private void reconcileOverdueState(Booking booking) {
         if (booking.getOverdueDetectedAt() == null
@@ -301,7 +455,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         }
     }
 
-    // Kho đã bị thu hồi mã truy cập do quá hạn thì không được xem/đổi PIN, QR hay khóa/mở.
+    // Kho đã bị thu hồi mã truy cập do quá hạn thì không được xem/đổi PIN hay khóa/mở.
     private void requireAccessEnabled(Booking booking) {
         if (booking.getAccessDisabledAt() != null) {
             throw new AppException(ErrorCode.ACCESS_DISABLED_OVERDUE);
@@ -311,10 +465,12 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     // Khoản phí trễ hạn đang chờ thanh toán (scheduler tạo), null nếu không có.
     private Payment findPendingLateFee(UUID bookingId) {
         return paymentRepository
-                .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
-                        bookingId, PaymentType.EXTRA_CHARGE, PaymentStatus.PENDING, OVERDUE_LATE_FEE)
-                .filter(p -> p.getAmount() != null && p.getAmount().signum() > 0)
-                .orElse(null);
+                .findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        bookingId, PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
+                        List.of(PaymentStatus.PENDING, PaymentStatus.FAILED))
+                .stream().filter(p -> p.getVoidedAt() == null
+                        && p.getAmount() != null && p.getAmount().signum() > 0)
+                .findFirst().orElse(null);
     }
 
     private UUID resolveCustomerId(String customerEmail) {
@@ -324,7 +480,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     }
 
     private Booking validateActiveBooking(UUID bookingId, UUID customerId) {
-        Booking booking = bookingRepository.findByIdAndCustomerId(bookingId, customerId)
+        Booking booking = bookingRepository.lockByIdAndCustomerId(bookingId, customerId)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         if (booking.getStatus() != BookingStatus.ACTIVE) {
@@ -347,8 +503,40 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
             response.setOverdueDays(ChronoUnit.DAYS.between(b.getEndDate(), LocalDate.now()));
         }
 
-        Payment lateFee = b.getOverdueDetectedAt() != null ? findPendingLateFee(b.getId()) : null;
-        response.setOverdueFeeOutstanding(lateFee != null ? lateFee.getAmount() : BigDecimal.ZERO);
+        BigDecimal lateFees = b.getOverdueDetectedAt() != null
+                ? paymentRepository.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                        b.getId(), PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
+                        List.of(PaymentStatus.PENDING, PaymentStatus.FAILED))
+                        .stream().filter(p -> p.getVoidedAt() == null && p.getAmount() != null)
+                        .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)
+                : BigDecimal.ZERO;
+        response.setOverdueFeeOutstanding(lateFees);
         return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<com.storehub.dto.response.HandoverRecordResponse> getHandoverRecords(UUID bookingId, String customerEmail) {
+        UUID customerId = resolveCustomerId(customerEmail);
+        bookingRepository.findByIdAndCustomerId(bookingId, customerId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        return handoverRecordRepository
+                .findByBookingIdOrderByRecordedAtDesc(bookingId)
+                .stream()
+                .map(record -> new HandoverRecordResponse(
+                        record.getId(),
+                        bookingId,
+                        record.getRecordType(),
+                        record.getUnitCondition(),
+                        record.getNotes(),
+                        record.getStaff().getId(),
+                        record.getStaff().getFullName(),
+                        record.getRecordedAt(),
+                        record.getDamageFee(),
+                        record.getDamageReason(),
+                        record.getPhotos()
+                ))
+                .toList();
     }
 }

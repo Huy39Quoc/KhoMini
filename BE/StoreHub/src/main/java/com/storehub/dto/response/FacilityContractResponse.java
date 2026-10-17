@@ -27,5 +27,6 @@ public record FacilityContractResponse(
         BigDecimal overdueFeeAccrued,
         boolean accessDisabled,
         boolean sealingPending,
-        BigDecimal pendingExtensionFee
+        BigDecimal pendingExtensionFee,
+        boolean sealingApproved
 ) {}

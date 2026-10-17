@@ -26,15 +26,28 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.storehub.dto.response.FacilityBookingResponse;
 import com.storehub.dto.response.FacilityContractResponse;
+import com.storehub.dto.response.AssignableStaffResponse;
+import com.storehub.enums.ActivityAction;
+import com.storehub.service.ActivityLogService;
+import com.storehub.service.WaitlistService;
+import com.storehub.service.EmailService;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import lombok.extern.slf4j.Slf4j;
 import com.storehub.repository.PaymentRepository;
+import com.storehub.repository.RefundRequestRepository;
+import com.storehub.repository.SupportTicketRepository;
+import com.storehub.enums.TicketStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FacilityManagementServiceImpl
         implements FacilityManagementService {
 
@@ -45,6 +58,11 @@ public class FacilityManagementServiceImpl
     private final BookingRepository bookings;
     private final UserRepository users;
     private final PaymentRepository payments;
+    private final RefundRequestRepository refunds;
+    private final SupportTicketRepository tickets;
+    private final ActivityLogService activityLogService;
+    private final WaitlistService waitlistService;
+    private final EmailService emailService;
 
     @Transactional(readOnly = true)
     public AssignedFacilityResponse myFacility(String email) {
@@ -178,6 +196,12 @@ public class FacilityManagementServiceImpl
         }
 
         if (oldUnit.getId().equals(unitId)) {
+            // Manager accepts the provisional inventory hold as the final unit.
+            if (!Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())) {
+                booking.setUnitAssignmentConfirmed(true);
+                bookings.save(booking);
+                notifyUnitAssignmentAfterCommit(booking, oldUnit);
+            }
             return toUnit(oldUnit);
         }
 
@@ -197,9 +221,52 @@ public class FacilityManagementServiceImpl
 
         replacement.setStatus(UnitStatus.RESERVED);
         booking.setStorageUnit(replacement);
+        booking.setUnitAssignmentConfirmed(true);
         oldUnit.setStatus(UnitStatus.AVAILABLE);
+        units.save(oldUnit);
+        units.save(replacement);
+        bookings.save(booking);
+        notifyUnitAssignmentAfterCommit(booking, replacement);
+
+        try {
+            waitlistService.notifyNextInWaitlist(facilityId, oldUnit.getUnitType().getId());
+        } catch (Exception e) {
+            log.warn("Failed to notify waitlist after reassigning booking {}: {}",
+                    bookingId, e.getMessage());
+        }
 
         return toUnit(replacement);
+    }
+
+    private void notifyUnitAssignmentAfterCommit(Booking booking, StorageUnit unit) {
+        User customer = booking.getCustomer();
+        if (customer == null || customer.getEmail() == null || customer.getEmail().isBlank()) {
+            log.warn("Cannot notify customer about unit assignment for booking {}: no email", booking.getId());
+            return;
+        }
+        // Capture values now; do not dereference JPA entities in the after-commit callback.
+        String email = customer.getEmail();
+        String code = booking.getBookingCode();
+        String facility = unit.getFacility().getName();
+        String unitCode = unit.getUnitCode();
+        Runnable send = () -> {
+            try {
+                emailService.sendUnitAssignmentConfirmedEmail(email, code, facility, unitCode);
+            } catch (Exception e) {
+                log.warn("Failed to queue unit assignment email for booking {}: {}",
+                        booking.getId(), e.getMessage());
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    send.run();
+                }
+            });
+        } else {
+            send.run();
+        }
     }
 
     @Transactional(readOnly = true)
@@ -238,7 +305,10 @@ public class FacilityManagementServiceImpl
                         BookingStatus.ACTIVE
                 );
 
-        BigDecimal revenue = payments.sumPaidByFacility(facilityId);
+        BigDecimal captured = payments.sumPaidByFacility(facilityId);
+        BigDecimal refunded = refunds.sumCompletedRentalRefundsByFacility(facilityId);
+        BigDecimal revenue = (captured == null ? BigDecimal.ZERO : captured)
+                .subtract(refunded == null ? BigDecimal.ZERO : refunded);
 
         return new FacilityReportResponse(
                 facilityId,
@@ -249,7 +319,7 @@ public class FacilityManagementServiceImpl
                 maintenance,
                 overdueBookings,
                 occupancyRate,
-                revenue == null ? BigDecimal.ZERO : revenue
+                revenue
         );
     }
 
@@ -266,7 +336,7 @@ public class FacilityManagementServiceImpl
 
         Facility facility = requireFacility(facilityId);
 
-        User user = users.findById(userId)
+        User user = users.findByIdForUpdate(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!Boolean.TRUE.equals(user.getIsActive())
@@ -323,10 +393,33 @@ public class FacilityManagementServiceImpl
 
         return users.findByFacility_IdAndRole_Name(facilityId, "STAFF")
                 .stream()
+                .filter(user -> Boolean.TRUE.equals(user.getIsActive()))
                 .map(user -> new FacilityStaffResponse(
                         user.getId(),
                         user.getFullName(),
                         user.getEmail(),
+                        "STAFF"
+                ))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AssignableStaffResponse> assignableStaff(
+            UUID facilityId,
+            String managerEmail
+    ) {
+        access.require(managerEmail, facilityId);
+        requireFacility(facilityId);
+
+        return users.findByRole_NameAndIsActiveTrueAndFacilityIsNullOrderByFullNameAsc("STAFF")
+                .stream()
+                .map(user -> new AssignableStaffResponse(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getFullName(),
+                        user.getEmail(),
+                        true,
                         "STAFF"
                 ))
                 .toList();
@@ -407,7 +500,7 @@ public class FacilityManagementServiceImpl
                 booking.getStatus(),
                 booking.getDepositPaid(),
                 booking.getTotalRentalFee(),
-                booking.getReturnTime(),
+                booking.getScheduledReturnTime(),
                 overdue,
                 overdueDays,
                 booking.getOverdueFeeAccrued() == null
@@ -415,8 +508,49 @@ public class FacilityManagementServiceImpl
                         : booking.getOverdueFeeAccrued(),
                 booking.getAccessDisabledAt() != null,
                 booking.getSealingPendingAt() != null,
-                booking.getPendingExtensionFee()
+                booking.getPendingExtensionFee(),
+                booking.getSealingApprovedAt() != null
         );
+    }
+
+    @Override
+    @Transactional
+    public FacilityContractResponse approveSealing(
+            UUID facilityId,
+            UUID bookingId,
+            String managerEmail
+    ) {
+        access.require(managerEmail, facilityId);
+        requireFacility(facilityId);
+
+        Booking booking = bookings.findById(bookingId)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (booking.getStorageUnit() == null
+                || booking.getStorageUnit().getFacility() == null
+                || !facilityId.equals(booking.getStorageUnit().getFacility().getId())) {
+            throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
+        }
+        if (booking.getStatus() != BookingStatus.ACTIVE
+                || booking.getSealingPendingAt() == null) {
+            throw new AppException(ErrorCode.UNIT_NOT_OVERDUE);
+        }
+
+        if (booking.getSealingApprovedAt() == null) {
+            booking.setSealingApprovedAt(LocalDateTime.now());
+            bookings.save(booking);
+
+            activityLogService.record(
+                    ActivityAction.OVERDUE_SEALING_APPROVED,
+                    "BOOKING",
+                    booking.getId(),
+                    "Sealing approved for overdue booking " + booking.getBookingCode()
+                            + " (unit " + booking.getStorageUnit().getUnitCode() + ")",
+                    null,
+                    null
+            );
+        }
+        return toContract(booking);
     }
 
     private FacilityUnitResponse toUnit(StorageUnit unit) {
@@ -445,7 +579,8 @@ public class FacilityManagementServiceImpl
                 unit.getUnitCode(),
                 unitType.getId(),
                 unitType.getTypeName(),
-                booking.getStatus()
+                booking.getStatus(),
+                Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())
         );
     }
 
@@ -458,7 +593,7 @@ public class FacilityManagementServiceImpl
     ) {
         access.require(managerEmail, facilityId);
 
-        User staff = users.findById(userId)
+        User staff = users.findByIdForUpdate(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (staff.getRole() == null
@@ -468,6 +603,12 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
+        if (tickets.existsByAssignedStaff_IdAndStatusNot(userId, TicketStatus.CLOSED)) {
+            throw new AppException(ErrorCode.STAFF_HAS_UNCLOSED_TICKETS);
+        }
+
+        bookings.clearOpenCheckInAssignments(userId);
+        bookings.clearOpenCheckOutAssignments(userId);
         staff.setFacility(null);
     }
 }

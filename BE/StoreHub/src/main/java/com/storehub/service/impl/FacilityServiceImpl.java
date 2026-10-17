@@ -11,6 +11,8 @@ import com.storehub.enums.FacilityStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
 import com.storehub.mapper.FacilityMapper;
+import com.storehub.entity.FacilityPolicy;
+import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.service.ActivityLogService;
@@ -23,8 +25,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -34,9 +40,11 @@ import java.util.UUID;
 public class FacilityServiceImpl implements FacilityService {
 
     private final FacilityRepository facilityRepository;
+    private final FacilityPolicyRepository facilityPolicyRepository;
     private final UserRepository userRepository;
     private final FacilityMapper facilityMapper;
     private final ActivityLogService activityLogService;
+    private final com.storehub.service.CloudinaryService cloudinaryService;
 
     @Override
     public FacilityResponse getById(UUID id) {
@@ -53,6 +61,17 @@ public class FacilityServiceImpl implements FacilityService {
         }
 
         Facility facility = facilityMapper.toEntity(request);
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            facility.setImages(request.getImages());
+            if (facility.getImageUrl() == null || facility.getImageUrl().isBlank()) {
+                facility.setImageUrl(request.getImages().get(0));
+            }
+        } else if (request.getImageUrl() != null && !request.getImageUrl().isBlank()) {
+            facility.setImageUrl(request.getImageUrl().trim());
+            facility.setImages(List.of(request.getImageUrl().trim()));
+        }
+
+        facility.setAirConditioned24h(Boolean.TRUE.equals(request.getAirConditioned24h()));
 
         // MapStruct dựng entity qua builder và gán null khi request không có
         // openTime/closeTime, làm mất giá trị mặc định (cột DB là NOT NULL).
@@ -62,6 +81,7 @@ public class FacilityServiceImpl implements FacilityService {
         if (facility.getCloseTime() == null) {
             facility.setCloseTime(LocalTime.of(20, 0));
         }
+        validateOpeningHours(facility);
 
         if (request.getManagerId() != null) {
             User manager = userRepository.findById(request.getManagerId())
@@ -82,6 +102,14 @@ public class FacilityServiceImpl implements FacilityService {
         if (saved.getManager() != null) {
             saved.getManager().setFacility(saved);
         }
+
+        // Cơ sở mới luôn có chính sách mặc định để hoàn cọc / quá hạn / phí chạy đúng ngay.
+        // Business Operations Manager có thể chỉnh lại trong màn hình chính sách.
+        facilityPolicyRepository.save(FacilityPolicy.builder()
+                .facility(saved)
+                .depositPercentage(20.0)
+                .dailyLateFee(java.math.BigDecimal.valueOf(50000))
+                .build());
 
         activityLogService.record(
                 ActivityAction.FACILITY_CREATE,
@@ -113,6 +141,14 @@ public class FacilityServiceImpl implements FacilityService {
         }
 
         facilityMapper.updateEntityFromRequest(request, facility);
+        validateOpeningHours(facility);
+
+        if (request.getImages() != null) {
+            facility.setImages(request.getImages());
+            if ((facility.getImageUrl() == null || facility.getImageUrl().isBlank()) && !request.getImages().isEmpty()) {
+                facility.setImageUrl(request.getImages().get(0));
+            }
+        }
 
         if (request.getManagerId() != null) {
             User manager = userRepository.findById(request.getManagerId())
@@ -181,7 +217,14 @@ public class FacilityServiceImpl implements FacilityService {
         Facility facility = facilityRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
 
-        facilityRepository.deleteById(facility.getId());
+        try {
+            facilityPolicyRepository.findByFacility_Id(facility.getId())
+                    .ifPresent(facilityPolicyRepository::delete);
+            facilityRepository.deleteById(facility.getId());
+            facilityRepository.flush();
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new AppException(ErrorCode.RESOURCE_IN_USE);
+        }
 
         activityLogService.record(
                 ActivityAction.FACILITY_DEACTIVATE,
@@ -213,5 +256,57 @@ public class FacilityServiceImpl implements FacilityService {
                 .map(facilityMapper::toResponse);
 
         return PageResponse.from(result);
+    }
+
+    private void validateOpeningHours(Facility facility) {
+        if (facility.getOpenTime() == null || facility.getCloseTime() == null
+                || !facility.getOpenTime().isBefore(facility.getCloseTime())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+    }
+
+    @Override
+    public String uploadImage(UUID id, MultipartFile file) {
+        Facility facility = facilityRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.FACILITY_NOT_FOUND));
+
+        String imageUrl = cloudinaryService.uploadImage(file, "facilities");
+        facility.setImageUrl(imageUrl);
+        List<String> list = new ArrayList<>(facility.getImageList());
+        if (!list.contains(imageUrl)) {
+            list.add(imageUrl);
+            facility.setImages(list);
+        }
+        facilityRepository.save(facility);
+
+        activityLogService.record(
+                ActivityAction.FACILITY_UPDATE,
+                "FACILITY",
+                facility.getId(),
+                "Uploaded image for facility: " + facility.getName(),
+                null,
+                imageUrl
+        );
+
+        return imageUrl;
+    }
+
+    @Override
+    public String uploadImageOnly(MultipartFile file) {
+        return cloudinaryService.uploadImage(file, "facilities");
+    }
+
+    @Override
+    public List<String> uploadImagesOnly(MultipartFile[] files) {
+        if (files == null || files.length == 0) {
+            return Collections.emptyList();
+        }
+        List<String> urls = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                urls.add(cloudinaryService.uploadImage(file, "facilities"));
+            }
+        }
+        return urls;
     }
 }

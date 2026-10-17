@@ -4,6 +4,7 @@ import com.storehub.entity.Booking;
 import com.storehub.enums.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Lock;
@@ -16,6 +17,36 @@ import java.util.UUID;
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+
+    @Query("""
+            SELECT b FROM Booking b
+            JOIN FETCH b.storageUnit su
+            JOIN FETCH su.facility
+            JOIN FETCH su.unitType
+            WHERE b.customer.id = :customerId
+            AND b.status = :status
+            AND b.expiresAt > :now
+            ORDER BY b.createdAt DESC
+            """)
+    List<Booking> findPayableBookingsByCustomerId(
+            @Param("customerId") UUID customerId,
+            @Param("status") BookingStatus status,
+            @Param("now") LocalDateTime now
+    );
+
+    @Modifying
+    @Query(value = """
+            UPDATE bookings SET assigned_check_in_staff_id = NULL
+            WHERE assigned_check_in_staff_id = :staffId AND status = 'CONFIRMED'
+            """, nativeQuery = true)
+    int clearOpenCheckInAssignments(@Param("staffId") UUID staffId);
+
+    @Modifying
+    @Query(value = """
+            UPDATE bookings SET assigned_check_out_staff_id = NULL
+            WHERE assigned_check_out_staff_id = :staffId AND status = 'ACTIVE'
+            """, nativeQuery = true)
+    int clearOpenCheckOutAssignments(@Param("staffId") UUID staffId);
 
     @Query("""
             SELECT b FROM Booking b
@@ -71,6 +102,14 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("customerId") UUID customerId
     );
 
+    // Serialize PIN attempts and state changes for the same customer booking.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from Booking b where b.id = :id and b.customer.id = :customerId")
+    Optional<Booking> lockByIdAndCustomerId(
+            @Param("id") UUID id,
+            @Param("customerId") UUID customerId
+    );
+
     @Query("""
             SELECT b FROM Booking b
             JOIN FETCH b.storageUnit su
@@ -79,6 +118,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             WHERE f.id = :facilityId
             AND b.status = :status
             AND b.startDate <= :date
+            AND b.endDate > :date
             ORDER BY b.startDate ASC
             """)
     List<Booking> findCheckInSchedule(
@@ -95,8 +135,8 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             WHERE f.id = :facilityId
             AND b.status = :status
             AND (
-                (b.returnTime IS NOT NULL AND b.returnTime < :endOfDay)
-                OR (b.returnTime IS NULL AND b.endDate <= :date)
+                (b.scheduledReturnTime IS NOT NULL AND b.scheduledReturnTime < :endOfDay)
+                OR (b.scheduledReturnTime IS NULL AND b.endDate <= :date)
             )
             ORDER BY b.endDate ASC
             """)
@@ -176,5 +216,19 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     List<Booking> findByFacilityIdAndStatus(
             @Param("facilityId") UUID facilityId,
             @Param("status") BookingStatus status
+    );
+
+    @Query("""
+        SELECT b.storageUnit.facility.id, COUNT(DISTINCT b.id)
+        FROM Booking b
+        WHERE b.status = :status
+        AND (b.overdueDetectedAt IS NOT NULL OR b.endDate < :today)
+        AND b.storageUnit IS NOT NULL
+        AND b.storageUnit.facility IS NOT NULL
+        GROUP BY b.storageUnit.facility.id
+        """)
+    List<Object[]> countOverdueBookingsGroupedByFacility(
+            @Param("status") BookingStatus status,
+            @Param("today") LocalDate today
     );
 }

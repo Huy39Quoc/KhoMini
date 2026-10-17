@@ -123,6 +123,34 @@ class FacilityManagementMapper {
       unitTypeId: _text(json['unitTypeId']),
       unitType: _text(json['unitType']),
       status: _text(json['status']),
+      unitAssignmentConfirmed: json['unitAssignmentConfirmed'] == true,
+    );
+  }
+
+  static FacilityContractModel contractFromJson(Map<String, dynamic> json) {
+    return FacilityContractModel(
+      bookingId: _text(json['bookingId']),
+      bookingCode: _text(json['bookingCode']),
+      customerName: _text(json['customerName']),
+      customerEmail: _text(json['customerEmail']),
+      unitCode: _text(json['unitCode']),
+      unitType: _text(json['unitType']),
+      startDate: _text(json['startDate']),
+      endDate: _text(json['endDate']),
+      rentalMonths: _integer(json['rentalMonths']),
+      status: _text(json['status']),
+      depositPaid: _decimal(json['depositPaid']),
+      totalRentalFee: _decimal(json['totalRentalFee']),
+      returnTime: json['returnTime']?.toString(),
+      overdue: json['overdue'] == true,
+      overdueDays: _integer(json['overdueDays']),
+      overdueFeeAccrued: _decimal(json['overdueFeeAccrued']),
+      accessDisabled: json['accessDisabled'] == true,
+      sealingPending: json['sealingPending'] == true,
+      pendingExtensionFee: json['pendingExtensionFee'] == null
+          ? null
+          : _decimal(json['pendingExtensionFee']),
+      sealingApproved: json['sealingApproved'] == true,
     );
   }
 }

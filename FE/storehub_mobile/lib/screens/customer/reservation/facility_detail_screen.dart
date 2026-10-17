@@ -4,17 +4,24 @@ import '../../../models/unit_type_model.dart';
 import '../../../services/booking_api_service.dart';
 import '../../../services/catalog_api_service.dart';
 import 'payment_screen.dart';
+import 'my_waitlist_screen.dart';
 
 class FacilityDetailScreen extends StatefulWidget {
   final String facilityId;
   final String facilityName;
   final String facilityAddress;
+  final bool airConditioned24h;
+  final String? imageUrl;
+  final List<String>? images;
 
   const FacilityDetailScreen({
     super.key,
     required this.facilityId,
     required this.facilityName,
     this.facilityAddress = '',
+    this.airConditioned24h = false,
+    this.imageUrl,
+    this.images,
   });
 
   @override
@@ -28,12 +35,21 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
   UnitTypeModel? _selectedType;
   DateTime _startDate = DateTime.now().add(const Duration(days: 1));
+  TimeOfDay _checkInTime = const TimeOfDay(hour: 9, minute: 0);
+  TimeOfDay? _opensAt;
+  TimeOfDay? _closesAt;
   int _rentalMonths = 1;
+  int _maxAdvanceReservationDays = 14;
+  Map<String, dynamic>? _facilityPolicy;
 
   Map<String, dynamic>? _quote;
   bool _isQuoting = false;
   String? _quoteError;
   bool _isBooking = false;
+  String? _facilityImageUrl;
+  List<String> _facilityImages = [];
+  int _currentImageIndex = 0;
+  late final PageController _pageController;
 
   // Rental period presets
   static const _presets = [1, 3, 6, 12];
@@ -41,7 +57,98 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
+    _facilityImageUrl = widget.imageUrl;
+    if (widget.images != null && widget.images!.isNotEmpty) {
+      _facilityImages = List<String>.from(widget.images!);
+    } else if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
+      _facilityImages = [widget.imageUrl!];
+    }
     _loadUnitTypes();
+    _loadFacilityHours();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  TimeOfDay? _parseHour(dynamic value) {
+    final parts = value?.toString().split(':');
+    if (parts == null || parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return null;
+    }
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  Future<void> _loadFacilityHours() async {
+    try {
+      final facility = await _catalogService.getFacility(widget.facilityId);
+      final open = _parseHour(facility['openTime']);
+      final close = _parseHour(facility['closeTime']);
+      if (!mounted) return;
+      setState(() {
+        if (facility['images'] is List) {
+          final loaded = (facility['images'] as List)
+              .map((e) => e?.toString() ?? '')
+              .where((s) => s.isNotEmpty)
+              .toList();
+          if (loaded.isNotEmpty) {
+            _facilityImages = loaded;
+          }
+        }
+        if (_facilityImages.isEmpty &&
+            facility['imageUrl'] != null &&
+            facility['imageUrl'].toString().isNotEmpty) {
+          _facilityImages = [facility['imageUrl'].toString()];
+        }
+        if ((_facilityImageUrl == null || _facilityImageUrl!.isEmpty) &&
+            _facilityImages.isNotEmpty) {
+          _facilityImageUrl = _facilityImages.first;
+        }
+        if (open != null && close != null) {
+          _opensAt = open;
+          _closesAt = close;
+          final chosen = _checkInTime.hour * 60 + _checkInTime.minute;
+          final opens = open.hour * 60 + open.minute;
+          final closes = close.hour * 60 + close.minute;
+          if (chosen < opens || chosen >= closes) _checkInTime = open;
+        }
+      });
+
+      // Load policy to get max advance reservation days & legal terms
+      try {
+        final policy = await _catalogService.getFacilityPolicy(widget.facilityId);
+        if (policy != null) {
+          if (mounted) {
+            setState(() {
+              _facilityPolicy = policy;
+              if (policy['maxAdvanceReservationDays'] != null) {
+                final maxDays = (policy['maxAdvanceReservationDays'] as num).toInt();
+                if (maxDays > 0) {
+                  _maxAdvanceReservationDays = maxDays;
+                  final maxAllowed = DateTime.now().add(Duration(days: maxDays));
+                  if (_startDate.isAfter(maxAllowed)) {
+                    _startDate = maxAllowed;
+                  }
+                }
+              }
+            });
+          }
+        }
+      } catch (_) {}
+    } catch (_) {
+      // Backend validates the time even if opening hours cannot be loaded.
+    }
   }
 
   void _loadUnitTypes() {
@@ -91,6 +198,84 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     return '${s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} ₫';
   }
 
+  void _openImageViewer(int initialIndex) {
+    if (_facilityImages.isEmpty) return;
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) {
+        int active = initialIndex;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: EdgeInsets.zero,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  PageView.builder(
+                    itemCount: _facilityImages.length,
+                    controller: PageController(initialPage: initialIndex),
+                    onPageChanged: (i) => setDialogState(() => active = i),
+                    itemBuilder: (context, i) {
+                      return InteractiveViewer(
+                        minScale: 0.8,
+                        maxScale: 3.5,
+                        child: Center(
+                          child: Image.network(
+                            _facilityImages[i],
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white,
+                              size: 60,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  Positioned(
+                    top: 40,
+                    right: 20,
+                    child: IconButton(
+                      icon: const Icon(Icons.close,
+                          color: Colors.white, size: 28),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ),
+                  if (_facilityImages.length > 1)
+                    Positioned(
+                      bottom: 30,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${active + 1} / ${_facilityImages.length}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,62 +285,146 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         builder: (context, snapshot) {
           return CustomScrollView(
             slivers: [
-              // ── SliverAppBar with gradient ────────────────────────────
+              // ── SliverAppBar with photo carousel and gradient ─────────
               SliverAppBar(
-                expandedHeight: 160,
+                expandedHeight: 220,
                 pinned: true,
                 backgroundColor: const Color(0xFF1E3C72),
                 foregroundColor: Colors.white,
+                actions: [
+                  IconButton(
+                    tooltip: 'My waitlist',
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const MyWaitlistScreen())),
+                    icon: const Icon(Icons.notifications_active_outlined),
+                  )
+                ],
                 flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (_facilityImages.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => _openImageViewer(_currentImageIndex),
+                          child: PageView.builder(
+                            controller: _pageController,
+                            itemCount: _facilityImages.length,
+                            onPageChanged: (idx) {
+                              setState(() => _currentImageIndex = idx);
+                            },
+                            itemBuilder: (context, idx) {
+                              return Image.network(
+                                _facilityImages[idx],
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    const SizedBox.shrink(),
+                              );
+                            },
+                          ),
+                        )
+                      else if (_facilityImageUrl != null &&
+                          _facilityImageUrl!.isNotEmpty)
+                        Image.network(
+                          _facilityImageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      IgnorePointer(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                const Color(0xFF1E3C72).withValues(
+                                    alpha: _facilityImages.isNotEmpty ||
+                                            _facilityImageUrl != null
+                                        ? 0.45
+                                        : 0.95),
+                                const Color(0xFF2A5298).withValues(
+                                    alpha: _facilityImages.isNotEmpty ||
+                                            _facilityImageUrl != null
+                                        ? 0.88
+                                        : 0.95),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    child: SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(56, 16, 16, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Text(widget.facilityName,
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold)),
-                            if (widget.facilityAddress.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Row(
+                      if (_facilityImages.length > 1)
+                        Positioned(
+                          top: 50,
+                          right: 60,
+                          child: GestureDetector(
+                            onTap: () => _openImageViewer(_currentImageIndex),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.location_on,
-                                      color: Colors.white70, size: 13),
-                                  const SizedBox(width: 3),
-                                  Expanded(
-                                    child: Text(widget.facilityAddress,
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis),
+                                  const Icon(Icons.photo_library,
+                                      size: 13, color: Colors.white),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    '${_currentImageIndex + 1}/${_facilityImages.length}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),
-                            ],
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                _badgeChip(Icons.access_time, '🔑 24/7 Access',
-                                    Colors.green.shade700),
-                              ],
                             ),
-                          ],
+                          ),
+                        ),
+                      SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(56, 16, 16, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text(widget.facilityName,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold)),
+                              if (widget.facilityAddress.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.location_on,
+                                        color: Colors.white70, size: 13),
+                                    const SizedBox(width: 3),
+                                    Expanded(
+                                      child: Text(widget.facilityAddress,
+                                          style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              if (widget.airConditioned24h)
+                                Row(children: [
+                                  _badgeChip(Icons.ac_unit, 'Máy lạnh 24/7',
+                                      Colors.green.shade700),
+                                ]),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -219,8 +488,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ),
         ],
@@ -253,6 +522,56 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_facilityImages.length > 1) ...[
+          _sectionHeader('📸 Warehouse Photos',
+              subtitle:
+                  '${_facilityImages.length} photos available • Tap to view full size'),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 90,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _facilityImages.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, idx) {
+                return GestureDetector(
+                  onTap: () => _openImageViewer(idx),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 110,
+                      height: 90,
+                      color: Colors.black12,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.network(
+                            _facilityImages[idx],
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(Icons.broken_image_outlined,
+                                  color: Colors.grey),
+                            ),
+                          ),
+                          if (idx == _currentImageIndex)
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                    color: AppColors.primaryContainer,
+                                    width: 2.5),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 18),
+        ],
         // ── Unit type selection ─────────────────────────────────────
         _sectionHeader('📦 Choose a Unit Type',
             subtitle: 'Pick the size that fits'),
@@ -287,9 +606,37 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
         // ── Move-in appointment ──────────────────────────────────────
         _sectionHeader('📅 Move-in Appointment',
-            subtitle: 'Choose your rental start date'),
+            subtitle: 'Choose the date and time to receive your unit'),
         const SizedBox(height: 10),
         _buildDatePicker(),
+
+        ListTile(
+          leading: const Icon(Icons.schedule_outlined),
+          title: const Text('Check-in time'),
+          subtitle: Text(
+              '${_checkInTime.format(context)}${_opensAt != null && _closesAt != null ? ' • Open ${_opensAt!.format(context)}–${_closesAt!.format(context)}' : ''}'),
+          onTap: () async {
+            final picked = await showTimePicker(
+                context: context, initialTime: _checkInTime);
+            if (!mounted || picked == null) return;
+            final selected = picked.hour * 60 + picked.minute;
+            final open = _opensAt == null
+                ? null
+                : _opensAt!.hour * 60 + _opensAt!.minute;
+            final close = _closesAt == null
+                ? null
+                : _closesAt!.hour * 60 + _closesAt!.minute;
+            if (open != null &&
+                close != null &&
+                (selected < open || selected >= close)) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content:
+                      Text('Choose a time during facility opening hours.')));
+              return;
+            }
+            setState(() => _checkInTime = picked);
+          },
+        ),
 
         const SizedBox(height: 24),
 
@@ -352,71 +699,90 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   }
 
   Widget _buildDatePicker() {
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: _startDate,
-          firstDate: DateTime.now(),
-          lastDate: DateTime.now().add(const Duration(days: 90)),
-          builder: (ctx, child) => Theme(
-            data: Theme.of(ctx).copyWith(
-              colorScheme: const ColorScheme.light(
-                  primary: AppColors.primary, onPrimary: Colors.white),
-            ),
-            child: child!,
-          ),
-        );
-        if (picked != null) {
-          setState(() => _startDate = picked);
-          _refreshQuote();
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
-          boxShadow: [
-            BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 3))
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+    final maxAllowedDate = DateTime.now().add(Duration(days: _maxAdvanceReservationDays));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _startDate.isAfter(maxAllowedDate) ? maxAllowedDate : _startDate,
+              firstDate: DateTime.now(),
+              lastDate: maxAllowedDate,
+              builder: (ctx, child) => Theme(
+                data: Theme.of(ctx).copyWith(
+                  colorScheme: const ColorScheme.light(
+                      primary: AppColors.primary, onPrimary: Colors.white),
+                ),
+                child: child!,
               ),
-              child: const Icon(Icons.calendar_month,
-                  color: AppColors.primary, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Rental start date',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-                const SizedBox(height: 2),
-                Text(_formatDate(_startDate),
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary)),
+            );
+            if (picked != null) {
+              setState(() => _startDate = picked);
+              _refreshQuote();
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+              boxShadow: [
+                BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3))
               ],
             ),
-            const Spacer(),
-            const Icon(Icons.edit_calendar_outlined,
-                color: AppColors.primary, size: 20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.calendar_month,
+                      color: AppColors.primary, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Rental start date',
+                        style: TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary)),
+                    const SizedBox(height: 2),
+                    Text(_formatDate(_startDate),
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary)),
+                  ],
+                ),
+                const Spacer(),
+                const Icon(Icons.edit_calendar_outlined,
+                    color: AppColors.primary, size: 20),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            const Icon(Icons.info_outline, size: 13, color: AppColors.onSurfaceVariant),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                'Cơ sở cho phép giữ chỗ trước tối đa $_maxAdvanceReservationDays ngày tính từ hôm nay.',
+                style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+              ),
+            ),
           ],
         ),
-      ),
+      ],
     );
   }
 
@@ -612,19 +978,60 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             ],
           ),
           const Divider(height: 20),
-          _quoteLine('Rental fee ($_rentalMonths mo)', total,
-              isHighlight: false),
-          const SizedBox(height: 8),
-          _quoteLine('Deposit (refunded at checkout)', deposit,
-              isHighlight: false),
+          ..._quoteBreakdownLines(total, deposit),
           const Divider(height: 20),
           _quoteLine('💳 Due Now', initial, isHighlight: true),
           const SizedBox(height: 6),
-          const Text('* The deposit will be refunded when your rental ends.',
+          const Text(
+              '* Only the deposit is refunded when your rental ends. Rental and management fees are not refundable after check-in.',
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         ],
       ),
     );
+  }
+
+  /// Các dòng chi tiết lấy từ breakdown của BE: tiền thuê, giảm giá (nếu có), cọc, phí quản lý.
+  List<Widget> _quoteBreakdownLines(dynamic total, dynamic deposit) {
+    final items = (_quote!['breakdown'] as List?) ?? const [];
+    if (items.isEmpty) {
+      return [
+        _quoteLine('Rental fee ($_rentalMonths mo)', total),
+        const SizedBox(height: 8),
+        _quoteLine('Deposit (refunded at checkout)', deposit),
+      ];
+    }
+    const labels = {
+      'RENTAL_FEE': 'Rental fee',
+      'DISCOUNT': 'Long-term discount',
+      'DEPOSIT': 'Deposit (refunded at checkout)',
+      'MANAGEMENT_FEE': 'Management fee',
+    };
+    final widgets = <Widget>[];
+    for (final raw in items) {
+      final item = Map<String, dynamic>.from(raw as Map);
+      final type = item['feeType']?.toString() ?? '';
+      final amount = item['totalAmount'];
+      final label = labels[type] ?? item['name']?.toString() ?? type;
+      if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
+      if (type == 'DISCOUNT' && amount is num) {
+        widgets.add(Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary)),
+            Text('- ${_formatPrice(amount.abs())}',
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.success)),
+          ],
+        ));
+      } else {
+        widgets.add(_quoteLine(label, amount));
+      }
+    }
+    return widgets;
   }
 
   Widget _quoteLine(String label, dynamic value, {bool isHighlight = false}) {
@@ -745,13 +1152,25 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
   Future<void> _handleReserve() async {
     if (_selectedType == null || _quote == null) return;
+
+    // Hiển thị BottomSheet ký cam kết hàng cấm & điều khoản dịch vụ lưu kho
+    final agreed = await _showLegalAgreementSheet();
+    if (agreed != true) return;
+
     setState(() => _isBooking = true);
     try {
+      final termsVersion =
+          _facilityPolicy?['termsVersion']?.toString() ?? 'v2026.1';
       final booking = await _bookingService.createBooking(
         facilityId: widget.facilityId,
         unitTypeId: _selectedType!.id,
         startDate: _startDate,
+        checkInTime:
+            '${_checkInTime.hour.toString().padLeft(2, '0')}:${_checkInTime.minute.toString().padLeft(2, '0')}:00',
         rentalMonths: _rentalMonths,
+        prohibitedItemsConfirmed: true,
+        termsConfirmed: true,
+        termsVersion: termsVersion,
       );
       if (!mounted) return;
 
@@ -778,6 +1197,9 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             depositAmount: (booking['depositAmount'] as num?)?.toDouble() ??
                 (_quote!['depositAmount'] as num?)?.toDouble() ??
                 0,
+            totalExtraFees: (booking['totalExtraFees'] as num?)?.toDouble() ??
+                (_quote!['totalExtraFees'] as num?)?.toDouble() ??
+                0,
             expiresAt: booking['expiresAt'] != null
                 ? DateTime.tryParse(booking['expiresAt'].toString())
                 : null,
@@ -795,6 +1217,350 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     } finally {
       if (mounted) setState(() => _isBooking = false);
     }
+  }
+
+  Future<bool?> _showLegalAgreementSheet() async {
+    final prohibitedRaw = _facilityPolicy?['prohibitedItems']?.toString() ??
+        'Chất dễ cháy nổ, bình gas, xăng dầu; Ma túy, chất kích thích, hóa chất độc hại; Động vật sống, thực phẩm tươi sống dễ thối rữa; Vũ khí, hàng lậu, pháo hoa; Hàng hóa có mùi nồng nặc gây ảnh hưởng kho xung quanh';
+    final termsRaw = _facilityPolicy?['termsAndConditions']?.toString() ??
+        '1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.';
+    final termsVersion =
+        _facilityPolicy?['termsVersion']?.toString() ?? 'v2026.1';
+
+    final prohibitedItemsList = prohibitedRaw
+        .split(RegExp(r'[;\n]'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        bool prohibitedChecked = false;
+        bool termsChecked = false;
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final canConfirm = prohibitedChecked && termsChecked;
+
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.88,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.gavel_rounded,
+                              color: AppColors.primary, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Thỏa thuận & Cam kết lưu kho',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Xác nhận quy định an toàn trước khi đặt cọc',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          icon: const Icon(Icons.close, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+
+                  // Scrollable content
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Prohibited Items Warning Card
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF4F2),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFFFCCC7),
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded,
+                                        color: Color(0xFFCF1322), size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Danh mục hàng hóa cấm lưu trữ',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFCF1322),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                ...prohibitedItemsList.map(
+                                  (item) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('🚫 ',
+                                            style: TextStyle(fontSize: 12)),
+                                        Expanded(
+                                          child: Text(
+                                            item,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF434343),
+                                              height: 1.3,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Terms and Conditions Card
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: AppColors.border,
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Điều khoản dịch vụ lưu kho',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        termsVersion,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  termsRaw,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Checkbox 1: Prohibited items
+                          InkWell(
+                            onTap: () {
+                              setSheetState(() {
+                                prohibitedChecked = !prohibitedChecked;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Checkbox(
+                                    value: prohibitedChecked,
+                                    activeColor: AppColors.primary,
+                                    onChanged: (val) {
+                                      setSheetState(() {
+                                        prohibitedChecked = val ?? false;
+                                      });
+                                    },
+                                  ),
+                                  const Expanded(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(top: 10),
+                                      child: Text(
+                                        'Tôi cam kết TUYỆT ĐỐI KHÔNG chứa hàng hóa thuộc danh mục cấm nêu trên và chịu trách nhiệm pháp lý nếu vi phạm.',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Checkbox 2: Terms of service
+                          InkWell(
+                            onTap: () {
+                              setSheetState(() {
+                                termsChecked = !termsChecked;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Checkbox(
+                                    value: termsChecked,
+                                    activeColor: AppColors.primary,
+                                    onChanged: (val) {
+                                      setSheetState(() {
+                                        termsChecked = val ?? false;
+                                      });
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 10),
+                                      child: Text(
+                                        'Tôi đã đọc, hiểu rõ và đồng ý với Điều khoản dịch vụ lưu kho StoreHub ($termsVersion).',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Bottom Action
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: canConfirm
+                            ? () => Navigator.pop(ctx, true)
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          disabledBackgroundColor: Colors.grey.shade300,
+                        ),
+                        child: const Text(
+                          'Xác nhận & Tiến hành đặt cọc',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }
 
@@ -848,18 +1614,36 @@ class _UnitTypeCard extends StatelessWidget {
           child: Row(
             children: [
               // Size icon
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: (type.imageUrl != null && type.imageUrl!.isNotEmpty)
+                      ? Image.network(
+                          type.imageUrl!,
+                          width: 52,
+                          height: 52,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            Icons.warehouse,
+                            color:
+                                isSelected ? Colors.white : AppColors.primary,
+                            size: 28,
+                          ),
+                        )
+                      : Icon(
+                          Icons.warehouse,
+                          color: isSelected ? Colors.white : AppColors.primary,
+                          size: 28,
+                        ),
                 ),
-                child: Icon(Icons.warehouse,
-                    color: isSelected ? Colors.white : AppColors.primary,
-                    size: 28),
               ),
               const SizedBox(width: 12),
               Expanded(

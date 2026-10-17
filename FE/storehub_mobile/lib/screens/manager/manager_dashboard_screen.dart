@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/safe_dispose.dart';
 import '../../models/facility_management_models.dart';
 import '../../models/unit_type_model.dart';
 import '../../models/user_model.dart';
@@ -8,7 +10,11 @@ import '../../services/catalog_api_service.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../common/profile_screen.dart';
+import '../common/transaction_history_screen.dart';
+import '../common/gate_pass_verify_screen.dart';
 import 'booking_assignment_screen.dart';
+import 'appointment_assignment_screen.dart';
+import 'refund_review_screen.dart';
 import 'facility_contracts_tab.dart';
 import 'facility_tickets_tab.dart';
 
@@ -155,7 +161,6 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     try {
       await _unitsFuture;
     } catch (_) {
-      // FutureBuilder hiển thị lỗi.
     }
   }
 
@@ -165,7 +170,6 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     try {
       await _staffFuture;
     } catch (_) {
-      // FutureBuilder hiển thị lỗi.
     }
   }
 
@@ -175,7 +179,6 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     try {
       await _reportFuture;
     } catch (_) {
-      // FutureBuilder hiển thị lỗi.
     }
   }
 
@@ -478,7 +481,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     List<FacilityStaffModel> currentStaff;
 
     try {
-      users = await _opsService.getAssignableUsers();
+      users = await _opsService.getAssignableUsers(_facilityId!);
 
       currentStaff = await _opsService.getFacilityStaff(
         _facilityId!,
@@ -673,7 +676,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       },
     );
 
-    searchController.dispose();
+    disposeAfterRouteCloses([searchController]);
   }
 
   Future<void> _removeStaff(
@@ -795,23 +798,55 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
         actions: [
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
-              tooltip: 'Confirmed bookings',
-              icon: const Icon(Icons.swap_horiz_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => BookingAssignmentScreen(
-                      facilityId: _facilityId!,
-                      facilityName: _facilityName ?? '',
-                    ),
-                  ),
-                ).then((_) {
-                  if (!mounted) return;
-                  _loadUnits();
-                  _loadReport();
-                });
+              tooltip: 'Verify gate QR',
+              icon: const Icon(Icons.qr_code_scanner),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) =>
+                    GatePassVerifyScreen(facilityId: _facilityId!)),
+              ),
+            ),
+          if (_facilityId != null && _facilityId!.isNotEmpty)
+            PopupMenuButton<String>(
+              tooltip: 'Quản lý lịch, đơn, hoàn tiền và giao dịch',
+              icon: const Icon(Icons.more_vert),
+              onSelected: (action) {
+                final facilityId = _facilityId!;
+                switch (action) {
+                  case 'refunds':
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => RefundReviewScreen(facilityId: facilityId)));
+                    return;
+                  case 'appointments':
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => AppointmentAssignmentScreen(facilityId: facilityId)));
+                    return;
+                  case 'bookings':
+                    final route = MaterialPageRoute(
+                      builder: (_) => BookingAssignmentScreen(
+                        facilityId: facilityId,
+                        facilityName: _facilityName ?? '',
+                      ),
+                    );
+                    Navigator.push(context, route).then((_) {
+                      if (!mounted) return;
+                      _loadUnits();
+                      _loadReport();
+                    });
+                    return;
+                  case 'transactions':
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => TransactionHistoryScreen(
+                        userRole: widget.user.roleName, facilityId: facilityId)));
+                    return;
+                }
               },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'appointments', child: Text('Lịch bàn giao')),
+                PopupMenuItem(value: 'bookings', child: Text('Đơn đã xác nhận')),
+                PopupMenuItem(value: 'refunds', child: Text('Yêu cầu hoàn tiền')),
+                PopupMenuItem(value: 'transactions', child: Text('Lịch sử giao dịch')),
+              ],
             ),
           IconButton(
             tooltip: 'Profile',
@@ -835,6 +870,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                 MaterialPageRoute(
                   builder: (_) => ProfileScreen(
                     user: widget.user,
+                    facilityId: _facilityId,
                   ),
                 ),
               );
@@ -1265,7 +1301,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                   ),
                   _statTile(
                     'Revenue (paid)',
-                    '\$${report.revenue.toStringAsFixed(0)}',
+                    NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0)
+                        .format(report.revenue),
                     Icons.attach_money,
                     AppColors.success,
                   ),

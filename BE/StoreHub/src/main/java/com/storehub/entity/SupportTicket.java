@@ -2,8 +2,12 @@ package com.storehub.entity;
 
 import com.storehub.enums.TicketCategory;
 import com.storehub.enums.TicketStatus;
+import com.storehub.util.StringListAttributeConverter;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "support_tickets")
@@ -50,4 +54,19 @@ public class SupportTicket extends BaseEntity {
 
     @Column(name = "resolution_note", columnDefinition = "TEXT")
     private String resolutionNote;
+
+    @Convert(converter = StringListAttributeConverter.class)
+    @Column(name = "photos", columnDefinition = "TEXT")
+    @Builder.Default
+    private List<String> photos = new ArrayList<>();
+
+    @Deprecated
+    public List<String> getPhotoList() {
+        return photos != null ? photos : List.of();
+    }
+
+    @Deprecated
+    public void assignPhotos(List<String> list) {
+        this.photos = list != null ? list : new ArrayList<>();
+    }
 }

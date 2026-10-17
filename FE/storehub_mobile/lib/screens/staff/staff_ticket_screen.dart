@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/safe_dispose.dart';
 import '../../models/staff_ticket_model.dart';
+import '../../models/paged_result.dart';
+import '../../services/facility_ops_api_service.dart';
 import '../../services/staff_ticket_api_service.dart';
 import '../../widgets/state_views.dart';
+import '../../widgets/photo_preview_dialog.dart';
 
 class StaffTicketScreen extends StatefulWidget {
   final String facilityId;
@@ -21,8 +25,13 @@ class StaffTicketScreen extends StatefulWidget {
 
 class _StaffTicketScreenState extends State<StaffTicketScreen> {
   final StaffTicketApiService _ticketService = StaffTicketApiService();
+  final FacilityOpsApiService _opsService = FacilityOpsApiService();
 
-  Future<List<StaffTicketModel>>? _ticketsFuture;
+  Future<PagedResult<StaffTicketModel>>? _ticketsFuture;
+  final List<StaffTicketModel> _additional = [];
+  int _nextPage = 1;
+  bool _lastPage = false;
+  bool _loadingMore = false;
 
   @override
   void initState() {
@@ -32,10 +41,33 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
 
   void _loadTickets() {
     setState(() {
+      _additional.clear();
+      _nextPage = 1;
+      _lastPage = false;
       _ticketsFuture = _ticketService.getFacilityTickets(
         widget.facilityId,
       );
     });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _lastPage) return;
+    final currentLoad = _ticketsFuture;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await _ticketService.getFacilityTickets(widget.facilityId,
+          page: _nextPage);
+      if (!mounted || !identical(currentLoad, _ticketsFuture)) return;
+      setState(() {
+        _additional.addAll(page.content);
+        _nextPage++;
+        _lastPage = page.last;
+      });
+    } catch (error) {
+      if (mounted) _showError(_errorMessage(error));
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
   }
 
   Future<void> _refreshTickets() async {
@@ -116,6 +148,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
         );
       },
     );
+    disposeAfterRouteCloses([noteController]);
 
     if (note == null || note.trim().isEmpty) {
       return;
@@ -226,6 +259,66 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
     );
   }
 
+  /// Khách quên PIN và không tự đặt lại được: nhân viên xác minh khách tại quầy rồi cấp PIN mới.
+  Future<void> _resetCustomerPin(StaffTicketModel ticket) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset customer PIN?'),
+        content: const Text(
+            'Only continue after you have verified the customer\'s identity in person. '
+            'The old PIN stops working and the unit is locked.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Reset PIN')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final pin = await _opsService.resetCustomerPin(
+          ticket.bookingId, widget.facilityId);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('New PIN'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SelectableText(
+                pin,
+                style: const TextStyle(
+                    fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 8),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Tell the customer this PIN. It is shown only once and the customer can change it in Smart Key.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Done')),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString().replaceAll('Exception: ', '')),
+        backgroundColor: AppColors.error,
+      ));
+    }
+  }
+
   Widget _buildAction(StaffTicketModel ticket) {
     if (ticket.isOpen) {
       return OutlinedButton.icon(
@@ -240,13 +333,28 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
     final isOwner = _isAssignedToCurrentStaff(ticket);
 
     if (ticket.isInProgress && isOwner) {
-      return ElevatedButton.icon(
+      final resolveButton = ElevatedButton.icon(
         onPressed: () {
           _resolveTicket(ticket);
         },
         icon: const Icon(Icons.check_circle_outline),
         label: const Text('Resolve'),
       );
+      if (ticket.category == 'PIN_CODE' && ticket.bookingId.isNotEmpty) {
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => _resetCustomerPin(ticket),
+              icon: const Icon(Icons.pin_outlined),
+              label: const Text('Reset PIN'),
+            ),
+            resolveButton,
+          ],
+        );
+      }
+      return resolveButton;
     }
 
     if (ticket.isResolved && isOwner) {
@@ -269,7 +377,7 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
       appBar: AppBar(
         title: const Text('Support Tickets'),
       ),
-      body: FutureBuilder<List<StaffTicketModel>>(
+      body: FutureBuilder<PagedResult<StaffTicketModel>>(
         future: _ticketsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -285,7 +393,8 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
             );
           }
 
-          final tickets = snapshot.data ?? <StaffTicketModel>[];
+          final tickets = [...?snapshot.data?.content, ..._additional];
+          final hasMore = snapshot.data != null && !snapshot.data!.last && !_lastPage;
 
           if (tickets.isEmpty) {
             return RefreshIndicator(
@@ -309,9 +418,15 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
             child: ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
-              itemCount: tickets.length,
+              itemCount: tickets.length + (hasMore ? 1 : 0),
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
+                if (index == tickets.length) {
+                  return Center(child: TextButton(
+                    onPressed: _loadingMore ? null : _loadMore,
+                    child: Text(_loadingMore ? 'Loading...' : 'Load more tickets'),
+                  ));
+                }
                 final ticket = tickets[index];
                 final statusColor = _statusColor(ticket.status);
 
@@ -407,6 +522,21 @@ class _StaffTicketScreenState extends State<StaffTicketScreen> {
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
                             ),
+                          ),
+                        ],
+                        if (ticket.photos.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Photo Evidence:',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          PhotoThumbnailGrid(
+                            photos: ticket.photos,
+                            size: 64,
                           ),
                         ],
                         const SizedBox(height: 12),

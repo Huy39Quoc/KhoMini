@@ -1,11 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/storage_api_service.dart';
 import '../../../services/ticket_api_service.dart';
+import '../../../widgets/photo_preview_dialog.dart';
 
 class CreateTicketScreen extends StatefulWidget {
-  /// Optionally pre-select which rented unit this ticket is about (e.g. when
-  /// opened from a "Report an issue" action on a specific unit card).
   final String? preselectedBookingId;
   final String? preselectedUnitLabel;
 
@@ -19,9 +19,6 @@ class CreateTicketScreen extends StatefulWidget {
   State<CreateTicketScreen> createState() => _CreateTicketScreenState();
 }
 
-/// Category values match com.storehub.enums.TicketCategory on the BE
-/// exactly - sending anything else makes the BE reject the request with a
-/// 400 (invalid enum value).
 const Map<String, _CategoryInfo> _kCategories = {
   'PIN_CODE': _CategoryInfo('Access PIN issue', Icons.pin_outlined),
   'LOCK_ISSUE': _CategoryInfo('Lock / door issue', Icons.lock_outline),
@@ -47,10 +44,11 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   String _selectedCategory = 'LOCK_ISSUE';
   String? _selectedBookingId;
   String? _selectedUnitLabel;
+  List<File> _selectedFiles = [];
 
   bool _isLoading = false;
   bool _isLoadingUnits = true;
-  List<Map<String, String>> _units = []; // [{bookingId, label}]
+  List<Map<String, String>> _units = [];
   String? _unitsError;
 
   @override
@@ -101,7 +99,6 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
   Future<void> _submitTicket() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // BE (CreateTicketRequest) bắt buộc bookingId để định tuyến ticket tới đúng cơ sở.
     if (_selectedBookingId == null || _selectedBookingId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -117,11 +114,19 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
     });
 
     try {
+      List<String> uploadedUrls = [];
+      if (_selectedFiles.isNotEmpty) {
+        uploadedUrls = await _ticketApiService.uploadTicketPhotos(
+          _selectedFiles.map((f) => f.path).toList(),
+        );
+      }
+
       await _ticketApiService.createTicket(
         _selectedCategory,
         _titleController.text.trim(),
         _descriptionController.text.trim(),
-        _selectedBookingId,
+        _selectedBookingId!,
+        photos: uploadedUrls,
       );
 
       if (!mounted) return;
@@ -162,13 +167,12 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Related unit picker
                 const Text('Related unit',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 4),
                 const Text(
-                  'Optional - pick a unit if this issue is about a specific storage unit',
+                  'Select the rented unit related to this issue',
                   style: TextStyle(
                       fontSize: 12, color: AppColors.onSurfaceVariant),
                 ),
@@ -202,7 +206,6 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 ],
                 const SizedBox(height: 20),
 
-                // Category
                 const Text('Issue category',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -229,7 +232,6 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Title
                 const Text('Title',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -249,7 +251,6 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Description
                 const Text('Description',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -269,6 +270,24 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
                     if (v.isEmpty) return 'Description is required';
                     return null;
                   },
+                ),
+                const SizedBox(height: 16),
+
+                const Text('Photo evidence (optional)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 4),
+                const Text(
+                  'Attach photos of water leaks, cracked walls, broken locks, etc. to help staff prepare the right tools to resolve quickly.',
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.onSurfaceVariant),
+                ),
+                const SizedBox(height: 8),
+                EvidencePhotoPicker(
+                  selectedFiles: _selectedFiles,
+                  enabled: !_isLoading,
+                  onFilesChanged: (files) =>
+                      setState(() => _selectedFiles = files),
                 ),
                 const SizedBox(height: 24),
 

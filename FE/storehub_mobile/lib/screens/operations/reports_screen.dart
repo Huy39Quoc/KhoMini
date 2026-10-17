@@ -5,10 +5,6 @@ import '../../core/constants/app_colors.dart';
 import '../../services/facility_admin_api_service.dart';
 import '../../widgets/state_views.dart';
 
-/// Wires GET /reports/revenue and GET /reports/occupancy
-/// (ReportController) - real system-wide + per-facility numbers, replacing
-/// the "not available" placeholder that used to live on the Operations
-/// dashboard.
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
@@ -20,11 +16,11 @@ class _ReportsScreenState extends State<ReportsScreen>
     with SingleTickerProviderStateMixin {
   final FacilityAdminApiService _service = FacilityAdminApiService();
   late final TabController _tabController;
-  final _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$');
+  final _currency = NumberFormat.currency(
+      locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('MMM d, yyyy');
 
-  // Mặc định xem 12 tháng gần nhất; luôn gửi khoảng ngày rõ ràng cho BE.
-  DateTime? _fromDate = DateTime.now().subtract(const Duration(days: 365));
+  DateTime? _fromDate = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _toDate = DateTime.now();
   Future<Map<String, dynamic>>? _revenueFuture;
   Future<Map<String, dynamic>>? _occupancyFuture;
@@ -56,7 +52,6 @@ class _ReportsScreenState extends State<ReportsScreen>
     });
   }
 
-  /// Xuất báo cáo của tab đang xem (CSV) và chép vào clipboard.
   Future<void> _exportCurrent() async {
     final type = _tabController.index == 0 ? 'revenue' : 'occupancy';
     try {
@@ -91,6 +86,8 @@ class _ReportsScreenState extends State<ReportsScreen>
       context: context,
       firstDate: DateTime(now.year - 3),
       lastDate: now,
+      helpText: 'Chọn kỳ báo cáo doanh thu',
+      saveText: 'Áp dụng',
       initialDateRange: _fromDate != null && _toDate != null
           ? DateTimeRange(start: _fromDate!, end: _toDate!)
           : null,
@@ -109,10 +106,10 @@ class _ReportsScreenState extends State<ReportsScreen>
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Reports'),
+        title: const Text('Báo cáo'),
         actions: [
           IconButton(
-            tooltip: 'Export CSV (copy)',
+            tooltip: 'Xuất báo cáo (CSV)',
             icon: const Icon(Icons.file_download_outlined),
             onPressed: _exportCurrent,
           ),
@@ -122,7 +119,7 @@ class _ReportsScreenState extends State<ReportsScreen>
           labelColor: AppColors.secondaryContainer,
           unselectedLabelColor: AppColors.onSurfaceVariant,
           indicatorColor: AppColors.secondaryContainer,
-          tabs: const [Tab(text: 'Revenue'), Tab(text: 'Occupancy')],
+          tabs: const [Tab(text: 'Doanh thu'), Tab(text: 'Lấp đầy kho')],
         ),
       ),
       body: TabBarView(
@@ -139,7 +136,7 @@ class _ReportsScreenState extends State<ReportsScreen>
         future: _revenueFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const AppLoadingState(message: 'Loading revenue report...');
+            return const AppLoadingState(message: 'Đang tải báo cáo doanh thu...');
           }
           if (snapshot.hasError) {
             return ListView(
@@ -150,8 +147,8 @@ class _ReportsScreenState extends State<ReportsScreen>
                   icon: const Icon(Icons.date_range, size: 16),
                   label: Text(
                     _fromDate != null && _toDate != null
-                        ? '${_dateFmt.format(_fromDate!)} - ${_dateFmt.format(_toDate!)}'
-                        : 'All time (pick a date range)',
+                        ? 'Kỳ báo cáo: ${_dateFmt.format(_fromDate!)} - ${_dateFmt.format(_toDate!)}'
+                        : 'Kỳ báo cáo: tất cả (bấm để chọn ngày)',
                   ),
                 ),
                 SizedBox(
@@ -183,10 +180,13 @@ class _ReportsScreenState extends State<ReportsScreen>
                 icon: const Icon(Icons.date_range, size: 16),
                 label: Text(
                   _fromDate != null && _toDate != null
-                      ? '${_dateFmt.format(_fromDate!)} - ${_dateFmt.format(_toDate!)}'
-                      : 'All time (pick a date range)',
+                      ? 'Kỳ báo cáo: ${_dateFmt.format(_fromDate!)} - ${_dateFmt.format(_toDate!)}'
+                      : 'Kỳ báo cáo: tất cả (bấm để chọn ngày)',
                 ),
               ),
+              const Text('Chọn khoảng ngày để xem doanh thu trong kỳ đó. '
+                  'Tab Lấp đầy kho luôn hiển thị số liệu hiện tại.',
+                  style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
               const SizedBox(height: 16),
               Container(
                 width: double.infinity,
@@ -198,7 +198,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total Revenue',
+                    const Text('Doanh thu thuần trong kỳ',
                         style: TextStyle(color: Colors.white70, fontSize: 12)),
                     const SizedBox(height: 4),
                     Text(_currency.format(total),
@@ -207,7 +207,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                             fontSize: 30,
                             fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    Text('$count payment${count == 1 ? '' : 's'}',
+                    Text('$count giao dịch đã ghi nhận',
                         style: const TextStyle(
                             color: Colors.white70, fontSize: 12)),
                   ],
@@ -218,25 +218,28 @@ class _ReportsScreenState extends State<ReportsScreen>
                 children: [
                   Expanded(
                       child: _revenueChip(
-                          'Deposits', deposit, AppColors.secondary)),
+                          'Tiền cọc (ròng)', deposit, AppColors.secondary)),
                   const SizedBox(width: 10),
                   Expanded(
                       child: _revenueChip(
-                          'Rental Fees', rental, AppColors.secondaryContainer)),
+                          'Tiền thuê', rental, AppColors.secondaryContainer)),
                   const SizedBox(width: 10),
                   Expanded(
                       child: _revenueChip(
-                          'Extra Charges', extra, AppColors.warning)),
+                          'Phí phát sinh', extra, AppColors.warning)),
                 ],
               ),
+              const SizedBox(height: 8),
+              const Text('Tiền cọc là dòng tiền sẽ hoàn lại. Khoản hoàn được tính vào kỳ hoàn tất.',
+                  style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
               const SizedBox(height: 20),
-              const Text('By Facility',
+              const Text('Theo cơ sở',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 10),
               if (byFacility.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 20),
-                  child: Text('No facility revenue yet.',
+                  child: Text('Chưa có doanh thu theo cơ sở.',
                       style: TextStyle(color: AppColors.onSurfaceVariant)),
                 )
               else
@@ -248,7 +251,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                       title: Text(m['facilityName']?.toString() ?? '',
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: Text('${m['paymentCount'] ?? 0} payments',
+                      subtitle: Text('${m['paymentCount'] ?? 0} captured entries',
                           style: const TextStyle(fontSize: 12)),
                       trailing: Text(
                         _currency.format(
@@ -298,7 +301,7 @@ class _ReportsScreenState extends State<ReportsScreen>
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const AppLoadingState(
-                message: 'Loading occupancy report...');
+                message: 'Đang tải báo cáo lấp đầy...');
           }
           if (snapshot.hasError) {
             return AppErrorState(
@@ -324,7 +327,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                 ),
                 child: Column(
                   children: [
-                    const Text('System-wide Occupancy',
+                    const Text('Tỷ lệ lấp đầy toàn hệ thống',
                         style: TextStyle(color: Colors.white70, fontSize: 12)),
                     const SizedBox(height: 6),
                     Text('${rate.toStringAsFixed(1)}%',
@@ -347,25 +350,25 @@ class _ReportsScreenState extends State<ReportsScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _occupancyStat('Total', summary['totalUnits']),
-                        _occupancyStat('Occupied', summary['occupiedUnits']),
-                        _occupancyStat('Available', summary['availableUnits']),
-                        _occupancyStat('Reserved', summary['reservedUnits']),
+                        _occupancyStat('Tổng', summary['totalUnits']),
+                        _occupancyStat('Đang thuê', summary['occupiedUnits']),
+                        _occupancyStat('Trống', summary['availableUnits']),
+                        _occupancyStat('Đã giữ', summary['reservedUnits']),
                         _occupancyStat(
-                            'Overdue', summary['overdueBookings'] ?? 0),
+                            'Quá hạn', summary['overdueBookings'] ?? 0),
                       ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-              const Text('By Facility',
+              const Text('Theo cơ sở',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 10),
               if (byFacility.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 20),
-                  child: Text('No facilities yet.',
+                  child: Text('Chưa có cơ sở nào.',
                       style: TextStyle(color: AppColors.onSurfaceVariant)),
                 )
               else
@@ -405,7 +408,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '${m['occupiedUnits'] ?? 0} occupied • ${m['availableUnits'] ?? 0} available • ${m['totalUnits'] ?? 0} total • ${m['overdueBookings'] ?? 0} overdue',
+                            '${m['occupiedUnits'] ?? 0} đang thuê • ${m['availableUnits'] ?? 0} trống • ${m['totalUnits'] ?? 0} tổng • ${m['overdueBookings'] ?? 0} quá hạn',
                             style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.onSurfaceVariant),
@@ -416,11 +419,11 @@ class _ReportsScreenState extends State<ReportsScreen>
                   );
                 }),
               const SizedBox(height: 20),
-              const Text('By Unit Type',
+              const Text('Theo loại kho',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 10),
               if (byUnitType.isEmpty)
-                const Text('No unit types yet.',
+                const Text('Chưa có loại kho nào.',
                     style: TextStyle(color: AppColors.onSurfaceVariant))
               else
                 ...byUnitType.map((t) {
@@ -433,7 +436,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 14)),
                       subtitle: Text(
-                        '${m['occupiedUnits'] ?? 0} occupied • ${m['availableUnits'] ?? 0} available • ${m['totalUnits'] ?? 0} total',
+                        '${m['occupiedUnits'] ?? 0} đang thuê • ${m['availableUnits'] ?? 0} trống • ${m['totalUnits'] ?? 0} tổng',
                         style: const TextStyle(fontSize: 11),
                       ),
                       trailing: Text('${r.toStringAsFixed(0)}%',
@@ -444,7 +447,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                   );
                 }),
               const SizedBox(height: 10),
-              const Text('Rental Status',
+              const Text('Theo trạng thái thuê',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 10),
               Card(

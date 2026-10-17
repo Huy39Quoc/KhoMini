@@ -2,6 +2,7 @@ class MyUnitModel {
   final String bookingId;
   final String bookingCode;
   final String unitCode;
+  final bool unitAssignmentConfirmed;
   final String facilityName;
   final String facilityAddress;
   final String typeName;
@@ -16,6 +17,7 @@ class MyUnitModel {
   final double? depositPaid;
   final bool hasPendingExtension;
   final int? pendingExtraMonths;
+  final DateTime? pendingNewEndDate;
   final double? pendingExtensionFee;
   final bool overdue;
   final int overdueDays;
@@ -27,6 +29,7 @@ class MyUnitModel {
     required this.bookingId,
     required this.bookingCode,
     required this.unitCode,
+    this.unitAssignmentConfirmed = false,
     required this.facilityName,
     required this.facilityAddress,
     required this.typeName,
@@ -41,6 +44,7 @@ class MyUnitModel {
     this.depositPaid,
     this.hasPendingExtension = false,
     this.pendingExtraMonths,
+    this.pendingNewEndDate,
     this.pendingExtensionFee,
     this.overdue = false,
     this.overdueDays = 0,
@@ -50,6 +54,9 @@ class MyUnitModel {
   });
 
   bool get isActive => status == 'ACTIVE';
+  String get displayUnit => (isActive || unitAssignmentConfirmed)
+      ? 'Unit $unitCode'
+      : 'Unit assignment pending manager confirmation';
   bool get hasLateFeeDue => overdueFeeOutstanding > 0;
 
   double? get monthlyRate {
@@ -64,6 +71,7 @@ class MyUnitModel {
       bookingId: json['bookingId']?.toString() ?? json['id']?.toString() ?? '',
       bookingCode: json['bookingCode']?.toString() ?? '',
       unitCode: json['unitCode']?.toString() ?? '',
+      unitAssignmentConfirmed: json['unitAssignmentConfirmed'] == true,
       facilityName: json['facilityName']?.toString() ?? '',
       facilityAddress: json['facilityAddress']?.toString() ??
           json['address']?.toString() ??
@@ -89,6 +97,9 @@ class MyUnitModel {
       depositPaid: (json['depositPaid'] as num?)?.toDouble(),
       hasPendingExtension: json['hasPendingExtension'] == true,
       pendingExtraMonths: (json['pendingExtraMonths'] as num?)?.toInt(),
+      pendingNewEndDate: json['pendingNewEndDate'] != null
+          ? DateTime.tryParse(json['pendingNewEndDate'].toString())
+          : null,
       pendingExtensionFee: (json['pendingExtensionFee'] as num?)?.toDouble(),
       overdue: json['overdue'] == true,
       overdueDays: (json['overdueDays'] as num?)?.toInt() ?? 0,

@@ -21,11 +21,14 @@ class _ExploreScreenState extends State<ExploreScreen>
   bool _loading = true;
   String? _error;
 
-  // Area filter - real data aggregated from /catalog/unit-types.
-  // (The 24/7 AC and district filters were removed: the BE doesn't store
-  // either of those anywhere, so they used to always filter incorrectly
-  // / match nothing.)
   RangeValues _areaRange = const RangeValues(0, 50);
+  bool _areaFilterApplied = false;
+  bool _airConditioned24hOnly = false;
+
+  double get _areaMax => _allFacilities.fold<double>(50, (current, facility) {
+        final area = facility.maxAreaSqm;
+        return area != null && area > current ? area.ceilToDouble() : current;
+      });
 
   late final AnimationController _fadeCtrl;
   late final Animation<double> _fadeAnim;
@@ -54,14 +57,9 @@ class _ExploreScreenState extends State<ExploreScreen>
       _error = null;
     });
     try {
-      // Fetch the facility list + aggregate real stats from each facility's
-      // unit types (area, price, available units) - no more falling back
-      // to hard-coded demo data on a network error.
       final list = await _catalogService.getFacilitiesWithStats();
       if (!mounted) return;
       setState(() {
-        // Chỉ hiện chi nhánh đang hoạt động (status thật từ BE) - chi nhánh
-        // INACTIVE/MAINTENANCE không nên cho khách đặt chỗ.
         _allFacilities = list.where((f) => f.isBookable).toList();
         _applyFilter();
         _loading = false;
@@ -82,25 +80,32 @@ class _ExploreScreenState extends State<ExploreScreen>
       final matchQ = q.isEmpty ||
           f.name.toLowerCase().contains(q) ||
           f.fullAddress.toLowerCase().contains(q);
-      // If area data isn't available yet (no unit types), don't exclude
-      // the facility since there's nothing to compare against.
-      final matchArea = f.minAreaSqm == null ||
+      final matchArea = !_areaFilterApplied ||
+          f.minAreaSqm == null ||
           f.maxAreaSqm == null ||
           (f.minAreaSqm! <= _areaRange.end &&
               f.maxAreaSqm! >= _areaRange.start);
-      return matchQ && matchArea;
+      return matchQ &&
+          matchArea &&
+          (!_airConditioned24hOnly || f.airConditioned24h);
     }).toList();
   }
 
   int get _activeFilterCount {
     int c = 0;
-    if (_areaRange.start > 0 || _areaRange.end < 50) c++;
+    if (_areaFilterApplied) c++;
+    if (_airConditioned24hOnly) c++;
     return c;
   }
 
   void _showFilterSheet() {
-    double tempMin = _areaRange.start;
-    double tempMax = _areaRange.end;
+    double tempMax = _areaFilterApplied && _areaRange.end < _areaMax
+        ? _areaRange.end
+        : _areaMax;
+    double tempMin = _areaFilterApplied && _areaRange.start < tempMax
+        ? _areaRange.start
+        : 0;
+    bool tempAirConditioned = _airConditioned24hOnly;
 
     showModalBottomSheet(
       context: context,
@@ -118,7 +123,6 @@ class _ExploreScreenState extends State<ExploreScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Handle
                 Center(
                   child: Container(
                     width: 40,
@@ -140,7 +144,8 @@ class _ExploreScreenState extends State<ExploreScreen>
                       onPressed: () {
                         setModal(() {
                           tempMin = 0;
-                          tempMax = 50;
+                          tempMax = _areaMax;
+                          tempAirConditioned = false;
                         });
                       },
                       child: const Text('Clear all',
@@ -149,7 +154,6 @@ class _ExploreScreenState extends State<ExploreScreen>
                   ],
                 ),
                 const SizedBox(height: 16),
-                // Area
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -166,13 +170,19 @@ class _ExploreScreenState extends State<ExploreScreen>
                 RangeSlider(
                   values: RangeValues(tempMin, tempMax),
                   min: 0,
-                  max: 50,
-                  divisions: 50,
+                  max: _areaMax,
+                  divisions: _areaMax.round(),
                   activeColor: AppColors.primary,
                   onChanged: (v) => setModal(() {
                     tempMin = v.start;
                     tempMax = v.end;
                   }),
+                ),
+                SwitchListTile(
+                  title: const Text('Máy lạnh 24/7'),
+                  value: tempAirConditioned,
+                  onChanged: (value) =>
+                      setModal(() => tempAirConditioned = value),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -189,6 +199,8 @@ class _ExploreScreenState extends State<ExploreScreen>
                       Navigator.pop(ctx);
                       setState(() {
                         _areaRange = RangeValues(tempMin, tempMax);
+                        _areaFilterApplied = tempMin > 0 || tempMax < _areaMax;
+                        _airConditioned24hOnly = tempAirConditioned;
                         _applyFilter();
                       });
                       _fadeCtrl.forward(from: 0);
@@ -213,7 +225,6 @@ class _ExploreScreenState extends State<ExploreScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header gradient ──────────────────────────────────────────
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -235,7 +246,6 @@ class _ExploreScreenState extends State<ExploreScreen>
                   const Text('Find the right storage for your needs',
                       style: TextStyle(color: Colors.white70, fontSize: 13)),
                   const SizedBox(height: 14),
-                  // Search bar
                   Row(
                     children: [
                       Expanded(
@@ -263,7 +273,6 @@ class _ExploreScreenState extends State<ExploreScreen>
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Filter button
                       GestureDetector(
                         onTap: _showFilterSheet,
                         child: Stack(
@@ -308,7 +317,6 @@ class _ExploreScreenState extends State<ExploreScreen>
                 ],
               ),
             ),
-            // ── Active filter chips ──────────────────────────────────────
             if (_activeFilterCount > 0)
               Container(
                 color: Colors.white,
@@ -319,17 +327,24 @@ class _ExploreScreenState extends State<ExploreScreen>
                     const Icon(Icons.filter_list,
                         size: 16, color: AppColors.textSecondary),
                     const SizedBox(width: 6),
-                    if (_areaRange.start > 0 || _areaRange.end < 50)
+                    if (_areaFilterApplied)
                       _filterChip(
                           '📐 ${_areaRange.start.toInt()}–${_areaRange.end.toInt()} m²',
                           () => setState(() {
-                                _areaRange = const RangeValues(0, 50);
+                                _areaRange = RangeValues(0, _areaMax);
+                                _areaFilterApplied = false;
+                                _applyFilter();
+                              })),
+                    if (_airConditioned24hOnly)
+                      _filterChip(
+                          'Máy lạnh 24/7',
+                          () => setState(() {
+                                _airConditioned24hOnly = false;
                                 _applyFilter();
                               })),
                   ],
                 ),
               ),
-            // ── Body ─────────────────────────────────────────────────────
             Expanded(child: _buildBody()),
           ],
         ),
@@ -405,7 +420,9 @@ class _ExploreScreenState extends State<ExploreScreen>
             TextButton(
               onPressed: () => setState(() {
                 _searchCtrl.clear();
-                _areaRange = const RangeValues(0, 50);
+                _areaRange = RangeValues(0, _areaMax);
+                _areaFilterApplied = false;
+                _airConditioned24hOnly = false;
                 _applyFilter();
               }),
               child: const Text('Clear filters'),
@@ -432,6 +449,9 @@ class _ExploreScreenState extends State<ExploreScreen>
                   facilityId: _filtered[i].id,
                   facilityName: _filtered[i].name,
                   facilityAddress: _filtered[i].fullAddress,
+                  airConditioned24h: _filtered[i].airConditioned24h,
+                  imageUrl: _filtered[i].imageUrl,
+                  images: _filtered[i].allImages,
                 ),
               ),
             ),
@@ -442,8 +462,6 @@ class _ExploreScreenState extends State<ExploreScreen>
   }
 }
 
-// ── FacilityCard widget ───────────────────────────────────────────────────────
-
 class _FacilityCard extends StatelessWidget {
   final FacilityModel facility;
   final VoidCallback onTap;
@@ -453,9 +471,6 @@ class _FacilityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final available = facility.availableUnits;
-    // The BE has no real "totalUnits" (only the currently-available count),
-    // so no fake ratio bar is drawn - just the real available count, or
-    // "Not available" if the facility has no unit types yet.
     final availColor = available == null
         ? Colors.grey
         : available > 5
@@ -488,7 +503,6 @@ class _FacilityCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Container(
                 height: 80,
                 decoration: BoxDecoration(
@@ -506,15 +520,26 @@ class _FacilityCard extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 child: Row(
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 48,
+                        height: 48,
                         color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
+                        child: (facility.imageUrl != null &&
+                                facility.imageUrl!.isNotEmpty)
+                            ? Image.network(
+                                facility.imageUrl!,
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.warehouse_outlined,
+                                        color: Colors.white, size: 26),
+                              )
+                            : const Icon(Icons.warehouse_outlined,
+                                color: Colors.white, size: 26),
                       ),
-                      child: const Icon(Icons.warehouse_outlined,
-                          color: Colors.white, size: 26),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -550,33 +575,43 @@ class _FacilityCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Info section
               Padding(
-                padding: const EdgeInsets.all(14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    if (facility.minAreaSqm != null &&
-                        facility.maxAreaSqm != null)
-                      _infoChip(
-                          Icons.straighten,
-                          '${facility.minAreaSqm!.toInt()}–${facility.maxAreaSqm!.toInt()} m²',
-                          Colors.indigo),
-                    if (facility.minAreaSqm != null) const SizedBox(width: 8),
-                    _infoChip(
-                        Icons.inventory_2_outlined, availLabel, availColor),
-                    const Spacer(),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (facility.minAreaSqm != null &&
+                              facility.maxAreaSqm != null)
+                            _infoChip(
+                                Icons.straighten,
+                                '${facility.minAreaSqm!.toInt()}–${facility.maxAreaSqm!.toInt()} m²',
+                                Colors.indigo),
+                          _infoChip(Icons.inventory_2_outlined, availLabel,
+                              availColor),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text('From',
                             style: TextStyle(
-                                fontSize: 11, color: AppColors.textSecondary)),
+                                fontSize: 10, color: AppColors.textSecondary)),
                         Text(
                           facility.minPricePerMonth != null
                               ? '${_formatPrice(facility.minPricePerMonth!)}/month'
                               : 'Contact us',
                           style: const TextStyle(
-                              fontSize: 14,
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary),
                         ),
@@ -585,7 +620,6 @@ class _FacilityCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // CTA
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                 child: SizedBox(

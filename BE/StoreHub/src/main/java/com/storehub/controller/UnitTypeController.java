@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,15 +25,16 @@ public class UnitTypeController {
     private final UnitTypeManagementService unitTypeManagementService;
 
     @PutMapping("/{unitTypeId}/price")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasRole('BUSINESS_MANAGER') and hasAuthority('UNIT_TYPE_UPDATE')")
     @Operation(summary = "Cập nhật giá thuê tháng và tiền cọc của loại kho")
-    public ApiResponse<UnitTypeCatalogResponse> updatePrice(
+    public ResponseEntity<ApiResponse<UnitTypeCatalogResponse>> updatePrice(
             @PathVariable UUID unitTypeId,
             @Valid @RequestBody UpdateUnitTypePriceRequest request
     ) {
-        return ApiResponse.success(
+        UnitTypeCatalogResponse response = unitTypeManagementService.updatePrice(unitTypeId, request);
+        return ResponseEntity.ok(ApiResponse.success(
                 "Unit type price updated successfully",
-                unitTypeManagementService.updatePrice(unitTypeId, request)
-        );
+                response
+        ));
     }
 }

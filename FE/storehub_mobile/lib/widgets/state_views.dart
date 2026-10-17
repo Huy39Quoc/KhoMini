@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 
-/// Shared, presentation-only widgets used to keep loading/error/empty
-/// states looking consistent across every screen. These never touch data
-/// or make API calls themselves - [onRetry] is always supplied by the
-/// caller and simply re-triggers whatever fetch the screen already does.
-
 class AppErrorState extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;

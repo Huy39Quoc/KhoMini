@@ -33,7 +33,7 @@ public class CustomerTicketController {
     private final CustomerTicketService customerTicketService;
 
     @PostMapping
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('SUPPORT_CREATE')")
     @Operation(summary = "Tạo mới một yêu cầu hỗ trợ sự cố kho")
     public ResponseEntity<ApiResponse<TicketResponse>> createTicket(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -48,7 +48,7 @@ public class CustomerTicketController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('SUPPORT_VIEW')")
     @Operation(summary = "Lấy danh sách các yêu cầu hỗ trợ của khách hàng (có phân trang)")
     public ResponseEntity<ApiResponse<PageResponse<TicketResponse>>> getMyTickets(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -63,7 +63,7 @@ public class CustomerTicketController {
     }
 
     @GetMapping("/{ticketId}")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('SUPPORT_VIEW')")
     @Operation(summary = "Xem chi tiết tiến trình xử lý của một yêu cầu hỗ trợ")
     public ResponseEntity<ApiResponse<TicketResponse>> getTicketDetail(
             @PathVariable UUID ticketId,
@@ -75,5 +75,15 @@ public class CustomerTicketController {
                 .message("Ticket details retrieved successfully")
                 .data(response)
                 .build());
+    }
+
+    @PostMapping(value = "/upload-photos", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('SUPPORT_CREATE')")
+    @Operation(summary = "Upload photos as evidence for customer support tickets")
+    public ResponseEntity<ApiResponse<java.util.List<String>>> uploadTicketPhotos(
+            @RequestParam("files") org.springframework.web.multipart.MultipartFile[] files
+    ) {
+        java.util.List<String> urls = customerTicketService.uploadTicketPhotos(files);
+        return ResponseEntity.ok(ApiResponse.success("Ticket photos uploaded successfully", urls));
     }
 }
