@@ -806,48 +806,6 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                     GatePassVerifyScreen(facilityId: _facilityId!)),
               ),
             ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            PopupMenuButton<String>(
-              tooltip: 'Quản lý lịch, đơn, hoàn tiền và giao dịch',
-              icon: const Icon(Icons.more_vert),
-              onSelected: (action) {
-                final facilityId = _facilityId!;
-                switch (action) {
-                  case 'refunds':
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => RefundReviewScreen(facilityId: facilityId)));
-                    return;
-                  case 'appointments':
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => AppointmentAssignmentScreen(facilityId: facilityId)));
-                    return;
-                  case 'bookings':
-                    final route = MaterialPageRoute(
-                      builder: (_) => BookingAssignmentScreen(
-                        facilityId: facilityId,
-                        facilityName: _facilityName ?? '',
-                      ),
-                    );
-                    Navigator.push(context, route).then((_) {
-                      if (!mounted) return;
-                      _loadUnits();
-                      _loadReport();
-                    });
-                    return;
-                  case 'transactions':
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => TransactionHistoryScreen(
-                        userRole: widget.user.roleName, facilityId: facilityId)));
-                    return;
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'appointments', child: Text('Phân công nhân viên bàn giao')),
-                PopupMenuItem(value: 'bookings', child: Text('Xác nhận ngăn kho cho đơn')),
-                PopupMenuItem(value: 'refunds', child: Text('Hoàn cọc cho khách')),
-                PopupMenuItem(value: 'transactions', child: Text('Lịch sử giao dịch')),
-              ],
-            ),
           IconButton(
             tooltip: 'Hồ sơ',
             icon: CircleAvatar(
@@ -1054,6 +1012,22 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
               step(3, Icons.payments_outlined, 'Hoàn cọc\nsau trả kho',
                   'Nhân viên đã nghiệm thu', _openRefunds),
             ],
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TransactionHistoryScreen(
+                    userRole: widget.user.roleName,
+                    facilityId: _facilityId!,
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.receipt_long_outlined, size: 18),
+              label: const Text('Lịch sử giao dịch của cơ sở'),
+            ),
           ),
         ],
       ),

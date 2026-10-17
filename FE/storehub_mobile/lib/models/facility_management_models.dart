@@ -1,3 +1,5 @@
+import '../core/utils/vi_labels.dart';
+
 class FacilityUnitModel {
   final String id;
   final String unitCode;
@@ -16,7 +18,7 @@ class FacilityUnitModel {
   });
 
   String get statusLabel {
-    return status.replaceAll('_', ' ');
+    return ViLabels.unit(status);
   }
 
   bool get isAvailable {

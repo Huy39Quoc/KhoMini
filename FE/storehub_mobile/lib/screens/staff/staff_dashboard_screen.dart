@@ -874,44 +874,6 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     GatePassVerifyScreen(facilityId: _facilityId!)),
               ),
             ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            PopupMenuButton<String>(
-              tooltip: 'Ngăn kho, hỗ trợ và giao dịch',
-              icon: const Icon(Icons.more_vert),
-              onSelected: (value) {
-                final facilityId = _facilityId!;
-                Widget page;
-                switch (value) {
-                  case 'units':
-                    page = StaffUnitsScreen(
-                      facilityId: facilityId,
-                      facilityName: _facilityName ?? 'Cơ sở',
-                    );
-                    break;
-                  case 'tickets':
-                    page = StaffTicketScreen(
-                      facilityId: facilityId,
-                      staffId: widget.user.id,
-                    );
-                    break;
-                  default:
-                    page = TransactionHistoryScreen(
-                      userRole: widget.user.roleName,
-                      facilityId: facilityId,
-                    );
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => page),
-                );
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'units', child: Text('Ngăn kho')),
-                PopupMenuItem(value: 'tickets', child: Text('Yêu cầu hỗ trợ')),
-                PopupMenuItem(
-                    value: 'transactions', child: Text('Lịch sử giao dịch')),
-              ],
-            ),
           IconButton(
             tooltip: 'Hồ sơ',
             icon: CircleAvatar(

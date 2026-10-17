@@ -332,7 +332,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               ),
             ),
           ),
-          Padding(
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [

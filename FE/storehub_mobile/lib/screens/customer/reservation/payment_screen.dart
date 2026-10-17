@@ -165,8 +165,8 @@ class _PaymentScreenState extends State<PaymentScreen>
     return '${s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} ₫';
   }
 
-  /// Mở trang VNPay Sandbox ngay trong app (kèm bảng thẻ test). Giao dịch chỉ thành PAID khi
-  /// VNPay gọi về server; app chỉ đọc lại trạng thái, không tự xác nhận.
+  /// Mở trang VNPay ngay trong app. Giao dịch chỉ thành PAID khi VNPay gọi về server;
+  /// app chỉ đọc lại trạng thái, không tự xác nhận.
   Future<void> _payWithVnpay() async {
     if (_isExpired || _payment == null) return;
     // The booking may still be valid after the previous 15-minute VNPay URL expires.
@@ -187,7 +187,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           paymentUrl: paymentUrl,
           transactionId: transactionId,
           amount: amount,
-          title: 'Tiền cọc • VNPay Sandbox',
+          title: 'Tiền cọc • VNPay',
           fetchStatus: (id) =>
               _bookingService.getPaymentStatus(transactionId: id),
         ),
@@ -201,6 +201,15 @@ class _PaymentScreenState extends State<PaymentScreen>
       });
       _successCtrl.forward();
       HapticFeedback.mediumImpact();
+    } else if (!_isExpired) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Bạn chưa thanh toán. Ngăn kho vẫn được giữ đến khi hết giờ đếm ngược, '
+              'bạn có thể bấm thanh toán lại.'),
+          duration: Duration(seconds: 5),
+        ),
+      );
     }
   }
 
@@ -542,7 +551,7 @@ class _PaymentScreenState extends State<PaymentScreen>
                         Icon(Icons.account_balance_wallet,
                             color: Colors.white, size: 18),
                         SizedBox(width: 8),
-                        Text('VNPAY SANDBOX',
+                        Text('VNPAY',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -610,43 +619,6 @@ class _PaymentScreenState extends State<PaymentScreen>
         ),
         const SizedBox(height: 20),
 
-        // Test card details box
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.blue.shade200),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.credit_card, color: Color(0xFF0057B7), size: 20),
-                  SizedBox(width: 8),
-                  Text('Thẻ thử VNPay Sandbox',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: Color(0xFF003087))),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildTestCardRow('Bank (Ngân hàng):', 'NCB'),
-              const Divider(height: 12),
-              _buildTestCardRow('Card Number (Số thẻ):', '9704198526191432198'),
-              const Divider(height: 12),
-              _buildTestCardRow('Cardholder (Chủ thẻ):', 'NGUYEN VAN A'),
-              const Divider(height: 12),
-              _buildTestCardRow('Expiry (Ngày phát hành):', '07/15'),
-              const Divider(height: 12),
-              _buildTestCardRow('Mã OTP:', '123456'),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-
         // Instructions
         Container(
           padding: const EdgeInsets.all(14),
@@ -668,16 +640,14 @@ class _PaymentScreenState extends State<PaymentScreen>
                 ],
               ),
               SizedBox(height: 8),
-              _Step(step: '1', text: 'Chạm "Thanh toán qua VNPay Sandbox" bên dưới'),
-              _Step(step: '2', text: 'Chọn ngân hàng NCB trên trang VNPay'),
+              _Step(step: '1', text: 'Chạm "Thanh toán qua VNPay" bên dưới'),
+              _Step(
+                  step: '2',
+                  text: 'Chọn phương thức và hoàn tất thanh toán trên trang VNPay'),
               _Step(
                   step: '3',
                   text:
-                      'Nhập thông tin thẻ thử ở trên vào form, mã OTP 123456'),
-              _Step(
-                  step: '4',
-                  text:
-                      'Ứng dụng tự xác nhận khi VNPay báo thành công'),
+                      'Ứng dụng chỉ xác nhận khi VNPay báo thanh toán thành công'),
             ],
           ),
         ),
@@ -701,7 +671,7 @@ class _PaymentScreenState extends State<PaymentScreen>
               children: [
                 Icon(Icons.lock_outline, size: 20),
                 SizedBox(width: 8),
-                Text('Thanh toán qua VNPay Sandbox',
+                Text('Thanh toán qua VNPay',
                     style:
                         TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
               ],
@@ -710,45 +680,21 @@ class _PaymentScreenState extends State<PaymentScreen>
         ),
         const SizedBox(height: 10),
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Đơn đang chờ thanh toán. Ngăn kho được giữ trong thời gian đếm ngược; '
+                    'bạn có thể thanh toán tiếp ở mục "Đơn đang chờ thanh toán".'),
+                duration: Duration(seconds: 5),
+              ),
+            );
+            Navigator.pop(context);
+          },
           child: const Text('Thanh toán sau',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
         ),
         const SizedBox(height: 20),
-      ],
-    );
-  }
-
-  Widget _buildTestCardRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label,
-            style: const TextStyle(fontSize: 12, color: Colors.black87)),
-        Row(
-          children: [
-            SelectableText(
-              value,
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF003087)),
-            ),
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: value));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Đã sao chép $label'),
-                    duration: const Duration(seconds: 1),
-                  ),
-                );
-              },
-              child: const Icon(Icons.copy, size: 13, color: Color(0xFF0057B7)),
-            ),
-          ],
-        ),
       ],
     );
   }
