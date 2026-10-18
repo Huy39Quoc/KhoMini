@@ -78,6 +78,8 @@ public enum ErrorCode {
     TERMS_AND_CONDITIONS_REQUIRED(735, "Bạn cần đồng ý điều khoản thuê kho và cam kết không lưu trữ hàng cấm", HttpStatus.BAD_REQUEST),
     DAMAGE_FEE_EXCEEDS_DEPOSIT(736, "Phí hư hại không được vượt quá số tiền cọc đang giữ", HttpStatus.BAD_REQUEST),
     HANDOVER_DEFECT_NOTE_REQUIRED(737, "Vui lòng ghi chú chi tiết tình trạng hư hỏng/cần vệ sinh để quản lý xử lý", HttpStatus.BAD_REQUEST),
+    CHECKIN_TIME_OUTSIDE_OPEN_HOURS(739, "Giờ nhận kho phải nằm trong khung giờ mở cửa của cơ sở", HttpStatus.BAD_REQUEST),
+    CHECKIN_TIME_IN_PAST(740, "Thời điểm nhận kho đã qua. Hãy chọn giờ nhận kho muộn hơn hiện tại hoặc chọn ngày bắt đầu khác", HttpStatus.BAD_REQUEST),
     DAMAGE_REASON_REQUIRED(738, "Vui lòng nhập lý do khấu trừ phí hư hại", HttpStatus.BAD_REQUEST),
 
 

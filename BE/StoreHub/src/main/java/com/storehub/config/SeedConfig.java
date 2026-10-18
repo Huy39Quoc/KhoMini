@@ -70,30 +70,12 @@ public class SeedConfig implements ApplicationRunner {
         );
 
         createUser(
-                "facility_manager",
-                "facility@gmail.com",
-                facilityManagerPassword,
-                "System Facility Manager",
-                "0372345678",
-                "FACILITY_MANAGER"
-        );
-
-        createUser(
                 "business_manager",
                 "business@gmail.com",
                 businessManagerPassword,
                 "System Manager",
                 "0373456789",
                 "BUSINESS_MANAGER"
-        );
-
-        createUser(
-                "staff",
-                "staff@gmail.com",
-                staffPassword,
-                "System Staff",
-                "0374567890",
-                "STAFF"
         );
 
         createUser(
@@ -110,45 +92,79 @@ public class SeedConfig implements ApplicationRunner {
     }
 
     /**
-     * Tài khoản quản lý cơ sở và nhân viên bổ sung để test nhiều cơ sở.
-     * Mật khẩu dùng chung với tài khoản mặc định cùng vai trò. Idempotent: thiếu tài khoản nào
-     * thì tạo tài khoản đó, và chỉ gắn cơ sở khi tài khoản/cơ sở chưa có người được gắn
-     * (không ghi đè phân công đã làm tay).
+     * Tài khoản quản lý cơ sở và nhân viên, đặt tên theo số thứ tự (facility1.., staff1..).
+     * Mật khẩu dùng chung theo vai trò. Idempotent: thiếu tài khoản nào thì tạo; tài khoản cũ
+     * (facility@, staff@, facility_manager2...) được đổi tên theo quy ước mới; chỉ gắn cơ sở khi
+     * tài khoản và cơ sở chưa được gắn (không ghi đè phân công đã làm tay).
      */
     private void seedTestAccounts() {
-        // Tài khoản mặc định: gắn vào cơ sở D1 nếu chưa được gắn
-        linkManager("facility@gmail.com", "HCM-D1");
-        linkStaff("staff@gmail.com", "HCM-D1");
+        renameLegacyEmail("facility@gmail.com", "facility1@gmail.com");
+        renameLegacyEmail("staff@gmail.com", "staff1@gmail.com");
 
-        createUserIfMissing("facility_manager2", "facility2@gmail.com", facilityManagerPassword,
-                "Facility Manager District 7", "0372345681", "FACILITY_MANAGER");
+        ensureAccount("facility1", "facility1@gmail.com", facilityManagerPassword,
+                "Facility 1", "0372345678", "FACILITY_MANAGER");
+        linkManager("facility1@gmail.com", "HCM-D1");
+
+        ensureAccount("facility2", "facility2@gmail.com", facilityManagerPassword,
+                "Facility 2", "0372345681", "FACILITY_MANAGER");
         linkManager("facility2@gmail.com", "HCM-D7");
 
-        createUserIfMissing("facility_manager3", "facility3@gmail.com", facilityManagerPassword,
-                "Facility Manager Thu Duc", "0372345682", "FACILITY_MANAGER");
+        ensureAccount("facility3", "facility3@gmail.com", facilityManagerPassword,
+                "Facility 3", "0372345682", "FACILITY_MANAGER");
         linkManager("facility3@gmail.com", "HCM-TD");
 
-        createUserIfMissing("staff2", "staff2@gmail.com", staffPassword,
-                "Staff District 1 (2)", "0374567891", "STAFF");
+        ensureAccount("staff1", "staff1@gmail.com", staffPassword,
+                "Staff 1", "0374567890", "STAFF");
+        linkStaff("staff1@gmail.com", "HCM-D1");
+
+        ensureAccount("staff2", "staff2@gmail.com", staffPassword,
+                "Staff 2", "0374567891", "STAFF");
         linkStaff("staff2@gmail.com", "HCM-D1");
 
-        createUserIfMissing("staff3", "staff3@gmail.com", staffPassword,
-                "Staff District 7", "0374567892", "STAFF");
+        ensureAccount("staff3", "staff3@gmail.com", staffPassword,
+                "Staff 3", "0374567892", "STAFF");
         linkStaff("staff3@gmail.com", "HCM-D7");
 
         // Cố ý KHÔNG gắn cơ sở: dùng để test chức năng "Thêm nhân viên" của quản lý cơ sở.
-        createUserIfMissing("staff4", "staff4@gmail.com", staffPassword,
-                "Staff Chua Phan Cong", "0374567893", "STAFF");
+        ensureAccount("staff4", "staff4@gmail.com", staffPassword,
+                "Staff 4", "0374567893", "STAFF");
     }
 
-    private void createUserIfMissing(
+    /** Đổi email của tài khoản cũ sang quy ước mới (giữ nguyên mật khẩu, vai trò, cơ sở). */
+    private void renameLegacyEmail(String oldEmail, String newEmail) {
+        User user = userRepository.findByEmail(oldEmail).orElse(null);
+        if (user == null || userRepository.existsByEmail(newEmail)) {
+            return;
+        }
+        user.setEmail(newEmail);
+        userRepository.save(user);
+        log.info("Renamed account {} -> {}", oldEmail, newEmail);
+    }
+
+    /** Tạo tài khoản nếu chưa có; nếu đã có thì đồng bộ tên đăng nhập và họ tên theo quy ước. */
+    private void ensureAccount(
             String username, String email, String rawPassword,
             String fullName, String phone, String roleName
     ) {
-        if (userRepository.findByEmail(email).isPresent()) {
+        User existing = userRepository.findByEmail(email).orElse(null);
+        if (existing == null) {
+            createUser(username, email, rawPassword, fullName, phone, roleName);
             return;
         }
-        createUser(username, email, rawPassword, fullName, phone, roleName);
+        boolean changed = false;
+        if (!fullName.equals(existing.getFullName())) {
+            existing.setFullName(fullName);
+            changed = true;
+        }
+        if (!username.equals(existing.getUsername())
+                && !userRepository.existsByUsernameAndIdNot(username, existing.getId())) {
+            existing.setUsername(username);
+            changed = true;
+        }
+        if (changed) {
+            userRepository.save(existing);
+            log.info("Updated seeded account naming: {}", email);
+        }
     }
 
     private void linkManager(String email, String facilityCode) {

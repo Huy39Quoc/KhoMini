@@ -1,14 +1,13 @@
-import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 import '../models/paged_result.dart';
 
 class AdminApiService {
-  final Dio _dio = HttpClient.instance.dio;
+  final HttpClient _http = HttpClient.instance;
 
   Future<int> getTotalUsersCount() async {
     try {
-      final response = await _dio.get(
+      final response = await _http.get(
         ApiEndpoints.users,
         queryParameters: {'page': 0, 'size': 1},
       );
@@ -18,7 +17,7 @@ class AdminApiService {
         if (total is num) return total.toInt();
       }
       return 0;
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được số lượng người dùng: $message');
     }
@@ -26,7 +25,7 @@ class AdminApiService {
 
   Future<({int total, int active})> getUserSummary() async {
     try {
-      final response = await _dio.get(ApiEndpoints.usersSummary);
+      final response = await _http.get(ApiEndpoints.usersSummary);
       final data = response.data;
       if (data is Map && data['data'] is Map) {
         final d = data['data'] as Map;
@@ -38,7 +37,7 @@ class AdminApiService {
         );
       }
       return (total: 0, active: 0);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được số lượng người dùng: $message');
     }
@@ -55,16 +54,19 @@ class AdminApiService {
   }
 
   Future<PagedResult<Map<String, dynamic>>> getUsersPage({int page = 0,
-      String search = '', bool? isActive}) async {
+      String search = '', bool? isActive, String? roleName}) async {
     try {
-      final response = await _dio.get(ApiEndpoints.users, queryParameters: {
+      final response = await _http.get(ApiEndpoints.users, queryParameters: {
         'page': page, 'size': 20,
+        // Sắp xếp theo vai trò để danh sách được nhóm theo từng vai trò
+        'sortBy': 'role', 'sortDir': 'asc',
+        if (roleName != null && roleName.isNotEmpty) 'roleName': roleName,
         if (search.isNotEmpty) 'search': search,
         if (isActive != null) 'isActive': isActive,
       });
       return PagedResult.fromApi(response.data,
           (item) => Map<String, dynamic>.from(item as Map));
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được người dùng: $message');
     }
@@ -72,9 +74,9 @@ class AdminApiService {
 
   Future<List<dynamic>> getRoles() async {
     try {
-      final response = await _dio.get(ApiEndpoints.roles);
+      final response = await _http.get(ApiEndpoints.roles);
       return _extractList(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được danh sách vai trò: $message');
     }
@@ -98,8 +100,8 @@ class AdminApiService {
 
   Future<void> toggleUserActive(String userId) async {
     try {
-      await _dio.patch(ApiEndpoints.toggleUserActive(userId));
-    } on DioException catch (e) {
+      await _http.patch(ApiEndpoints.toggleUserActive(userId));
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể đổi trạng thái người dùng: $message');
     }
@@ -110,14 +112,14 @@ class AdminApiService {
       final permissions = <dynamic>[];
       var page = 0;
       while (true) {
-        final response = await _dio.get(ApiEndpoints.permissions,
+        final response = await _http.get(ApiEndpoints.permissions,
             queryParameters: {'page': page++, 'size': 50});
         final batch = PagedResult.fromApi(response.data,
             (item) => Map<String, dynamic>.from(item as Map));
         permissions.addAll(batch.content);
         if (batch.last) return permissions;
       }
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được danh sách quyền: $message');
     }
@@ -126,12 +128,12 @@ class AdminApiService {
   Future<List<dynamic>> getRolePermissionsByRole(String roleId) async {
     try {
       final response =
-          await _dio.get(ApiEndpoints.rolePermissionsByRole(roleId));
+          await _http.get(ApiEndpoints.rolePermissionsByRole(roleId));
       final data = response.data;
       if (data is Map && data['data'] is List) return data['data'];
       if (data is List) return data;
       return [];
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được quyền của vai trò: $message');
     }
@@ -140,14 +142,14 @@ class AdminApiService {
   Future<void> bulkAssignPermissions(
       String roleId, List<String> permissionIds) async {
     try {
-      await _dio.post(
+      await _http.post(
         ApiEndpoints.rolePermissionsBulkAssign,
         data: {
           'roleId': roleId,
           'permissionIds': permissionIds,
         },
       );
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể cập nhật quyền của vai trò: $message');
     }
@@ -155,8 +157,8 @@ class AdminApiService {
 
   Future<void> revokeRolePermission(String rolePermissionId) async {
     try {
-      await _dio.delete(ApiEndpoints.rolePermissionDetail(rolePermissionId));
-    } on DioException catch (e) {
+      await _http.delete(ApiEndpoints.rolePermissionDetail(rolePermissionId));
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể thu hồi quyền: $message');
     }
@@ -168,14 +170,14 @@ class AdminApiService {
     String currentPhone,
   ) async {
     try {
-      await _dio.put(
+      await _http.put(
         ApiEndpoints.userDetail(userId),
         data: {
           'roleId': roleId,
           'phone': currentPhone,
         },
       );
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể gán vai trò: $message');
     }
@@ -195,9 +197,9 @@ class AdminApiService {
 
   Future<Map<String, dynamic>> getUserDetail(String userId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.userDetail(userId));
+      final response = await _http.get(ApiEndpoints.userDetail(userId));
       return _unwrap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được thông tin người dùng: $message');
     }
@@ -212,7 +214,7 @@ class AdminApiService {
     String? roleId,
   }) async {
     try {
-      await _dio.post(
+      await _http.post(
         ApiEndpoints.users,
         data: {
           'username': username,
@@ -223,7 +225,7 @@ class AdminApiService {
           if (roleId != null && roleId.isNotEmpty) 'roleId': roleId,
         },
       );
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể tạo người dùng: $message');
     }
@@ -231,8 +233,8 @@ class AdminApiService {
 
   Future<void> deleteUser(String userId) async {
     try {
-      await _dio.delete(ApiEndpoints.userDetail(userId));
-    } on DioException catch (e) {
+      await _http.delete(ApiEndpoints.userDetail(userId));
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('$message');
     }
@@ -244,9 +246,9 @@ class AdminApiService {
 
   Future<Map<String, dynamic>> getRoleDetail(String roleId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.roleDetail(roleId));
+      final response = await _http.get(ApiEndpoints.roleDetail(roleId));
       return _unwrap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được chi tiết vai trò: $message');
     }
@@ -255,7 +257,7 @@ class AdminApiService {
   Future<void> updateRoleDescription(
       Map<String, dynamic> role, String description) async {
     try {
-      await _dio.put(
+      await _http.put(
         ApiEndpoints.roleDetail(role['id'].toString()),
         data: {
           'name': role['name'],
@@ -263,7 +265,7 @@ class AdminApiService {
           'isActive': role['isActive'] != false,
         },
       );
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể cập nhật vai trò: $message');
     }
@@ -272,9 +274,9 @@ class AdminApiService {
   Future<Map<String, dynamic>> getPermissionDetail(String permissionId) async {
     try {
       final response =
-          await _dio.get(ApiEndpoints.permissionDetail(permissionId));
+          await _http.get(ApiEndpoints.permissionDetail(permissionId));
       return _unwrap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được chi tiết quyền: $message');
     }
@@ -283,7 +285,7 @@ class AdminApiService {
   Future<void> updatePermissionDescription(
       Map<String, dynamic> permission, String description) async {
     try {
-      await _dio.put(
+      await _http.put(
         ApiEndpoints.permissionDetail(permission['id'].toString()),
         data: {
           'name': permission['name'],
@@ -292,7 +294,7 @@ class AdminApiService {
           'isActive': permission['isActive'] != false,
         },
       );
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể cập nhật quyền: $message');
     }

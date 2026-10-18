@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
@@ -6,12 +5,12 @@ import '../mappers/facility_operations_mapper.dart';
 import '../models/facility_operations_models.dart';
 
 class StorageApiService {
-  final Dio _dio = HttpClient.instance.dio;
+  final HttpClient _http = HttpClient.instance;
 
   // Lấy danh sách kho đang thuê của khách hàng
   Future<List<dynamic>> getMyRentedUnits() async {
     try {
-      final response = await _dio.get(ApiEndpoints.myUnits);
+      final response = await _http.get(ApiEndpoints.myUnits);
       if (response.data is List) {
         return response.data;
       } else if (response.data['result'] is List) {
@@ -20,7 +19,7 @@ class StorageApiService {
         return response.data['data'];
       }
       return [];
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được kho đang thuê: $message');
     }
@@ -28,12 +27,12 @@ class StorageApiService {
 
   Future<List<dynamic>> getAwaitingHandover() async {
     try {
-      final response = await _dio.get(ApiEndpoints.awaitingHandover);
+      final response = await _http.get(ApiEndpoints.awaitingHandover);
       final body = response.data;
       return body is Map && body['data'] is List
           ? List<dynamic>.from(body['data'])
           : <dynamic>[];
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final body = e.response?.data;
       throw Exception('Không tải được các đơn chờ nhận kho: '
           '${body is Map ? body['message'] : e.message}');
@@ -42,9 +41,9 @@ class StorageApiService {
 
   Future<Map<String, dynamic>> issueGatePass(String bookingId) async {
     try {
-      final response = await _dio.post(ApiEndpoints.gatePass(bookingId));
+      final response = await _http.post(ApiEndpoints.gatePass(bookingId));
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final body = e.response?.data;
       throw Exception('Không thể tạo mã QR cổng: '
           '${body is Map ? body['message'] : e.message}');
@@ -54,9 +53,9 @@ class StorageApiService {
   // Lấy trạng thái smart access (đã có PIN chưa, đang khóa/mở). Server không trả PIN đã lưu.
   Future<Map<String, dynamic>> getSmartAccess(String bookingId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.smartAccess(bookingId));
+      final response = await _http.get(ApiEndpoints.smartAccess(bookingId));
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không lấy được thông tin khóa thông minh: $message');
     }
@@ -66,12 +65,12 @@ class StorageApiService {
   Future<Map<String, dynamic>> setupPin(String bookingId,
       {String? newPin}) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.setupPin(bookingId),
         data: {if (newPin != null) 'newPin': newPin},
       );
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception(message);
     }
@@ -81,12 +80,12 @@ class StorageApiService {
   Future<Map<String, dynamic>> updatePin(
       String bookingId, String currentPin, String newPin) async {
     try {
-      final response = await _dio.put(
+      final response = await _http.put(
         ApiEndpoints.updatePin(bookingId),
         data: {'currentPin': currentPin, 'newPin': newPin},
       );
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception(message);
     }
@@ -96,12 +95,12 @@ class StorageApiService {
   Future<Map<String, dynamic>> resetPin(String bookingId, String password,
       {String? newPin}) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.resetPin(bookingId),
         data: {'password': password, if (newPin != null) 'newPin': newPin},
       );
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception(message);
     }
@@ -110,12 +109,12 @@ class StorageApiService {
   // Mở khóa ngăn kho bằng PIN (mô phỏng - không có phần cứng khóa thật).
   Future<Map<String, dynamic>> unlockUnit(String bookingId, String pin) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.unlockUnit(bookingId),
         data: {'pin': pin},
       );
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception(message);
     }
@@ -123,9 +122,9 @@ class StorageApiService {
 
   Future<Map<String, dynamic>> lockUnit(String bookingId) async {
     try {
-      final response = await _dio.post(ApiEndpoints.lockUnit(bookingId));
+      final response = await _http.post(ApiEndpoints.lockUnit(bookingId));
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể khóa ngăn kho: $message');
     }
@@ -135,12 +134,12 @@ class StorageApiService {
   Future<Map<String, dynamic>> extendRental(
       String bookingId, int months) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.extendRental(bookingId),
         data: {'extraMonths': months},
       );
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể gia hạn: $message');
     }
@@ -156,7 +155,7 @@ class StorageApiService {
     String? bankAccountName,
   }) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.checkoutRental(bookingId),
         data: {
           'scheduledReturnTime': _formatLocalDateTime(scheduledReturnTime),
@@ -170,7 +169,7 @@ class StorageApiService {
         },
       );
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể gửi yêu cầu trả kho: $message');
     }
@@ -180,9 +179,9 @@ class StorageApiService {
       String bookingId) async {
     try {
       final response =
-          await _dio.get(ApiEndpoints.pendingExtensionPayment(bookingId));
+          await _http.get(ApiEndpoints.pendingExtensionPayment(bookingId));
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       if (e.response?.statusCode == 404) return null;
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được khoản gia hạn đang chờ: $message');
@@ -192,9 +191,9 @@ class StorageApiService {
   // Hủy yêu cầu gia hạn đang chờ thanh toán (DELETE /{bookingId}/extend)
   Future<Map<String, dynamic>> cancelPendingExtension(String bookingId) async {
     try {
-      final response = await _dio.delete(ApiEndpoints.extendRental(bookingId));
+      final response = await _http.delete(ApiEndpoints.extendRental(bookingId));
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể hủy gia hạn: $message');
     }
@@ -204,9 +203,9 @@ class StorageApiService {
   Future<Map<String, dynamic>?> getPendingOverduePayment(
       String bookingId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.overduePayment(bookingId));
+      final response = await _http.get(ApiEndpoints.overduePayment(bookingId));
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       if (e.response?.statusCode == 404) return null;
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được phí trễ hạn: $message');
@@ -218,9 +217,9 @@ class StorageApiService {
   Future<Map<String, dynamic>> getPaymentStatus(String transactionId) async {
     try {
       final response =
-          await _dio.get(ApiEndpoints.paymentStatus(transactionId));
+          await _http.get(ApiEndpoints.paymentStatus(transactionId));
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không lấy được trạng thái thanh toán: $message');
     }
@@ -228,13 +227,13 @@ class StorageApiService {
 
   Future<List<HandoverRecordModel>> getCustomerHandoverRecords(String bookingId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.customerHandoverRecords(bookingId));
+      final response = await _http.get(ApiEndpoints.customerHandoverRecords(bookingId));
       final data = response.data;
       final list = (data is Map && data['data'] is List) ? data['data'] as List : [];
       return list
           .map((e) => FacilityOperationsMapper.handoverRecordFromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được biên bản bàn giao: $message');
     }

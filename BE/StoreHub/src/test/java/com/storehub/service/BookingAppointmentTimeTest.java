@@ -49,7 +49,7 @@ class BookingAppointmentTimeTest {
         AppException error = assertThrows(AppException.class,
                 () -> service.createBooking("customer@test.com", request));
 
-        assertEquals(ErrorCode.INVALID_REQUEST, error.getErrorCode());
+        assertEquals(ErrorCode.CHECKIN_TIME_OUTSIDE_OPEN_HOURS, error.getErrorCode());
         verify(units, never()).claimAvailableUnitId(any(), any());
     }
 }

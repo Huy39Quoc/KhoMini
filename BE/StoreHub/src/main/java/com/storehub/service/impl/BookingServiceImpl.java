@@ -77,9 +77,11 @@ public class BookingServiceImpl implements BookingService {
         if (checkInTime == null || facility.getOpenTime() == null
                 || facility.getCloseTime() == null
                 || checkInTime.isBefore(facility.getOpenTime())
-                || !checkInTime.isBefore(facility.getCloseTime())
-                || !request.getStartDate().atTime(checkInTime).isAfter(LocalDateTime.now())) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+                || !checkInTime.isBefore(facility.getCloseTime())) {
+            throw new AppException(ErrorCode.CHECKIN_TIME_OUTSIDE_OPEN_HOURS);
+        }
+        if (!request.getStartDate().atTime(checkInTime).isAfter(LocalDateTime.now())) {
+            throw new AppException(ErrorCode.CHECKIN_TIME_IN_PAST);
         }
 
         if (!facilityPolicyService.isMinRentalMonthsSatisfied(

@@ -634,6 +634,11 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                       Text('Chọn giờ trong khung giờ mở cửa của cơ sở.')));
               return;
             }
+            if (_isStartInPast(_startDate, picked)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text(_pastStartMessage)));
+              return;
+            }
             setState(() => _checkInTime = picked);
           },
         ),
@@ -1150,8 +1155,28 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     }
   }
 
+  /// Ngày + giờ nhận kho đã chọn phải còn ở tương lai (máy chủ cũng kiểm tra điều này).
+  bool _isStartInPast(DateTime date, TimeOfDay time) {
+    final start = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    return !start.isAfter(DateTime.now());
+  }
+
+  static const String _pastStartMessage =
+      'Thời điểm nhận kho đã qua. Hãy chọn giờ nhận kho muộn hơn hiện tại '
+      '(trong giờ mở cửa) hoặc chọn ngày bắt đầu khác.';
+
   Future<void> _handleReserve() async {
     if (_selectedType == null || _quote == null) return;
+
+    if (_isStartInPast(_startDate, _checkInTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(_pastStartMessage),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
 
     // Hiển thị BottomSheet ký cam kết hàng cấm & điều khoản dịch vụ lưu kho
     final agreed = await _showLegalAgreementSheet();

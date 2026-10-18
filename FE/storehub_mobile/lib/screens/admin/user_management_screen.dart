@@ -25,6 +25,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   String _statusFilter = 'ALL';
+  String _roleFilter = 'ALL';
+
+  static const List<String> _roleOrder = [
+    'ADMIN',
+    'BUSINESS_MANAGER',
+    'FACILITY_MANAGER',
+    'STAFF',
+    'CUSTOMER',
+  ];
 
   @override
   void initState() {
@@ -45,7 +54,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       _nextPage = 1;
       _lastPage = false;
       _usersFuture = _adminService.getUsersPage(search: _query,
-          isActive: _statusFilter == 'ALL' ? null : _statusFilter == 'ACTIVE');
+          isActive: _statusFilter == 'ALL' ? null : _statusFilter == 'ACTIVE',
+          roleName: _roleFilter == 'ALL' ? null : _roleFilter);
     });
   }
 
@@ -55,7 +65,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     setState(() => _loadingMore = true);
     try {
       final page = await _adminService.getUsersPage(page: _nextPage, search: _query,
-          isActive: _statusFilter == 'ALL' ? null : _statusFilter == 'ACTIVE');
+          isActive: _statusFilter == 'ALL' ? null : _statusFilter == 'ACTIVE',
+          roleName: _roleFilter == 'ALL' ? null : _roleFilter);
       if (!mounted || !identical(currentLoad, _usersFuture)) return;
       setState(() {
         _additional.addAll(page.content);
@@ -337,6 +348,20 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
+                _roleChip('Mọi vai trò', 'ALL'),
+                for (final role in _roleOrder) ...[
+                  const SizedBox(width: 8),
+                  _roleChip(ViLabels.role(role), role),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
                 _filterChip('Tất cả', 'ALL'),
                 const SizedBox(width: 8),
                 _filterChip('Đang hoạt động', 'ACTIVE'),
@@ -383,17 +408,43 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     );
                   }
 
+                  // Khi xem mọi vai trò, chèn tiêu đề nhóm mỗi khi vai trò đổi.
+                  final entries = <Object>[];
+                  String? lastRole;
+                  for (final u in users) {
+                    final r = u['roleName']?.toString() ?? '';
+                    if (_roleFilter == 'ALL' && r != lastRole) {
+                      entries.add(ViLabels.role(r));
+                      lastRole = r;
+                    }
+                    entries.add(u);
+                  }
+
                   return ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 88),
-                    itemCount: users.length + (hasMore ? 1 : 0),
+                    itemCount: entries.length + (hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
-                      if (index == users.length) {
+                      if (index == entries.length) {
                         return Center(child: TextButton(
                           onPressed: _loadingMore ? null : _loadMore,
                           child: Text(_loadingMore ? 'Đang tải...' : 'Xem thêm người dùng'),
                         ));
                       }
-                      final user = users[index];
+                      final entry = entries[index];
+                      if (entry is String) {
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+                          child: Text(
+                            entry,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                        );
+                      }
+                      final user = entry as Map<String, dynamic>;
                       final userId = user['id']?.toString() ?? '';
                       final username =
                           user['username']?.toString() ?? 'Unknown';
@@ -460,6 +511,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _roleChip(String label, String value) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: _roleFilter == value,
+      onSelected: (_) {
+        _roleFilter = value;
+        _loadUsers();
+      },
     );
   }
 

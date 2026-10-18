@@ -44,7 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
         lower.contains('connection') ||
         lower.contains('10.0.2.2') ||
         lower.contains('network') ||
-        lower.contains('failed');
+        lower.contains('failed') ||
+        lower.contains('hết thời gian') ||
+        lower.contains('không kết nối được');
   }
 
   void _showServerConfigDialog() {
