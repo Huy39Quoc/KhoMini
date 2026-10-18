@@ -540,10 +540,17 @@ public class FacilityOperationsServiceImpl
             );
         }
 
-        storageUnit.setStatus(target);
+        // Ngăn vừa kiểm tra xong nhưng vẫn là ngăn của một đơn đã xác nhận (đơn bị từ chối bàn giao,
+        // đang chờ quản lý đổi ngăn): giữ chỗ cho đơn đó, không trả về trống để tránh bị đặt trùng.
+        boolean heldForBooking = target == UnitStatus.AVAILABLE
+                && bookingRepository.existsByStorageUnit_IdAndStatusIn(
+                        unitId, List.of(BookingStatus.CONFIRMED));
+
+        storageUnit.setStatus(heldForBooking ? UnitStatus.RESERVED : target);
         storageUnitRepository.save(storageUnit);
 
         if (target == UnitStatus.AVAILABLE
+                && !heldForBooking
                 && storageUnit.getUnitType() != null) {
             try {
                 waitlistService.notifyNextInWaitlist(

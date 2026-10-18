@@ -78,6 +78,8 @@ class ViLabels {
         return 'Hư hỏng cơ sở';
       case 'PAYMENT_ISSUE':
         return 'Sự cố thanh toán';
+      case 'STORED_ITEMS':
+        return 'Sự cố đồ lưu trữ';
       case 'OTHER':
         return 'Khác';
       default:

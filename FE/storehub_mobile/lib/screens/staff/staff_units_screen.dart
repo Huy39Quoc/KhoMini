@@ -112,7 +112,8 @@ class _StaffUnitsScreenState extends State<StaffUnitsScreen> {
           content: Text(
             target == 'UNDER_MAINTENANCE'
                 ? 'Đã đánh dấu ngăn ${unit.unitCode} cần kiểm tra'
-                : 'Ngăn ${unit.unitCode} đã sẵn sàng cho thuê',
+                : 'Ngăn ${unit.unitCode} đã kiểm tra xong. Nếu đang có đơn chờ ngăn này, '
+                    'ngăn được giữ cho đơn đó; nếu không, ngăn trở về trạng thái Trống.',
           ),
           backgroundColor: AppColors.success,
         ),
