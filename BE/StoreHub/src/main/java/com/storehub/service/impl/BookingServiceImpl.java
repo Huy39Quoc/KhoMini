@@ -279,7 +279,8 @@ public class BookingServiceImpl implements BookingService {
         bookingRepository.save(booking);
 
         StorageUnit unit = booking.getStorageUnit();
-        if (unit != null) {
+        // Ngăn đang cần kiểm tra/bảo trì thì giữ nguyên trạng thái, chỉ ngăn đang giữ chỗ mới trả về trống.
+        if (unit != null && unit.getStatus() == UnitStatus.RESERVED) {
             unit.setStatus(UnitStatus.AVAILABLE);
             storageUnitRepository.save(unit);
 

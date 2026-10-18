@@ -107,6 +107,7 @@ class FacilityBookingModel {
   final String unitType;
   final String status;
   final bool unitAssignmentConfirmed;
+  final String unitStatus;
 
   const FacilityBookingModel({
     required this.id,
@@ -121,7 +122,12 @@ class FacilityBookingModel {
     required this.unitType,
     required this.status,
     required this.unitAssignmentConfirmed,
+    this.unitStatus = '',
   });
+
+  /// Ngăn hiện tại đang cần kiểm tra/bảo trì (nhân viên từ chối bàn giao).
+  bool get unitNeedsInspection =>
+      unitStatus.toUpperCase() == 'UNDER_MAINTENANCE';
 }
 
 class FacilityContractModel {

@@ -157,6 +157,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
+            final bool handoverBlocked = isCheckIn &&
+                (unitCondition != 'Tốt / sạch sẽ' ||
+                    lockCondition == 'Hỏng / cần sửa chữa');
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(
@@ -261,6 +264,46 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                               }
                             },
                     ),
+                    if (handoverBlocked) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded,
+                                    size: 18, color: Colors.orange.shade900),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Ngăn hoặc khóa chưa đạt yêu cầu',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Colors.orange.shade900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Hệ thống sẽ KHÔNG bàn giao ngăn này cho khách. Ngăn được chuyển sang '
+                              '"Cần kiểm tra / bảo trì" và đơn của khách được trả về cho quản lý '
+                              'để đổi sang ngăn khác. Hãy mô tả rõ tình trạng bên dưới và chụp ảnh bằng chứng.',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (!isCheckIn &&
                         (unitCondition == 'Hư hỏng' ||
                             unitCondition == 'Cần vệ sinh' ||
@@ -330,8 +373,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       controller: notesController,
                       maxLines: 3,
                       enabled: !submitting,
-                      decoration: const InputDecoration(
-                        labelText: 'Ghi chú (không bắt buộc)',
+                      decoration: InputDecoration(
+                        labelText: handoverBlocked
+                            ? 'Mô tả tình trạng hư hỏng / cần vệ sinh (bắt buộc)'
+                            : 'Ghi chú (không bắt buộc)',
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -371,9 +416,11 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                           : (value) => setSheetState(() {
                                 inspectionConfirmed = value ?? false;
                               }),
-                      title: Text(isCheckIn
-                          ? 'Tôi đã xác minh khách hàng, ngăn kho và khóa trước khi bàn giao'
-                          : 'Tôi đã kiểm tra ngăn kho và khóa khi nhận lại'),
+                      title: Text(handoverBlocked
+                          ? 'Tôi đã kiểm tra và xác nhận tình trạng ngăn/khóa nêu trên là đúng'
+                          : isCheckIn
+                              ? 'Tôi đã xác minh khách hàng, ngăn kho và khóa trước khi bàn giao'
+                              : 'Tôi đã kiểm tra ngăn kho và khóa khi nhận lại'),
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                     const SizedBox(height: 20),
@@ -381,6 +428,31 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       onPressed: submitting || !inspectionConfirmed
                           ? null
                           : () async {
+                              final String? validation = () {
+                                if (handoverBlocked &&
+                                    notesController.text.trim().isEmpty) {
+                                  return 'Vui lòng mô tả tình trạng hư hỏng / cần vệ sinh để quản lý xử lý.';
+                                }
+                                final num? fee = num.tryParse(
+                                    damageFeeController.text.trim());
+                                if (!isCheckIn &&
+                                    fee != null &&
+                                    fee > 0 &&
+                                    damageReasonController.text.trim().isEmpty) {
+                                  return 'Vui lòng nhập lý do khấu trừ phí hư hại.';
+                                }
+                                return null;
+                              }();
+                              if (validation != null) {
+                                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                  SnackBar(
+                                    content: Text(validation),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                                return;
+                              }
+
                               setSheetState(() {
                                 submitting = true;
                               });
@@ -438,13 +510,19 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                   return;
                                 }
 
-                                _showSuccess(
-                                  result.message.isNotEmpty
-                                      ? result.message
-                                      : isCheckIn
-                                          ? 'Bàn giao kho thành công'
-                                          : 'Nghiệm thu trả kho thành công',
-                                );
+                                if (isCheckIn &&
+                                    result.recordType.toUpperCase() ==
+                                        'CHECK_IN_REJECTED') {
+                                  _showWarning(result.message);
+                                } else {
+                                  _showSuccess(
+                                    result.message.isNotEmpty
+                                        ? result.message
+                                        : isCheckIn
+                                            ? 'Bàn giao kho thành công'
+                                            : 'Nghiệm thu trả kho thành công',
+                                  );
+                                }
 
                                 _loadSchedule();
                               } catch (error) {
@@ -479,7 +557,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                             )
                           : Text(
                               isCheckIn
-                                  ? 'Xác nhận bàn giao'
+                                  ? (handoverBlocked
+                                      ? 'Báo không đạt, chưa bàn giao'
+                                      : 'Xác nhận bàn giao')
                                   : 'Xác nhận nghiệm thu',
                             ),
                     ),
@@ -836,12 +916,24 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     switch (recordType.toUpperCase()) {
       case 'CHECK_IN':
         return 'Bàn giao';
+      case 'CHECK_IN_REJECTED':
+        return 'Từ chối bàn giao';
       case 'CHECK_OUT':
       case 'RETURN':
         return 'Nghiệm thu';
       default:
         return recordType.replaceAll('_', ' ');
     }
+  }
+
+  void _showWarning(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.orange.shade800,
+        duration: const Duration(seconds: 8),
+      ),
+    );
   }
 
   void _showSuccess(String message) {

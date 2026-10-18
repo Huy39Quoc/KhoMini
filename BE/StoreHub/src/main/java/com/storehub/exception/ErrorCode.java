@@ -77,6 +77,8 @@ public enum ErrorCode {
     ADVANCE_RESERVATION_EXCEEDED(734, "Ngày bắt đầu vượt quá thời gian đặt trước tối đa của cơ sở", HttpStatus.BAD_REQUEST),
     TERMS_AND_CONDITIONS_REQUIRED(735, "Bạn cần đồng ý điều khoản thuê kho và cam kết không lưu trữ hàng cấm", HttpStatus.BAD_REQUEST),
     DAMAGE_FEE_EXCEEDS_DEPOSIT(736, "Phí hư hại không được vượt quá số tiền cọc đang giữ", HttpStatus.BAD_REQUEST),
+    HANDOVER_DEFECT_NOTE_REQUIRED(737, "Vui lòng ghi chú chi tiết tình trạng hư hỏng/cần vệ sinh để quản lý xử lý", HttpStatus.BAD_REQUEST),
+    DAMAGE_REASON_REQUIRED(738, "Vui lòng nhập lý do khấu trừ phí hư hại", HttpStatus.BAD_REQUEST),
 
 
     UNIT_UNAVAILABLE(

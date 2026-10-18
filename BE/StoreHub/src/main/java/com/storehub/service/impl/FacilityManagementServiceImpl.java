@@ -190,12 +190,20 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
         }
 
+        // Ngăn cũ có thể đang cần kiểm tra/bảo trì (nhân viên từ chối bàn giao vì hư hỏng):
+        // khi đó đơn chưa được xác nhận ngăn và quản lý phải chọn ngăn khác.
+        boolean oldUnderMaintenance = oldUnit.getStatus() == UnitStatus.UNDER_MAINTENANCE
+                && !Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed());
+
         if (booking.getStatus() != BookingStatus.CONFIRMED
-                || oldUnit.getStatus() != UnitStatus.RESERVED) {
+                || (oldUnit.getStatus() != UnitStatus.RESERVED && !oldUnderMaintenance)) {
             throw new AppException(ErrorCode.UNIT_UNAVAILABLE);
         }
 
         if (oldUnit.getId().equals(unitId)) {
+            if (oldUnderMaintenance) {
+                throw new AppException(ErrorCode.UNIT_UNAVAILABLE);
+            }
             // Manager accepts the provisional inventory hold as the final unit.
             if (!Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())) {
                 booking.setUnitAssignmentConfirmed(true);
@@ -222,17 +230,21 @@ public class FacilityManagementServiceImpl
         replacement.setStatus(UnitStatus.RESERVED);
         booking.setStorageUnit(replacement);
         booking.setUnitAssignmentConfirmed(true);
-        oldUnit.setStatus(UnitStatus.AVAILABLE);
+        if (!oldUnderMaintenance) {
+            oldUnit.setStatus(UnitStatus.AVAILABLE);
+        }
         units.save(oldUnit);
         units.save(replacement);
         bookings.save(booking);
         notifyUnitAssignmentAfterCommit(booking, replacement);
 
-        try {
-            waitlistService.notifyNextInWaitlist(facilityId, oldUnit.getUnitType().getId());
-        } catch (Exception e) {
-            log.warn("Failed to notify waitlist after reassigning booking {}: {}",
-                    bookingId, e.getMessage());
+        if (!oldUnderMaintenance) {
+            try {
+                waitlistService.notifyNextInWaitlist(facilityId, oldUnit.getUnitType().getId());
+            } catch (Exception e) {
+                log.warn("Failed to notify waitlist after reassigning booking {}: {}",
+                        bookingId, e.getMessage());
+            }
         }
 
         return toUnit(replacement);
@@ -580,7 +592,8 @@ public class FacilityManagementServiceImpl
                 unitType.getId(),
                 unitType.getTypeName(),
                 booking.getStatus(),
-                Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())
+                Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()),
+                unit.getStatus() != null ? unit.getStatus().name() : null
         );
     }
 
