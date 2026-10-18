@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 
@@ -7,16 +6,16 @@ import '../core/network/http_client.dart';
 /// (Future.delayed + a random booking code); this service actually
 /// creates the booking and payment records on the BE.
 class BookingApiService {
-  final Dio _dio = HttpClient.instance.dio;
+  final HttpClient _http = HttpClient.instance;
 
   Future<List<Map<String, dynamic>>> getPayableBookings() async {
     try {
-      final response = await _dio.get(ApiEndpoints.myPendingBookings);
+      final response = await _http.get(ApiEndpoints.myPendingBookings);
       final body = response.data;
       final list = body is Map ? body['data'] : null;
       if (list is! List) throw const FormatException('Danh sách đơn không hợp lệ');
       return list.map((item) => Map<String, dynamic>.from(item as Map)).toList();
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final body = e.response?.data;
       final message = body is Map ? body['message'] : e.message;
       throw Exception('Không tải được các đơn đang chờ: $message');
@@ -38,7 +37,7 @@ class BookingApiService {
     String? termsVersion,
   }) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.bookings,
         data: {
           'facilityId': facilityId,
@@ -53,7 +52,7 @@ class BookingApiService {
         },
       );
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể tạo đơn đặt kho: $message');
     }
@@ -69,7 +68,7 @@ class BookingApiService {
     String? paymentMethod,
   }) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.paymentInitiate,
         data: {
           'bookingId': bookingId,
@@ -78,7 +77,7 @@ class BookingApiService {
         },
       );
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể khởi tạo thanh toán: $message');
     }
@@ -91,9 +90,9 @@ class BookingApiService {
   }) async {
     try {
       final response =
-          await _dio.get(ApiEndpoints.paymentStatus(transactionId));
+          await _http.get(ApiEndpoints.paymentStatus(transactionId));
       return _unwrapMap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không lấy được trạng thái thanh toán: $message');
     }
@@ -103,8 +102,8 @@ class BookingApiService {
   /// the reserved unit back to AVAILABLE and notifying the waitlist.
   Future<void> cancelBooking(String bookingId) async {
     try {
-      await _dio.delete(ApiEndpoints.bookingDetail(bookingId));
-    } on DioException catch (e) {
+      await _http.delete(ApiEndpoints.bookingDetail(bookingId));
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể hủy đơn: $message');
     }
@@ -117,7 +116,7 @@ class BookingApiService {
     required String unitTypeId,
   }) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.waitlist,
         queryParameters: {'facilityId': facilityId, 'unitTypeId': unitTypeId},
       );
@@ -126,14 +125,14 @@ class BookingApiService {
         return body['message'] as String;
       }
       return "Bạn đã được thêm vào danh sách chờ.";
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể vào danh sách chờ: $message');
     }
   }
 
   Future<List<Map<String, dynamic>>> getMyWaitlist() async {
-    final response = await _dio.get('${ApiEndpoints.waitlist}/mine');
+    final response = await _http.get('${ApiEndpoints.waitlist}/mine');
     final data = response.data;
     final entries = data is Map ? data['data'] : null;
     if (entries is! List) throw const FormatException('Dữ liệu danh sách chờ không hợp lệ');
@@ -141,7 +140,7 @@ class BookingApiService {
   }
 
   Future<void> leaveWaitlist(String id) async {
-    await _dio.delete('${ApiEndpoints.waitlist}/$id');
+    await _http.delete('${ApiEndpoints.waitlist}/$id');
   }
 
   Map<String, dynamic> _unwrapMap(dynamic data) {

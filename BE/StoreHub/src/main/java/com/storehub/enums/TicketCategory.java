@@ -5,5 +5,6 @@ public enum TicketCategory {
     LOCK_ISSUE,
     FACILITY_DAMAGE,
     PAYMENT_ISSUE,
+    STORED_ITEMS,
     OTHER
 }

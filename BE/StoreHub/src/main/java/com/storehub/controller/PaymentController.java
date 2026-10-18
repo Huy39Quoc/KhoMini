@@ -2,7 +2,6 @@ package com.storehub.controller;
 
 import com.storehub.common.ApiResponse;
 import com.storehub.common.PageResponse;
-import com.storehub.dto.request.PaymentConfirmationRequest;
 import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
 import com.storehub.enums.PaymentStatus;
@@ -70,27 +69,6 @@ public class PaymentController {
                 transactionId
         );
         return ResponseEntity.ok(ApiResponse.success("Payment status retrieved", response));
-    }
-
-    @PostMapping("/confirm")
-    @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('PAYMENT_VIEW')")
-    @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "[Deprecated] Chỉ trả về trạng thái giao dịch, không còn tự xác nhận thanh toán")
-    public ResponseEntity<ApiResponse<PaymentResponse>> confirmPayment(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody PaymentConfirmationRequest request
-    ) {
-        PaymentResponse response = paymentService.confirmPayment(
-                userDetails.getUsername(),
-                request
-        );
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Payment confirmed successfully",
-                        response
-                )
-        );
     }
 
     @GetMapping("/bookings/{bookingId}/overdue")

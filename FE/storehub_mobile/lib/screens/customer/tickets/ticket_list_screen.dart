@@ -65,6 +65,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
     'LOCK_ISSUE': 'Sự cố khóa / cửa',
     'FACILITY_DAMAGE': 'Hư hỏng cơ sở',
     'PAYMENT_ISSUE': 'Sự cố thanh toán',
+    'STORED_ITEMS': 'Sự cố đồ lưu trữ',
     'OTHER': 'Khác',
   };
 

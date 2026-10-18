@@ -25,6 +25,8 @@ const Map<String, _CategoryInfo> _kCategories = {
   'FACILITY_DAMAGE':
       _CategoryInfo('Hư hỏng cơ sở', Icons.report_problem_outlined),
   'PAYMENT_ISSUE': _CategoryInfo('Sự cố thanh toán', Icons.payments_outlined),
+  'STORED_ITEMS':
+      _CategoryInfo('Sự cố đồ lưu trữ', Icons.inventory_2_outlined),
   'OTHER': _CategoryInfo('Khác', Icons.more_horiz),
 };
 

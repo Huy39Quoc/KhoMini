@@ -48,6 +48,52 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
     }
   }
 
+  /// Cho quản lý đọc lý do nhân viên từ chối bàn giao ngăn này.
+  Future<void> _showRejectionReason(FacilityBookingModel booking) async {
+    try {
+      final records = await _opsService.getHandoverHistory(
+        bookingId: booking.id,
+        facilityId: widget.facilityId,
+      );
+      final rejected = records
+          .where((r) => r.recordType.toUpperCase() == 'CHECK_IN_REJECTED')
+          .toList()
+        ..sort((a, b) => (b.recordedAt ?? DateTime(1970))
+            .compareTo(a.recordedAt ?? DateTime(1970)));
+      if (!mounted) return;
+      final record = rejected.isEmpty ? null : rejected.first;
+      String two(int v) => v.toString().padLeft(2, '0');
+      final time = record?.recordedAt?.toLocal();
+      final lines = <String>[
+        if (record == null) 'Chưa có biên bản từ chối bàn giao cho đơn này.',
+        if (record != null && record.unitCondition.isNotEmpty)
+          'Tình trạng: ${record.unitCondition}',
+        if (record != null && record.notes.isNotEmpty)
+          'Mô tả: ${record.notes}',
+        if (record != null && record.staffName.isNotEmpty)
+          'Nhân viên: ${record.staffName}',
+        if (time != null)
+          'Lúc: ${two(time.hour)}:${two(time.minute)} ${two(time.day)}/${two(time.month)}/${time.year}',
+      ];
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Ngăn ${booking.unitCode}: lý do không bàn giao'),
+          content: Text(lines.join('\n')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Đóng'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showError(_errorMessage(error));
+    }
+  }
+
   Future<void> _openUnitSelector(
     FacilityBookingModel booking,
   ) async {
@@ -69,7 +115,9 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
     final availableUnits = units.where((unit) {
       return unit.unitTypeId == booking.unitTypeId &&
           (unit.isAvailable ||
-              (!booking.unitAssignmentConfirmed && unit.id == booking.storageUnitId));
+              (!booking.unitAssignmentConfirmed &&
+                  !booking.unitNeedsInspection &&
+                  unit.id == booking.storageUnitId));
     }).toList();
 
     if (availableUnits.isEmpty) {
@@ -302,12 +350,29 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          booking.unitAssignmentConfirmed
-                              ? 'Đã xác nhận ngăn ${booking.unitCode} (${booking.unitType}). Chờ nhân viên bàn giao từ ngày bắt đầu thuê.'
-                              : 'Đã giữ chỗ loại ${booking.unitType}. '
-                                  'Ngăn đề xuất ${booking.unitCode}: hãy xác nhận hoặc đổi sang ngăn khác.',
-                        ),
+                        if (booking.unitNeedsInspection)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: Text(
+                              'Nhân viên không bàn giao được ngăn ${booking.unitCode} '
+                              'vì ngăn/khóa chưa đạt, ngăn đã chuyển sang "Cần kiểm tra / bảo trì". '
+                              'Hãy đổi sang ngăn ${booking.unitType} khác đang trống.',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          )
+                        else
+                          Text(
+                            booking.unitAssignmentConfirmed
+                                ? 'Đã xác nhận ngăn ${booking.unitCode} (${booking.unitType}). Chờ nhân viên bàn giao từ ngày bắt đầu thuê.'
+                                : 'Đã giữ chỗ loại ${booking.unitType}. '
+                                    'Ngăn đề xuất ${booking.unitCode}: hãy xác nhận hoặc đổi sang ngăn khác.',
+                          ),
                         const SizedBox(height: 4),
                         Text(
                           '${booking.startDate} → ${booking.endDate}',
@@ -317,19 +382,27 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: OutlinedButton.icon(
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 8,
+                          children: [
+                            if (booking.unitNeedsInspection)
+                              TextButton(
+                                onPressed: () => _showRejectionReason(booking),
+                                child: const Text('Xem lý do'),
+                              ),
+                            OutlinedButton.icon(
                             onPressed: () {
                               _openUnitSelector(booking);
                             },
                             icon:  Icon(
-                              booking.unitAssignmentConfirmed
+                              (booking.unitAssignmentConfirmed || booking.unitNeedsInspection)
                                   ? Icons.swap_horiz : Icons.assignment_turned_in_outlined,
                             ),
-                            label: Text(booking.unitAssignmentConfirmed
+                            label: Text((booking.unitAssignmentConfirmed || booking.unitNeedsInspection)
                                 ? 'Đổi ngăn' : 'Xác nhận ngăn'),
                           ),
+                          ],
                         ),
                       ],
                     ),

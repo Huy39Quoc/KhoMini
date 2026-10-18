@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
+import '../../widgets/logout_dialog.dart';
 import '../auth/login_screen.dart';
 import 'transaction_history_screen.dart';
 
@@ -85,25 +86,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handleLogout() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Đăng xuất?'),
-        content: const Text('Bạn sẽ cần đăng nhập lại để tiếp tục.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Hủy')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Đăng xuất'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
+    final confirm = await confirmLogout(context);
+    if (!confirm) return;
 
     setState(() => _isLoggingOut = true);
     await _authApiService.logout();
@@ -316,20 +300,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 24),
 
-            OutlinedButton.icon(
+            ElevatedButton.icon(
               onPressed: _isLoggingOut ? null : _handleLogout,
               icon: _isLoggingOut
                   ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: AppColors.error),
                     )
-                  : const Icon(Icons.logout, color: AppColors.error),
-              label: const Text('Đăng xuất',
-                  style: TextStyle(color: AppColors.error)),
-              style: OutlinedButton.styleFrom(
+                  : const Icon(Icons.logout_rounded, size: 20),
+              label: const Text('Đăng xuất'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.errorContainer,
+                foregroundColor: AppColors.error,
+                disabledBackgroundColor: AppColors.errorContainer,
+                disabledForegroundColor: AppColors.error,
                 minimumSize: const Size.fromHeight(50),
-                side: const BorderSide(color: AppColors.error),
               ),
             ),
             const SizedBox(height: 24),

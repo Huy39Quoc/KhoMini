@@ -78,6 +78,8 @@ class ViLabels {
         return 'Hư hỏng cơ sở';
       case 'PAYMENT_ISSUE':
         return 'Sự cố thanh toán';
+      case 'STORED_ITEMS':
+        return 'Sự cố đồ lưu trữ';
       case 'OTHER':
         return 'Khác';
       default:
@@ -129,6 +131,8 @@ class ViLabels {
     switch (_norm(type)) {
       case 'CHECK_IN':
         return 'Bàn giao kho';
+      case 'CHECK_IN_REJECTED':
+        return 'Từ chối bàn giao (ngăn/khóa chưa đạt)';
       case 'CHECK_OUT':
       case 'RETURN':
         return 'Nghiệm thu trả kho';

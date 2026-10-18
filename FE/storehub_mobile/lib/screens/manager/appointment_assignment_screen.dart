@@ -85,8 +85,9 @@ class _AppointmentAssignmentScreenState
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
-              'Chọn nhân viên phụ trách cho từng lịch hẹn. Lịch chưa phân công hiện cho '
-              'mọi nhân viên của cơ sở; lịch đã phân công chỉ nhân viên đó thấy và xử lý.',
+              'Lịch nhận/trả kho của cơ sở trong ngày. Chọn nhân viên phụ trách cho từng lịch: '
+              'lịch chưa phân công hiện cho mọi nhân viên của cơ sở, lịch đã phân công chỉ '
+              'nhân viên đó thấy và xử lý.',
               style: TextStyle(fontSize: 12, color: Colors.black54),
             ),
           ),
@@ -95,12 +96,34 @@ class _AppointmentAssignmentScreenState
               future: _staff,
               builder: (context, staffSnapshot) {
                 if (staffSnapshot.hasError) {
-                  return Center(child: Text('Staff: ${staffSnapshot.error}'));
+                  return Center(
+                      child: Text(staffSnapshot.error
+                          .toString()
+                          .replaceFirst('Exception: ', '')));
                 }
                 if (!staffSnapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                return FutureBuilder<List<DailyScheduleModel>>(
+                final staffList = staffSnapshot.data!;
+                return Column(children: [
+                  if (staffList.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amber.shade200),
+                      ),
+                      child: const Text(
+                        'Cơ sở này chưa có nhân viên nào nên chưa thể phân công. '
+                        'Hãy quay lại bảng điều khiển, vào tab "Nhân viên" và bấm '
+                        '"Thêm nhân viên" trước.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  Expanded(child: FutureBuilder<List<DailyScheduleModel>>(
                   future: _schedule,
                   builder: (context, scheduleSnapshot) {
                     if (scheduleSnapshot.hasError) {
@@ -111,7 +134,18 @@ class _AppointmentAssignmentScreenState
                     }
                     final appointments = scheduleSnapshot.data!;
                     if (appointments.isEmpty) {
-                      return const Center(child: Text('Không có lịch hẹn trong ngày này.'));
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            'Chưa có lịch nhận/trả kho trong ngày này.\n'
+                            'Lịch chỉ xuất hiện khi khách đã đặt cọc và ngày bắt đầu thuê '
+                            '(nhận kho) hoặc ngày hết hạn (trả kho) trùng với ngày đang chọn. '
+                            'Hãy chọn ngày khác.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
                     }
                     final staff = staffSnapshot.data!;
                     return RefreshIndicator(
@@ -162,7 +196,8 @@ class _AppointmentAssignmentScreenState
                       ),
                     );
                   },
-                );
+                )),
+                ]);
               },
             ),
           ),

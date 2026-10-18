@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/booking_api_service.dart';
 import '../../../services/auth_api_service.dart';
+import '../../../widgets/logout_dialog.dart';
 import '../../../services/storage_api_service.dart';
 import '../../../models/my_unit_model.dart';
 import '../../../widgets/state_views.dart';
@@ -515,6 +516,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   }
 
   void _logout(BuildContext context) async {
+    if (!await confirmLogout(context)) return;
     await AuthApiService().logout();
 
     if (!context.mounted) return;

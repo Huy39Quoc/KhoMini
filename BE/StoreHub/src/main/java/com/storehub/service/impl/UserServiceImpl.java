@@ -145,20 +145,25 @@ public class UserServiceImpl implements UserService {
     public PageResponse<UserResponse> findAllWithFilters(
             String search,
             Boolean isActive,
+            String roleName,
             int page,
             int size,
             String sortBy,
             String sortDir
     ) {
 
-        Sort sort = sortDir.equalsIgnoreCase("desc")
-                ? Sort.by(sortBy).descending()
-                : Sort.by(sortBy).ascending();
+        Sort.Direction direction = sortDir.equalsIgnoreCase("desc")
+                ? Sort.Direction.DESC
+                : Sort.Direction.ASC;
+        // sortBy=role: nhóm theo vai trò rồi theo email để danh sách ổn định giữa các trang
+        Sort sort = "role".equalsIgnoreCase(sortBy)
+                ? Sort.by(direction, "role.name").and(Sort.by(Sort.Direction.ASC, "email"))
+                : Sort.by(direction, sortBy);
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Page<UserResponse> result = userRepository
-                .findAllWithFilters(search, isActive, pageable)
+                .findAllWithFilters(search, isActive, roleName, pageable)
                 .map(userMapper::toResponse);
 
         return PageResponse.from(result);

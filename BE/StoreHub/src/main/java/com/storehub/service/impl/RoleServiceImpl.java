@@ -53,22 +53,6 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public RoleResponse create(RoleCreateRequest request) {
-        String trimmedName = request.getName() != null ? request.getName().trim() : "";
-        if(roleRepository.existsByName(trimmedName)){
-            throw new AppException(ErrorCode.ROLE_NAME_EXISTED);
-        }
-        Role role = roleMapper.toEntity(request);
-        role.setName(trimmedName);
-        Role saved = roleRepository.save(role);
-
-        activityLogService.record(ActivityAction.ROLE_CREATE, "ROLE", saved.getId(),
-                "Created role: " + saved.getName(), null, saved.getName());
-
-        return roleMapper.toResponse(saved);
-    }
-
-    @Override
     public RoleResponse update(UUID id, RoleUpdateRequest request) {
         Role role = roleRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
@@ -94,30 +78,6 @@ public class RoleServiceImpl implements RoleService {
                 "Updated role: " + updated.getName(), oldName, updated.getName());
 
         return roleMapper.toResponse(updated);
-    }
-
-    @Override
-    public void delete(UUID id) {
-        Role role = roleRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
-
-        // Protect default system roles
-        if (SYSTEM_ROLES.contains(role.getName().toUpperCase())) {
-            throw new AppException(ErrorCode.CANNOT_DELETE_SYSTEM_ROLE);
-        }
-
-        // Prevent deletion if users are currently assigned to this role
-        if (userRepository.existsByRole_Id(role.getId())) {
-            throw new AppException(ErrorCode.ROLE_IN_USE);
-        }
-
-        // Cascade delete permissions assigned to this role before deleting the role
-        rolePermissionRepository.deleteAllByRole_Id(role.getId());
-
-        roleRepository.deleteById(role.getId());
-
-        activityLogService.record(ActivityAction.ROLE_DELETE, "ROLE", role.getId(),
-                "Deleted role: " + role.getName(), role.getName(), null);
     }
 
     @Override

@@ -29,15 +29,6 @@ public class BookingController {
 
     private final BookingService bookingService;
 
-    @PostMapping("/quote")
-    @Operation(summary = "Tính báo giá thuê kho (không tạo booking)")
-    public ResponseEntity<ApiResponse<RentalQuoteResponse>> getRentalQuote(
-            @Valid @RequestBody RentalQuoteRequest request
-    ) {
-        RentalQuoteResponse quote = bookingService.getRentalQuote(request);
-        return ResponseEntity.ok(ApiResponse.success("Rental quote calculated successfully", quote));
-    }
-
     @PostMapping
     @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('BOOKING_CREATE')")
     @SecurityRequirement(name = "bearerAuth")

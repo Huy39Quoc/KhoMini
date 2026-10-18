@@ -77,9 +77,11 @@ public class BookingServiceImpl implements BookingService {
         if (checkInTime == null || facility.getOpenTime() == null
                 || facility.getCloseTime() == null
                 || checkInTime.isBefore(facility.getOpenTime())
-                || !checkInTime.isBefore(facility.getCloseTime())
-                || !request.getStartDate().atTime(checkInTime).isAfter(LocalDateTime.now())) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+                || !checkInTime.isBefore(facility.getCloseTime())) {
+            throw new AppException(ErrorCode.CHECKIN_TIME_OUTSIDE_OPEN_HOURS);
+        }
+        if (!request.getStartDate().atTime(checkInTime).isAfter(LocalDateTime.now())) {
+            throw new AppException(ErrorCode.CHECKIN_TIME_IN_PAST);
         }
 
         if (!facilityPolicyService.isMinRentalMonthsSatisfied(
@@ -253,14 +255,6 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public RentalQuoteResponse getRentalQuote(
-            RentalQuoteRequest request
-    ) {
-        return pricingService.calculateRentalQuote(request);
-    }
-
-    @Override
     @Transactional
     public void cancelBooking(UUID bookingId, String customerEmail) {
         User customer = userRepository.findByEmail(customerEmail)
@@ -287,7 +281,8 @@ public class BookingServiceImpl implements BookingService {
         bookingRepository.save(booking);
 
         StorageUnit unit = booking.getStorageUnit();
-        if (unit != null) {
+        // Ngăn đang cần kiểm tra/bảo trì thì giữ nguyên trạng thái, chỉ ngăn đang giữ chỗ mới trả về trống.
+        if (unit != null && unit.getStatus() == UnitStatus.RESERVED) {
             unit.setStatus(UnitStatus.AVAILABLE);
             storageUnitRepository.save(unit);
 

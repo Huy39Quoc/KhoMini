@@ -11,7 +11,7 @@ class ContractOperationDialog extends StatefulWidget {
   final bool resumePending;
 
   /// true = khách bấm "Pay late fee": dialog tải khoản phí trễ hạn đang chờ
-  /// (GET /payments/bookings/{id}/overdue) và cho thanh toán qua VNPay Sandbox.
+  /// (GET /payments/bookings/{id}/overdue) và cho thanh toán qua VNPay.
   final bool payOverdue;
 
   const ContractOperationDialog({
@@ -28,8 +28,6 @@ class ContractOperationDialog extends StatefulWidget {
 }
 
 class _ContractOperationDialogState extends State<ContractOperationDialog> {
-  static const bool _sandboxMode = bool.fromEnvironment('VNPAY_SANDBOX') ||
-      !bool.fromEnvironment('dart.vm.product');
   final StorageApiService _storageService = StorageApiService();
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _bankCodeController = TextEditingController();
@@ -286,7 +284,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       _result!['paymentRequired'] == true &&
       _paymentConfirmed == null;
 
-  /// Mở VNPay Sandbox trong app. Giao dịch chỉ thành PAID khi VNPay gọi về server;
+  /// Mở VNPay trong app. Giao dịch chỉ thành PAID khi VNPay gọi về server;
   /// khách không thể tự bấm "đã trả".
   Future<void> _payWithVnpay() async {
     // Re-read the attempt: a previously displayed URL can have expired.
@@ -315,7 +313,7 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           paymentUrl: paymentUrl,
           transactionId: transactionId,
           amount: fee.toDouble(),
-          title: widget.payOverdue ? 'Phí trễ hạn • VNPay Sandbox' : 'Gia hạn • VNPay Sandbox',
+          title: widget.payOverdue ? 'Phí trễ hạn • VNPay' : 'Gia hạn • VNPay',
           fetchStatus: _storageService.getPaymentStatus,
         ),
       ),
@@ -579,31 +577,6 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               style: const TextStyle(
                   fontSize: 12, color: AppColors.onSurfaceVariant),
             ),
-            if (_sandboxMode) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: const Column(
-                  children: [
-                    Text('THẺ THỬ VNPAY SANDBOX',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF003087))),
-                    SizedBox(height: 6),
-                    Text('Bank: NCB | Card: 9704198526191432198',
-                        style: TextStyle(fontSize: 11)),
-                    Text('Name: NGUYEN VAN A | Date: 07/15 | OTP: 123456',
-                        style: TextStyle(fontSize: 11)),
-                  ],
-                ),
-              ),
-            ],
             const SizedBox(height: 8),
             Text('Mã giao dịch: $transactionId',
                 style: const TextStyle(

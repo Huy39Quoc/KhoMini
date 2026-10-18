@@ -10,9 +10,8 @@ import '../../../core/constants/app_colors.dart';
 
 /// Màn hình thanh toán dùng chung (đặt cọc, gia hạn, phí trễ hạn).
 ///
-/// Mở trang VNPay trong app; thẻ test chỉ hiển thị ở bản debug hoặc khi
-/// VNPAY_SANDBOX được bật rõ ràng. Kết quả giao dịch chỉ
-/// thành PAID khi VNPay gọi về server. App chỉ đọc trạng thái qua [fetchStatus].
+/// Mở trang VNPay trong app. Kết quả giao dịch chỉ thành PAID khi VNPay gọi về
+/// server. App chỉ đọc trạng thái qua [fetchStatus].
 ///
 /// Pop về: Map trạng thái giao dịch khi PAID, hoặc null nếu khách thoát / thất bại.
 class VnpayCheckoutScreen extends StatefulWidget {
@@ -42,20 +41,11 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
   Timer? _pollTimer;
 
   bool _pageLoading = true;
-  bool _showCard = true;
   bool _checking = false;
   bool _finished = false;
   bool _isRefundStatus = false;
   String? _failedMessage;
   String? _loadError; // lỗi tải trang VNPay (mạng, SSL, ...)
-
-  static const _cardRows = <List<String>>[
-    ['Ngân hàng', 'NCB'],
-    ['Số thẻ', '9704198526191432198'],
-    ['Tên chủ thẻ', 'NGUYEN VAN A'],
-    ['Ngày phát hành', '07/15'],
-    ['Mã OTP', '123456'],
-  ];
 
   @override
   void initState() {
@@ -283,108 +273,9 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
     );
   }
 
-  void _copy(String label, String value) {
-    Clipboard.setData(ClipboardData(text: value));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã chép $label'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-
   String _formatPrice(double v) {
     final s = v.toInt().toString();
     return '${s.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} ₫';
-  }
-
-  Widget _cardPanel() {
-    return Container(
-      width: double.infinity,
-      color: Colors.blue.shade50,
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => setState(() => _showCard = !_showCard),
-            child: Row(
-              children: [
-                const Icon(Icons.credit_card,
-                    size: 18, color: Color(0xFF0057B7)),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Thẻ test VNPay Sandbox - nhập vào form bên dưới',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Color(0xFF003087)),
-                  ),
-                ),
-                Icon(_showCard ? Icons.expand_less : Icons.expand_more,
-                    color: const Color(0xFF0057B7)),
-              ],
-            ),
-          ),
-          if (_showCard) ...[
-            const SizedBox(height: 6),
-            for (final row in _cardRows)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 110,
-                      child: Text('${row[0]}:',
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.black87)),
-                    ),
-                    Expanded(
-                      child: SelectableText(
-                        row[1],
-                        style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF003087)),
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () => _copy(row[0], row[1]),
-                      child: const Padding(
-                        padding: EdgeInsets.all(6),
-                        child: Icon(Icons.copy,
-                            size: 15, color: Color(0xFF0057B7)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Môi trường test luôn dùng ngân hàng NCB.',
-                    style: TextStyle(fontSize: 11, color: Colors.black54),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: _openInBrowser,
-                  icon: const Icon(Icons.open_in_browser, size: 16),
-                  label: const Text('Mở bằng trình duyệt',
-                      style: TextStyle(fontSize: 11)),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: const Size(0, 28),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
   }
 
   Widget _failedView() {
@@ -452,7 +343,6 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
           ? _failedView()
           : Column(
               children: [
-                if (_sandboxMode) _cardPanel(),
                 if (_pageLoading) const LinearProgressIndicator(minHeight: 2),
                 Expanded(
                   child: _loadError != null

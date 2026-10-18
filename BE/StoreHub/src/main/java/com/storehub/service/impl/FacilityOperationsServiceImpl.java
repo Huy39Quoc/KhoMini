@@ -322,6 +322,12 @@ public class FacilityOperationsServiceImpl
             );
         }
 
+        // Ngăn/khóa hỏng hoặc chưa sạch thì không bàn giao: đánh dấu ngăn cần kiểm tra/bảo trì
+        // và trả đơn về cho quản lý đổi sang ngăn khác.
+        if (notReadyForHandover(request)) {
+            return rejectHandover(booking, storageUnit, staff, request);
+        }
+
         LocalDateTime now = LocalDateTime.now();
 
         HandoverRecord record = HandoverRecord.builder()
@@ -421,6 +427,10 @@ public class FacilityOperationsServiceImpl
                     ? booking.getDepositPaid() : BigDecimal.ZERO;
             if (damageFeeInput.signum() < 0 || damageFeeInput.compareTo(depositHeld) > 0) {
                 throw new AppException(ErrorCode.DAMAGE_FEE_EXCEEDS_DEPOSIT);
+            }
+            if (damageFeeInput.signum() > 0
+                    && (request.getDamageReason() == null || request.getDamageReason().isBlank())) {
+                throw new AppException(ErrorCode.DAMAGE_REASON_REQUIRED);
             }
         }
 
@@ -530,10 +540,17 @@ public class FacilityOperationsServiceImpl
             );
         }
 
-        storageUnit.setStatus(target);
+        // Ngăn vừa kiểm tra xong nhưng vẫn là ngăn của một đơn đã xác nhận (đơn bị từ chối bàn giao,
+        // đang chờ quản lý đổi ngăn): giữ chỗ cho đơn đó, không trả về trống để tránh bị đặt trùng.
+        boolean heldForBooking = target == UnitStatus.AVAILABLE
+                && bookingRepository.existsByStorageUnit_IdAndStatusIn(
+                        unitId, List.of(BookingStatus.CONFIRMED));
+
+        storageUnit.setStatus(heldForBooking ? UnitStatus.RESERVED : target);
         storageUnitRepository.save(storageUnit);
 
         if (target == UnitStatus.AVAILABLE
+                && !heldForBooking
                 && storageUnit.getUnitType() != null) {
             try {
                 waitlistService.notifyNextInWaitlist(
@@ -547,6 +564,56 @@ public class FacilityOperationsServiceImpl
         }
 
         return "Storage unit status updated successfully";
+    }
+
+    private boolean notReadyForHandover(HandoverRequest request) {
+        String unit = request.getUnitCondition() == null
+                ? "" : request.getUnitCondition().toLowerCase();
+        String lock = request.getLockCondition() == null
+                ? "" : request.getLockCondition().toLowerCase();
+        return unit.contains("hư hỏng")
+                || unit.contains("vệ sinh")
+                || lock.contains("hỏng");
+    }
+
+    private HandoverResponse rejectHandover(
+            Booking booking,
+            StorageUnit storageUnit,
+            User staff,
+            HandoverRequest request
+    ) {
+        if (request.getNotes() == null || request.getNotes().isBlank()) {
+            throw new AppException(ErrorCode.HANDOVER_DEFECT_NOTE_REQUIRED);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        HandoverRecord record = HandoverRecord.builder()
+                .booking(booking)
+                .staff(staff)
+                .recordType("CHECK_IN_REJECTED")
+                .unitCondition(buildUnitCondition(request))
+                .notes(request.getNotes())
+                .photos(request.getPhotos())
+                .recordedAt(now)
+                .build();
+        handoverRecordRepository.save(record);
+
+        storageUnit.setStatus(UnitStatus.UNDER_MAINTENANCE);
+        booking.setUnitAssignmentConfirmed(false);
+        storageUnitRepository.save(storageUnit);
+        bookingRepository.save(booking);
+
+        return toHandoverResponse(
+                booking,
+                storageUnit,
+                record,
+                request.getLockCondition(),
+                staff,
+                "Ngăn " + storageUnit.getUnitCode()
+                        + " chưa thể bàn giao và đã chuyển sang trạng thái cần kiểm tra/bảo trì. "
+                        + "Đơn của khách được trả về cho quản lý để đổi sang ngăn khác."
+        );
     }
 
     private String buildUnitCondition(
