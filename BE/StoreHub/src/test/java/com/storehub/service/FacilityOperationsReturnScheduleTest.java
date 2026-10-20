@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -166,5 +167,31 @@ class FacilityOperationsReturnScheduleTest {
 
         assertEquals(ErrorCode.UNIT_ASSIGNMENT_REQUIRED, error.getErrorCode());
         verify(records, never()).save(any());
+    }
+
+    @Test
+    void unlockedUnitIsRejectedInsteadOfBeingHandedOver() {
+        UUID facilityId = UUID.randomUUID(), bookingId = UUID.randomUUID(), unitId = UUID.randomUUID();
+        Facility facility = new Facility(); facility.setId(facilityId);
+        StorageUnit unit = StorageUnit.builder().facility(facility)
+                .status(UnitStatus.RESERVED).build(); unit.setId(unitId);
+        Booking booking = Booking.builder().storageUnit(unit).unitAssignmentConfirmed(true)
+                .status(BookingStatus.CONFIRMED).startDate(LocalDate.now())
+                .endDate(LocalDate.now().plusMonths(1)).build();
+        booking.setId(bookingId);
+        User staff = User.builder().fullName("Staff").build(); staff.setId(UUID.randomUUID());
+        when(access.require("staff@test.com", facilityId)).thenReturn(staff);
+        when(bookings.lockById(bookingId)).thenReturn(Optional.of(booking));
+        when(units.lockById(unitId)).thenReturn(Optional.of(unit));
+
+        var result = operations.checkIn(bookingId, facilityId, "staff@test.com",
+                HandoverRequest.builder().unitCondition("Tốt / sạch sẽ")
+                        .lockCondition("Chưa khóa").notes("Khóa cửa chưa được gài").build());
+
+        assertEquals("CHECK_IN_REJECTED", result.getRecordType());
+        assertEquals(BookingStatus.CONFIRMED, booking.getStatus());
+        assertEquals(UnitStatus.UNDER_MAINTENANCE, unit.getStatus());
+        assertFalse(Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()));
+        assertNull(booking.getHandoverTime());
     }
 }

@@ -15,6 +15,7 @@ import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.service.impl.CustomerStorageServiceImpl;
 import com.storehub.service.impl.PaymentServiceImpl;
+import com.storehub.scheduler.OverdueScheduler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,12 +31,15 @@ import static com.storehub.common.PaymentNotes.OVERDUE_LATE_FEE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 class UnpaidFailedLateFeeTest {
     @Mock BookingRepository bookings;
     @Mock PaymentRepository payments;
     @Mock UserRepository users;
+    @Mock OverdueScheduler overdueScheduler;
     @InjectMocks CustomerStorageServiceImpl storage;
     @Mock FacilityPolicyRepository facilityPolicies;
     @InjectMocks PaymentServiceImpl paymentService;
@@ -52,6 +56,8 @@ class UnpaidFailedLateFeeTest {
         when(users.findByEmail("customer@test.com")).thenReturn(Optional.of(customer));
         when(bookings.lockByIdAndCustomerId(bookingId, customerId))
                 .thenReturn(Optional.of(booking));
+        when(overdueScheduler.accrueOutstandingForCheckout(eq(booking), any()))
+                .thenReturn(true);
         when(payments.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
                 bookingId, PaymentType.EXTRA_CHARGE, OVERDUE_LATE_FEE,
                 List.of(PaymentStatus.PENDING, PaymentStatus.FAILED)))

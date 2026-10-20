@@ -322,8 +322,8 @@ public class FacilityOperationsServiceImpl
             );
         }
 
-        // Ngăn/khóa hỏng hoặc chưa sạch thì không bàn giao: đánh dấu ngăn cần kiểm tra/bảo trì
-        // và trả đơn về cho quản lý đổi sang ngăn khác.
+        // Ngăn/khóa hỏng, chưa sạch hoặc chưa khóa thì không bàn giao;
+        // chuyển ngăn sang cần kiểm tra và trả đơn về cho quản lý.
         if (notReadyForHandover(request)) {
             return rejectHandover(booking, storageUnit, staff, request);
         }
@@ -573,7 +573,8 @@ public class FacilityOperationsServiceImpl
                 ? "" : request.getLockCondition().toLowerCase();
         return unit.contains("hư hỏng")
                 || unit.contains("vệ sinh")
-                || lock.contains("hỏng");
+                || lock.contains("hỏng")
+                || lock.contains("chưa khóa");
     }
 
     private HandoverResponse rejectHandover(

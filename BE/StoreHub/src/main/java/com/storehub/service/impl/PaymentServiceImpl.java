@@ -18,11 +18,13 @@ import com.storehub.enums.RefundStatus;
 import com.storehub.enums.UnitStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
+import com.storehub.exception.OutstandingOverdueExtensionException;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.FacilityPolicyRepository;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.scheduler.OverdueScheduler;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.EmailService;
 import com.storehub.service.PaymentService;
@@ -64,6 +66,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final FacilityPolicyRepository facilityPolicies;
     private final VnpayRefundClient gateway;
     private final WaitlistService waitlistService;
+    private final OverdueScheduler overdueScheduler;
 
     // Dòng RENTAL_FEE đi kèm khoản cọc dùng mã giao dịch = mã của dòng DEPOSIT + hậu tố này.
     private static final String RENTAL_SUFFIX = "-R";
@@ -86,7 +89,7 @@ public class PaymentServiceImpl implements PaymentService {
     private String vnpMerchantIp;
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = OutstandingOverdueExtensionException.class)
     public PaymentResponse initiatePayment(
             String customerEmail,
             PaymentInitiationRequest request
@@ -118,6 +121,9 @@ public class PaymentServiceImpl implements PaymentService {
         if (requestedType == PaymentType.EXTRA_CHARGE
                 && booking.getStatus() != BookingStatus.ACTIVE) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        if (requestedType == PaymentType.EXTRA_CHARGE) {
+            blockExtensionIfOverdue(booking);
         }
 
         if (requestedType == PaymentType.DEPOSIT) {
@@ -564,6 +570,27 @@ public class PaymentServiceImpl implements PaymentService {
                 payment.setStatus(PaymentStatus.REFUND_PENDING);
                 return toPaymentResponse(payment);
             }
+            // A payment URL may have been issued before expiry and captured after
+            // the nightly fee job was missed. Accrue under the same booking lock.
+            // Refund this charge instead of extending while the debt is unpaid.
+            if (overdueScheduler.accrueOutstandingForCheckout(booking, LocalDateTime.now())) {
+                paymentRepository.findByBooking_IdAndPaymentTypeAndNoteAndStatusIn(
+                                booking.getId(), PaymentType.EXTRA_CHARGE, RENTAL_EXTENSION,
+                                List.of(PaymentStatus.PENDING, PaymentStatus.FAILED))
+                        .stream().filter(attempt -> !attempt.getTransactionId()
+                                .equals(payment.getTransactionId()))
+                        .forEach(attempt -> {
+                            attempt.setVoidedAt(LocalDateTime.now());
+                            attempt.setStatus(PaymentStatus.FAILED);
+                            paymentRepository.save(attempt);
+                        });
+                booking.setPendingExtraMonths(null);
+                booking.setPendingExtensionFee(null);
+                bookingRepository.save(booking);
+                queueRefund(booking, payment, BigDecimal.ZERO, payment.getAmount());
+                payment.setStatus(PaymentStatus.REFUND_PENDING);
+                return toPaymentResponse(payment);
+            }
             var oldEndDate = booking.getEndDate();
 
             booking.setEndDate(oldEndDate.plusMonths(booking.getPendingExtraMonths()));
@@ -625,7 +652,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = OutstandingOverdueExtensionException.class)
     public PaymentResponse getPendingExtensionPayment(String customerEmail, UUID bookingId) {
         User customer = userRepository.findByEmail(customerEmail)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -636,6 +663,8 @@ public class PaymentServiceImpl implements PaymentService {
         if (booking.getPendingExtraMonths() == null) {
             throw new AppException(ErrorCode.PAYMENT_NOT_FOUND);
         }
+
+        blockExtensionIfOverdue(booking);
 
         Payment payment = paymentRepository
                 .findFirstByBooking_IdAndPaymentTypeAndStatusAndNoteOrderByPaymentTimeDesc(
@@ -649,6 +678,13 @@ public class PaymentServiceImpl implements PaymentService {
                 );
 
         return resolveExtraAttempt(booking, payment);
+    }
+
+    private void blockExtensionIfOverdue(Booking booking) {
+        if (booking.getStatus() == BookingStatus.ACTIVE
+                && overdueScheduler.accrueOutstandingForCheckout(booking, LocalDateTime.now())) {
+            throw new OutstandingOverdueExtensionException();
+        }
     }
 
     @Override

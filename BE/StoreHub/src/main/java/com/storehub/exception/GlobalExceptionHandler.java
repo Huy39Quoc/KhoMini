@@ -41,6 +41,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrity(
             org.springframework.dao.DataIntegrityViolationException ex) {
+        // The exists-check in createUnit/updateUnit is only a friendly fast path.
+        // Concurrent requests are settled by the database constraint.
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
+                    && "uq_storage_units_facility_code".equals(violation.getConstraintName())) {
+                return handleAppException(new AppException(ErrorCode.UNIT_CODE_EXISTED));
+            }
+        }
         return handleAppException(new AppException(ErrorCode.RESOURCE_IN_USE));
     }
 
