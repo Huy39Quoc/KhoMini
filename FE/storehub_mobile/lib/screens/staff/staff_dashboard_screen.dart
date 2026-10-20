@@ -159,7 +159,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
           builder: (sheetContext, setSheetState) {
             final bool handoverBlocked = isCheckIn &&
                 (unitCondition != 'Tốt / sạch sẽ' ||
-                    lockCondition == 'Hỏng / cần sửa chữa');
+                    lockCondition != 'Đã khóa & hoạt động tốt');
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(
@@ -375,7 +375,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       enabled: !submitting,
                       decoration: InputDecoration(
                         labelText: handoverBlocked
-                            ? 'Mô tả tình trạng hư hỏng / cần vệ sinh (bắt buộc)'
+                            ? 'Mô tả lý do chưa thể bàn giao (bắt buộc)'
                             : 'Ghi chú (không bắt buộc)',
                       ),
                     ),
@@ -431,7 +431,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                               final String? validation = () {
                                 if (handoverBlocked &&
                                     notesController.text.trim().isEmpty) {
-                                  return 'Vui lòng mô tả tình trạng hư hỏng / cần vệ sinh để quản lý xử lý.';
+                                  return 'Vui lòng mô tả vì sao ngăn hoặc khóa chưa đạt yêu cầu.';
                                 }
                                 final num? fee = num.tryParse(
                                     damageFeeController.text.trim());
