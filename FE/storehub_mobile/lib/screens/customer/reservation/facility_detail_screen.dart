@@ -1142,7 +1142,18 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: AppColors.success),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.success,
+          action: SnackBarAction(
+            label: 'Xem danh sách',
+            textColor: Colors.white,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MyWaitlistScreen()),
+            ),
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;

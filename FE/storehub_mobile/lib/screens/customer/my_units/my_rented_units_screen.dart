@@ -34,7 +34,9 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   // Chỉ gia hạn khi đã nhận kho; nếu đang treo yêu cầu gia hạn thì vẫn cho mở lại
   // để thanh toán/hủy; nợ phí trễ hạn thì phải trả trước.
   bool _canExtend(MyUnitModel unit) =>
-      unit.isActive && (unit.hasPendingExtension || !unit.hasLateFeeDue);
+      unit.isActive &&
+      (unit.hasPendingExtension ||
+          (!unit.hasLateFeeDue && !unit.renewalNotYetOpen));
 
   @override
   void initState() {
@@ -152,7 +154,13 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                         ? const Text('Tiếp tục hoặc hủy yêu cầu gia hạn đang chờ')
                         : unit.hasLateFeeDue
                             ? const Text('Vui lòng thanh toán phí trễ hạn trước')
-                            : null,
+                            : unit.renewalNotYetOpen
+                                ? Text(
+                                    'Chưa đến thời điểm gia hạn. Gia hạn mở từ '
+                                    '${_dateFmt.format(unit.renewalOpensDate!)} '
+                                    '(trong ${unit.endDate!.difference(unit.renewalOpensDate!).inDays} '
+                                    'ngày cuối trước ngày hết hạn ${_dateFmt.format(unit.endDate!)}).')
+                                : null,
                 onTap: _canExtend(unit)
                     ? () {
                         Navigator.pop(ctx);

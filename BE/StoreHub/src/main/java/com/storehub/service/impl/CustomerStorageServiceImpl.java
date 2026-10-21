@@ -511,6 +511,12 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                         .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)
                 : BigDecimal.ZERO;
         response.setOverdueFeeOutstanding(lateFees);
+
+        if (b.getStatus() == BookingStatus.ACTIVE && b.getEndDate() != null
+                && b.getStorageUnit() != null && b.getStorageUnit().getFacility() != null) {
+            response.setRenewalOpensDate(facilityPolicyService.getRenewalOpensDate(
+                    b.getStorageUnit().getFacility().getId(), b.getEndDate()));
+        }
         return response;
     }
 

@@ -748,6 +748,19 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     }
   }
 
+  /// Giải thích ngắn trạng thái ngăn để quản lý không nhầm "Đã giữ chỗ" với "đã thanh toán".
+  String _unitStatusHint(String status) {
+    switch (status.toUpperCase()) {
+      case 'RESERVED':
+        return 'Khách đã đặt kho (đang thanh toán hoặc chờ nhận kho). '
+            'Giữ chỗ tự hết hạn nếu không thanh toán.';
+      case 'UNDER_MAINTENANCE':
+        return 'Chờ kiểm tra / vệ sinh / bảo trì trước khi cho thuê lại.';
+      default:
+        return '';
+    }
+  }
+
   Color _unitStatusColor(String status) {
     switch (status) {
       case 'AVAILABLE':
@@ -1107,11 +1120,16 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                       fontSize: 14,
                     ),
                   ),
+                  isThreeLine: _unitStatusHint(unit.status).isNotEmpty,
                   subtitle: Text(
                     [
-                      unit.unitType,
-                      if (unit.floorLevel.isNotEmpty) unit.floorLevel,
-                    ].join(' • '),
+                      [
+                        unit.unitType,
+                        if (unit.floorLevel.isNotEmpty) unit.floorLevel,
+                      ].join(' • '),
+                      if (_unitStatusHint(unit.status).isNotEmpty)
+                        _unitStatusHint(unit.status),
+                    ].join('\n'),
                     style: const TextStyle(fontSize: 12),
                   ),
                   trailing: Row(

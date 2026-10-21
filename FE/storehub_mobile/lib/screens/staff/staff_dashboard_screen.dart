@@ -145,6 +145,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
 
     bool submitting = false;
     bool inspectionConfirmed = false;
+    // Lỗi hiện ngay trong bảng (SnackBar của màn hình bên dưới bị bảng che mất).
+    String? sheetError;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -390,7 +392,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     const SizedBox(height: 4),
                     Text(
                       isCheckIn
-                          ? 'Chụp ảnh ngăn kho sạch, khóa hoạt động tốt làm bằng chứng bàn giao.'
+                          ? (handoverBlocked
+                              ? 'Chụp ảnh chỗ hư hỏng / chưa sạch của ngăn hoặc khóa để quản lý và khách đối chiếu.'
+                              : 'Chụp ảnh ngăn kho sạch, khóa hoạt động tốt làm bằng chứng bàn giao.')
                           : 'Chụp ảnh hiện trạng khi trả, chỗ hư hỏng hoặc đồ còn sót lại để tránh tranh chấp.',
                       style: const TextStyle(
                         fontSize: 11,
@@ -424,6 +428,32 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                     const SizedBox(height: 20),
+                    if (sheetError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorContainer,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline,
+                                size: 18, color: AppColors.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                sheetError!,
+                                style: const TextStyle(
+                                    fontSize: 12, color: AppColors.error),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     ElevatedButton(
                       onPressed: submitting || !inspectionConfirmed
                           ? null
@@ -444,16 +474,12 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                 return null;
                               }();
                               if (validation != null) {
-                                ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                  SnackBar(
-                                    content: Text(validation),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
+                                setSheetState(() => sheetError = validation);
                                 return;
                               }
 
                               setSheetState(() {
+                                sheetError = null;
                                 submitting = true;
                               });
 
@@ -513,7 +539,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                 if (isCheckIn &&
                                     result.recordType.toUpperCase() ==
                                         'CHECK_IN_REJECTED') {
-                                  _showWarning(result.message);
+                                  _showRejectionResult(item.unitCode);
                                 } else {
                                   _showSuccess(
                                     result.message.isNotEmpty
@@ -532,18 +558,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
 
                                 setSheetState(() {
                                   submitting = false;
+                                  sheetError = _errorMessage(error);
                                 });
-
-                                ScaffoldMessenger.of(
-                                  sheetContext,
-                                ).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      _errorMessage(error),
-                                    ),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
                               }
                             },
                       child: submitting
@@ -926,12 +942,27 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     }
   }
 
-  void _showWarning(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.orange.shade800,
-        duration: const Duration(seconds: 8),
+  /// Giải thích rõ chuyện gì xảy ra sau khi nhân viên báo ngăn/khóa không đạt.
+  Future<void> _showRejectionResult(String unitCode) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Chưa bàn giao ngăn $unitCode'),
+        content: const Text(
+          '1. Ngăn đã chuyển sang "Cần kiểm tra / bảo trì".\n'
+          '2. Đơn của khách được trả về cho quản lý cơ sở để đổi sang ngăn khác '
+          '(cùng loại, đang trống). Lịch hẹn sẽ hiện "Chờ quản lý xác nhận ngăn" '
+          'cho tới khi quản lý đổi xong.\n'
+          '3. Hãy báo khách chờ. Khi có ngăn mới, bàn giao lại cho khách.\n'
+          '4. Khi ngăn cũ đã kiểm tra/sửa xong, vào "Ngăn kho" và bấm '
+          '"Đã kiểm tra xong, cho thuê lại".',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
       ),
     );
   }

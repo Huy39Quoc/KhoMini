@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
+import '../../core/navigation/customer_tab_request.dart';
 import '../../widgets/logout_dialog.dart';
+import 'reservation/my_waitlist_screen.dart';
 import '../auth/login_screen.dart';
 import '../common/profile_screen.dart';
 import '../common/transaction_history_screen.dart';
@@ -28,12 +30,26 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   @override
   void initState() {
     super.initState();
+    customerTabRequest.addListener(_onTabRequest);
     _screens = [
       _buildHomeOverview(),
       const MyRentedUnitsScreen(),
       const ExploreScreen(),
       const TicketListScreen(),
     ];
+  }
+
+  void _onTabRequest() {
+    final tab = customerTabRequest.value;
+    if (tab == null) return;
+    customerTabRequest.value = null;
+    if (mounted) setState(() => _currentIndex = tab);
+  }
+
+  @override
+  void dispose() {
+    customerTabRequest.removeListener(_onTabRequest);
+    super.dispose();
   }
 
   Future<void> _logout() async {
@@ -197,6 +213,31 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       userRole: widget.user.roleName,
                     ),
                   ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryContainer.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.notifications_active_outlined,
+                    color: AppColors.primaryContainer),
+              ),
+              title: const Text('Danh sách chờ của tôi',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: const Text('Theo dõi các loại kho đang chờ có ngăn trống',
+                  style: TextStyle(fontSize: 12)),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyWaitlistScreen()),
                 );
               },
             ),

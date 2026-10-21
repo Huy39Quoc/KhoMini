@@ -144,6 +144,18 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
+    public LocalDate getRenewalOpensDate(UUID facilityId, LocalDate currentEndDate) {
+        if (currentEndDate == null) {
+            return null;
+        }
+        return facilityPolicyRepository.findByFacility_Id(facilityId)
+                .map(policy -> policy.getRenewalWindowDays() == null
+                        ? null
+                        : currentEndDate.minusDays(policy.getRenewalWindowDays()))
+                .orElse(null);
+    }
+
+    @Override
     public boolean isReturnNoticeSatisfied(UUID facilityId, LocalDateTime scheduledReturnTime) {
         return facilityPolicyRepository.findByFacility_Id(facilityId)
                 .map(policy -> {
