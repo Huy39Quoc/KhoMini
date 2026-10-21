@@ -39,7 +39,7 @@ public class CustomerStorageController {
 
     @PostMapping("/{bookingId}/gate-pass")
     @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('ACCESS_CREDENTIAL_UPDATE')")
-    @Operation(summary = "Cấp QR ra cổng có hạn dùng cho kho ACTIVE của khách")
+    @Operation(summary = "Cấp mã ra vào cổng có hạn dùng cho kho ACTIVE của khách")
     public ResponseEntity<ApiResponse<GatePassResponse>> issueGatePass(
             @PathVariable UUID bookingId,
             @AuthenticationPrincipal UserDetails userDetails
@@ -124,7 +124,7 @@ public class CustomerStorageController {
 
     @PutMapping("/{bookingId}/access/pin")
     @PreAuthorize("hasRole('CUSTOMER') and hasAuthority('ACCESS_CREDENTIAL_UPDATE')")
-    @Operation(summary = "Đổi mã PIN (6 số) - phải nhập đúng PIN hiện tại")
+    @Operation(summary = "Đổi mã PIN: để trống newPin = hệ thống cấp mới, có newPin = khách tự đặt")
     public ResponseEntity<ApiResponse<SmartAccessResponse>> updateAccessPin(
             @PathVariable UUID bookingId,
             @AuthenticationPrincipal UserDetails userDetails,

@@ -19,6 +19,23 @@ class FacilityAdminApiService {
     return Exception('Không thể $action: $message');
   }
 
+  Future<int> getFacilitiesCount() async {
+    try {
+      final response = await _http.get(
+        ApiEndpoints.facilitiesAdmin,
+        queryParameters: {'page': 0, 'size': 1},
+      );
+      final data = response.data;
+      if (data is Map && data['data'] is Map) {
+        final total = data['data']['totalElements'];
+        if (total is num) return total.toInt();
+      }
+      return 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   Future<List<dynamic>> getFacilities({String? search}) async {
     final all = <dynamic>[];
     var page = 0;

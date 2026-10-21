@@ -45,3 +45,13 @@ WHERE r.name = 'ADMIN'
   )
 ON CONFLICT (role_id, permission_id)
 DO UPDATE SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP;
+
+-- 3) Bảo đảm BUSINESS_MANAGER có quyền xem danh sách nhân sự / người dùng
+INSERT INTO role_permissions (id, created_at, updated_at, role_id, permission_id, is_active, description)
+SELECT gen_random_uuid(), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+       r.id, p.id, TRUE, 'BUSINESS_MANAGER view users and staff assignments'
+FROM roles r, permissions p
+WHERE r.name = 'BUSINESS_MANAGER'
+  AND p.name IN ('USER_VIEW', 'STAFF_ASSIGNMENT_VIEW')
+ON CONFLICT (role_id, permission_id)
+DO UPDATE SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP;

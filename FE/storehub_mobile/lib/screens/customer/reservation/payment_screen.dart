@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/navigation/customer_tab_request.dart';
 import '../../../services/booking_api_service.dart';
 import '../payment/vnpay_checkout_screen.dart';
 
@@ -443,11 +444,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           _summaryCard(),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () {
-              // Back to the home screen
-              int count = 0;
-              Navigator.popUntil(context, (_) => count++ >= 2);
-            },
+            onPressed: () => goToCustomerTab(context, CustomerTabs.home),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -460,7 +457,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           ),
           const SizedBox(height: 12),
           OutlinedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => goToCustomerTab(context, CustomerTabs.myUnits),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 46),
               shape: RoundedRectangleBorder(
@@ -689,7 +686,8 @@ class _PaymentScreenState extends State<PaymentScreen>
                 duration: Duration(seconds: 5),
               ),
             );
-            Navigator.pop(context);
+            // Về Trang chủ để thấy ngay mục "Đơn đang chờ thanh toán"
+            goToCustomerTab(context, CustomerTabs.home);
           },
           child: const Text('Thanh toán sau',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),

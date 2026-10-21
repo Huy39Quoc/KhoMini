@@ -145,6 +145,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
 
     bool submitting = false;
     bool inspectionConfirmed = false;
+    // Lỗi hiện ngay trong bảng (SnackBar của màn hình bên dưới bị bảng che mất).
+    String? sheetError;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -390,7 +392,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     const SizedBox(height: 4),
                     Text(
                       isCheckIn
-                          ? 'Chụp ảnh ngăn kho sạch, khóa hoạt động tốt làm bằng chứng bàn giao.'
+                          ? (handoverBlocked
+                              ? 'Chụp ảnh chỗ hư hỏng / chưa sạch của ngăn hoặc khóa để quản lý và khách đối chiếu.'
+                              : 'Chụp ảnh ngăn kho sạch, khóa hoạt động tốt làm bằng chứng bàn giao.')
                           : 'Chụp ảnh hiện trạng khi trả, chỗ hư hỏng hoặc đồ còn sót lại để tránh tranh chấp.',
                       style: const TextStyle(
                         fontSize: 11,
@@ -424,6 +428,32 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                     const SizedBox(height: 20),
+                    if (sheetError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorContainer,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline,
+                                size: 18, color: AppColors.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                sheetError!,
+                                style: const TextStyle(
+                                    fontSize: 12, color: AppColors.error),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     ElevatedButton(
                       onPressed: submitting || !inspectionConfirmed
                           ? null
@@ -444,16 +474,12 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                 return null;
                               }();
                               if (validation != null) {
-                                ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                  SnackBar(
-                                    content: Text(validation),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
+                                setSheetState(() => sheetError = validation);
                                 return;
                               }
 
                               setSheetState(() {
+                                sheetError = null;
                                 submitting = true;
                               });
 
@@ -513,7 +539,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                 if (isCheckIn &&
                                     result.recordType.toUpperCase() ==
                                         'CHECK_IN_REJECTED') {
-                                  _showWarning(result.message);
+                                  _showRejectionResult(item.unitCode);
                                 } else {
                                   _showSuccess(
                                     result.message.isNotEmpty
@@ -532,18 +558,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
 
                                 setSheetState(() {
                                   submitting = false;
+                                  sheetError = _errorMessage(error);
                                 });
-
-                                ScaffoldMessenger.of(
-                                  sheetContext,
-                                ).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      _errorMessage(error),
-                                    ),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
                               }
                             },
                       child: submitting
@@ -926,12 +942,27 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     }
   }
 
-  void _showWarning(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.orange.shade800,
-        duration: const Duration(seconds: 8),
+  /// Giải thích rõ chuyện gì xảy ra sau khi nhân viên báo ngăn/khóa không đạt.
+  Future<void> _showRejectionResult(String unitCode) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Chưa bàn giao ngăn $unitCode'),
+        content: const Text(
+          '1. Ngăn đã chuyển sang "Cần kiểm tra / bảo trì".\n'
+          '2. Đơn của khách được trả về cho quản lý cơ sở để đổi sang ngăn khác '
+          '(cùng loại, đang trống). Lịch hẹn sẽ hiện "Chờ quản lý xác nhận ngăn" '
+          'cho tới khi quản lý đổi xong.\n'
+          '3. Hãy báo khách chờ. Khi có ngăn mới, bàn giao lại cho khách.\n'
+          '4. Khi ngăn cũ đã kiểm tra/sửa xong, vào "Ngăn kho" và bấm '
+          '"Đã kiểm tra xong, cho thuê lại".',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
       ),
     );
   }
@@ -958,8 +989,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         actions: [
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
-              tooltip: 'Quét QR cổng',
-              icon: const Icon(Icons.qr_code_scanner),
+              tooltip: 'Xác thực mã vào cổng',
+              icon: const Icon(Icons.vpn_key_outlined),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) =>
@@ -1086,70 +1117,95 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   Widget _buildFacilityHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      color: AppColors.primaryContainer,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _facilityName ?? 'Cơ sở của bạn',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.storefront, color: AppColors.secondary, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _facilityName ?? 'Cơ sở của bạn',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           const Text(
-            'Bạn trực tiếp bàn giao kho cho khách và nghiệm thu khi khách trả kho.',
-            style: TextStyle(color: Colors.white70, fontSize: 11),
+            'Lịch bàn giao kho cho khách và nghiệm thu kiểm tra khi khách trả kho.',
+            style: TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.3),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Row(
             children: [
               _dateChip('Hôm nay', 0),
               const SizedBox(width: 8),
               _dateChip('Ngày mai', 1),
               const SizedBox(width: 8),
-              Flexible(child: InkWell(
-            onTap: _pickDate,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white12,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.calendar_today,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _dateFormat.format(
-                      _selectedDate,
+              Flexible(
+                child: InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
                     ),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.calendar_today,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _dateFormat.format(_selectedDate),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.arrow_drop_down,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.arrow_drop_down,
-                    color: Colors.white,
-                  ),
-                ],
+                ),
               ),
-            ),
-          )),
             ],
           ),
         ],
@@ -1161,22 +1217,36 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     Widget tile(IconData icon, String label, VoidCallback onTap) {
       return Expanded(
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.surfaceContainerHigh),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.outline.withValues(alpha: 0.15)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Column(
               children: [
-                Icon(icon, size: 20, color: AppColors.secondaryContainer),
-                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 20, color: AppColors.primary),
+                ),
+                const SizedBox(height: 6),
                 Text(label,
                     style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w600)),
+                        fontSize: 11.5, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -1186,7 +1256,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
 
     final facilityId = _facilityId!;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
       child: Row(
         children: [
           tile(Icons.grid_view_outlined, 'Ngăn kho', () {
@@ -1236,13 +1306,29 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     final selected = _selectedDate.year == target.year &&
         _selectedDate.month == target.month &&
         _selectedDate.day == target.day;
-    return ChoiceChip(
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      selected: selected,
-      onSelected: (_) {
+    return InkWell(
+      onTap: () {
         setState(() => _selectedDate = target);
         _loadSchedule();
       },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.secondary
+              : Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+            color: selected ? const Color(0xFF0F172A) : Colors.white,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -275,9 +275,11 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       text: unit?.floorLevel ?? '',
     );
 
-    String? selectedTypeId = unit?.unitTypeId.isNotEmpty == true
+    final initialTypeValid = unit?.unitTypeId != null &&
+        unitTypes.any((t) => t.id == unit!.unitTypeId);
+    String? selectedTypeId = initialTypeValid
         ? unit!.unitTypeId
-        : unitTypes.first.id;
+        : (unitTypes.isNotEmpty ? unitTypes.first.id : null);
 
     final formKey = GlobalKey<FormState>();
     bool submitting = false;
@@ -353,7 +355,9 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                       ),
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
-                        initialValue: selectedTypeId,
+                        initialValue: unitTypes.any((t) => t.id == selectedTypeId)
+                            ? selectedTypeId
+                            : null,
                         decoration: const InputDecoration(
                           labelText: 'Loại kho',
                         ),
@@ -748,6 +752,19 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     }
   }
 
+  /// Giải thích ngắn trạng thái ngăn để quản lý không nhầm "Đã giữ chỗ" với "đã thanh toán".
+  String _unitStatusHint(String status) {
+    switch (status.toUpperCase()) {
+      case 'RESERVED':
+        return 'Khách đã đặt kho (đang thanh toán hoặc chờ nhận kho). '
+            'Giữ chỗ tự hết hạn nếu không thanh toán.';
+      case 'UNDER_MAINTENANCE':
+        return 'Chờ kiểm tra / vệ sinh / bảo trì trước khi cho thuê lại.';
+      default:
+        return '';
+    }
+  }
+
   Color _unitStatusColor(String status) {
     switch (status) {
       case 'AVAILABLE':
@@ -798,8 +815,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
         actions: [
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
-              tooltip: 'Kiểm tra QR cổng',
-              icon: const Icon(Icons.qr_code_scanner),
+              tooltip: 'Xác thực mã vào cổng',
+              icon: const Icon(Icons.vpn_key_outlined),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) =>
@@ -953,38 +970,57 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
         VoidCallback onTap) {
       return Expanded(
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.surfaceContainerHigh),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.outline.withValues(alpha: 0.15)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 13,
-                  backgroundColor: AppColors.primaryContainer,
-                  child: Text('$no',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text('$no',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(icon, size: 16, color: AppColors.primary),
+                  ],
                 ),
                 const SizedBox(height: 6),
-                Icon(icon, size: 18, color: AppColors.secondaryContainer),
-                const SizedBox(height: 4),
                 Text(title,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
+                        fontSize: 11.5, fontWeight: FontWeight.bold, height: 1.2)),
+                const SizedBox(height: 3),
                 Text(hint,
                     textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 9, color: AppColors.onSurfaceVariant)),
+                        fontSize: 9.5, color: AppColors.onSurfaceVariant)),
               ],
             ),
           ),
@@ -994,13 +1030,46 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
 
     return Container(
       color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Quy trình bàn giao kho',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.hub_outlined, size: 16, color: AppColors.primary),
+              const SizedBox(width: 6),
+              const Text('Quy trình điều phối cơ sở',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TransactionHistoryScreen(
+                      userRole: widget.user.roleName,
+                      facilityId: _facilityId!,
+                    ),
+                  ),
+                ),
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Row(
+                    children: [
+                      Icon(Icons.receipt_long_outlined, size: 14, color: AppColors.primary),
+                      SizedBox(width: 4),
+                      Text('Sổ giao dịch',
+                          style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
               step(1, Icons.assignment_turned_in_outlined, 'Xác nhận\nngăn kho',
@@ -1010,24 +1079,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                   'Lịch bàn giao', _openAppointments),
               const SizedBox(width: 8),
               step(3, Icons.payments_outlined, 'Hoàn cọc\nsau trả kho',
-                  'Nhân viên đã nghiệm thu', _openRefunds),
+                  'Đã nghiệm thu', _openRefunds),
             ],
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TransactionHistoryScreen(
-                    userRole: widget.user.roleName,
-                    facilityId: _facilityId!,
-                  ),
-                ),
-              ),
-              icon: const Icon(Icons.receipt_long_outlined, size: 18),
-              label: const Text('Lịch sử giao dịch của cơ sở'),
-            ),
           ),
         ],
       ),
@@ -1107,11 +1160,16 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                       fontSize: 14,
                     ),
                   ),
+                  isThreeLine: _unitStatusHint(unit.status).isNotEmpty,
                   subtitle: Text(
                     [
-                      unit.unitType,
-                      if (unit.floorLevel.isNotEmpty) unit.floorLevel,
-                    ].join(' • '),
+                      [
+                        unit.unitType,
+                        if (unit.floorLevel.isNotEmpty) unit.floorLevel,
+                      ].join(' • '),
+                      if (_unitStatusHint(unit.status).isNotEmpty)
+                        _unitStatusHint(unit.status),
+                    ].join('\n'),
                     style: const TextStyle(fontSize: 12),
                   ),
                   trailing: Row(
@@ -1305,38 +1363,58 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
             padding: const EdgeInsets.all(16),
             children: [
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryContainer,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                  ),
                   borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   children: [
-                    const Text(
-                      'Tỷ lệ lấp đầy',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.pie_chart_outline, size: 16, color: AppColors.secondary),
+                        SizedBox(width: 6),
+                        Text(
+                          'Tỷ lệ lấp đầy cơ sở',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
                       '${report.occupancyRate.toStringAsFixed(1)}%',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 36,
+                        fontSize: 38,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: LinearProgressIndicator(
                         value: (report.occupancyRate / 100).clamp(0.0, 1.0),
                         minHeight: 8,
-                        backgroundColor: Colors.white24,
+                        backgroundColor: Colors.white12,
                         valueColor: const AlwaysStoppedAnimation(
-                          AppColors.secondaryContainer,
+                          AppColors.secondary,
                         ),
                       ),
                     ),
@@ -1350,13 +1428,13 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 1.6,
+                childAspectRatio: 1.55,
                 children: [
                   _statTile(
                     'Tổng số ngăn',
                     '${report.total}',
                     Icons.grid_view,
-                    AppColors.primaryContainer,
+                    AppColors.primary,
                   ),
                   _statTile(
                     'Còn trống',
@@ -1389,7 +1467,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                     AppColors.error,
                   ),
                   _statTile(
-                    'Doanh thu (đã thu)',
+                    'Doanh thu đã thu',
                     NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0)
                         .format(report.revenue),
                     Icons.attach_money,
@@ -1411,34 +1489,49 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     Color color,
   ) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.surfaceContainerHigh,
+          color: AppColors.outline.withValues(alpha: 0.15),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: 20,
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 16,
+            ),
           ),
           const Spacer(),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.bold,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               color: AppColors.onSurfaceVariant,
             ),
           ),

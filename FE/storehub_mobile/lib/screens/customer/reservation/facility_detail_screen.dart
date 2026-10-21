@@ -289,7 +289,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
               SliverAppBar(
                 expandedHeight: 220,
                 pinned: true,
-                backgroundColor: const Color(0xFF1E3C72),
+                backgroundColor: const Color(0xFF0F172A),
                 foregroundColor: Colors.white,
                 actions: [
                   IconButton(
@@ -338,12 +338,12 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                const Color(0xFF1E3C72).withValues(
+                                const Color(0xFF0F172A).withValues(
                                     alpha: _facilityImages.isNotEmpty ||
                                             _facilityImageUrl != null
                                         ? 0.45
                                         : 0.95),
-                                const Color(0xFF2A5298).withValues(
+                                const Color(0xFF1E293B).withValues(
                                     alpha: _facilityImages.isNotEmpty ||
                                             _facilityImageUrl != null
                                         ? 0.88
@@ -835,7 +835,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                                 color: isSelected
                                     ? Colors.white
                                     : AppColors.textPrimary)),
-                        Text('mo',
+                        Text('tháng',
                             style: TextStyle(
                                 fontSize: 11,
                                 color: isSelected
@@ -1142,7 +1142,18 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: AppColors.success),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.success,
+          action: SnackBarAction(
+            label: 'Xem danh sách',
+            textColor: Colors.white,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MyWaitlistScreen()),
+            ),
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -1720,7 +1731,7 @@ class _UnitTypeCard extends StatelessWidget {
                               ? AppColors.primary
                               : AppColors.textPrimary),
                     ),
-                    const Text('/mo',
+                    const Text('/tháng',
                         style: TextStyle(
                             fontSize: 11, color: AppColors.textSecondary)),
                     if (isSelected)

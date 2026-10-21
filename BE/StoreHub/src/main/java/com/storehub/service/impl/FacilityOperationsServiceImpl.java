@@ -111,6 +111,11 @@ public class FacilityOperationsServiceImpl
 
         List<DailyScheduleResponse> result = new ArrayList<>();
 
+        // Việc đã trễ hẹn (chưa nhận/trả) vẫn hiện cho tới khi xử lý xong, nhưng chỉ khi xem
+        // hôm nay hoặc ngày đã qua. Khi xem ngày tương lai chỉ hiện việc đúng ngày đó,
+        // tránh cùng một đơn xuất hiện lặp lại ở nhiều ngày.
+        boolean viewingFutureDay = date.isAfter(LocalDate.now());
+
         List<Booking> checkInBookings =
                 bookingRepository.findCheckInSchedule(
                         facilityId,
@@ -120,6 +125,7 @@ public class FacilityOperationsServiceImpl
 
         for (Booking booking : checkInBookings) {
             if (!visibleToStaff(viewer, booking.getAssignedCheckInStaff())) continue;
+            if (viewingFutureDay && booking.getStartDate().isBefore(date)) continue;
             result.add(toScheduleResponse(
                     booking,
                     "CHECK_IN",
@@ -144,6 +150,7 @@ public class FacilityOperationsServiceImpl
             LocalDateTime scheduled = booking.getScheduledReturnTime() != null
                     ? booking.getScheduledReturnTime()
                     : booking.getEndDate().atTime(9, 0);
+            if (viewingFutureDay && scheduled.toLocalDate().isBefore(date)) continue;
 
             result.add(toScheduleResponse(
                     booking,

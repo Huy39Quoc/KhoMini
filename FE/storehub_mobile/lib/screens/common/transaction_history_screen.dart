@@ -209,12 +209,18 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     return FilterChip(
       selected: isSelected,
       label: Text(label),
-      selectedColor: AppColors.primaryContainer,
+      selectedColor: AppColors.secondaryFixed,
+      checkmarkColor: AppColors.onSecondaryFixed,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : AppColors.onSurfaceVariant,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        color: isSelected ? AppColors.onSecondaryFixed : AppColors.textSecondary,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
         fontSize: 12,
       ),
+      side: BorderSide(
+        color: isSelected ? AppColors.secondaryContainer : AppColors.outlineVariant,
+        width: 1,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       onSelected: (_) {
         setState(() {
           _selectedStatus = value;
@@ -310,19 +316,28 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         iconBgColor = AppColors.primary;
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => TransactionDetailDialog.show(context, payment),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: iconBgColor.withValues(alpha: 0.15),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: iconBgColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Icon(iconData, color: iconBgColor, size: 22),
               ),
               const SizedBox(width: 14),
@@ -331,13 +346,15 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: Text(
                             payment.paymentTypeLabel,
                             style: const TextStyle(
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w700,
                               fontSize: 14,
+                              color: AppColors.textPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -346,8 +363,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                         Text(
                           _currencyFormat.format(payment.amount),
                           style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14.5,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ],
@@ -370,24 +388,28 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                             ].join(' • '),
                             style: const TextStyle(
                               fontSize: 12,
-                              color: AppColors.onSurfaceVariant,
+                              color: AppColors.textSecondary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: payment.statusColor.withValues(alpha: 0.12),
+                            color: payment.statusColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: payment.statusColor.withValues(alpha: 0.25),
+                            ),
                           ),
                           child: Text(
                             payment.statusLabel,
                             style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
                               color: payment.statusColor,
                             ),
                           ),
@@ -397,9 +419,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     const SizedBox(height: 6),
                     Text(
                       dateStr,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 11,
-                        color: Colors.grey.shade600,
+                        color: AppColors.outline,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],

@@ -36,6 +36,8 @@ public class MyUnitResponse {
     private Integer pendingExtraMonths;
     private LocalDate pendingNewEndDate;
     private BigDecimal pendingExtensionFee;
+    // Ngày bắt đầu được phép gia hạn theo chính sách cơ sở (null nếu không giới hạn)
+    private LocalDate renewalOpensDate;
 
     // --- Quá hạn (điền bởi CustomerStorageServiceImpl) ---
     private boolean overdue;

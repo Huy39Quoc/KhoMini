@@ -19,6 +19,7 @@ class MyUnitModel {
   final int? pendingExtraMonths;
   final DateTime? pendingNewEndDate;
   final double? pendingExtensionFee;
+  final DateTime? renewalOpensDate;
   final bool overdue;
   final int overdueDays;
   final double overdueFeeOutstanding;
@@ -46,6 +47,7 @@ class MyUnitModel {
     this.pendingExtraMonths,
     this.pendingNewEndDate,
     this.pendingExtensionFee,
+    this.renewalOpensDate,
     this.overdue = false,
     this.overdueDays = 0,
     this.overdueFeeOutstanding = 0,
@@ -58,6 +60,15 @@ class MyUnitModel {
       ? 'Ngăn $unitCode'
       : 'Đang chờ quản lý xác nhận ngăn kho';
   bool get hasLateFeeDue => overdueFeeOutstanding > 0;
+
+  /// Chưa tới ngày được gia hạn theo chính sách của cơ sở (chỉ gia hạn trong N ngày cuối).
+  bool get renewalNotYetOpen {
+    final opens = renewalOpensDate;
+    if (opens == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return today.isBefore(DateTime(opens.year, opens.month, opens.day));
+  }
 
   double? get monthlyRate {
     if (rentalMonths == null || rentalMonths == 0) return null;
@@ -101,6 +112,9 @@ class MyUnitModel {
           ? DateTime.tryParse(json['pendingNewEndDate'].toString())
           : null,
       pendingExtensionFee: (json['pendingExtensionFee'] as num?)?.toDouble(),
+      renewalOpensDate: json['renewalOpensDate'] != null
+          ? DateTime.tryParse(json['renewalOpensDate'].toString())
+          : null,
       overdue: json['overdue'] == true,
       overdueDays: (json['overdueDays'] as num?)?.toInt() ?? 0,
       overdueFeeOutstanding:

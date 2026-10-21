@@ -70,30 +70,70 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
 
   Future<void> _loadUnits() async {
     try {
-      final raw = await _storageApiService.getMyRentedUnits();
-      final units = raw
-          .whereType<Map>()
-          .map((u) {
-            final bookingId = u['bookingId']?.toString() ?? '';
-            final unitCode = u['unitCode']?.toString() ?? 'Ngăn kho';
-            final facility = u['facilityName']?.toString() ?? '';
-            return {
-              'bookingId': bookingId,
-              'label': facility.isNotEmpty ? '$unitCode • $facility' : unitCode,
-            };
-          })
-          .where((u) => u['bookingId']!.isNotEmpty)
+      final results = await Future.wait([
+        _storageApiService.getMyRentedUnits(),
+        _storageApiService.getAwaitingHandover(),
+      ]);
+      final activeRaw = results[0];
+      final awaitingRaw = results[1];
+
+      final Map<String, String> bookingMap = {};
+
+      void addUnit(dynamic u, {bool isAwaiting = false}) {
+        if (u is! Map) return;
+        final bookingId = u['bookingId']?.toString() ?? '';
+        if (bookingId.isEmpty || bookingMap.containsKey(bookingId)) return;
+        final unitCode = u['unitCode']?.toString() ?? 'Ngăn kho';
+        final facility = u['facilityName']?.toString() ?? '';
+        final statusTag = isAwaiting ? ' (Chờ nhận)' : '';
+        final label = facility.isNotEmpty
+            ? '$unitCode • $facility$statusTag'
+            : '$unitCode$statusTag';
+        bookingMap[bookingId] = label;
+      }
+
+      for (final u in activeRaw) {
+        addUnit(u, isAwaiting: false);
+      }
+      for (final u in awaitingRaw) {
+        addUnit(u, isAwaiting: true);
+      }
+
+      if (widget.preselectedBookingId != null &&
+          widget.preselectedBookingId!.isNotEmpty &&
+          !bookingMap.containsKey(widget.preselectedBookingId)) {
+        bookingMap[widget.preselectedBookingId!] =
+            widget.preselectedUnitLabel ?? 'Ngăn kho đang chọn';
+      }
+
+      final units = bookingMap.entries
+          .map((e) => {'bookingId': e.key, 'label': e.value})
           .toList();
+
       if (!mounted) return;
       setState(() {
         _units = units;
         _isLoadingUnits = false;
+        if (_selectedBookingId != null &&
+            !units.any((u) => u['bookingId'] == _selectedBookingId)) {
+          _selectedBookingId = null;
+        }
       });
     } catch (e) {
       if (!mounted) return;
+      final fallbackUnits = (widget.preselectedBookingId != null &&
+              widget.preselectedBookingId!.isNotEmpty)
+          ? [
+              {
+                'bookingId': widget.preselectedBookingId!,
+                'label': widget.preselectedUnitLabel ?? 'Ngăn kho đang chọn',
+              }
+            ]
+          : <Map<String, String>>[];
       setState(() {
         _unitsError = e.toString().replaceAll('Exception: ', '');
         _isLoadingUnits = false;
+        _units = fallbackUnits;
       });
     }
   }
@@ -348,6 +388,10 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
       );
     }
 
+    final hasSelected = _selectedBookingId != null &&
+        _units.any((u) => u['bookingId'] == _selectedBookingId);
+    final dropdownValue = hasSelected ? _selectedBookingId : null;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
@@ -355,7 +399,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
-          value: _selectedBookingId,
+          value: dropdownValue,
           isExpanded: true,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           borderRadius: BorderRadius.circular(12),
