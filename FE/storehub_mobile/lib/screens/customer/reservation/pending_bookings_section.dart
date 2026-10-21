@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../services/booking_api_service.dart';
 import 'payment_screen.dart';
 
@@ -102,10 +103,13 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
           return const LinearProgressIndicator();
         }
         if (snapshot.hasError) {
-          return ListTile(
-            title: const Text('Không tải được các đơn đang chờ'),
-            trailing:
-                TextButton(onPressed: _reload, child: const Text('Thử lại')),
+          return Material(
+            color: Colors.transparent,
+            child: ListTile(
+              title: const Text('Không tải được các đơn đang chờ'),
+              trailing:
+                  TextButton(onPressed: _reload, child: const Text('Thử lại')),
+            ),
           );
         }
         final bookings = snapshot.data ?? [];
@@ -113,19 +117,113 @@ class _PendingBookingsSectionState extends State<PendingBookingsSection>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Đơn đang chờ thanh toán',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            for (final booking in bookings)
-              Card(
-                child: ListTile(
-                  title: Text(booking['unitTypeName']?.toString() ??
-                      booking['bookingCode']?.toString() ??
-                      'Đặt kho'),
-                  subtitle: Text(
-                    '${booking['facilityName'] ?? ''} • ${booking['bookingCode'] ?? ''}',
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF59E0B),
+                    shape: BoxShape.circle,
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Đơn đang chờ thanh toán',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final booking in bookings)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
                   onTap: () => _resume(booking),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.timer_outlined,
+                            color: Color(0xFFD97706),
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                booking['unitTypeName']?.toString() ??
+                                    booking['bookingCode']?.toString() ??
+                                    'Đặt kho',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: Color(0xFF78350F),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${booking['facilityName'] ?? ''} • ${booking['bookingCode'] ?? ''}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF92400E),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Thanh toán',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
           ],

@@ -3,20 +3,53 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:storehub_mobile/screens/customer/my_units/smart_key_screen.dart';
 import 'package:storehub_mobile/services/storage_api_service.dart';
 
-class _WrongPasswordStorageService extends StorageApiService {
+class _MockStorageService extends StorageApiService {
+  String? lastUpdatedCurrentPin;
+  String? lastUpdatedNewPin;
+  String? lastResetPassword;
+  String? lastResetNewPin;
+  bool pinSet = true;
+
   @override
   Future<Map<String, dynamic>> getSmartAccess(String bookingId) async => {
         'bookingId': bookingId,
         'unitCode': 'M-201',
-        'pinSet': true,
+        'pinSet': pinSet,
         'locked': true,
         'attemptsRemaining': 5,
       };
 
   @override
+  Future<Map<String, dynamic>> updatePin(
+      String bookingId, String currentPin, {String? newPin}) async {
+    lastUpdatedCurrentPin = currentPin;
+    lastUpdatedNewPin = newPin;
+    return {
+      'bookingId': bookingId,
+      'unitCode': 'M-201',
+      'pinSet': true,
+      'locked': true,
+      'attemptsRemaining': 5,
+      if (newPin == null) 'generatedPin': '888999',
+    };
+  }
+
+  @override
   Future<Map<String, dynamic>> resetPin(String bookingId, String password,
       {String? newPin}) async {
-    throw Exception('Mật khẩu không đúng');
+    if (password == 'wrong') {
+      throw Exception('Mật khẩu không đúng');
+    }
+    lastResetPassword = password;
+    lastResetNewPin = newPin;
+    return {
+      'bookingId': bookingId,
+      'unitCode': 'M-201',
+      'pinSet': true,
+      'locked': true,
+      'attemptsRemaining': 5,
+      if (newPin == null) 'generatedPin': '654321',
+    };
   }
 }
 
@@ -27,7 +60,7 @@ void main() {
       home: SmartKeyScreen(
         bookingId: 'booking-1',
         unitNumber: 'M-201',
-        apiService: _WrongPasswordStorageService(),
+        apiService: _MockStorageService(),
       ),
     ));
     await tester.pumpAndSettle();
@@ -43,5 +76,94 @@ void main() {
 
     expect(find.text('Mật khẩu không đúng'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Reset PIN with custom PIN shows confirm PIN field and validates matching',
+      (tester) async {
+    final service = _MockStorageService();
+    await tester.pumpWidget(MaterialApp(
+      home: SmartKeyScreen(
+        bookingId: 'booking-1',
+        unitNumber: 'M-201',
+        apiService: service,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Quên mã PIN?'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Quên mã PIN?'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Mật khẩu tài khoản'), 'correctpass');
+
+    // Switch to custom PIN mode
+    await tester.tap(find.text('Tự đặt mã'));
+    await tester.pumpAndSettle();
+
+    // Confirm field should now be visible
+    expect(find.widgetWithText(TextFormField, 'Nhập lại mã PIN'), findsOneWidget);
+
+    // Mismatched PIN entry
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Mã PIN 6 số'), '123456');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nhập lại mã PIN'), '654321');
+    await tester.tap(find.text('Đặt lại PIN'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mã PIN không khớp'), findsOneWidget);
+
+    // Matched PIN entry
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nhập lại mã PIN'), '123456');
+    await tester.tap(find.text('Đặt lại PIN'));
+    await tester.pumpAndSettle();
+
+    expect(service.lastResetPassword, equals('correctpass'));
+    expect(service.lastResetNewPin, equals('123456'));
+    expect(find.text('Đã đặt lại mã PIN, cửa đã được khóa lại'), findsOneWidget);
+  });
+
+  testWidgets('Change PIN allows system-generated option and shows generated PIN dialog',
+      (tester) async {
+    final service = _MockStorageService();
+    await tester.pumpWidget(MaterialApp(
+      home: SmartKeyScreen(
+        bookingId: 'booking-1',
+        unitNumber: 'M-201',
+        apiService: service,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Đổi mã PIN'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Đổi mã PIN'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Mã PIN hiện tại'), '111111');
+
+    // Switch to system-generated mode
+    await tester.tap(find.text('Hệ thống cấp'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Đổi mã'));
+    await tester.pumpAndSettle();
+
+    expect(service.lastUpdatedCurrentPin, equals('111111'));
+    expect(service.lastUpdatedNewPin, isNull);
+
+    // The generated PIN dialog appears
+    expect(find.text('Mã PIN của bạn'), findsOneWidget);
+    expect(find.text('888999'), findsOneWidget);
+
+    // Tap "Điền mã mở" button to auto-fill into unlock box
+    await tester.tap(find.text('Điền mã mở'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Đã điền mã PIN vào ô mở khóa'), findsOneWidget);
   });
 }

@@ -69,22 +69,58 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        selectedItemColor: AppColors.secondaryContainer,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Trang chủ'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.inventory_2_outlined), label: 'Kho của tôi'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.explore_outlined), label: 'Khám phá'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.support_agent_outlined), label: 'Hỗ trợ'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: AppColors.outlineVariant.withValues(alpha: 0.8),
+              width: 1,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          selectedItemColor: AppColors.secondaryContainer,
+          unselectedItemColor: AppColors.outline,
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          type: BottomNavigationBarType.fixed,
+          onTap: (index) => setState(() => _currentIndex = index),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_rounded),
+              activeIcon: Icon(Icons.home_filled),
+              label: 'Trang chủ',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.inventory_2_outlined),
+              activeIcon: Icon(Icons.inventory_2_rounded),
+              label: 'Kho của tôi',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.explore_outlined),
+              activeIcon: Icon(Icons.explore_rounded),
+              label: 'Khám phá',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.support_agent_outlined),
+              activeIcon: Icon(Icons.support_agent_rounded),
+              label: 'Hỗ trợ',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -96,177 +132,425 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Chào mừng trở lại,',
-                      style: TextStyle(color: Colors.grey, fontSize: 14)),
-                  Text(displayName,
-                      style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              Row(
-                children: [
-                  InkWell(
-                    borderRadius: BorderRadius.circular(24),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => ProfileScreen(user: widget.user)),
-                      );
-                    },
-                    child: const CircleAvatar(
-                      backgroundColor: AppColors.primary,
-                      child: Icon(Icons.person, color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'Đăng xuất',
-                    icon: const Icon(Icons.logout, color: Colors.redAccent),
-                    onPressed: _logout,
-                  ),
-                ],
-              )
-            ],
-          ),
-          const SizedBox(height: 20),
+          // User Header
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      InkWell(
+                        borderRadius: BorderRadius.circular(24),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProfileScreen(user: widget.user),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF0F172A), Color(0xFF334155)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.secondaryContainer.withValues(alpha: 0.4),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              displayName.isNotEmpty
+                                  ? displayName.substring(0, 1).toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Xin chào,',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Tài khoản',
+                      icon: const Icon(Icons.person_outline_rounded,
+                          color: AppColors.textPrimary),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProfileScreen(user: widget.user),
+                          ),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      tooltip: 'Đăng xuất',
+                      icon: const Icon(Icons.logout_rounded,
+                          color: AppColors.textSecondary),
+                      onPressed: _logout,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Smart Key Hero Banner
+          Container(
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.primaryContainer,
-              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.16),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Ra vào kho tự phục vụ 24/7',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondaryContainer.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppColors.secondaryContainer.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.bolt,
+                              size: 14, color: AppColors.secondaryContainer),
+                          SizedBox(width: 4),
+                          Text(
+                            'TỰ PHỤC VỤ 24/7',
+                            style: TextStyle(
+                              color: AppColors.secondaryContainer,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.lock_clock_rounded,
+                      color: Colors.white38,
+                      size: 20,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Ra vào kho thông minh',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 const Text(
-                    'Mở ngăn kho và cổng cơ sở bằng mã PIN điện tử.',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
-                const SizedBox(height: 14),
-                ElevatedButton(
+                  'Mở ngăn kho và lấy mã ra vào cổng cơ sở mọi lúc bằng điện thoại của bạn.',
+                  style: TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
                   onPressed: () => setState(() => _currentIndex = 1),
-                  child: const Text('Xem khóa thông minh'),
-                )
+                  icon: const Icon(Icons.key_rounded, size: 18),
+                  label: const Text('Xem khóa thông minh'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.secondaryContainer,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 12),
+                    minimumSize: const Size(0, 44),
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+
+          // Pending Bookings Section
           const PendingBookingsSection(),
           const SizedBox(height: 16),
-          const Text('Thao tác nhanh',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+
+          // Quick Actions Title
+          const Text(
+            'Thao tác nhanh',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.2,
+            ),
+          ),
           const SizedBox(height: 12),
+
+          // 3 Action Cards
           Row(
             children: [
               _buildActionCard(
-                  'Kho của tôi',
-                  Icons.vpn_key,
-                  AppColors.primaryContainer,
-                  () => setState(() => _currentIndex = 1)),
-              const SizedBox(width: 12),
-              _buildActionCard('Đặt giữ kho', Icons.add_circle_outline,
-                  AppColors.secondary, () => setState(() => _currentIndex = 2)),
-              const SizedBox(width: 12),
+                'Kho của tôi',
+                'Quản lý ngăn',
+                Icons.inventory_2_rounded,
+                AppColors.primaryContainer,
+                () => setState(() => _currentIndex = 1),
+              ),
+              const SizedBox(width: 10),
               _buildActionCard(
-                  'Nhận hỗ trợ',
-                  Icons.headset_mic_outlined,
-                  AppColors.secondaryContainer,
-                  () => setState(() => _currentIndex = 3)),
+                'Đặt giữ kho',
+                'Tìm & thuê',
+                Icons.add_business_rounded,
+                AppColors.secondary,
+                () => setState(() => _currentIndex = 2),
+              ),
+              const SizedBox(width: 10),
+              _buildActionCard(
+                'Hỗ trợ 24/7',
+                'Gửi sự cố',
+                Icons.headset_mic_rounded,
+                const Color(0xFF0284C7),
+                () => setState(() => _currentIndex = 3),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryContainer.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.receipt_long_outlined,
-                    color: AppColors.primaryContainer),
-              ),
-              title: const Text('Lịch sử giao dịch',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: const Text('Xem biên lai và lịch sử giao dịch',
-                  style: TextStyle(fontSize: 12)),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TransactionHistoryScreen(
-                      userRole: widget.user.roleName,
+          const SizedBox(height: 16),
+
+          // Grouped Utility Services
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.outlineVariant),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                children: [
+                ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryContainer.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.receipt_long_rounded,
+                      color: AppColors.primaryContainer,
+                      size: 22,
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryContainer.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  title: const Text(
+                    'Lịch sử giao dịch',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Biên lai tiền thuê, tiền cọc và thanh toán',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.outline,
+                    size: 20,
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TransactionHistoryScreen(
+                          userRole: widget.user.roleName,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                child: const Icon(Icons.notifications_active_outlined,
-                    color: AppColors.primaryContainer),
-              ),
-              title: const Text('Danh sách chờ của tôi',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: const Text('Theo dõi các loại kho đang chờ có ngăn trống',
-                  style: TextStyle(fontSize: 12)),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MyWaitlistScreen()),
-                );
-              },
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: AppColors.outlineVariant.withValues(alpha: 0.6),
+                  indent: 64,
+                ),
+                ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.notifications_active_rounded,
+                      color: AppColors.secondary,
+                      size: 22,
+                    ),
+                  ),
+                  title: const Text(
+                    'Danh sách chờ của tôi',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Thông báo khi loại kho bạn chờ có chỗ trống',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.outline,
+                    size: 20,
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MyWaitlistScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
+        ),
         ],
       ),
     );
   }
 
   Widget _buildActionCard(
-      String title, IconData icon, Color color, VoidCallback onTap) {
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.2)),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.outlineVariant),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 8),
-              Text(title,
-                  style: TextStyle(
-                      color: color, fontSize: 13, fontWeight: FontWeight.w600)),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ),

@@ -32,7 +32,7 @@ class TransactionDetailDialog extends StatelessWidget {
 
     return SafeArea(child: SingleChildScrollView(child: Container(
       decoration: const BoxDecoration(
-        color: AppColors.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
@@ -51,7 +51,7 @@ class TransactionDetailDialog extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: AppColors.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -67,14 +67,15 @@ class TransactionDetailDialog extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: payment.statusColor.withValues(alpha: 0.15),
+                  color: payment.statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: payment.statusColor.withValues(alpha: 0.3)),
+                  border: Border.all(color: payment.statusColor.withValues(alpha: 0.25)),
                 ),
                 child: Text(
                   payment.statusLabel,
@@ -89,44 +90,71 @@ class TransactionDetailDialog extends StatelessWidget {
           ),
           if (payment.status.toUpperCase() == 'PENDING') ...[
             const SizedBox(height: 12),
-            const Text(
-              'Giao dịch này chưa hoàn tất: khách chưa thanh toán xong trên VNPay '
-              'hoặc đã thoát giữa chừng. Hệ thống sẽ tự cập nhật khi VNPay xác nhận; '
-              'nếu quá hạn giữ chỗ, giao dịch sẽ chuyển sang "Thất bại".',
-              style: TextStyle(fontSize: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warningContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+              ),
+              child: const Text(
+                'Giao dịch này chưa hoàn tất: khách chưa thanh toán xong trên VNPay '
+                'hoặc đã thoát giữa chừng. Hệ thống sẽ tự cập nhật khi VNPay xác nhận; '
+                'nếu quá hạn giữ chỗ, giao dịch sẽ chuyển sang "Thất bại".',
+                style: TextStyle(fontSize: 12, color: Color(0xFF78350F), height: 1.4),
+              ),
             ),
           ],
           const SizedBox(height: 20),
 
           // Amount Card
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              color: AppColors.primaryContainer,
-              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.15),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: Column(
               children: [
                 const Text(
-                  'Số tiền',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                  'Số tiền giao dịch',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontWeight: FontWeight.w500),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
                   currencyFormat.format(payment.amount),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 30,
+                    fontSize: 32,
                     fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  payment.paymentTypeLabel,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    payment.paymentTypeLabel,
+                    style: const TextStyle(
+                      color: Color(0xFFF1F5F9),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -135,8 +163,12 @@ class TransactionDetailDialog extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Details List
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.outlineVariant),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(

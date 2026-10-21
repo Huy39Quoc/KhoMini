@@ -45,7 +45,7 @@ class StorageApiService {
       return _unwrapMap(response.data);
     } on ApiException catch (e) {
       final body = e.response?.data;
-      throw Exception('Không thể tạo mã QR cổng: '
+      throw Exception('Không thể tạo mã ra vào cổng: '
           '${body is Map ? body['message'] : e.message}');
     }
   }
@@ -76,13 +76,16 @@ class StorageApiService {
     }
   }
 
-  // Đổi PIN: phải nhập đúng PIN hiện tại.
+  // Đổi PIN: phải nhập đúng PIN hiện tại. newPin == null -> hệ thống cấp mới.
   Future<Map<String, dynamic>> updatePin(
-      String bookingId, String currentPin, String newPin) async {
+      String bookingId, String currentPin, {String? newPin}) async {
     try {
       final response = await _http.put(
         ApiEndpoints.updatePin(bookingId),
-        data: {'currentPin': currentPin, 'newPin': newPin},
+        data: {
+          'currentPin': currentPin,
+          if (newPin != null && newPin.trim().isNotEmpty) 'newPin': newPin.trim(),
+        },
       );
       return _unwrapMap(response.data);
     } on ApiException catch (e) {

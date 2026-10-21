@@ -15,6 +15,6 @@ public class ResetPinRequest {
     @NotBlank(message = "Vui lòng nhập mật khẩu tài khoản")
     private String password;
 
-    @Pattern(regexp = "^[0-9]{6}$", message = "Mã PIN phải gồm đúng 6 chữ số")
+    @Pattern(regexp = "^$|^[0-9]{6}$", message = "Mã PIN mới phải gồm đúng 6 chữ số")
     private String newPin;
 }

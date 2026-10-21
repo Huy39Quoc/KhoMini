@@ -9,7 +9,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>Khomini Mobile</string>
 	<key>NSCameraUsageDescription</key>
-	<string>StoreHub cần camera để quét mã QR ra vào kho của khách.</string>
+	<string>StoreHub cần camera để chụp ảnh tình trạng kho và gửi yêu cầu hỗ trợ.</string>
 	<key>FlutterDeepLinkingEnabled</key>
 	<false/>
 	<key>CFBundleURLTypes</key>

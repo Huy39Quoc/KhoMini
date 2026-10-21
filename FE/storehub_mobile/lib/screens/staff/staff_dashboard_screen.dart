@@ -989,8 +989,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         actions: [
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
-              tooltip: 'Quét QR cổng',
-              icon: const Icon(Icons.qr_code_scanner),
+              tooltip: 'Xác thực mã vào cổng',
+              icon: const Icon(Icons.vpn_key_outlined),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) =>
@@ -1117,70 +1117,95 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   Widget _buildFacilityHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      color: AppColors.primaryContainer,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _facilityName ?? 'Cơ sở của bạn',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.storefront, color: AppColors.secondary, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _facilityName ?? 'Cơ sở của bạn',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           const Text(
-            'Bạn trực tiếp bàn giao kho cho khách và nghiệm thu khi khách trả kho.',
-            style: TextStyle(color: Colors.white70, fontSize: 11),
+            'Lịch bàn giao kho cho khách và nghiệm thu kiểm tra khi khách trả kho.',
+            style: TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.3),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Row(
             children: [
               _dateChip('Hôm nay', 0),
               const SizedBox(width: 8),
               _dateChip('Ngày mai', 1),
               const SizedBox(width: 8),
-              Flexible(child: InkWell(
-            onTap: _pickDate,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white12,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.calendar_today,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _dateFormat.format(
-                      _selectedDate,
+              Flexible(
+                child: InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
                     ),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.calendar_today,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _dateFormat.format(_selectedDate),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.arrow_drop_down,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.arrow_drop_down,
-                    color: Colors.white,
-                  ),
-                ],
+                ),
               ),
-            ),
-          )),
             ],
           ),
         ],
@@ -1192,22 +1217,36 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     Widget tile(IconData icon, String label, VoidCallback onTap) {
       return Expanded(
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.surfaceContainerHigh),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.outline.withValues(alpha: 0.15)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Column(
               children: [
-                Icon(icon, size: 20, color: AppColors.secondaryContainer),
-                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 20, color: AppColors.primary),
+                ),
+                const SizedBox(height: 6),
                 Text(label,
                     style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w600)),
+                        fontSize: 11.5, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -1217,7 +1256,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
 
     final facilityId = _facilityId!;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
       child: Row(
         children: [
           tile(Icons.grid_view_outlined, 'Ngăn kho', () {
@@ -1267,13 +1306,29 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     final selected = _selectedDate.year == target.year &&
         _selectedDate.month == target.month &&
         _selectedDate.day == target.day;
-    return ChoiceChip(
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      selected: selected,
-      onSelected: (_) {
+    return InkWell(
+      onTap: () {
         setState(() => _selectedDate = target);
         _loadSchedule();
       },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.secondary
+              : Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+            color: selected ? const Color(0xFF0F172A) : Colors.white,
+          ),
+        ),
+      ),
     );
   }
 }

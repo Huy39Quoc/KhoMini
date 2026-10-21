@@ -18,7 +18,7 @@ class FacilityOpsApiService {
           queryParameters: {'facilityId': facilityId}, data: {'token': token});
       return _unwrap(response.data);
     } on ApiException catch (e) {
-      throw _err(e, 'kiểm tra mã QR cổng');
+      throw _err(e, 'kiểm tra mã ra vào cổng');
     }
   }
 

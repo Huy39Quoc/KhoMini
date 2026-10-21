@@ -137,13 +137,20 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
         verifyPinOrCount(booking, request.getCurrentPin());
 
-        storeNewPin(booking, request.getNewPin());
+        String plainPin = request.getNewPin();
+        boolean generated = plainPin == null || plainPin.isBlank();
+        if (generated) {
+            plainPin = generateRandomPin();
+        }
+        storeNewPin(booking, plainPin);
         bookingRepository.save(booking);
 
         activityLogService.record(customerId, ActivityAction.ACCESS_CREDENTIAL_UPDATE, "BOOKING", booking.getId(),
-                "Changed access PIN for booking " + booking.getBookingCode(), null, null);
+                "Changed access PIN for booking " + booking.getBookingCode()
+                        + (generated ? " (system generated)" : " (customer chosen)"),
+                null, null);
 
-        return buildAccessResponse(booking, null);
+        return buildAccessResponse(booking, generated ? plainPin : null);
     }
 
     @Override

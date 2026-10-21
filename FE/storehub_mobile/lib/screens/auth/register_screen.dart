@@ -76,8 +76,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: const Text('Tạo tài khoản'),
       ),
       body: SafeArea(
@@ -87,45 +89,66 @@ class _RegisterScreenState extends State<RegisterScreen> {
             key: _formKey,
             autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.surfaceContainerHigh),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.outlineVariant),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
                     'Tham gia StoreHub',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.3,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Điền thông tin để tạo tài khoản khách hàng',
+                    'Điền thông tin để tạo tài khoản khách hàng thuê kho',
                     style: TextStyle(
-                        fontSize: 13, color: AppColors.onSurfaceVariant),
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   if (_errorMessage != null)
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(14),
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: AppColors.errorContainer,
-                        borderRadius: BorderRadius.circular(12),
+                        color: AppColors.errorContainer.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.2),
+                        ),
                       ),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.error_outline,
+                          const Icon(Icons.error_outline_rounded,
                               color: AppColors.error, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               _errorMessage!,
                               style: const TextStyle(
-                                  color: AppColors.error, fontSize: 13),
+                                color: AppColors.error,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
@@ -138,7 +161,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
                       hintText: 'VD: Nguyễn Văn A',
-                      prefixIcon: Icon(Icons.person_outline),
+                      prefixIcon: Icon(Icons.person_outline_rounded),
                       helperText: 'Tối đa 30 ký tự',
                       counterText: '',
                     ),
@@ -158,7 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     maxLength: 30,
                     decoration: const InputDecoration(
                       hintText: 'VD: nguyenvana',
-                      prefixIcon: Icon(Icons.account_circle_outlined),
+                      prefixIcon: Icon(Icons.badge_outlined),
                       helperText:
                           'Từ 3 đến 30 ký tự, hiển thị trên hồ sơ',
                       counterText: '',
@@ -179,7 +202,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
                       hintText: 'ten@example.com',
-                      prefixIcon: Icon(Icons.email_outlined),
+                      prefixIcon: Icon(Icons.mail_outline_rounded),
                       helperText: "Bạn sẽ dùng email này để đăng nhập",
                     ),
                     validator: (value) {
@@ -201,7 +224,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
-                      hintText: 'e.g. 0912345678',
+                      hintText: 'VD: 0912345678',
                       prefixIcon: Icon(Icons.phone_outlined),
                       helperText:
                           'Số di động Việt Nam, bắt đầu bằng 0 hoặc +84',
@@ -223,11 +246,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       hintText: 'Tạo mật khẩu',
-                      prefixIcon: const Icon(Icons.lock_outline),
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
                       suffixIcon: IconButton(
                         icon: Icon(_obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility),
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined, size: 20),
                         onPressed: () {
                           setState(() {
                             _obscurePassword = !_obscurePassword;
@@ -261,12 +284,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           )
                         : const Text('Tạo tài khoản'),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Center(
                     child: TextButton(
                       onPressed:
                           _isLoading ? null : () => Navigator.pop(context),
-                      child: const Text('Đã có tài khoản? Đăng nhập'),
+                      child: const Text('Đã có tài khoản? Đăng nhập ngay'),
                     ),
                   ),
                 ],
@@ -287,8 +310,14 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
     );
   }
 }
