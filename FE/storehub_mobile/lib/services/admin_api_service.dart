@@ -1,6 +1,7 @@
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 import '../models/paged_result.dart';
+import '../models/user_model.dart';
 
 class AdminApiService {
   final HttpClient _http = HttpClient.instance;
@@ -53,22 +54,72 @@ class AdminApiService {
     }
   }
 
-  Future<PagedResult<Map<String, dynamic>>> getUsersPage({int page = 0,
-      String search = '', bool? isActive, String? roleName}) async {
+  Future<PagedResult<Map<String, dynamic>>> getUsersPage({
+    int page = 0,
+    int size = 20,
+    String search = '',
+    bool? isActive,
+    String? roleName,
+    String? facilityId,
+    String sortBy = 'role',
+    String sortDir = 'asc',
+  }) async {
     try {
       final response = await _http.get(ApiEndpoints.users, queryParameters: {
-        'page': page, 'size': 20,
-        // Sắp xếp theo vai trò để danh sách được nhóm theo từng vai trò
-        'sortBy': 'role', 'sortDir': 'asc',
+        'page': page,
+        'size': size,
+        'sortBy': sortBy,
+        'sortDir': sortDir,
         if (roleName != null && roleName.isNotEmpty) 'roleName': roleName,
         if (search.isNotEmpty) 'search': search,
         if (isActive != null) 'isActive': isActive,
+        if (facilityId != null && facilityId.isNotEmpty)
+          'facilityId': facilityId,
       });
       return PagedResult.fromApi(response.data,
           (item) => Map<String, dynamic>.from(item as Map));
     } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không tải được người dùng: $message');
+    }
+  }
+
+  Future<List<UserModel>> getStaffList({String? facilityId, String? search}) async {
+    final all = <UserModel>[];
+    var page = 0;
+    while (true) {
+      final batch = await getUsersPage(
+        page: page++,
+        size: 50,
+        search: search ?? '',
+        roleName: 'STAFF',
+        facilityId: facilityId,
+      );
+      all.addAll(batch.content.map(UserModel.fromJson));
+      if (batch.last) return all;
+    }
+  }
+
+  Future<int> getStaffCount({String? facilityId}) async {
+    try {
+      final response = await _http.get(
+        ApiEndpoints.users,
+        queryParameters: {
+          'page': 0,
+          'size': 1,
+          'roleName': 'STAFF',
+          if (facilityId != null && facilityId.isNotEmpty)
+            'facilityId': facilityId,
+        },
+      );
+      final data = response.data;
+      if (data is Map && data['data'] is Map) {
+        final total = data['data']['totalElements'];
+        if (total is num) return total.toInt();
+      }
+      return 0;
+    } catch (_) {
+      return 0;
     }
   }
 

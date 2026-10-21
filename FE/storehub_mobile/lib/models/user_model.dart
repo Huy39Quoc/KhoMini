@@ -5,6 +5,10 @@ class UserModel {
   final String email;
   final String phone;
   final String roleName;
+  final bool isActive;
+  final String? facilityId;
+  final String? facilityName;
+  final String? facilityCode;
 
   UserModel({
     required this.id,
@@ -13,9 +17,27 @@ class UserModel {
     required this.email,
     required this.phone,
     required this.roleName,
+    this.isActive = true,
+    this.facilityId,
+    this.facilityName,
+    this.facilityCode,
   });
 
   String get role => roleName;
+
+  bool get hasFacility =>
+      facilityId != null &&
+      facilityId!.isNotEmpty &&
+      facilityName != null &&
+      facilityName!.isNotEmpty;
+
+  String get facilityDisplayName {
+    if (!hasFacility) return 'Chưa phân cơ sở';
+    if (facilityCode != null && facilityCode!.isNotEmpty) {
+      return '[$facilityCode] $facilityName';
+    }
+    return facilityName!;
+  }
 
   bool get hasSupportedRole => const {
         'ADMIN', 'SYSTEM_ADMIN', 'BUSINESS_MANAGER',
@@ -35,6 +57,10 @@ class UserModel {
               ? json['role']['name']?.toString()
               : json['role']?.toString()) ??
           'CUSTOMER',
+      isActive: json['isActive'] == null || json['isActive'] == true,
+      facilityId: json['facilityId']?.toString(),
+      facilityName: json['facilityName']?.toString(),
+      facilityCode: json['facilityCode']?.toString(),
     );
   }
 
@@ -45,5 +71,9 @@ class UserModel {
         'email': email,
         'phone': phone,
         'roleName': roleName,
+        'isActive': isActive,
+        'facilityId': facilityId,
+        'facilityName': facilityName,
+        'facilityCode': facilityCode,
       };
 }

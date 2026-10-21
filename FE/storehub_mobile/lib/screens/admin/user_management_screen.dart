@@ -475,12 +475,87 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           onTap: () => _openUserDetail(user),
                           subtitle: Padding(
                             padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              '${ViLabels.role(user['roleName']?.toString())}\n'
-                              '@$username • $email${phone.isNotEmpty ? '\n$phone' : ''}',
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.onSurfaceVariant),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${ViLabels.role(user['roleName']?.toString())} • @$username\n$email${phone.isNotEmpty ? ' • $phone' : ''}',
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.onSurfaceVariant),
+                                ),
+                                if (user['facilityName'] != null &&
+                                    user['facilityName'].toString().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryContainer
+                                          .withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: AppColors.primaryContainer
+                                            .withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.storefront_rounded,
+                                            size: 11,
+                                            color: AppColors.primaryContainer),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            user['facilityCode'] != null
+                                                ? '[${user['facilityCode']}] ${user['facilityName']}'
+                                                : user['facilityName'].toString(),
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primaryContainer,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ] else if (user['roleName'] == 'STAFF') ...[
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.warningContainer
+                                          .withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: AppColors.warning
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.warning_amber_rounded,
+                                            size: 11,
+                                            color: AppColors.warning),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Chưa phân cơ sở',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.warning,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           isThreeLine: true,
@@ -620,6 +695,14 @@ class _UserDetailSheetState extends State<_UserDetailSheet> {
                 _row('Email', data['email']?.toString() ?? ''),
                 _row('Số điện thoại', data['phone']?.toString() ?? ''),
                 _row('Vai trò', ViLabels.role(roleName)),
+                _row(
+                    'Cơ sở trực thuộc',
+                    (data['facilityName'] != null &&
+                            data['facilityName'].toString().isNotEmpty)
+                        ? (data['facilityCode'] != null
+                            ? '[${data['facilityCode']}] ${data['facilityName']}'
+                            : data['facilityName'].toString())
+                        : (roleName == 'STAFF' ? 'Chưa phân cơ sở' : '—')),
                 _row('Trạng thái', isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'),
                 _row('Cấp vai trò lúc', _fmtDate(data['assignedAt'])),
                 _row('Ngày tạo', _fmtDate(data['createdAt'])),

@@ -42,11 +42,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
                 OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
             AND (:isActive IS NULL OR u.isActive = :isActive)
             AND (:roleName IS NULL OR u.role.name = :roleName)
+            AND (:facilityId IS NULL OR u.facility.id = :facilityId)
             """)
     Page<User> findAllWithFilters(
             @Param("search") String search,
             @Param("isActive") Boolean isActive,
             @Param("roleName") String roleName,
+            @Param("facilityId") UUID facilityId,
             Pageable pageable
     );
 

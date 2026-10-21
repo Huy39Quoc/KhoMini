@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/admin_api_service.dart';
+import '../../services/facility_admin_api_service.dart';
+import '../common/facility_staff_overview_screen.dart';
 import '../common/profile_screen.dart';
 import '../common/transaction_history_screen.dart';
 import 'activity_log_screen.dart';
@@ -19,11 +21,14 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _adminApiService = AdminApiService();
+  final _facilityAdminApiService = FacilityAdminApiService();
   bool _isLoading = true;
   int _totalUsers = 0;
   int _totalRoles = 0;
   int _totalPermissions = 0;
   int _activeUsers = 0;
+  int _totalFacilities = 0;
+  int _totalStaff = 0;
   String? _errorMessage;
 
   @override
@@ -43,19 +48,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _adminApiService.getUserSummary(),
         _adminApiService.getRoles(),
         _adminApiService.getPermissions(),
+        _facilityAdminApiService.getFacilitiesCount(),
+        _adminApiService.getStaffCount(),
       ]);
       final summary = results[0] as ({int total, int active});
       final roles = results[1] as List<dynamic>;
       final permissions = results[2] as List<dynamic>;
-      final total = summary.total;
-      final active = summary.active;
+      final facilityCount = results[3] as int;
+      final staffCount = results[4] as int;
 
       if (!mounted) return;
       setState(() {
-        _totalUsers = total;
-        _activeUsers = active;
+        _totalUsers = summary.total;
+        _activeUsers = summary.active;
         _totalRoles = roles.length;
         _totalPermissions = permissions.length;
+        _totalFacilities = facilityCount;
+        _totalStaff = staffCount;
         _isLoading = false;
       });
     } catch (e) {
@@ -138,6 +147,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     crossAxisSpacing: 12,
                     childAspectRatio: 1.5,
                     children: [
+                      _statCard(
+                        'Cơ sở lưu trữ',
+                        '$_totalFacilities',
+                        Icons.storefront_rounded,
+                        AppColors.primaryContainer,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const FacilityStaffOverviewScreen(
+                                        initialTabIndex: 0)),
+                          );
+                        },
+                      ),
+                      _statCard(
+                        'Nhân viên cơ sở',
+                        '$_totalStaff',
+                        Icons.badge_rounded,
+                        AppColors.secondary,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const FacilityStaffOverviewScreen(
+                                        initialTabIndex: 1)),
+                          );
+                        },
+                      ),
                       _statCard('Tổng người dùng', '$_totalUsers', Icons.people,
                           AppColors.primaryContainer),
                       _statCard('Đang hoạt động', '$_activeUsers',
@@ -153,6 +192,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const Text('Chức năng quản trị',
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 10),
+                  _actionTile(
+                    icon: Icons.store_mall_directory_rounded,
+                    title: 'Tổng quan cơ sở & nhân sự',
+                    subtitle:
+                        'Xem chi tiết $_totalFacilities cơ sở & danh sách $_totalStaff nhân viên thuộc từng cơ sở',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const FacilityStaffOverviewScreen()),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 10),
                   _actionTile(
                     icon: Icons.manage_accounts,
@@ -228,26 +282,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _statCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.surfaceContainerHigh),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 22),
-          const Spacer(),
-          Text(value,
-              style:
-                  const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: AppColors.onSurfaceVariant)),
-        ],
+  Widget _statCard(String label, String value, IconData icon, Color color,
+      {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.surfaceContainerHigh),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 22),
+                const Spacer(),
+                if (onTap != null)
+                  const Icon(Icons.arrow_forward_ios,
+                      size: 11, color: AppColors.onSurfaceVariant),
+              ],
+            ),
+            const Spacer(),
+            Text(value,
+                style:
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11, color: AppColors.onSurfaceVariant)),
+          ],
+        ),
       ),
     );
   }

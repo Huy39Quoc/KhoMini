@@ -17,6 +17,9 @@ public interface UserMapper {
     User toEntity(UserCreateRequest request);
 
     @Mapping(target = "roleName", source = "role.name")
+    @Mapping(target = "facilityId", source = "facility.id")
+    @Mapping(target = "facilityName", source = "facility.name")
+    @Mapping(target = "facilityCode", source = "facility.code")
     UserResponse toResponse(User user);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
