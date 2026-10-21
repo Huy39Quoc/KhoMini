@@ -192,6 +192,34 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                         color: AppColors.onSurfaceVariant,
                       ),
                     ),
+                    if (isCheckIn) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline, size: 16, color: Colors.blue.shade800),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Lưu ý: Hợp đồng của khách tính cước từ Ngày bắt đầu thuê đã đăng ký. Việc bàn giao hôm nay không làm thay đổi ngày kết thúc hợp đồng ban đầu.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Colors.blue.shade900,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     const Text(
                       'Tình trạng ngăn kho',

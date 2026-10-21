@@ -778,6 +778,28 @@ class _PaymentScreenState extends State<PaymentScreen>
                       widget.depositAmount +
                       widget.totalExtraFees)),
               isHighlight: true),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 15, color: Colors.amber.shade900),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Lưu ý: Tiền thuê tính từ Ngày bắt đầu (${_formatDate(widget.startDate)}). Việc nhận kho trễ hơn ngày hẹn không làm kéo dài thời hạn thuê.',
+                    style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

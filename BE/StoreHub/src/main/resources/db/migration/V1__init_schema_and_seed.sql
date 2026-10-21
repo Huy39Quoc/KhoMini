@@ -849,7 +849,7 @@ SELECT
     1, 14,
     50000.00, 0, 0.0,
     'Chất dễ cháy nổ, bình gas, xăng dầu; Ma túy, chất kích thích, hóa chất độc hại; Động vật sống, thực phẩm tươi sống dễ thối rữa; Vũ khí, đạn dược, hàng cấm, pháo hoa; Hàng hóa có mùi nồng nặc gây ảnh hưởng kho xung quanh',
-    E'1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.',
+    E'1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.\n5. Thời hạn hợp đồng và cước phí được tính từ Ngày bắt đầu thuê đã thỏa thuận. Việc nhận kho trễ hơn ngày hẹn không làm kéo dài thời hạn kết thúc hợp đồng hay giảm trừ tiền thuê.',
     'v2026.1'
 FROM new_facilities;
 

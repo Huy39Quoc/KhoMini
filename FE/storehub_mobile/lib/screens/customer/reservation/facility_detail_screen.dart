@@ -986,7 +986,34 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           ..._quoteBreakdownLines(total, deposit),
           const Divider(height: 20),
           _quoteLine('💳 Cần thanh toán ngay', initial, isHighlight: true),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.shade300),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Thời hạn thuê: ${_formatDate(_startDate)} đến ${_quote!['endDate'] != null ? _formatDate(DateTime.tryParse(_quote!['endDate'].toString()) ?? _startDate) : 'ngày kết thúc'}.\n'
+                    '⚠️ Tiền thuê tính từ Ngày bắt đầu thuê đã chọn. Việc nhận kho trễ hơn ngày hẹn không làm kéo dài thời hạn thuê hay giảm trừ cước.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Colors.amber.shade900,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           const Text(
               '* Khi kết thúc thuê chỉ hoàn lại tiền cọc. Tiền thuê và phí quản lý không được hoàn sau khi đã nhận kho.',
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
@@ -1259,7 +1286,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     final prohibitedRaw = _facilityPolicy?['prohibitedItems']?.toString() ??
         'Chất dễ cháy nổ, bình gas, xăng dầu; Ma túy, chất kích thích, hóa chất độc hại; Động vật sống, thực phẩm tươi sống dễ thối rữa; Vũ khí, hàng lậu, pháo hoa; Hàng hóa có mùi nồng nặc gây ảnh hưởng kho xung quanh';
     final termsRaw = _facilityPolicy?['termsAndConditions']?.toString() ??
-        '1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.';
+        '1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.\n5. Thời hạn hợp đồng và cước phí được tính từ Ngày bắt đầu thuê đã thỏa thuận. Việc nhận kho trễ hơn ngày hẹn không làm kéo dài thời hạn kết thúc hợp đồng hay giảm trừ tiền thuê.';
     final termsVersion =
         _facilityPolicy?['termsVersion']?.toString() ?? 'v2026.1';
 
