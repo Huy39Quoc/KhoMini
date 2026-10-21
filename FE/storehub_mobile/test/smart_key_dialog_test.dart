@@ -158,12 +158,19 @@ void main() {
 
     // The generated PIN dialog appears
     expect(find.text('Mã PIN của bạn'), findsOneWidget);
-    expect(find.text('888999'), findsOneWidget);
+    expect(find.text('8  8  8  9  9  9'), findsOneWidget);
 
-    // Tap "Điền mã mở" button to auto-fill into unlock box
-    await tester.tap(find.text('Điền mã mở'));
+    // Tap "Tôi đã ghi nhớ" button to close dialog without auto-filling
+    await tester.tap(find.text('Tôi đã ghi nhớ'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Đã điền mã PIN vào ô mở khóa'), findsOneWidget);
+    expect(find.text('Mã PIN của bạn'), findsNothing);
+
+    // User types the PIN into the single unlock field
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Nhập mã PIN 6 số để mở'), '888999');
+    await tester.pumpAndSettle();
+
+    expect(find.text('888999'), findsOneWidget);
   });
 }

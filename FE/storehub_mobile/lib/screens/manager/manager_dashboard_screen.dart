@@ -275,9 +275,11 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       text: unit?.floorLevel ?? '',
     );
 
-    String? selectedTypeId = unit?.unitTypeId.isNotEmpty == true
+    final initialTypeValid = unit?.unitTypeId != null &&
+        unitTypes.any((t) => t.id == unit!.unitTypeId);
+    String? selectedTypeId = initialTypeValid
         ? unit!.unitTypeId
-        : unitTypes.first.id;
+        : (unitTypes.isNotEmpty ? unitTypes.first.id : null);
 
     final formKey = GlobalKey<FormState>();
     bool submitting = false;
@@ -353,7 +355,9 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                       ),
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
-                        initialValue: selectedTypeId,
+                        initialValue: unitTypes.any((t) => t.id == selectedTypeId)
+                            ? selectedTypeId
+                            : null,
                         decoration: const InputDecoration(
                           labelText: 'Loại kho',
                         ),

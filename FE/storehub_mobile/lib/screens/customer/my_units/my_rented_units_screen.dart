@@ -64,11 +64,13 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   void _showUnitActions(MyUnitModel unit) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -127,15 +129,17 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                   child: const Icon(Icons.key, color: AppColors.primary),
                 ),
-                title: const Text('Khóa thông minh & Mã ra vào cổng',
+                title: const Text('Khóa thông minh ngăn kho',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 enabled: unit.hasActiveAccess,
-                subtitle: unit.hasActiveAccess
-                    ? null
-                    : Text(unit.accessDisabled
-                        ? 'Đã khóa truy cập vì quá hạn thuê'
-                        : 'Dùng được sau khi nhân viên bàn giao tại cơ sở',
-                        style: const TextStyle(fontSize: 12)),
+                subtitle: Text(
+                  !unit.hasActiveAccess
+                      ? (unit.accessDisabled
+                          ? 'Đã khóa truy cập vì quá hạn thuê'
+                          : 'Dùng được sau khi nhân viên bàn giao tại cơ sở')
+                      : 'Mở / đóng khóa ngăn kho bằng mã PIN 6 số',
+                  style: const TextStyle(fontSize: 12),
+                ),
                 onTap: unit.hasActiveAccess
                     ? () {
                         Navigator.pop(ctx);

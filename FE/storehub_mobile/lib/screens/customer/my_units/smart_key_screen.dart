@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,9 +9,11 @@ import '../../../services/storage_api_service.dart';
 
 /// Khóa thông minh: mở/đóng cửa ngăn kho bằng mã PIN 6 số.
 ///
-/// - PIN do hệ thống cấp hoặc khách tự đặt. Server chỉ lưu bản băm nên không thể xem lại PIN.
-/// - Mở khóa phải nhập đúng PIN (sai 5 lần -> khóa tạm 15 phút). Đóng khóa không cần PIN.
+/// - Khách có mã PIN 6 số: có thể tự đặt hoặc để hệ thống cấp ngẫu nhiên.
+/// - Khách tự nhập mã PIN 6 số để mở khóa (sai 5 lần -> khóa tạm 15 phút).
+/// - Đóng khóa bằng 1 chạm không cần nhập lại PIN.
 /// - Quên PIN -> đặt lại bằng mật khẩu tài khoản.
+/// - Mã QR ra vào cổng cơ sở được tách riêng vào bảng xem QR, không gây nhầm lẫn với mã mở ngăn kho.
 class SmartKeyScreen extends StatefulWidget {
   final String bookingId;
   final String unitNumber;
@@ -159,177 +162,187 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
     }
   }
 
-  Widget _gatePassCard() {
-    final pass = _gatePass;
-    final expiresAt = DateTime.tryParse(pass?['expiresAt']?.toString() ?? '');
-    final remaining = expiresAt?.difference(DateTime.now()) ?? Duration.zero;
-    final valid = pass != null && remaining > Duration.zero;
-    final token = pass?['token']?.toString();
+  void _showGatePassSheet() {
+    if (_gatePass == null) {
+      _issueGatePass();
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final pass = _gatePass;
+          final expiresAt = DateTime.tryParse(pass?['expiresAt']?.toString() ?? '');
+          final remaining = expiresAt?.difference(DateTime.now()) ?? Duration.zero;
+          final valid = pass != null && remaining > Duration.zero;
+          final qrBase64 = pass?['qrPngBase64']?.toString();
 
-    return _card(
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.outline.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                child: const Icon(Icons.vpn_key_rounded, size: 24, color: AppColors.secondary),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 16),
+                Row(
                   children: [
-                    Text('Mã số ra vào cổng cơ sở',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    SizedBox(height: 2),
-                    Text('Mã 1 lần, hiệu lực 90 giây khi xác thực tại cổng',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.qr_code_2_rounded,
+                          size: 24, color: AppColors.secondary),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Mã QR ra vào cổng cơ sở',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            pass?['facilityName'] != null
+                                ? 'Cơ sở: ${pass!['facilityName']}'
+                                : 'Dùng khi qua cổng kiểm soát của cơ sở',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          if (valid && token != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.outlineVariant),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'MÃ XÁC THỰC CỔNG',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
-                          letterSpacing: 0.8,
+                const SizedBox(height: 16),
+                if (_issuingGatePass) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: CircularProgressIndicator(),
+                  ),
+                ] else if (valid && qrBase64 != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.outlineVariant),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: 'Sao chép mã',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.secondary),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: token));
-                          _toast('Đã sao chép mã ra vào');
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    token,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                      color: AppColors.textPrimary,
+                      ],
+                    ),
+                    child: Image.memory(
+                      base64Decode(qrBase64),
+                      width: 200,
+                      height: 200,
+                      gaplessPlayback: true,
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: remaining.inSeconds <= 15
-                    ? AppColors.errorContainer
-                    : AppColors.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.timer_outlined,
-                    size: 15,
-                    color: remaining.inSeconds <= 15
-                        ? AppColors.error
-                        : AppColors.textPrimary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Còn ${remaining.inSeconds}s${pass['facilityName'] != null ? ' • ${pass['facilityName']}' : ''}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12.5,
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
                       color: remaining.inSeconds <= 15
-                          ? AppColors.error
-                          : AppColors.textPrimary,
+                          ? AppColors.errorContainer
+                          : AppColors.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 15,
+                          color: remaining.inSeconds <= 15
+                              ? AppColors.error
+                              : AppColors.textPrimary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Mã QR còn hiệu lực: ${remaining.inSeconds}s',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: remaining.inSeconds <= 15
+                                ? AppColors.error
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Mã QR đã hết hạn. Hãy bấm nút bên dưới để tạo mã QR mới.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                     ),
                   ),
                 ],
-              ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton.icon(
+                    onPressed: _issuingGatePass
+                        ? null
+                        : () async {
+                            await _issueGatePass();
+                            setSheetState(() {});
+                          },
+                    icon: const Icon(Icons.refresh_rounded, size: 20),
+                    label: Text(valid ? 'Lấy lại mã QR mới' : 'Tạo mã QR ra vào cổng'),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Lưu ý: Mã QR này chỉ dùng để nhân viên quét tại cổng bảo vệ cơ sở. '
+                  'Để mở khóa ngăn kho của bạn, hãy sử dụng mã PIN 6 số tại màn hình Khóa thông minh.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11.5, color: AppColors.onSurfaceVariant, height: 1.35),
+                ),
+              ],
             ),
-          ] else if (pass != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.info_outline, size: 16, color: AppColors.textSecondary),
-                  SizedBox(width: 8),
-                  Text('Mã ra vào đã hết hạn. Hãy bấm nút dưới để lấy mã mới.',
-                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              onPressed: _issuingGatePass ? null : _issueGatePass,
-              icon: _issuingGatePass
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.vpn_key_outlined, size: 18),
-              label: Text(valid ? 'Lấy lại mã mới' : 'Lấy mã số ra vào cổng'),
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
   Future<void> _unlock() async {
-    final pin = _pinController.text;
+    final pin = _pinController.text.trim();
     if (pin.length != 6) {
       _toast('Nhập đủ mã PIN 6 số', error: true);
       return;
     }
     final model = await _run(() => _service.unlockUnit(widget.bookingId, pin));
-    _pinController.clear();
-    if (model != null) _toast('Đã mở khóa ngăn ${widget.unitNumber}');
+    if (model != null) {
+      _pinController.clear();
+      _toast('Đã mở khóa ngăn ${widget.unitNumber}');
+    }
   }
 
   Future<void> _lock() async {
@@ -342,6 +355,9 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
         () => _service.setupPin(widget.bookingId, newPin: customPin));
     if (model == null) return;
     if (model.generatedPin != null) {
+      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
       await _showGeneratedPin(model.generatedPin!);
     } else {
       _toast('Đã tạo mã PIN của bạn');
@@ -351,69 +367,99 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
   Future<void> _showGeneratedPin(String pin) {
     return showDialog<void>(
       context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Mã PIN của bạn'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: SelectableText(
-                pin,
-                style: const TextStyle(
-                    fontSize: 38,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 10,
-                    color: AppColors.primary),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+        elevation: 8,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        clipBehavior: Clip.antiAlias,
+        backgroundColor: Colors.white,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: pin));
-                    _toast('Đã chép mã PIN');
-                  },
-                  icon: const Icon(Icons.copy, size: 16),
-                  label: const Text('Chép mã'),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.key_rounded,
+                      size: 32, color: AppColors.primary),
                 ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: () {
-                    _pinController.text = pin;
-                    Clipboard.setData(ClipboardData(text: pin));
-                    Navigator.pop(ctx);
-                    _toast('Đã điền mã PIN vào ô mở khóa');
-                  },
-                  icon: const Icon(Icons.lock_open, size: 16),
-                  label: const Text('Điền mã mở'),
+                const SizedBox(height: 12),
+                const Text(
+                  'Mã PIN của bạn',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Hệ thống đã cấp mã PIN 6 số an toàn',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.25),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    pin.split('').join('  '),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 6,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: pin));
+                      _toast('Đã sao chép mã PIN');
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 18),
+                    label: const Text('Sao chép mã PIN'),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Hãy ghi nhớ mã này để tự nhập khi mở khóa ngăn kho của bạn.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11.5, color: AppColors.onSurfaceVariant),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Tôi đã ghi nhớ'),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Hãy ghi nhớ mã này. Vì lý do bảo mật, mã chỉ hiển thị MỘT lần. '
-              'Nếu quên, bạn có thể đặt lại bằng mật khẩu tài khoản.',
-              style:
-                  TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Tôi đã ghi nhớ'),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -435,10 +481,14 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
       builder: (_) => const _PinEntryDialog(mode: _PinDialogMode.change),
     );
     if (!mounted || result == null) return;
+    await Future.delayed(const Duration(milliseconds: 80));
     final model = await _run(() => _service.updatePin(
         widget.bookingId, result.currentPin!, newPin: result.newPin));
     if (model == null) return;
     if (model.generatedPin != null) {
+      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
       await _showGeneratedPin(model.generatedPin!);
     } else {
       _toast('Đã đổi mã PIN, cửa đã được khóa lại');
@@ -452,11 +502,15 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
       builder: (_) => const _PinEntryDialog(mode: _PinDialogMode.reset),
     );
     if (!mounted || result == null) return;
+    await Future.delayed(const Duration(milliseconds: 80));
 
     final model = await _run(() => _service.resetPin(widget.bookingId,
         result.password!, newPin: result.newPin));
     if (model == null) return;
     if (model.generatedPin != null) {
+      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
       await _showGeneratedPin(model.generatedPin!);
     } else {
       _toast('Đã đặt lại mã PIN, cửa đã được khóa lại');
@@ -502,7 +556,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
             child: const Icon(Icons.pin_outlined, size: 48, color: AppColors.primary),
           ),
           const SizedBox(height: 14),
-          const Text('Bạn chưa thiết lập mã PIN',
+          const Text('Bạn chưa có mã PIN mở khóa',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           const Text(
@@ -646,7 +700,27 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                         style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
-              ] else
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.check_circle_outline, color: AppColors.success, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Ngăn kho đang mở. Khi hoàn tất cất/lấy đồ, hãy bấm nút dưới để đóng khóa lại.',
+                          style: TextStyle(fontSize: 12.5, color: AppColors.textPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   height: 48,
@@ -657,6 +731,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                         style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
+              ],
             ],
           ),
         ),
@@ -676,7 +751,7 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                 ),
                 title: const Text('Đổi mã PIN',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                subtitle: const Text('Cần nhập mã PIN hiện tại để đổi',
+                subtitle: const Text('Tự đặt mã mới hoặc để hệ thống cấp mới',
                     style: TextStyle(fontSize: 12)),
                 trailing: const Icon(Icons.chevron_right, size: 20, color: AppColors.outline),
                 onTap: _busy ? null : _changePinDialog,
@@ -701,6 +776,26 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
                 onTap: _busy ? null : _forgotPinDialog,
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _card(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.qr_code_2_rounded, size: 22, color: AppColors.secondary),
+            ),
+            title: const Text('Mã QR ra vào cổng cơ sở',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            subtitle: const Text('Chỉ dùng khi ra vào cổng có nhân viên/bảo vệ quét mã',
+                style: TextStyle(fontSize: 12)),
+            trailing: const Icon(Icons.chevron_right, size: 20, color: AppColors.outline),
+            onTap: _showGatePassSheet,
           ),
         ),
         const SizedBox(height: 14),
@@ -753,8 +848,6 @@ class _SmartKeyScreenState extends State<SmartKeyScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _gatePassCard(),
-        const SizedBox(height: 16),
         a.pinSet ? _lockView(a) : _noPinView(),
       ],
     );
@@ -915,6 +1008,11 @@ class _PinEntryDialogState extends State<_PinEntryDialog> {
               ],
               if (change) ...[
                 _pinField(_current, 'Mã PIN hiện tại'),
+                const SizedBox(height: 4),
+                const Text(
+                  'Nếu không nhớ mã hiện tại, hãy hủy và chọn mục "Quên mã PIN?".',
+                  style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+                ),
                 const SizedBox(height: 12),
               ],
               SegmentedButton<bool>(
