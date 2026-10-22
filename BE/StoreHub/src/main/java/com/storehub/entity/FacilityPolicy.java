@@ -14,6 +14,10 @@ import java.math.BigDecimal;
 @Builder
 public class FacilityPolicy extends BaseEntity {
 
+    // Updates take effect immediately for new reservations only.
+    @Builder.Default
+    private java.time.LocalDateTime cancellationPolicyEffectiveAt = java.time.LocalDateTime.now();
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "facility_id", nullable = false, unique = true)
     private Facility facility;

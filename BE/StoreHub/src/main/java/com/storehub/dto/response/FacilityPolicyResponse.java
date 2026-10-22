@@ -9,6 +9,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class FacilityPolicyResponse {
+    private java.time.LocalDateTime cancellationPolicyEffectiveAt;
     private UUID id;
     private UUID facilityId;
     private String facilityName;

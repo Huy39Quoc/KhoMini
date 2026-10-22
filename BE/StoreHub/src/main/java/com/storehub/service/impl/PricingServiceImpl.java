@@ -279,7 +279,7 @@ public class PricingServiceImpl implements PricingService {
     @Override
     @Transactional(readOnly = true)
     public BigDecimal calculateCancellationRefund(
-            UUID facilityId,
+            com.storehub.entity.Booking booking,
             BigDecimal depositPaid,
             LocalDateTime scheduledStart,
             LocalDateTime cancelTime
@@ -288,20 +288,20 @@ public class PricingServiceImpl implements PricingService {
             return BigDecimal.ZERO;
         }
 
-        var policyOpt = facilityPolicyRepository.findByFacility_Id(facilityId);
-        if (policyOpt.isEmpty()) {
-            return depositPaid;
+        // Never fall back to mutable facility policy, including for malformed legacy data.
+        if (booking.getCancellationFullRefundHours() == null
+                || booking.getCancellationPartialRefundHours() == null
+                || booking.getCancellationPartialRefundPercent() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
         }
-
-        FacilityPolicy policy = policyOpt.get();
         long hoursBeforeStart = Duration.between(cancelTime, scheduledStart).toHours();
 
-        if (hoursBeforeStart >= policy.getCancellationFullRefundHours()) {
+        if (hoursBeforeStart >= booking.getCancellationFullRefundHours()) {
             return depositPaid;
         }
-        if (hoursBeforeStart >= policy.getCancellationPartialRefundHours()) {
+        if (hoursBeforeStart >= booking.getCancellationPartialRefundHours()) {
             return depositPaid
-                    .multiply(BigDecimal.valueOf(policy.getCancellationPartialRefundPercent()))
+                    .multiply(BigDecimal.valueOf(booking.getCancellationPartialRefundPercent()))
                     .divide(ONE_HUNDRED, 0, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO;

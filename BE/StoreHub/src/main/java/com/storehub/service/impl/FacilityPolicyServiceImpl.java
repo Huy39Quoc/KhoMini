@@ -47,6 +47,7 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
+    @Transactional(readOnly = true, noRollbackFor = AppException.class)
     public FacilityPolicyResponse getByFacilityId(UUID facilityId) {
         FacilityPolicy policy = facilityPolicyRepository.findByFacility_Id(facilityId)
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_POLICY_NOT_FOUND));
@@ -69,6 +70,7 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
         }
 
         FacilityPolicy policy = FacilityPolicy.builder()
+                .cancellationPolicyEffectiveAt(LocalDateTime.now())
                 .facility(facility)
                 .depositPercentage(request.getDepositPercentage())
                 .renewalWindowDays(request.getRenewalWindowDays())
@@ -120,7 +122,14 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
             throw new AppException(ErrorCode.FACILITY_POLICY_INVALID_CANCELLATION);
         }
 
+        boolean cancellationChanged = fullHours != policy.getCancellationFullRefundHours()
+                || partialHours != policy.getCancellationPartialRefundHours()
+                || (request.getCancellationPartialRefundPercent() != null
+                    && !request.getCancellationPartialRefundPercent().equals(policy.getCancellationPartialRefundPercent()));
         facilityPolicyMapper.updateEntityFromRequest(request, policy);
+        if (cancellationChanged) {
+            policy.setCancellationPolicyEffectiveAt(LocalDateTime.now());
+        }
         FacilityPolicy updated = facilityPolicyRepository.save(policy);
 
         activityLogService.record(ActivityAction.FACILITY_POLICY_UPDATE, "FACILITY_POLICY", updated.getId(),

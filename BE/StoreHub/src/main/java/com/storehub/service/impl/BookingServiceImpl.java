@@ -99,11 +99,17 @@ public class BookingServiceImpl implements BookingService {
             throw new AppException(ErrorCode.TERMS_AND_CONDITIONS_REQUIRED);
         }
 
+        FacilityPolicyResponse cancellationPolicy = null;
+        try {
+            cancellationPolicy = facilityPolicyService.getByFacilityId(request.getFacilityId());
+        } catch (AppException ex) {
+            if (ex.getErrorCode() != ErrorCode.FACILITY_POLICY_NOT_FOUND) throw ex;
+        }
+        LocalDateTime policyCapturedAt = LocalDateTime.now();
         String resolvedTermsVersion = request.getTermsVersion();
         if (resolvedTermsVersion == null || resolvedTermsVersion.isBlank()) {
             try {
-                FacilityPolicyResponse policy = facilityPolicyService.getByFacilityId(request.getFacilityId());
-                resolvedTermsVersion = policy.getTermsVersion();
+                resolvedTermsVersion = cancellationPolicy != null ? cancellationPolicy.getTermsVersion() : "v2026.1";
             } catch (Exception ignored) {
                 resolvedTermsVersion = "v2026.1";
             }
@@ -140,6 +146,13 @@ public class BookingServiceImpl implements BookingService {
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(BOOKING_EXPIRY_MINUTES);
 
         Booking booking = Booking.builder()
+                .cancellationFullRefundHours(cancellationPolicy != null ? cancellationPolicy.getCancellationFullRefundHours() : Integer.MIN_VALUE)
+                .cancellationPartialRefundHours(cancellationPolicy != null ? cancellationPolicy.getCancellationPartialRefundHours() : Integer.MIN_VALUE)
+                .cancellationPartialRefundPercent(cancellationPolicy != null ? cancellationPolicy.getCancellationPartialRefundPercent() : 100.0)
+                .cancellationPolicyEffectiveAt(cancellationPolicy != null && cancellationPolicy.getCancellationPolicyEffectiveAt() != null
+                        ? cancellationPolicy.getCancellationPolicyEffectiveAt() : policyCapturedAt)
+                .cancellationPolicyCapturedAt(policyCapturedAt)
+                .cancellationPolicyLegacy(false)
                 .bookingCode(bookingCode)
                 .customer(customer)
                 .storageUnit(selectedUnit)

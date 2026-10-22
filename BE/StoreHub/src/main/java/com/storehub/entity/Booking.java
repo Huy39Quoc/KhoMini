@@ -18,6 +18,20 @@ import java.util.UUID;
 @Builder
 public class Booking extends BaseEntity {
 
+    @Column(nullable = false, updatable = false)
+    private Integer cancellationFullRefundHours;
+    @Column(nullable = false, updatable = false)
+    private Integer cancellationPartialRefundHours;
+    @Column(nullable = false, updatable = false)
+    private Double cancellationPartialRefundPercent;
+    @Column(updatable = false)
+    private LocalDateTime cancellationPolicyEffectiveAt;
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime cancellationPolicyCapturedAt;
+    // Legacy bookings have no historical policy; migration freezes the available policy.
+    @Column(nullable = false, updatable = false)
+    private Boolean cancellationPolicyLegacy;
+
     @Column(name = "booking_code", nullable = false, unique = true, length = 30)
     private String bookingCode;
 

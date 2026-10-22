@@ -863,7 +863,7 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal rentPaid = rent != null ? rent.getAmount() : BigDecimal.ZERO;
 
         BigDecimal refundTotal = pricingService.calculateCancellationRefund(
-                booking.getStorageUnit().getFacility().getId(),
+                booking,
                 depositPaid.add(rentPaid),
                 booking.getScheduledCheckInTime() != null
                         ? booking.getScheduledCheckInTime()
