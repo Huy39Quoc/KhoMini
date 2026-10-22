@@ -94,9 +94,9 @@ class _GatePassVerifyScreenState extends State<GatePassVerifyScreen> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  '1. Khách mở ứng dụng StoreHub → Kho của tôi → Khóa thông minh → Lấy mã số ra vào cổng.\n'
-                  '2. Nhân viên nhập hoặc dán mã vào ô bên dưới rồi bấm "Xác minh".\n'
-                  'Mã ra vào có hiệu lực 90 giây và chỉ sử dụng một lần.',
+                  '1. Khách hàng cung cấp mã số ra vào cổng hoặc mã xác thực (nếu có).\n'
+                  '2. Nhân viên nhập hoặc dán mã vào ô bên dưới rồi bấm "Xác minh mã ra vào".\n'
+                  'Mã ra vào có hiệu lực ngắn hạn và chỉ sử dụng một lần để bảo đảm an ninh.',
                   style: TextStyle(
                     fontSize: 12.5,
                     color: AppColors.textSecondary,

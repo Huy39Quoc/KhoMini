@@ -157,12 +157,15 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
 
     @Override
     public boolean isReturnNoticeSatisfied(UUID facilityId, LocalDateTime scheduledReturnTime) {
+        if (scheduledReturnTime == null || !scheduledReturnTime.isAfter(LocalDateTime.now())) {
+            return false;
+        }
         return facilityPolicyRepository.findByFacility_Id(facilityId)
                 .map(policy -> {
-                    if (policy.getReturnNoticeDays() == null) {
+                    if (policy.getReturnNoticeDays() == null || policy.getReturnNoticeDays() <= 0) {
                         return true;
                     }
-                    long daysNotice = ChronoUnit.DAYS.between(LocalDateTime.now(), scheduledReturnTime);
+                    long daysNotice = ChronoUnit.DAYS.between(LocalDate.now(), scheduledReturnTime.toLocalDate());
                     return daysNotice >= policy.getReturnNoticeDays();
                 })
                 .orElse(true);

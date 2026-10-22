@@ -365,10 +365,10 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
         var facility = booking.getStorageUnit().getFacility();
         var returnTime = request.getScheduledReturnTime().toLocalTime();
-        if (facility.getOpenTime() == null || facility.getCloseTime() == null
-                || returnTime.isBefore(facility.getOpenTime())
-                || !returnTime.isBefore(facility.getCloseTime())) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+        var openTime = facility.getOpenTime() != null ? facility.getOpenTime() : java.time.LocalTime.of(8, 0);
+        var closeTime = facility.getCloseTime() != null ? facility.getCloseTime() : java.time.LocalTime.of(20, 0);
+        if (returnTime.isBefore(openTime) || returnTime.isAfter(closeTime)) {
+            throw new AppException(ErrorCode.CHECKOUT_TIME_OUTSIDE_OPEN_HOURS);
         }
 
         if (!facilityPolicyService.isReturnNoticeSatisfied(facilityId, request.getScheduledReturnTime())) {

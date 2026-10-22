@@ -25,6 +25,8 @@ class MyUnitModel {
   final double overdueFeeOutstanding;
   final bool accessDisabled;
   final DateTime? scheduledReturnTime;
+  final String? openTime;
+  final String? closeTime;
 
   MyUnitModel({
     required this.bookingId,
@@ -53,6 +55,8 @@ class MyUnitModel {
     this.overdueFeeOutstanding = 0,
     this.accessDisabled = false,
     this.scheduledReturnTime,
+    this.openTime,
+    this.closeTime,
   });
 
   bool get isActive => status == 'ACTIVE';
@@ -123,6 +127,28 @@ class MyUnitModel {
       scheduledReturnTime: json['scheduledReturnTime'] != null
           ? DateTime.tryParse(json['scheduledReturnTime'].toString())
           : null,
+      openTime: json['openTime']?.toString(),
+      closeTime: json['closeTime']?.toString(),
     );
+  }
+
+  String get operatingHours {
+    final ot = openTime != null && openTime!.length >= 5
+        ? openTime!.substring(0, 5)
+        : '08:00';
+    final ct = closeTime != null && closeTime!.length >= 5
+        ? closeTime!.substring(0, 5)
+        : '20:00';
+    return '$ot - $ct';
+  }
+
+  int get openHour {
+    if (openTime == null || openTime!.isEmpty) return 8;
+    return int.tryParse(openTime!.split(':')[0]) ?? 8;
+  }
+
+  int get closeHour {
+    if (closeTime == null || closeTime!.isEmpty) return 20;
+    return int.tryParse(closeTime!.split(':')[0]) ?? 20;
   }
 }

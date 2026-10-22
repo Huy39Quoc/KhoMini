@@ -33,6 +33,8 @@ public interface CustomerStorageMapper {
     @Mapping(target = "scheduledReturnTime", source = "scheduledReturnTime")
     @Mapping(target = "hasPendingExtension", expression = "java(booking.getPendingExtraMonths() != null)")
     @Mapping(target = "pendingNewEndDate", expression = "java(booking.getPendingExtraMonths() != null && booking.getEndDate() != null ? booking.getEndDate().plusMonths(booking.getPendingExtraMonths()) : null)")
+    @Mapping(target = "openTime", source = "storageUnit.facility.openTime")
+    @Mapping(target = "closeTime", source = "storageUnit.facility.closeTime")
     MyUnitResponse toMyUnitResponse(Booking booking);
 
     @Mapping(target = "bookingId", source = "id")

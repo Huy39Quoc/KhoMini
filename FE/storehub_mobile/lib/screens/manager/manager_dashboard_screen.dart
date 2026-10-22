@@ -1498,7 +1498,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 1.55,
+                childAspectRatio: 1.42,
                 children: [
                   _statTile(
                     'Tổng số ngăn',

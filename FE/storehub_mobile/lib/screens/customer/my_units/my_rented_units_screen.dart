@@ -607,6 +607,22 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
     }
   }
 
+  String _unitBadgeLabel(MyUnitModel unit) {
+    if (unit.overdue) return 'Quá hạn';
+    if (unit.isActive && unit.scheduledReturnTime != null) {
+      return 'Đã hẹn trả kho';
+    }
+    return ViLabels.booking(unit.status);
+  }
+
+  Color _unitBadgeColor(MyUnitModel unit) {
+    if (unit.overdue) return AppColors.error;
+    if (unit.isActive && unit.scheduledReturnTime != null) {
+      return AppColors.warning;
+    }
+    return _statusColor(unit.status);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -708,7 +724,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                             Text(
                               _showAwaiting
                                   ? 'Bạn đã thanh toán. Hãy đến đúng giờ hẹn để nhân viên bàn giao ngăn kho.'
-                                  : 'Chạm vào ngăn kho để mở khóa thông minh, xem mã ra vào hoặc quản lý hợp đồng.',
+                                  : 'Chạm vào ngăn kho để mở khóa thông minh hoặc quản lý hợp đồng.',
                               style: const TextStyle(
                                   color: Colors.white70, fontSize: 11.5, height: 1.3),
                             ),
@@ -863,20 +879,15 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color:
-                          _statusColor(unit.overdue ? 'OVERDUE' : unit.status)
-                              .withValues(alpha: 0.15),
+                      color: _unitBadgeColor(unit).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      unit.overdue
-                          ? 'Quá hạn'
-                          : ViLabels.booking(unit.status),
+                      _unitBadgeLabel(unit),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: _statusColor(
-                            unit.overdue ? 'OVERDUE' : unit.status),
+                        color: _unitBadgeColor(unit),
                       ),
                     ),
                   ),
