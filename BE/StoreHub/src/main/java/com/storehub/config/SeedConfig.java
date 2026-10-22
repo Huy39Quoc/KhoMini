@@ -312,6 +312,12 @@ public class SeedConfig implements ApplicationRunner {
             storageUnitRepository.save(suS101);
 
             bkActive01 = Booking.builder()
+                    .cancellationFullRefundHours(48)
+                    .cancellationPartialRefundHours(24)
+                    .cancellationPartialRefundPercent(50.0)
+                    .cancellationPolicyEffectiveAt(now.minusDays(30))
+                    .cancellationPolicyCapturedAt(now.minusDays(10))
+                    .cancellationPolicyLegacy(false)
                     .bookingCode("BK-TEST-ACTIVE-01")
                     .customer(customer1)
                     .storageUnit(suS101)
@@ -379,6 +385,12 @@ public class SeedConfig implements ApplicationRunner {
             storageUnitRepository.save(suM201);
 
             bkActive02 = Booking.builder()
+                    .cancellationFullRefundHours(48)
+                    .cancellationPartialRefundHours(24)
+                    .cancellationPartialRefundPercent(50.0)
+                    .cancellationPolicyEffectiveAt(now.minusDays(30))
+                    .cancellationPolicyCapturedAt(now.minusDays(28))
+                    .cancellationPolicyLegacy(false)
                     .bookingCode("BK-TEST-ACTIVE-02")
                     .customer(customer1)
                     .storageUnit(suM201)
@@ -445,6 +457,12 @@ public class SeedConfig implements ApplicationRunner {
             storageUnitRepository.save(suL301);
 
             bkConfirmed01 = Booking.builder()
+                    .cancellationFullRefundHours(48)
+                    .cancellationPartialRefundHours(24)
+                    .cancellationPartialRefundPercent(50.0)
+                    .cancellationPolicyEffectiveAt(now.minusDays(30))
+                    .cancellationPolicyCapturedAt(now.minusHours(2))
+                    .cancellationPolicyLegacy(false)
                     .bookingCode("BK-TEST-CONFIRMED-01")
                     .customer(customer2)
                     .storageUnit(suL301)
@@ -495,6 +513,12 @@ public class SeedConfig implements ApplicationRunner {
             storageUnitRepository.save(suS102);
 
             bkCompleted01 = Booking.builder()
+                    .cancellationFullRefundHours(48)
+                    .cancellationPartialRefundHours(24)
+                    .cancellationPartialRefundPercent(50.0)
+                    .cancellationPolicyEffectiveAt(now.minusDays(60))
+                    .cancellationPolicyCapturedAt(now.minusMonths(1).minusDays(3))
+                    .cancellationPolicyLegacy(false)
                     .bookingCode("BK-TEST-COMPLETED-01")
                     .customer(customer2)
                     .storageUnit(suS102)
@@ -575,6 +599,12 @@ public class SeedConfig implements ApplicationRunner {
             storageUnitRepository.save(suM202);
 
             Booking bkPending01 = Booking.builder()
+                    .cancellationFullRefundHours(48)
+                    .cancellationPartialRefundHours(24)
+                    .cancellationPartialRefundPercent(50.0)
+                    .cancellationPolicyEffectiveAt(now.minusDays(30))
+                    .cancellationPolicyCapturedAt(now.minusMinutes(5))
+                    .cancellationPolicyLegacy(false)
                     .bookingCode("BK-TEST-PENDING-01")
                     .customer(customer1)
                     .storageUnit(suM202)
@@ -606,6 +636,12 @@ public class SeedConfig implements ApplicationRunner {
                 storageUnitRepository.save(suD7S101);
 
                 bkD7 = Booking.builder()
+                        .cancellationFullRefundHours(48)
+                        .cancellationPartialRefundHours(24)
+                        .cancellationPartialRefundPercent(50.0)
+                        .cancellationPolicyEffectiveAt(now.minusDays(30))
+                        .cancellationPolicyCapturedAt(now.minusDays(15))
+                        .cancellationPolicyLegacy(false)
                         .bookingCode("BK-D7-ACTIVE-01")
                         .customer(customer3)
                         .storageUnit(suD7S101)
@@ -654,6 +690,12 @@ public class SeedConfig implements ApplicationRunner {
                 storageUnitRepository.save(suTdS101);
 
                 bkTd = Booking.builder()
+                        .cancellationFullRefundHours(48)
+                        .cancellationPartialRefundHours(24)
+                        .cancellationPartialRefundPercent(50.0)
+                        .cancellationPolicyEffectiveAt(now.minusDays(30))
+                        .cancellationPolicyCapturedAt(now.minusDays(20))
+                        .cancellationPolicyLegacy(false)
                         .bookingCode("BK-TD-ACTIVE-01")
                         .customer(customer2)
                         .storageUnit(suTdS101)
