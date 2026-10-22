@@ -9,10 +9,10 @@ import java.util.UUID;
 @Data
 public class PaymentInitiationRequest {
 
-    @NotNull(message = "Booking ID is required")
+    @NotNull(message = "Vui lòng chọn đơn thuê")
     private UUID bookingId;
 
-    @NotNull(message = "Payment type is required")
+    @NotNull(message = "Vui lòng chọn loại thanh toán")
     private PaymentType paymentType;
 
     private String paymentMethod;

@@ -15,7 +15,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
     with SingleTickerProviderStateMixin {
   final FacilityAdminApiService _service = FacilityAdminApiService();
   late final TabController _tabController;
-  final _dateFmt = DateFormat('MMM d, h:mm a');
+  final _dateFmt = DateFormat('dd/MM, HH:mm');
 
   Future<List<dynamic>>? _allLogsFuture;
   Future<List<dynamic>>? _loginHistoryFuture;
@@ -49,6 +49,22 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
   Color _statusColor(String? status) =>
       status == 'FAILED' ? AppColors.error : AppColors.success;
 
+  Future<void> _showLogDetail(Map log) async {
+    final id = log['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _LogDetailSheet(
+        fallback: Map<String, dynamic>.from(log),
+        load: () => _service.getActivityLogDetail(id),
+      ),
+    );
+  }
+
   Widget _buildLogTile(Map log) {
     final action = log['action']?.toString() ?? '';
     final status = log['status']?.toString();
@@ -62,6 +78,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
+        onTap: () => _showLogDetail(log),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         leading: CircleAvatar(
           backgroundColor: _statusColor(status).withValues(alpha: 0.15),
@@ -113,13 +130,13 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Activity Log'),
+        title: const Text('Nhật ký hoạt động'),
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.secondaryContainer,
           unselectedLabelColor: AppColors.onSurfaceVariant,
           indicatorColor: AppColors.secondaryContainer,
-          tabs: const [Tab(text: 'All Activity'), Tab(text: 'Login History')],
+          tabs: const [Tab(text: 'Mọi hoạt động'), Tab(text: 'Lịch sử đăng nhập')],
         ),
       ),
       body: TabBarView(
@@ -131,7 +148,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
               future: _allLogsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const AppLoadingState(message: 'Loading activity...');
+                  return const AppLoadingState(message: 'Đang tải nhật ký...');
                 }
                 if (snapshot.hasError) {
                   return AppErrorState(
@@ -144,8 +161,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
                 if (logs.isEmpty) {
                   return const AppEmptyState(
                       icon: Icons.history,
-                      title: 'No activity yet',
-                      message: 'Actions across the system will show up here.');
+                      title: 'Chưa có hoạt động',
+                      message: 'Các thao tác trong hệ thống sẽ hiển thị tại đây.');
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
@@ -163,7 +180,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const AppLoadingState(
-                      message: 'Loading login history...');
+                      message: 'Đang tải lịch sử đăng nhập...');
                 }
                 if (snapshot.hasError) {
                   return AppErrorState(
@@ -176,8 +193,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
                 if (logs.isEmpty) {
                   return const AppEmptyState(
                       icon: Icons.login,
-                      title: 'No login history yet',
-                      message: 'Sign-in attempts will show up here.');
+                      title: 'Chưa có lịch sử đăng nhập',
+                      message: 'Các lần đăng nhập sẽ hiển thị tại đây.');
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
@@ -189,6 +206,119 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LogDetailSheet extends StatefulWidget {
+  final Map<String, dynamic> fallback;
+  final Future<Map<String, dynamic>> Function() load;
+  const _LogDetailSheet({required this.fallback, required this.load});
+
+  @override
+  State<_LogDetailSheet> createState() => _LogDetailSheetState();
+}
+
+class _LogDetailSheetState extends State<_LogDetailSheet> {
+  late final Future<Map<String, dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.load();
+  }
+
+  Widget _row(String label, String? value) {
+    if (value == null || value.trim().isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.onSurfaceVariant)),
+          ),
+          Expanded(
+            child: Text(value,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: _future,
+          builder: (context, snapshot) {
+            final loading = snapshot.connectionState == ConnectionState.waiting;
+            final d = snapshot.data ?? widget.fallback;
+            final created = d['createdAt'] != null
+                ? DateTime.tryParse(d['createdAt'].toString())
+                : null;
+            final who = [
+              d['userName']?.toString() ?? '',
+              d['userEmail']?.toString() ?? '',
+            ].where((e) => e.isNotEmpty).join(' - ');
+            final resource = [
+              d['resourceType']?.toString() ?? '',
+              d['resourceId']?.toString() ?? '',
+            ].where((e) => e.isNotEmpty).join(' / ');
+            final oldV = d['oldValue']?.toString() ?? '';
+            final newV = d['newValue']?.toString() ?? '';
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Chi tiết hoạt động',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                    if (loading)
+                      const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _row('Hành động',
+                    (d['action']?.toString() ?? '').replaceAll('_', ' ')),
+                _row('Trạng thái', d['status']?.toString()),
+                _row('Người thực hiện', who),
+                _row('Email đăng nhập', d['emailAttempted']?.toString()),
+                _row('Đối tượng', resource),
+                _row('Mô tả', d['description']?.toString()),
+                if (oldV.isNotEmpty || newV.isNotEmpty)
+                  _row('Thay đổi',
+                      '${oldV.isEmpty ? '—' : oldV}  →  ${newV.isEmpty ? '—' : newV}'),
+                _row('Địa chỉ IP', d['ipAddress']?.toString()),
+                _row('Thiết bị', d['userAgent']?.toString()),
+                _row('Thời gian',
+                    created == null ? null : DateFormat('dd/MM/yyyy HH:mm:ss').format(created.toLocal())),
+                if (snapshot.hasError)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                        'Không tải được bản mới nhất, đang hiển thị dữ liệu trong danh sách.',
+                        style: TextStyle(fontSize: 11, color: AppColors.error)),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

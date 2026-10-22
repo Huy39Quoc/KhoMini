@@ -289,11 +289,11 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
               SliverAppBar(
                 expandedHeight: 220,
                 pinned: true,
-                backgroundColor: const Color(0xFF1E3C72),
+                backgroundColor: const Color(0xFF0F172A),
                 foregroundColor: Colors.white,
                 actions: [
                   IconButton(
-                    tooltip: 'My waitlist',
+                    tooltip: 'Danh sách chờ của tôi',
                     onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -338,12 +338,12 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                const Color(0xFF1E3C72).withValues(
+                                const Color(0xFF0F172A).withValues(
                                     alpha: _facilityImages.isNotEmpty ||
                                             _facilityImageUrl != null
                                         ? 0.45
                                         : 0.95),
-                                const Color(0xFF2A5298).withValues(
+                                const Color(0xFF1E293B).withValues(
                                     alpha: _facilityImages.isNotEmpty ||
                                             _facilityImageUrl != null
                                         ? 0.88
@@ -453,13 +453,13 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   Widget _buildBottomHint() {
     String message;
     if (_selectedType == null) {
-      message = 'Select a unit type above to continue';
+      message = 'Hãy chọn loại kho ở trên để tiếp tục';
     } else if (_isQuoting) {
-      message = 'Calculating cost...';
+      message = 'Đang tính chi phí...';
     } else if (_quoteError != null) {
-      message = 'Could not calculate cost. Please try again.';
+      message = 'Không thể tính chi phí. Vui lòng thử lại.';
     } else {
-      message = 'Select a unit type above to continue';
+      message = 'Hãy chọn loại kho ở trên để tiếp tục';
     }
 
     return Container(
@@ -523,9 +523,9 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (_facilityImages.length > 1) ...[
-          _sectionHeader('📸 Warehouse Photos',
+          _sectionHeader('📸 Ảnh kho',
               subtitle:
-                  '${_facilityImages.length} photos available • Tap to view full size'),
+                  '${_facilityImages.length} ảnh • Chạm để xem toàn màn hình'),
           const SizedBox(height: 10),
           SizedBox(
             height: 90,
@@ -573,16 +573,16 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           const SizedBox(height: 18),
         ],
         // ── Unit type selection ─────────────────────────────────────
-        _sectionHeader('📦 Choose a Unit Type',
-            subtitle: 'Pick the size that fits'),
+        _sectionHeader('📦 Chọn loại kho',
+            subtitle: 'Chọn kích thước phù hợp'),
         const SizedBox(height: 10),
         if (snapshot.hasError)
           _errorBanner(
-              "Couldn't load unit types. Please check your network connection.")
+              "Không tải được loại kho. Vui lòng kiểm tra kết nối mạng.")
         else if (unitTypes.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: Text('No unit types available.')),
+            child: Center(child: Text('Chưa có loại kho khả dụng.')),
           )
         else
           ...unitTypes.map((type) => _UnitTypeCard(
@@ -605,14 +605,14 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         const SizedBox(height: 24),
 
         // ── Move-in appointment ──────────────────────────────────────
-        _sectionHeader('📅 Move-in Appointment',
-            subtitle: 'Choose the date and time to receive your unit'),
+        _sectionHeader('📅 Lịch hẹn nhận kho',
+            subtitle: 'Chọn ngày giờ bạn đến nhận kho'),
         const SizedBox(height: 10),
         _buildDatePicker(),
 
         ListTile(
           leading: const Icon(Icons.schedule_outlined),
-          title: const Text('Check-in time'),
+          title: const Text('Giờ nhận kho'),
           subtitle: Text(
               '${_checkInTime.format(context)}${_opensAt != null && _closesAt != null ? ' • Open ${_opensAt!.format(context)}–${_closesAt!.format(context)}' : ''}'),
           onTap: () async {
@@ -631,7 +631,12 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                 (selected < open || selected >= close)) {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                   content:
-                      Text('Choose a time during facility opening hours.')));
+                      Text('Chọn giờ trong khung giờ mở cửa của cơ sở.')));
+              return;
+            }
+            if (_isStartInPast(_startDate, picked)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text(_pastStartMessage)));
               return;
             }
             setState(() => _checkInTime = picked);
@@ -641,8 +646,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         const SizedBox(height: 24),
 
         // ── Rental period ─────────────────────────────────────────────
-        _sectionHeader('🗓 Rental Period',
-            subtitle: 'The longer you rent, the better the rate'),
+        _sectionHeader('🗓 Thời gian thuê',
+            subtitle: 'Thuê càng lâu, giá càng ưu đãi'),
         const SizedBox(height: 10),
         _buildRentalPeriodSection(),
 
@@ -650,8 +655,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
         // ── Cost breakdown ────────────────────────────────────────────
         if (_selectedType != null) ...[
-          _sectionHeader('💰 Cost Breakdown',
-              subtitle: 'Updates automatically'),
+          _sectionHeader('💰 Chi tiết chi phí',
+              subtitle: 'Tự động cập nhật'),
           const SizedBox(height: 10),
           _buildQuoteSection(),
         ],
@@ -751,7 +756,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Rental start date',
+                    const Text('Ngày bắt đầu thuê',
                         style: TextStyle(
                             fontSize: 12, color: AppColors.textSecondary)),
                     const SizedBox(height: 2),
@@ -830,7 +835,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                                 color: isSelected
                                     ? Colors.white
                                     : AppColors.textPrimary)),
-                        Text('mo',
+                        Text('tháng',
                             style: TextStyle(
                                 fontSize: 11,
                                 color: isSelected
@@ -855,7 +860,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Custom months:',
+              const Text('Số tháng khác:',
                   style: TextStyle(color: AppColors.textSecondary)),
               Row(
                 children: [
@@ -919,7 +924,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
               CircularProgressIndicator(
                   color: AppColors.primary, strokeWidth: 2),
               SizedBox(height: 8),
-              Text('Calculating cost...',
+              Text('Đang tính chi phí...',
                   style: TextStyle(color: AppColors.textSecondary)),
             ],
           ),
@@ -957,7 +962,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
               const Icon(Icons.receipt_long,
                   color: AppColors.primary, size: 20),
               const SizedBox(width: 6),
-              const Text('Cost Breakdown',
+              const Text('Chi tiết chi phí',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -969,7 +974,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text('$_rentalMonths mo',
+                child: Text('$_rentalMonths tháng',
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -980,10 +985,37 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           const Divider(height: 20),
           ..._quoteBreakdownLines(total, deposit),
           const Divider(height: 20),
-          _quoteLine('💳 Due Now', initial, isHighlight: true),
-          const SizedBox(height: 6),
+          _quoteLine('💳 Cần thanh toán ngay', initial, isHighlight: true),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.shade300),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Thời hạn thuê: ${_formatDate(_startDate)} đến ${_quote!['endDate'] != null ? _formatDate(DateTime.tryParse(_quote!['endDate'].toString()) ?? _startDate) : 'ngày kết thúc'}.\n'
+                    '⚠️ Tiền thuê tính từ Ngày bắt đầu thuê đã chọn. Việc nhận kho trễ hơn ngày hẹn không làm kéo dài thời hạn thuê hay giảm trừ cước.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Colors.amber.shade900,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           const Text(
-              '* Only the deposit is refunded when your rental ends. Rental and management fees are not refundable after check-in.',
+              '* Khi kết thúc thuê chỉ hoàn lại tiền cọc. Tiền thuê và phí quản lý không được hoàn sau khi đã nhận kho.',
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         ],
       ),
@@ -995,16 +1027,16 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     final items = (_quote!['breakdown'] as List?) ?? const [];
     if (items.isEmpty) {
       return [
-        _quoteLine('Rental fee ($_rentalMonths mo)', total),
+        _quoteLine('Tiền thuê ($_rentalMonths tháng)', total),
         const SizedBox(height: 8),
-        _quoteLine('Deposit (refunded at checkout)', deposit),
+        _quoteLine('Tiền cọc (hoàn khi trả kho)', deposit),
       ];
     }
     const labels = {
-      'RENTAL_FEE': 'Rental fee',
-      'DISCOUNT': 'Long-term discount',
-      'DEPOSIT': 'Deposit (refunded at checkout)',
-      'MANAGEMENT_FEE': 'Management fee',
+      'RENTAL_FEE': 'Tiền thuê',
+      'DISCOUNT': 'Ưu đãi thuê dài hạn',
+      'DEPOSIT': 'Tiền cọc (hoàn khi trả kho)',
+      'MANAGEMENT_FEE': 'Phí quản lý',
     };
     final widgets = <Widget>[];
     for (final raw in items) {
@@ -1074,7 +1106,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Due now',
+              const Text('Cần thanh toán ngay',
                   style:
                       TextStyle(fontSize: 11, color: AppColors.textSecondary)),
               Text(_formatPrice(initial is num ? initial : null),
@@ -1110,7 +1142,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                       children: [
                         Icon(Icons.lock_outline, size: 18),
                         SizedBox(width: 6),
-                        Text('Proceed to Book',
+                        Text('Tiến hành đặt kho',
                             style: TextStyle(
                                 fontSize: 15, fontWeight: FontWeight.bold)),
                       ],
@@ -1137,7 +1169,18 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: AppColors.success),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.success,
+          action: SnackBarAction(
+            label: 'Xem danh sách',
+            textColor: Colors.white,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MyWaitlistScreen()),
+            ),
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -1150,8 +1193,28 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     }
   }
 
+  /// Ngày + giờ nhận kho đã chọn phải còn ở tương lai (máy chủ cũng kiểm tra điều này).
+  bool _isStartInPast(DateTime date, TimeOfDay time) {
+    final start = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    return !start.isAfter(DateTime.now());
+  }
+
+  static const String _pastStartMessage =
+      'Thời điểm nhận kho đã qua. Hãy chọn giờ nhận kho muộn hơn hiện tại '
+      '(trong giờ mở cửa) hoặc chọn ngày bắt đầu khác.';
+
   Future<void> _handleReserve() async {
     if (_selectedType == null || _quote == null) return;
+
+    if (_isStartInPast(_startDate, _checkInTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(_pastStartMessage),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
 
     // Hiển thị BottomSheet ký cam kết hàng cấm & điều khoản dịch vụ lưu kho
     final agreed = await _showLegalAgreementSheet();
@@ -1177,7 +1240,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       final bookingId = booking['id']?.toString() ?? '';
       final bookingCode = booking['bookingCode']?.toString() ?? '';
       if (bookingId.isEmpty) {
-        throw Exception('Server did not return a booking id.');
+        throw Exception('Máy chủ không trả về mã đơn.');
       }
 
       Navigator.push(
@@ -1223,7 +1286,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     final prohibitedRaw = _facilityPolicy?['prohibitedItems']?.toString() ??
         'Chất dễ cháy nổ, bình gas, xăng dầu; Ma túy, chất kích thích, hóa chất độc hại; Động vật sống, thực phẩm tươi sống dễ thối rữa; Vũ khí, hàng lậu, pháo hoa; Hàng hóa có mùi nồng nặc gây ảnh hưởng kho xung quanh';
     final termsRaw = _facilityPolicy?['termsAndConditions']?.toString() ??
-        '1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.';
+        '1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.\n5. Thời hạn hợp đồng và cước phí được tính từ Ngày bắt đầu thuê đã thỏa thuận. Việc nhận kho trễ hơn ngày hẹn không làm kéo dài thời hạn kết thúc hợp đồng hay giảm trừ tiền thuê.';
     final termsVersion =
         _facilityPolicy?['termsVersion']?.toString() ?? 'v2026.1';
 
@@ -1662,7 +1725,7 @@ class _UnitTypeCard extends StatelessWidget {
                       children: [
                         _chip(
                             Icons.inventory_2_outlined,
-                            '${type.availableUnits} available',
+                            'Còn ${type.availableUnits} ngăn',
                             type.availableUnits > 0
                                 ? AppColors.success
                                 : AppColors.error),
@@ -1679,7 +1742,7 @@ class _UnitTypeCard extends StatelessWidget {
                     minimumSize: const Size(0, 34),
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
-                  child: const Text('Join Waitlist',
+                  child: const Text('Vào danh sách chờ',
                       style: TextStyle(fontSize: 11)),
                 )
               else
@@ -1695,7 +1758,7 @@ class _UnitTypeCard extends StatelessWidget {
                               ? AppColors.primary
                               : AppColors.textPrimary),
                     ),
-                    const Text('/mo',
+                    const Text('/tháng',
                         style: TextStyle(
                             fontSize: 11, color: AppColors.textSecondary)),
                     if (isSelected)

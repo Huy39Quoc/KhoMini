@@ -43,25 +43,6 @@ public class PermissionServiceImpl implements PermissionService {
     }
 
     @Override
-    public PermissionResponse create(PermissionCreateRequest request) {
-        String trimmedName = request.getName() != null ? request.getName().trim() : "";
-        String trimmedGroup = request.getPermissionGroup() != null ? request.getPermissionGroup().trim() : "";
-
-        if (permissionRepository.existsByName(trimmedName)) {
-            throw new AppException(ErrorCode.PERMISSION_NAME_EXISTED);
-        }
-        Permission permission = permissionMapper.toEntity(request);
-        permission.setName(trimmedName);
-        permission.setPermissionGroup(trimmedGroup);
-        Permission saved = permissionRepository.save(permission);
-
-        activityLogService.record(ActivityAction.PERMISSION_CREATE, "PERMISSION", saved.getId(),
-                "Created permission: " + saved.getName(), null, saved.getName());
-
-        return permissionMapper.toResponse(saved);
-    }
-
-    @Override
     public PermissionResponse update(UUID id, PermissionUpdateRequest request) {
         Permission permission = permissionRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
@@ -83,20 +64,6 @@ public class PermissionServiceImpl implements PermissionService {
                 "Updated permission: " + updated.getName(), oldName, updated.getName());
 
         return permissionMapper.toResponse(updated);
-    }
-
-    @Override
-    public void delete(UUID id) {
-        Permission permission = permissionRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
-
-        // Cascade delete any role-permission associations to prevent foreign key violation
-        rolePermissionRepository.deleteAllByPermission_Id(permission.getId());
-
-        permissionRepository.deleteById(permission.getId());
-
-        activityLogService.record(ActivityAction.PERMISSION_DELETE, "PERMISSION", permission.getId(),
-                "Deleted permission: " + permission.getName(), permission.getName(), null);
     }
 
     @Override

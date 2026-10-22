@@ -1,10 +1,9 @@
-import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 import '../models/paged_result.dart';
 
 class FacilityAdminApiService {
-  final Dio _dio = HttpClient.instance.dio;
+  final HttpClient _http = HttpClient.instance;
 
   Map<String, dynamic> _unwrap(dynamic data) {
     if (data is Map && data['data'] is Map) {
@@ -15,9 +14,26 @@ class FacilityAdminApiService {
     return {};
   }
 
-  Exception _err(DioException e, String action) {
+  Exception _err(ApiException e, String action) {
     final message = e.response?.data?['message'] ?? e.message;
-    return Exception('Failed to $action: $message');
+    return Exception('Không thể $action: $message');
+  }
+
+  Future<int> getFacilitiesCount() async {
+    try {
+      final response = await _http.get(
+        ApiEndpoints.facilitiesAdmin,
+        queryParameters: {'page': 0, 'size': 1},
+      );
+      final data = response.data;
+      if (data is Map && data['data'] is Map) {
+        final total = data['data']['totalElements'];
+        if (total is num) return total.toInt();
+      }
+      return 0;
+    } catch (_) {
+      return 0;
+    }
   }
 
   Future<List<dynamic>> getFacilities({String? search}) async {
@@ -33,7 +49,7 @@ class FacilityAdminApiService {
   Future<PagedResult<Map<String, dynamic>>> getFacilitiesPage(
       {String? search, int page = 0}) async {
     try {
-      final response = await _dio.get(
+      final response = await _http.get(
         ApiEndpoints.facilitiesAdmin,
         queryParameters: {
           'page': page,
@@ -43,18 +59,18 @@ class FacilityAdminApiService {
       );
       return PagedResult.fromApi(response.data,
           (item) => Map<String, dynamic>.from(item as Map));
-    } on DioException catch (e) {
-      throw _err(e, 'load facilities');
+    } on ApiException catch (e) {
+      throw _err(e, 'tải danh sách cơ sở');
     }
   }
 
   Future<Map<String, dynamic>> createFacility(Map<String, dynamic> body) async {
     try {
       final response =
-          await _dio.post(ApiEndpoints.facilitiesAdmin, data: body);
+          await _http.post(ApiEndpoints.facilitiesAdmin, data: body);
       return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'create facility');
+    } on ApiException catch (e) {
+      throw _err(e, 'tạo cơ sở');
     }
   }
 
@@ -62,49 +78,40 @@ class FacilityAdminApiService {
       String id, Map<String, dynamic> body) async {
     try {
       final response =
-          await _dio.put(ApiEndpoints.facilityDetail(id), data: body);
+          await _http.put(ApiEndpoints.facilityDetail(id), data: body);
       return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'update facility');
+    } on ApiException catch (e) {
+      throw _err(e, 'cập nhật cơ sở');
     }
   }
 
   Future<String> uploadFacilityImage(String filePath, {String? facilityId}) async {
     try {
-      final fileName = filePath.split(RegExp(r'[/\\]')).last;
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(filePath, filename: fileName),
-      });
-
       final url = (facilityId != null && facilityId.isNotEmpty)
           ? '${ApiEndpoints.facilitiesAdmin}/$facilityId/image'
           : '${ApiEndpoints.facilitiesAdmin}/upload-image';
 
-      final response = await _dio.post(url, data: formData);
+      final response = await _http.post(
+        url,
+        data: ApiMultipart([ApiUploadFile('file', filePath)]),
+      );
       if (response.data is Map && response.data['data'] != null) {
         return response.data['data'].toString();
       }
       return '';
-    } on DioException catch (e) {
-      throw _err(e, 'upload image');
+    } on ApiException catch (e) {
+      throw _err(e, 'tải ảnh lên');
     }
   }
 
   Future<List<String>> uploadFacilityImages(List<String> filePaths) async {
     if (filePaths.isEmpty) return [];
     try {
-      final multipartFiles = <MultipartFile>[];
-      for (final path in filePaths) {
-        final fileName = path.split(RegExp(r'[/\\]')).last;
-        multipartFiles.add(await MultipartFile.fromFile(path, filename: fileName));
-      }
-      final formData = FormData();
-      for (final mf in multipartFiles) {
-        formData.files.add(MapEntry('files', mf));
-      }
-      final response = await _dio.post(
+      final response = await _http.post(
         '${ApiEndpoints.facilitiesAdmin}/upload-images',
-        data: formData,
+        data: ApiMultipart([
+          for (final path in filePaths) ApiUploadFile('files', path),
+        ]),
       );
       if (response.data is Map && response.data['data'] is List) {
         return (response.data['data'] as List).map((e) => e.toString()).toList();
@@ -122,15 +129,15 @@ class FacilityAdminApiService {
 
   Future<void> deleteFacility(String id) async {
     try {
-      await _dio.delete(ApiEndpoints.facilityDetail(id));
-    } on DioException catch (e) {
-      throw _err(e, 'delete facility');
+      await _http.delete(ApiEndpoints.facilityDetail(id));
+    } on ApiException catch (e) {
+      throw _err(e, 'xóa cơ sở');
     }
   }
 
   Future<List<dynamic>> getFacilityPolicies({String? search}) async {
     try {
-      final response = await _dio.get(
+      final response = await _http.get(
         ApiEndpoints.facilityPolicies,
         queryParameters: {
           'size': 200,
@@ -145,8 +152,8 @@ class FacilityAdminApiService {
       }
       if (data is Map && data['content'] is List) return data['content'];
       return [];
-    } on DioException catch (e) {
-      throw _err(e, 'load facility policies');
+    } on ApiException catch (e) {
+      throw _err(e, 'tải chính sách cơ sở');
     }
   }
 
@@ -154,11 +161,11 @@ class FacilityAdminApiService {
       String facilityId) async {
     try {
       final response =
-          await _dio.get(ApiEndpoints.facilityPolicyByFacility(facilityId));
+          await _http.get(ApiEndpoints.facilityPolicyByFacility(facilityId));
       return _unwrap(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       if (e.response?.statusCode == 404) return null;
-      throw _err(e, 'load this facility\'s policy');
+      throw _err(e, 'tải chính sách của cơ sở này');
     }
   }
 
@@ -166,10 +173,10 @@ class FacilityAdminApiService {
       Map<String, dynamic> body) async {
     try {
       final response =
-          await _dio.post(ApiEndpoints.facilityPolicies, data: body);
+          await _http.post(ApiEndpoints.facilityPolicies, data: body);
       return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'create facility policy');
+    } on ApiException catch (e) {
+      throw _err(e, 'tạo chính sách cơ sở');
     }
   }
 
@@ -177,17 +184,17 @@ class FacilityAdminApiService {
       String id, Map<String, dynamic> body) async {
     try {
       final response =
-          await _dio.put(ApiEndpoints.facilityPolicyDetail(id), data: body);
+          await _http.put(ApiEndpoints.facilityPolicyDetail(id), data: body);
       return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'update facility policy');
+    } on ApiException catch (e) {
+      throw _err(e, 'cập nhật chính sách cơ sở');
     }
   }
 
   Future<Map<String, dynamic>> getRevenueReport(
       {DateTime? fromDate, DateTime? toDate}) async {
     try {
-      final response = await _dio.get(
+      final response = await _http.get(
         ApiEndpoints.reportRevenue,
         queryParameters: {
           if (fromDate != null) 'fromDate': _formatDate(fromDate),
@@ -195,17 +202,17 @@ class FacilityAdminApiService {
         },
       );
       return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'load the revenue report');
+    } on ApiException catch (e) {
+      throw _err(e, 'tải báo cáo doanh thu');
     }
   }
 
   Future<Map<String, dynamic>> getOccupancyReport() async {
     try {
-      final response = await _dio.get(ApiEndpoints.reportOccupancy);
+      final response = await _http.get(ApiEndpoints.reportOccupancy);
       return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'load the occupancy report');
+    } on ApiException catch (e) {
+      throw _err(e, 'tải báo cáo lấp đầy');
     }
   }
 
@@ -215,21 +222,18 @@ class FacilityAdminApiService {
     DateTime? toDate,
   }) async {
     try {
-      final response = await _dio.get(
+      final response = await _http.get(
         ApiEndpoints.reportExport,
         queryParameters: {
           'type': type,
           if (fromDate != null) 'fromDate': _formatDate(fromDate),
           if (toDate != null) 'toDate': _formatDate(toDate),
         },
-        options: Options(
-          responseType: ResponseType.plain,
-          headers: {'Accept': '*/*'},
-        ),
+        plainText: true,
       );
       return response.data?.toString() ?? '';
-    } on DioException catch (e) {
-      throw _err(e, 'export the report');
+    } on ApiException catch (e) {
+      throw _err(e, 'xuất báo cáo');
     }
   }
 
@@ -239,7 +243,7 @@ class FacilityAdminApiService {
     required double depositAmount,
   }) async {
     try {
-      final response = await _dio.put(
+      final response = await _http.put(
         ApiEndpoints.unitTypePrice(unitTypeId),
         data: {
           'basePricePerMonth': basePricePerMonth,
@@ -247,8 +251,8 @@ class FacilityAdminApiService {
         },
       );
       return _unwrap(response.data);
-    } on DioException catch (e) {
-      throw _err(e, 'update the unit type price');
+    } on ApiException catch (e) {
+      throw _err(e, 'cập nhật giá loại kho');
     }
   }
 
@@ -259,7 +263,7 @@ class FacilityAdminApiService {
     int size = 30,
   }) async {
     try {
-      final response = await _dio.get(
+      final response = await _http.get(
         ApiEndpoints.activityLogs,
         queryParameters: {
           'page': page,
@@ -275,14 +279,14 @@ class FacilityAdminApiService {
         return data['data']['content'];
       }
       return [];
-    } on DioException catch (e) {
-      throw _err(e, 'load activity logs');
+    } on ApiException catch (e) {
+      throw _err(e, 'tải nhật ký hoạt động');
     }
   }
 
   Future<List<dynamic>> getLoginHistory({int page = 0, int size = 30}) async {
     try {
-      final response = await _dio.get(
+      final response = await _http.get(
         ApiEndpoints.activityLogLoginHistory,
         queryParameters: {'page': page, 'size': size},
       );
@@ -293,8 +297,26 @@ class FacilityAdminApiService {
         return data['data']['content'];
       }
       return [];
-    } on DioException catch (e) {
-      throw _err(e, 'load login history');
+    } on ApiException catch (e) {
+      throw _err(e, 'tải lịch sử đăng nhập');
+    }
+  }
+
+  Future<Map<String, dynamic>> getActivityLogDetail(String id) async {
+    try {
+      final response = await _http.get(ApiEndpoints.activityLogDetail(id));
+      return _unwrap(response.data);
+    } on ApiException catch (e) {
+      throw _err(e, 'tải chi tiết nhật ký');
+    }
+  }
+
+  Future<Map<String, dynamic>> getFacilityPolicyById(String id) async {
+    try {
+      final response = await _http.get(ApiEndpoints.facilityPolicyDetail(id));
+      return _unwrap(response.data);
+    } on ApiException catch (e) {
+      throw _err(e, 'tải chính sách cơ sở');
     }
   }
 

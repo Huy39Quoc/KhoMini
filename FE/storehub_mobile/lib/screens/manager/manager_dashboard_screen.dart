@@ -43,6 +43,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
   String? _facilityId;
   String? _facilityName;
   String? _facilityError;
+  bool _unitsAccessDenied = false;
 
   Future<List<FacilityUnitModel>>? _unitsFuture;
   Future<List<FacilityStaffModel>>? _staffFuture;
@@ -119,6 +120,15 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     _loadReport();
   }
 
+  bool _isPermissionDenied(Object error) {
+    final str = error.toString().toLowerCase();
+    return str.contains('không có quyền') ||
+        str.contains('chức năng này') ||
+        str.contains('forbidden') ||
+        str.contains('403') ||
+        str.contains('access denied');
+  }
+
   void _loadUnits() {
     final facilityId = _facilityId;
 
@@ -126,8 +136,20 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       return;
     }
 
+    final future = _opsService.getFacilityUnits(facilityId);
     setState(() {
-      _unitsFuture = _opsService.getFacilityUnits(facilityId);
+      _unitsFuture = future;
+      _unitsAccessDenied = false;
+    });
+
+    future.then((_) {
+      if (mounted && _unitsAccessDenied) {
+        setState(() => _unitsAccessDenied = false);
+      }
+    }).catchError((err) {
+      if (mounted && _isPermissionDenied(err)) {
+        setState(() => _unitsAccessDenied = true);
+      }
     });
   }
 
@@ -207,8 +229,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
         SnackBar(
           content: Text(
             target == 'UNDER_MAINTENANCE'
-                ? 'Unit ${unit.unitCode} marked for inspection'
-                : 'Unit ${unit.unitCode} is available again',
+                ? 'Đã đánh dấu ngăn ${unit.unitCode} cần kiểm tra'
+                : 'Ngăn ${unit.unitCode} đã sẵn sàng cho thuê',
           ),
           backgroundColor: AppColors.success,
         ),
@@ -250,7 +272,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       }
 
       _showError(
-        'Could not load unit types: '
+        'Không tải được loại kho: '
         '${_errorMessage(error)}',
       );
       return;
@@ -262,7 +284,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       }
 
       _showError(
-        'No unit types are defined yet.',
+        'Chưa có loại kho nào.',
       );
       return;
     }
@@ -275,9 +297,11 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       text: unit?.floorLevel ?? '',
     );
 
-    String? selectedTypeId = unit?.unitTypeId.isNotEmpty == true
+    final initialTypeValid = unit?.unitTypeId != null &&
+        unitTypes.any((t) => t.id == unit!.unitTypeId);
+    String? selectedTypeId = initialTypeValid
         ? unit!.unitTypeId
-        : unitTypes.first.id;
+        : (unitTypes.isNotEmpty ? unitTypes.first.id : null);
 
     final formKey = GlobalKey<FormState>();
     bool submitting = false;
@@ -315,8 +339,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                     children: [
                       Text(
                         unit == null
-                            ? 'New Storage Unit'
-                            : 'Edit Unit ${unit.unitCode}',
+                            ? 'Ngăn kho mới'
+                            : 'Sửa ngăn ${unit.unitCode}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -327,16 +351,16 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                         controller: unitCodeController,
                         enabled: !submitting,
                         decoration: const InputDecoration(
-                          labelText: 'Unit code',
-                          hintText: 'Example: A-101',
+                          labelText: 'Mã ngăn kho',
+                          hintText: 'Ví dụ: A-101',
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Unit code is required';
+                            return 'Vui lòng nhập mã ngăn kho';
                           }
 
                           if (value.trim().length > 30) {
-                            return 'Maximum 30 characters';
+                            return 'Tối đa 30 ký tự';
                           }
 
                           return null;
@@ -347,15 +371,17 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                         controller: floorController,
                         enabled: !submitting,
                         decoration: const InputDecoration(
-                          labelText: 'Floor / level (optional)',
-                          hintText: 'Example: Floor 2',
+                          labelText: 'Tầng / khu vực (không bắt buộc)',
+                          hintText: 'Ví dụ: Tầng 2',
                         ),
                       ),
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
-                        initialValue: selectedTypeId,
+                        initialValue: unitTypes.any((t) => t.id == selectedTypeId)
+                            ? selectedTypeId
+                            : null,
                         decoration: const InputDecoration(
-                          labelText: 'Unit type',
+                          labelText: 'Loại kho',
                         ),
                         items: unitTypes.map((type) {
                           return DropdownMenuItem<String>(
@@ -372,7 +398,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                               },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Unit type is required';
+                            return 'Vui lòng chọn loại kho';
                           }
 
                           return null;
@@ -423,8 +449,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
 
                                   _showSuccess(
                                     unit == null
-                                        ? 'Unit created successfully'
-                                        : 'Unit updated successfully',
+                                        ? 'Đã tạo ngăn kho'
+                                        : 'Đã cập nhật ngăn kho',
                                   );
 
                                   _loadUnits();
@@ -462,7 +488,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                                 ),
                               )
                             : Text(
-                                unit == null ? 'Create Unit' : 'Save Changes',
+                                unit == null ? 'Tạo ngăn kho' : 'Lưu thay đổi',
                               ),
                       ),
                     ],
@@ -492,7 +518,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       }
 
       _showError(
-        'Could not load users: '
+        'Không tải được người dùng: '
         '${_errorMessage(error)}',
       );
       return;
@@ -561,7 +587,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Assign Staff',
+                            'Thêm nhân viên',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -569,7 +595,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'Only users with the STAFF role can be assigned.',
+                            'Chỉ có thể thêm người dùng có vai trò Nhân viên.',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.onSurfaceVariant,
@@ -582,7 +608,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                               setSheetState(() {});
                             },
                             decoration: const InputDecoration(
-                              hintText: 'Search name or email',
+                              hintText: 'Tìm theo tên hoặc email',
                               prefixIcon: Icon(Icons.search),
                             ),
                           ),
@@ -594,8 +620,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                       child: filteredUsers.isEmpty
                           ? const AppEmptyState(
                               icon: Icons.person_search,
-                              title: 'No users found',
-                              message: 'No active users match your search.',
+                              title: 'Không tìm thấy người dùng',
+                              message: 'Không có người dùng nào phù hợp.',
                             )
                           : ListView.builder(
                               itemCount: filteredUsers.length,
@@ -640,7 +666,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                                       }
 
                                       _showSuccess(
-                                        '${user.displayName} assigned successfully',
+                                        'Đã gán vai trò cho ${user.displayName}',
                                       );
 
                                       _loadStaff();
@@ -687,11 +713,11 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text(
-            'Remove staff member?',
+            'Gỡ nhân viên này?',
           ),
           content: Text(
-            '${staff.fullName} will no longer be '
-            'assigned to this facility.',
+            '${staff.fullName} sẽ không còn được '
+            'được gán cho cơ sở này.',
           ),
           actions: [
             TextButton(
@@ -701,7 +727,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                   false,
                 );
               },
-              child: const Text('Cancel'),
+              child: const Text('Hủy'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -713,7 +739,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                   true,
                 );
               },
-              child: const Text('Remove'),
+              child: const Text('Gỡ'),
             ),
           ],
         );
@@ -735,7 +761,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       }
 
       _showSuccess(
-        '${staff.fullName} removed',
+        'Đã gỡ ${staff.fullName}',
       );
 
       _loadStaff();
@@ -745,6 +771,19 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       }
 
       _showError(_errorMessage(error));
+    }
+  }
+
+  /// Giải thích ngắn trạng thái ngăn để quản lý không nhầm "Đã giữ chỗ" với "đã thanh toán".
+  String _unitStatusHint(String status) {
+    switch (status.toUpperCase()) {
+      case 'RESERVED':
+        return 'Khách đã đặt kho (đang thanh toán hoặc chờ nhận kho). '
+            'Giữ chỗ tự hết hạn nếu không thanh toán.';
+      case 'UNDER_MAINTENANCE':
+        return 'Chờ kiểm tra / vệ sinh / bảo trì trước khi cho thuê lại.';
+      default:
+        return '';
     }
   }
 
@@ -777,10 +816,28 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
   }
 
   void _showError(String message) {
+    final isPermission = _isPermissionDenied(message);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
+        content: Row(
+          children: [
+            Icon(
+              isPermission ? Icons.lock_outline_rounded : Icons.error_outline_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isPermission ? 'Chốt chặn phân quyền: $message' : message,
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isPermission ? const Color(0xFF1E293B) : AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -792,64 +849,22 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       appBar: AppBar(
         title: Text(
           (_facilityName == null || _facilityName!.isEmpty)
-              ? 'Facility Manager Console'
+              ? 'Bảng điều khiển quản lý cơ sở'
               : _facilityName!,
         ),
         actions: [
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
-              tooltip: 'Verify gate QR',
-              icon: const Icon(Icons.qr_code_scanner),
+              tooltip: 'Xác thực mã vào cổng',
+              icon: const Icon(Icons.vpn_key_outlined),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) =>
                     GatePassVerifyScreen(facilityId: _facilityId!)),
               ),
             ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            PopupMenuButton<String>(
-              tooltip: 'Quản lý lịch, đơn, hoàn tiền và giao dịch',
-              icon: const Icon(Icons.more_vert),
-              onSelected: (action) {
-                final facilityId = _facilityId!;
-                switch (action) {
-                  case 'refunds':
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => RefundReviewScreen(facilityId: facilityId)));
-                    return;
-                  case 'appointments':
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => AppointmentAssignmentScreen(facilityId: facilityId)));
-                    return;
-                  case 'bookings':
-                    final route = MaterialPageRoute(
-                      builder: (_) => BookingAssignmentScreen(
-                        facilityId: facilityId,
-                        facilityName: _facilityName ?? '',
-                      ),
-                    );
-                    Navigator.push(context, route).then((_) {
-                      if (!mounted) return;
-                      _loadUnits();
-                      _loadReport();
-                    });
-                    return;
-                  case 'transactions':
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => TransactionHistoryScreen(
-                        userRole: widget.user.roleName, facilityId: facilityId)));
-                    return;
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'appointments', child: Text('Lịch bàn giao')),
-                PopupMenuItem(value: 'bookings', child: Text('Đơn đã xác nhận')),
-                PopupMenuItem(value: 'refunds', child: Text('Yêu cầu hoàn tiền')),
-                PopupMenuItem(value: 'transactions', child: Text('Lịch sử giao dịch')),
-              ],
-            ),
           IconButton(
-            tooltip: 'Profile',
+            tooltip: 'Hồ sơ',
             icon: CircleAvatar(
               radius: 15,
               backgroundColor: AppColors.primaryContainer,
@@ -887,11 +902,11 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                 unselectedLabelColor: AppColors.onSurfaceVariant,
                 indicatorColor: AppColors.secondaryContainer,
                 tabs: const [
-                  Tab(text: 'Units'),
-                  Tab(text: 'Staff'),
-                  Tab(text: 'Contracts'),
-                  Tab(text: 'Tickets'),
-                  Tab(text: 'Report'),
+                  Tab(text: 'Ngăn kho'),
+                  Tab(text: 'Nhân viên'),
+                  Tab(text: 'Hợp đồng'),
+                  Tab(text: 'Hỗ trợ'),
+                  Tab(text: 'Báo cáo'),
                 ],
               )
             : null,
@@ -899,13 +914,14 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       body: _buildBody(),
       floatingActionButton: _facilityId != null &&
               _facilityId!.isNotEmpty &&
-              _tabController.index == 0
+              _tabController.index == 0 &&
+              !_unitsAccessDenied
           ? FloatingActionButton.extended(
               onPressed: () {
                 _openUnitSheet();
               },
               icon: const Icon(Icons.add),
-              label: const Text('New Unit'),
+              label: const Text('Thêm ngăn kho'),
             )
           : null,
     );
@@ -914,7 +930,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
   Widget _buildBody() {
     if (_isLoadingFacility) {
       return const AppLoadingState(
-        message: 'Loading your facility...',
+        message: 'Đang tải cơ sở của bạn...',
       );
     }
 
@@ -928,20 +944,187 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     if (_facilityId == null || _facilityId!.isEmpty) {
       return const AppEmptyState(
         icon: Icons.storefront_outlined,
-        title: 'No facility assigned',
-        message: 'Ask an administrator to assign you to a facility.',
+        title: 'Chưa được gán cơ sở',
+        message: 'Hãy nhờ quản trị viên gán bạn vào một cơ sở.',
       );
     }
 
-    return TabBarView(
-      controller: _tabController,
+    return Column(
       children: [
-        _buildUnitsTab(),
-        _buildStaffTab(),
-        FacilityContractsTab(facilityId: _facilityId!),
-        FacilityTicketsTab(facilityId: _facilityId!),
-        _buildReportTab(),
+        _buildWorkflowBar(),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildUnitsTab(),
+              _buildStaffTab(),
+              FacilityContractsTab(facilityId: _facilityId!),
+              FacilityTicketsTab(facilityId: _facilityId!),
+              _buildReportTab(),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  void _openBookingAssignment() {
+    final facilityId = _facilityId!;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BookingAssignmentScreen(
+          facilityId: facilityId,
+          facilityName: _facilityName ?? '',
+        ),
+      ),
+    ).then((_) {
+      if (!mounted) return;
+      _loadUnits();
+      _loadReport();
+    });
+  }
+
+  void _openAppointments() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AppointmentAssignmentScreen(facilityId: _facilityId!),
+      ),
+    );
+  }
+
+  void _openRefunds() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RefundReviewScreen(facilityId: _facilityId!),
+      ),
+    );
+  }
+
+  /// Các bước điều phối của quản lý cơ sở, theo đúng thứ tự nghiệp vụ:
+  /// khách đặt cọc -> xác nhận ngăn kho -> phân công nhân viên bàn giao
+  /// -> nhân viên bàn giao/nghiệm thu -> quản lý hoàn cọc.
+  Widget _buildWorkflowBar() {
+    Widget step(int no, IconData icon, String title, String hint,
+        VoidCallback onTap) {
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.outline.withValues(alpha: 0.15)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text('$no',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(icon, size: 16, color: AppColors.primary),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 11.5, fontWeight: FontWeight.bold, height: 1.2)),
+                const SizedBox(height: 3),
+                Text(hint,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 9.5, color: AppColors.onSurfaceVariant)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.hub_outlined, size: 16, color: AppColors.primary),
+              const SizedBox(width: 6),
+              const Text('Quy trình điều phối cơ sở',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TransactionHistoryScreen(
+                      userRole: widget.user.roleName,
+                      facilityId: _facilityId!,
+                    ),
+                  ),
+                ),
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Row(
+                    children: [
+                      Icon(Icons.receipt_long_outlined, size: 14, color: AppColors.primary),
+                      SizedBox(width: 4),
+                      Text('Sổ giao dịch',
+                          style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              step(1, Icons.assignment_turned_in_outlined, 'Xác nhận\nngăn kho',
+                  'Khách đã cọc', _openBookingAssignment),
+              const SizedBox(width: 8),
+              step(2, Icons.event_available_outlined, 'Phân công\nnhân viên',
+                  'Lịch bàn giao', _openAppointments),
+              const SizedBox(width: 8),
+              step(3, Icons.payments_outlined, 'Hoàn cọc\nsau trả kho',
+                  'Đã nghiệm thu', _openRefunds),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -951,15 +1134,26 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const AppLoadingState(
-            message: 'Loading units...',
+            message: 'Đang tải ngăn kho...',
           );
         }
 
         if (snapshot.hasError) {
+          final error = snapshot.error!;
+          if (_isPermissionDenied(error)) {
+            return AppPermissionDeniedState(
+              featureName: 'Sơ đồ & Danh sách ngăn kho',
+              permissionCode: 'STORAGE_UNIT_VIEW',
+              roleName: 'Quản lý cơ sở',
+              customMessage:
+                  'Tài khoản Quản lý cơ sở của bạn hiện chưa được cấp quyền xem sơ đồ và danh sách ngăn kho tại chi nhánh này.',
+              onRefresh: _refreshUnits,
+              onSwitchTab: () => _tabController.animateTo(1),
+              switchTabLabel: 'Xem tab Nhân viên',
+            );
+          }
           return AppErrorState(
-            message: _errorMessage(
-              snapshot.error!,
-            ),
+            message: _errorMessage(error),
             onRetry: _loadUnits,
           );
         }
@@ -974,8 +1168,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
               children: const [
                 AppEmptyState(
                   icon: Icons.inventory_2_outlined,
-                  title: 'No storage units yet',
-                  message: 'Tap "New Unit" to add the first unit.',
+                  title: 'Chưa có ngăn kho',
+                  message: 'Chạm "Thêm ngăn kho" để thêm ngăn đầu tiên.',
                 ),
               ],
             ),
@@ -1012,17 +1206,22 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                     ),
                   ),
                   title: Text(
-                    'Unit ${unit.unitCode}',
+                    'Ngăn ${unit.unitCode}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
                   ),
+                  isThreeLine: _unitStatusHint(unit.status).isNotEmpty,
                   subtitle: Text(
                     [
-                      unit.unitType,
-                      if (unit.floorLevel.isNotEmpty) unit.floorLevel,
-                    ].join(' • '),
+                      [
+                        unit.unitType,
+                        if (unit.floorLevel.isNotEmpty) unit.floorLevel,
+                      ].join(' • '),
+                      if (_unitStatusHint(unit.status).isNotEmpty)
+                        _unitStatusHint(unit.status),
+                    ].join('\n'),
                     style: const TextStyle(fontSize: 12),
                   ),
                   trailing: Row(
@@ -1052,8 +1251,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                           unit.status == 'UNDER_MAINTENANCE')
                         IconButton(
                           tooltip: unit.status == 'AVAILABLE'
-                              ? 'Mark for inspection'
-                              : 'Mark available',
+                              ? 'Đánh dấu cần kiểm tra'
+                              : 'Đánh dấu đã sẵn sàng',
                           visualDensity: VisualDensity.compact,
                           icon: Icon(
                             unit.status == 'AVAILABLE'
@@ -1085,15 +1284,24 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const AppLoadingState(
-            message: 'Loading staff...',
+            message: 'Đang tải nhân viên...',
           );
         }
 
         if (snapshot.hasError) {
+          final error = snapshot.error!;
+          if (_isPermissionDenied(error)) {
+            return AppPermissionDeniedState(
+              featureName: 'Quản lý nhân sự chi nhánh',
+              permissionCode: 'STAFF_ASSIGNMENT_VIEW',
+              roleName: 'Quản lý cơ sở',
+              customMessage:
+                  'Tài khoản Quản lý cơ sở của bạn hiện chưa được cấp quyền xem danh sách nhân sự tại chi nhánh này.',
+              onRefresh: _refreshStaff,
+            );
+          }
           return AppErrorState(
-            message: _errorMessage(
-              snapshot.error!,
-            ),
+            message: _errorMessage(error),
             onRetry: _loadStaff,
           );
         }
@@ -1116,14 +1324,14 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                 icon: const Icon(
                   Icons.person_add_alt,
                 ),
-                label: const Text('Assign Staff'),
+                label: const Text('Thêm nhân viên'),
               ),
               const SizedBox(height: 12),
               if (staffList.isEmpty)
                 const AppEmptyState(
                   icon: Icons.groups_outlined,
-                  title: 'No staff assigned',
-                  message: 'Assign staff so they can handle check-ins.',
+                  title: 'Chưa có nhân viên',
+                  message: 'Thêm nhân viên để họ phụ trách bàn giao kho.',
                 )
               else
                 ...staffList.map((staff) {
@@ -1159,7 +1367,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Remove from facility',
+                            tooltip: 'Gỡ khỏi cơ sở',
                             onPressed: () {
                               _removeStaff(staff);
                             },
@@ -1187,15 +1395,24 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const AppLoadingState(
-            message: 'Loading report...',
+            message: 'Đang tải báo cáo...',
           );
         }
 
         if (snapshot.hasError) {
+          final error = snapshot.error!;
+          if (_isPermissionDenied(error)) {
+            return AppPermissionDeniedState(
+              featureName: 'Báo cáo chỉ số chi nhánh',
+              permissionCode: 'REPORT_VIEW',
+              roleName: 'Quản lý cơ sở',
+              customMessage:
+                  'Tài khoản Quản lý cơ sở của bạn hiện chưa được cấp quyền xem báo cáo thống kê doanh thu và công suất tại chi nhánh này.',
+              onRefresh: _refreshReport,
+            );
+          }
           return AppErrorState(
-            message: _errorMessage(
-              snapshot.error!,
-            ),
+            message: _errorMessage(error),
             onRetry: _loadReport,
           );
         }
@@ -1204,7 +1421,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
 
         if (report == null) {
           return AppErrorState(
-            message: 'Facility report is unavailable.',
+            message: 'Chưa có báo cáo của cơ sở.',
             onRetry: _loadReport,
           );
         }
@@ -1216,38 +1433,58 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
             padding: const EdgeInsets.all(16),
             children: [
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryContainer,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                  ),
                   borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   children: [
-                    const Text(
-                      'Occupancy Rate',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.pie_chart_outline, size: 16, color: AppColors.secondary),
+                        SizedBox(width: 6),
+                        Text(
+                          'Tỷ lệ lấp đầy cơ sở',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
                       '${report.occupancyRate.toStringAsFixed(1)}%',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 36,
+                        fontSize: 38,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: LinearProgressIndicator(
                         value: (report.occupancyRate / 100).clamp(0.0, 1.0),
                         minHeight: 8,
-                        backgroundColor: Colors.white24,
+                        backgroundColor: Colors.white12,
                         valueColor: const AlwaysStoppedAnimation(
-                          AppColors.secondaryContainer,
+                          AppColors.secondary,
                         ),
                       ),
                     ),
@@ -1261,46 +1498,46 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 1.6,
+                childAspectRatio: 1.42,
                 children: [
                   _statTile(
-                    'Total Units',
+                    'Tổng số ngăn',
                     '${report.total}',
                     Icons.grid_view,
-                    AppColors.primaryContainer,
+                    AppColors.primary,
                   ),
                   _statTile(
-                    'Available',
+                    'Còn trống',
                     '${report.available}',
                     Icons.check_circle_outline,
                     AppColors.success,
                   ),
                   _statTile(
-                    'Occupied',
+                    'Đang thuê',
                     '${report.occupied}',
                     Icons.lock_outline,
                     AppColors.error,
                   ),
                   _statTile(
-                    'Reserved',
+                    'Đã giữ chỗ',
                     '${report.reserved}',
                     Icons.schedule,
                     AppColors.warning,
                   ),
                   _statTile(
-                    'Maintenance',
+                    'Bảo trì',
                     '${report.underMaintenance}',
                     Icons.build_outlined,
                     AppColors.secondary,
                   ),
                   _statTile(
-                    'Overdue',
+                    'Quá hạn',
                     '${report.overdueBookings}',
                     Icons.warning_amber_rounded,
                     AppColors.error,
                   ),
                   _statTile(
-                    'Revenue (paid)',
+                    'Doanh thu đã thu',
                     NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0)
                         .format(report.revenue),
                     Icons.attach_money,
@@ -1322,34 +1559,49 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     Color color,
   ) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.surfaceContainerHigh,
+          color: AppColors.outline.withValues(alpha: 0.15),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: 20,
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 16,
+            ),
           ),
           const Spacer(),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.bold,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               color: AppColors.onSurfaceVariant,
             ),
           ),

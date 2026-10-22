@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:dio/dio.dart';
 
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
@@ -8,7 +7,7 @@ import '../core/network/token_store.dart';
 import '../models/user_model.dart';
 
 class AuthApiService {
-  final Dio _dio = HttpClient.instance.dio;
+  final HttpClient _http = HttpClient.instance;
 
   /// Confirm the stored refresh token with the server on a cold start. The
   /// response supplies the current user and role, including account changes.
@@ -16,7 +15,7 @@ class AuthApiService {
     final refreshToken = await TokenStore.instance.readRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) return null;
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.refreshToken,
         data: {'refreshToken': refreshToken},
       );
@@ -27,25 +26,25 @@ class AuthApiService {
       final accessToken = data['accessToken'];
       final userData = data['user'];
       if (accessToken is! String || accessToken.isEmpty || userData is! Map) {
-        throw const FormatException('Invalid session response');
+        throw const FormatException('Phản hồi phiên đăng nhập không hợp lệ');
       }
       final userMap = Map<String, dynamic>.from(userData);
       final role = _decodeJwtPayload(accessToken)?['role'];
       if (role is! String || role.isEmpty ||
           (userMap['id']?.toString().isEmpty ?? true)) {
-        throw const FormatException('Invalid user session');
+        throw const FormatException('Phiên đăng nhập không hợp lệ');
       }
       userMap['roleName'] = role;
       final user = UserModel.fromJson(userMap);
       if (!user.hasSupportedRole) {
-        throw const FormatException('Unsupported account role');
+        throw const FormatException('Vai trò tài khoản không được hỗ trợ');
       }
       await TokenStore.instance.saveRefresh(
         accessToken,
         data['refreshToken'] is String ? data['refreshToken'] as String : null,
       );
       return user;
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final status = e.response?.statusCode;
       if (status == 400 || status == 401 || status == 403) {
         await TokenStore.instance.clear();
@@ -60,7 +59,7 @@ class AuthApiService {
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.login,
         data: {'email': email, 'password': password},
       );
@@ -96,9 +95,9 @@ class AuthApiService {
       }
 
       return data;
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Login failed: $message');
+      throw Exception('Đăng nhập thất bại: $message');
     }
   }
 
@@ -124,7 +123,7 @@ class AuthApiService {
     String phone,
   ) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.register,
         data: {
           'username': username,
@@ -137,15 +136,15 @@ class AuthApiService {
       return response.data is Map<String, dynamic>
           ? response.data
           : Map<String, dynamic>.from(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Registration failed: $message');
+      throw Exception('Đăng ký thất bại: $message');
     }
   }
 
   Future<String> forgotPassword(String email) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.forgotPassword,
         data: {'email': email},
       );
@@ -153,10 +152,10 @@ class AuthApiService {
       if (body is Map && body['message'] is String) {
         return body['message'] as String;
       }
-      return 'If this email exists, a reset link has been sent.';
-    } on DioException catch (e) {
+      return 'Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi.';
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Request failed: $message');
+      throw Exception('Yêu cầu thất bại: $message');
     }
   }
 
@@ -166,7 +165,7 @@ class AuthApiService {
     required String confirmPassword,
   }) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.resetPassword,
         data: {
           'token': token,
@@ -178,8 +177,8 @@ class AuthApiService {
       if (body is Map && body['message'] is String) {
         return body['message'] as String;
       }
-      return 'Password reset successfully';
-    } on DioException catch (e) {
+      return 'Đặt lại mật khẩu thành công';
+    } on ApiException catch (e) {
       final data = e.response?.data;
       final message = (data is Map ? data['message'] : null) ?? e.message;
       throw Exception('$message');
@@ -192,7 +191,7 @@ class AuthApiService {
     required String confirmPassword,
   }) async {
     try {
-      await _dio.put(
+      await _http.put(
         ApiEndpoints.changePassword,
         data: {
           'oldPassword': oldPassword,
@@ -200,9 +199,9 @@ class AuthApiService {
           'confirmPassword': confirmPassword,
         },
       );
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
-      throw Exception('Failed to change password: $message');
+      throw Exception('Không thể đổi mật khẩu: $message');
     }
   }
 
@@ -210,12 +209,12 @@ class AuthApiService {
     try {
       final refreshToken = await TokenStore.instance.readRefreshToken();
       if (refreshToken != null && refreshToken.isNotEmpty) {
-        await _dio.post(
+        await _http.post(
           ApiEndpoints.logout,
           data: {'refreshToken': refreshToken},
         );
       }
-    } on DioException catch (_) {
+    } on ApiException catch (_) {
     } finally {
       await TokenStore.instance.clear();
     }

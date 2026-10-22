@@ -41,7 +41,7 @@ public class FacilityOperationsController {
 
     @PostMapping("/gate-pass/verify")
     @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('ACCESS_CREDENTIAL_VIEW')")
-    @Operation(summary = "Kiểm tra và sử dụng một lần QR ra cổng tại cơ sở được phân công")
+    @Operation(summary = "Kiểm tra và sử dụng một lần mã ra vào cổng tại cơ sở được phân công")
     public ResponseEntity<ApiResponse<GatePassVerificationResponse>> verifyGatePass(
             @RequestParam UUID facilityId,
             @RequestBody @Valid GatePassVerificationRequest request,

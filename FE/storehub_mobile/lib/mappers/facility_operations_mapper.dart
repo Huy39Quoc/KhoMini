@@ -33,6 +33,7 @@ class FacilityOperationsMapper {
       assignedStaffId: json['assignedStaffId']?.toString(),
       assignedStaffName: json['assignedStaffName']?.toString(),
       bookingStatus: _text(json['bookingStatus']),
+      unitAssignmentConfirmed: json['unitAssignmentConfirmed'] != false,
     );
   }
 

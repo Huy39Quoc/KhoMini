@@ -36,6 +36,8 @@ public class MyUnitResponse {
     private Integer pendingExtraMonths;
     private LocalDate pendingNewEndDate;
     private BigDecimal pendingExtensionFee;
+    // Ngày bắt đầu được phép gia hạn theo chính sách cơ sở (null nếu không giới hạn)
+    private LocalDate renewalOpensDate;
 
     // --- Quá hạn (điền bởi CustomerStorageServiceImpl) ---
     private boolean overdue;
@@ -47,4 +49,8 @@ public class MyUnitResponse {
 
     // Lịch hẹn trả kho khách đã gửi (null nếu chưa gửi yêu cầu)
     private LocalDateTime scheduledReturnTime;
+
+    // Giờ hoạt động của cơ sở (để hiển thị và ràng buộc giờ hẹn nhận/trả)
+    private java.time.LocalTime openTime;
+    private java.time.LocalTime closeTime;
 }

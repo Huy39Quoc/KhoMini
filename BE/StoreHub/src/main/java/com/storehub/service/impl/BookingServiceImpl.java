@@ -77,9 +77,11 @@ public class BookingServiceImpl implements BookingService {
         if (checkInTime == null || facility.getOpenTime() == null
                 || facility.getCloseTime() == null
                 || checkInTime.isBefore(facility.getOpenTime())
-                || !checkInTime.isBefore(facility.getCloseTime())
-                || !request.getStartDate().atTime(checkInTime).isAfter(LocalDateTime.now())) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+                || !checkInTime.isBefore(facility.getCloseTime())) {
+            throw new AppException(ErrorCode.CHECKIN_TIME_OUTSIDE_OPEN_HOURS);
+        }
+        if (!request.getStartDate().atTime(checkInTime).isAfter(LocalDateTime.now())) {
+            throw new AppException(ErrorCode.CHECKIN_TIME_IN_PAST);
         }
 
         if (!facilityPolicyService.isMinRentalMonthsSatisfied(
@@ -97,11 +99,17 @@ public class BookingServiceImpl implements BookingService {
             throw new AppException(ErrorCode.TERMS_AND_CONDITIONS_REQUIRED);
         }
 
+        FacilityPolicyResponse cancellationPolicy = null;
+        try {
+            cancellationPolicy = facilityPolicyService.getByFacilityId(request.getFacilityId());
+        } catch (AppException ex) {
+            if (ex.getErrorCode() != ErrorCode.FACILITY_POLICY_NOT_FOUND) throw ex;
+        }
+        LocalDateTime policyCapturedAt = LocalDateTime.now();
         String resolvedTermsVersion = request.getTermsVersion();
         if (resolvedTermsVersion == null || resolvedTermsVersion.isBlank()) {
             try {
-                FacilityPolicyResponse policy = facilityPolicyService.getByFacilityId(request.getFacilityId());
-                resolvedTermsVersion = policy.getTermsVersion();
+                resolvedTermsVersion = cancellationPolicy != null ? cancellationPolicy.getTermsVersion() : "v2026.1";
             } catch (Exception ignored) {
                 resolvedTermsVersion = "v2026.1";
             }
@@ -138,6 +146,13 @@ public class BookingServiceImpl implements BookingService {
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(BOOKING_EXPIRY_MINUTES);
 
         Booking booking = Booking.builder()
+                .cancellationFullRefundHours(cancellationPolicy != null ? cancellationPolicy.getCancellationFullRefundHours() : Integer.MIN_VALUE)
+                .cancellationPartialRefundHours(cancellationPolicy != null ? cancellationPolicy.getCancellationPartialRefundHours() : Integer.MIN_VALUE)
+                .cancellationPartialRefundPercent(cancellationPolicy != null ? cancellationPolicy.getCancellationPartialRefundPercent() : 100.0)
+                .cancellationPolicyEffectiveAt(cancellationPolicy != null && cancellationPolicy.getCancellationPolicyEffectiveAt() != null
+                        ? cancellationPolicy.getCancellationPolicyEffectiveAt() : policyCapturedAt)
+                .cancellationPolicyCapturedAt(policyCapturedAt)
+                .cancellationPolicyLegacy(false)
                 .bookingCode(bookingCode)
                 .customer(customer)
                 .storageUnit(selectedUnit)
@@ -253,14 +268,6 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public RentalQuoteResponse getRentalQuote(
-            RentalQuoteRequest request
-    ) {
-        return pricingService.calculateRentalQuote(request);
-    }
-
-    @Override
     @Transactional
     public void cancelBooking(UUID bookingId, String customerEmail) {
         User customer = userRepository.findByEmail(customerEmail)
@@ -287,7 +294,8 @@ public class BookingServiceImpl implements BookingService {
         bookingRepository.save(booking);
 
         StorageUnit unit = booking.getStorageUnit();
-        if (unit != null) {
+        // Ngăn đang cần kiểm tra/bảo trì thì giữ nguyên trạng thái, chỉ ngăn đang giữ chỗ mới trả về trống.
+        if (unit != null && unit.getStatus() == UnitStatus.RESERVED) {
             unit.setStatus(UnitStatus.AVAILABLE);
             storageUnitRepository.save(unit);
 

@@ -47,6 +47,7 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
+    @Transactional(readOnly = true, noRollbackFor = AppException.class)
     public FacilityPolicyResponse getByFacilityId(UUID facilityId) {
         FacilityPolicy policy = facilityPolicyRepository.findByFacility_Id(facilityId)
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_POLICY_NOT_FOUND));
@@ -69,6 +70,7 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
         }
 
         FacilityPolicy policy = FacilityPolicy.builder()
+                .cancellationPolicyEffectiveAt(LocalDateTime.now())
                 .facility(facility)
                 .depositPercentage(request.getDepositPercentage())
                 .renewalWindowDays(request.getRenewalWindowDays())
@@ -120,23 +122,20 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
             throw new AppException(ErrorCode.FACILITY_POLICY_INVALID_CANCELLATION);
         }
 
+        boolean cancellationChanged = fullHours != policy.getCancellationFullRefundHours()
+                || partialHours != policy.getCancellationPartialRefundHours()
+                || (request.getCancellationPartialRefundPercent() != null
+                    && !request.getCancellationPartialRefundPercent().equals(policy.getCancellationPartialRefundPercent()));
         facilityPolicyMapper.updateEntityFromRequest(request, policy);
+        if (cancellationChanged) {
+            policy.setCancellationPolicyEffectiveAt(LocalDateTime.now());
+        }
         FacilityPolicy updated = facilityPolicyRepository.save(policy);
 
         activityLogService.record(ActivityAction.FACILITY_POLICY_UPDATE, "FACILITY_POLICY", updated.getId(),
                 "Updated policy for facility " + (policy.getFacility() != null ? policy.getFacility().getName() : updated.getId()), null, updated.getId());
 
         return facilityPolicyMapper.toResponse(updated);
-    }
-
-    @Override
-    public void delete(UUID id) {
-        FacilityPolicy policy = facilityPolicyRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.FACILITY_POLICY_NOT_FOUND));
-        facilityPolicyRepository.deleteById(policy.getId());
-
-        activityLogService.record(ActivityAction.FACILITY_POLICY_UPDATE, "FACILITY_POLICY", policy.getId(),
-                "Deleted policy for facility " + (policy.getFacility() != null ? policy.getFacility().getName() : id), null, null);
     }
 
     @Override
@@ -154,13 +153,28 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
+    public LocalDate getRenewalOpensDate(UUID facilityId, LocalDate currentEndDate) {
+        if (currentEndDate == null) {
+            return null;
+        }
+        return facilityPolicyRepository.findByFacility_Id(facilityId)
+                .map(policy -> policy.getRenewalWindowDays() == null
+                        ? null
+                        : currentEndDate.minusDays(policy.getRenewalWindowDays()))
+                .orElse(null);
+    }
+
+    @Override
     public boolean isReturnNoticeSatisfied(UUID facilityId, LocalDateTime scheduledReturnTime) {
+        if (scheduledReturnTime == null || !scheduledReturnTime.isAfter(LocalDateTime.now())) {
+            return false;
+        }
         return facilityPolicyRepository.findByFacility_Id(facilityId)
                 .map(policy -> {
-                    if (policy.getReturnNoticeDays() == null) {
+                    if (policy.getReturnNoticeDays() == null || policy.getReturnNoticeDays() <= 0) {
                         return true;
                     }
-                    long daysNotice = ChronoUnit.DAYS.between(LocalDateTime.now(), scheduledReturnTime);
+                    long daysNotice = ChronoUnit.DAYS.between(LocalDate.now(), scheduledReturnTime.toLocalDate());
                     return daysNotice >= policy.getReturnNoticeDays();
                 })
                 .orElse(true);

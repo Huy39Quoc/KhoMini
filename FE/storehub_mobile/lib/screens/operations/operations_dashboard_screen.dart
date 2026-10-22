@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
+import '../../services/admin_api_service.dart';
 import '../../services/facility_admin_api_service.dart';
+import '../common/facility_staff_overview_screen.dart';
 import '../common/profile_screen.dart';
 import '../common/transaction_history_screen.dart';
 import 'facility_management_screen.dart';
@@ -10,8 +12,7 @@ import 'revenue_chart_card.dart';
 import 'unit_price_screen.dart';
 
 /// Màn hình chính của Business Operations Manager: giám sát doanh thu toàn hệ thống,
-/// quản lý danh sách cơ sở, chính sách thuê và giá/phí. (Quản lý tài khoản và phân quyền
-/// là việc của System Administrator.)
+/// xem và quản lý danh sách cơ sở, phân bổ nhân sự, chính sách thuê và giá/phí.
 class OperationsDashboardScreen extends StatefulWidget {
   final UserModel user;
   const OperationsDashboardScreen({super.key, required this.user});
@@ -23,14 +24,21 @@ class OperationsDashboardScreen extends StatefulWidget {
 
 class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
   final _reportsApi = FacilityAdminApiService();
+  final _adminApi = AdminApiService();
+
   late Future<Map<String, dynamic>> _revenueFuture;
   late DateTime _revenueFrom;
   late DateTime _revenueTo;
+
+  int _facilityCount = 0;
+  int _staffCount = 0;
+  bool _isLoadingCounts = true;
 
   @override
   void initState() {
     super.initState();
     _loadRevenue();
+    _loadCounts();
   }
 
   void _loadRevenue() {
@@ -41,6 +49,23 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
       _revenueFuture = _reportsApi.getRevenueReport(
           fromDate: _revenueFrom, toDate: _revenueTo);
     });
+  }
+
+  Future<void> _loadCounts() async {
+    try {
+      final results = await Future.wait([
+        _reportsApi.getFacilitiesCount(),
+        _adminApi.getStaffCount(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _facilityCount = results[0];
+        _staffCount = results[1];
+        _isLoadingCounts = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingCounts = false);
+    }
   }
 
   void _open(Widget page) {
@@ -78,7 +103,10 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async => _loadRevenue(),
+        onRefresh: () async {
+          _loadRevenue();
+          await _loadCounts();
+        },
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -86,10 +114,35 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                 style:
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 2),
-            const Text('Doanh thu tháng này của toàn hệ thống.',
+            const Text('Tổng quan vận hành và doanh thu toàn hệ thống.',
                 style:
                     TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
             const SizedBox(height: 14),
+
+            // HÀNG THỐNG KÊ NHANH: CƠ SỞ & NHÂN SỰ
+            Row(
+              children: [
+                _kpiCard(
+                  label: 'Cơ sở lưu trữ',
+                  value: _isLoadingCounts ? '...' : '$_facilityCount',
+                  subtext: 'Toàn hệ thống',
+                  icon: Icons.storefront_rounded,
+                  color: AppColors.primaryContainer,
+                  onTap: () => _open(const FacilityStaffOverviewScreen(initialTabIndex: 0)),
+                ),
+                const SizedBox(width: 12),
+                _kpiCard(
+                  label: 'Nhân viên (Staff)',
+                  value: _isLoadingCounts ? '...' : '$_staffCount',
+                  subtext: 'Thuộc các cơ sở',
+                  icon: Icons.badge_rounded,
+                  color: AppColors.secondary,
+                  onTap: () => _open(const FacilityStaffOverviewScreen(initialTabIndex: 1)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
             FutureBuilder<Map<String, dynamic>>(
               future: _revenueFuture,
               builder: (context, snapshot) {
@@ -113,6 +166,14 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
             const Text('Chức năng',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             const SizedBox(height: 10),
+            _menuCard(
+              icon: Icons.store_mall_directory_rounded,
+              color: AppColors.primaryContainer,
+              title: 'Cơ sở & Phân bổ nhân sự',
+              subtitle:
+                  'Xem chi tiết $_facilityCount cơ sở & danh sách nhân viên thuộc cơ sở nào.',
+              onTap: () => _open(const FacilityStaffOverviewScreen()),
+            ),
             _menuCard(
               icon: Icons.bar_chart_rounded,
               color: AppColors.primaryContainer,
@@ -145,6 +206,81 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
                   TransactionHistoryScreen(userRole: widget.user.roleName)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _kpiCard({
+    required String label,
+    required String value,
+    required String subtext,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.surfaceContainerHigh),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: color, size: 20),
+                  ),
+                  const Spacer(),
+                  const Icon(Icons.arrow_forward_ios,
+                      size: 11, color: AppColors.onSurfaceVariant),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtext,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

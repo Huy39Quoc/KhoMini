@@ -23,4 +23,8 @@ public class UserResponse {
     private LocalDateTime assignedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private UUID facilityId;
+    private String facilityName;
+    private String facilityCode;
 }

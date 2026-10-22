@@ -35,18 +35,6 @@ public class PermissionController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERMISSION_CREATE')")
-    @Operation(summary = "Create a new permission")
-    public ResponseEntity<ApiResponse<PermissionResponse>> create(
-            @Valid @RequestBody PermissionCreateRequest request) {
-
-        PermissionResponse response = permissionService.create(request);
-
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Created permission successfully", response));
-    }
-
     @PutMapping("{id}")
     @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERMISSION_UPDATE')")
     @Operation(summary = "Update an existing permission")
@@ -58,16 +46,6 @@ public class PermissionController {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Updated permission successfully.", response));
-    }
-
-    @DeleteMapping("{id}")
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERMISSION_DELETE')")
-    @Operation(summary = "Delete a permission")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        permissionService.delete(id);
-
-        return ResponseEntity.ok(
-                ApiResponse.success("Deleted permission successfully.", null));
     }
 
     @GetMapping

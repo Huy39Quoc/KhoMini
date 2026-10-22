@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/vi_labels.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/ticket_api_service.dart';
 import '../../../models/paged_result.dart';
@@ -60,11 +61,12 @@ class _TicketListScreenState extends State<TicketListScreen> {
   }
 
   static const Map<String, String> _categoryLabels = {
-    'PIN_CODE': 'Access PIN issue',
-    'LOCK_ISSUE': 'Lock / door issue',
-    'FACILITY_DAMAGE': 'Facility damage',
-    'PAYMENT_ISSUE': 'Payment issue',
-    'OTHER': 'Other',
+    'PIN_CODE': 'Sự cố mã PIN',
+    'LOCK_ISSUE': 'Sự cố khóa / cửa',
+    'FACILITY_DAMAGE': 'Hư hỏng cơ sở',
+    'PAYMENT_ISSUE': 'Sự cố thanh toán',
+    'STORED_ITEMS': 'Sự cố đồ lưu trữ',
+    'OTHER': 'Khác',
   };
 
   Color _statusColor(String? status) {
@@ -81,12 +83,29 @@ class _TicketListScreenState extends State<TicketListScreen> {
     }
   }
 
+  IconData _categoryIcon(String? category) {
+    switch (category) {
+      case 'PIN_CODE':
+        return Icons.pin_outlined;
+      case 'LOCK_ISSUE':
+        return Icons.lock_outline;
+      case 'FACILITY_DAMAGE':
+        return Icons.build_outlined;
+      case 'PAYMENT_ISSUE':
+        return Icons.payments_outlined;
+      case 'STORED_ITEMS':
+        return Icons.inventory_2_outlined;
+      default:
+        return Icons.support_agent_outlined;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('Support Tickets'),
+        title: const Text('Yêu cầu hỗ trợ'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -100,7 +119,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
           future: _ticketsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const AppLoadingState(message: 'Loading your tickets...');
+              return const AppLoadingState(message: 'Đang tải yêu cầu của bạn...');
             } else if (snapshot.hasError) {
               return ListView(
                 children: [
@@ -116,9 +135,9 @@ class _TicketListScreenState extends State<TicketListScreen> {
                 children: const [
                   AppEmptyState(
                     icon: Icons.support_agent,
-                    title: 'No support requests yet',
+                    title: 'Chưa có yêu cầu hỗ trợ',
                     message:
-                        'If you run into an issue with your unit, PIN, or payment, tap + to let us know.',
+                        'Nếu gặp sự cố với ngăn kho, mã PIN hoặc thanh toán, chạm + để báo cho chúng tôi.',
                   ),
                 ],
               );
@@ -133,7 +152,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
                 if (index == tickets.length) {
                   return Center(child: TextButton(
                     onPressed: _loadingMore ? null : _loadMore,
-                    child: Text(_loadingMore ? 'Loading...' : 'Load more tickets'),
+                    child: Text(_loadingMore ? 'Đang tải...' : 'Xem thêm yêu cầu'),
                   ));
                 }
                 final ticket = tickets[index];
@@ -164,35 +183,60 @@ class _TicketListScreenState extends State<TicketListScreen> {
                               );
                             },
                       child: Padding(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                if (ticketCode != null && ticketCode.isNotEmpty)
-                                  Text(
-                                    ticketCode,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.secondary,
-                                      letterSpacing: 0.5,
-                                    ),
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                const Spacer(),
+                                  child: Icon(
+                                    _categoryIcon(category),
+                                    size: 18,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (ticketCode != null && ticketCode.isNotEmpty)
+                                        Text(
+                                          ticketCode,
+                                          style: const TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.secondary,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      Text(
+                                        _categoryLabels[category] ?? category ?? '',
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.onSurfaceVariant),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
+                                      horizontal: 9, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: _statusColor(status)
-                                        .withValues(alpha: 0.15),
+                                        .withValues(alpha: 0.14),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
-                                    (status ?? 'OPEN').replaceAll('_', ' '),
+                                    ViLabels.ticketStatus(status ?? 'OPEN'),
                                     style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 10.5,
                                       fontWeight: FontWeight.bold,
                                       color: _statusColor(status),
                                     ),
@@ -203,9 +247,9 @@ class _TicketListScreenState extends State<TicketListScreen> {
                                   const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
+                                        horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: AppColors.surfaceContainer,
+                                      color: AppColors.surfaceContainerHigh,
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
@@ -218,29 +262,25 @@ class _TicketListScreenState extends State<TicketListScreen> {
                                 ],
                               ],
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 10),
                             Text(
                               title?.isNotEmpty == true
                                   ? title!
                                   : (_categoryLabels[category] ??
                                       category ??
-                                      'Support request'),
+                                      'Yêu cầu hỗ trợ'),
                               style: const TextStyle(
                                   fontSize: 15, fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _categoryLabels[category] ?? category ?? '',
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.onSurfaceVariant),
-                            ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             Text(
                               description,
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 13),
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.onSurfaceVariant,
+                                  height: 1.35),
                             ),
                             if (resolutionNote != null &&
                                 resolutionNote.trim().isNotEmpty) ...[
@@ -252,6 +292,9 @@ class _TicketListScreenState extends State<TicketListScreen> {
                                   color:
                                       AppColors.success.withValues(alpha: 0.08),
                                   borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: AppColors.success
+                                          .withValues(alpha: 0.2)),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,7 +305,8 @@ class _TicketListScreenState extends State<TicketListScreen> {
                                     Expanded(
                                       child: Text(
                                         resolutionNote,
-                                        style: const TextStyle(fontSize: 12),
+                                        style: const TextStyle(
+                                            fontSize: 12, height: 1.3),
                                       ),
                                     ),
                                   ],
@@ -291,7 +335,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
           }
         },
         icon: const Icon(Icons.add),
-        label: const Text('New request'),
+        label: const Text('Yêu cầu mới'),
       ),
     );
   }

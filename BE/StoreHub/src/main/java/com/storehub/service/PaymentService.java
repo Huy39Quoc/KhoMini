@@ -1,6 +1,5 @@
 package com.storehub.service;
 
-import com.storehub.dto.request.PaymentConfirmationRequest;
 import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
 import com.storehub.entity.Booking;
@@ -19,11 +18,6 @@ public interface PaymentService {
     // Khách chỉ được HỎI trạng thái giao dịch. Việc đánh dấu PAID chỉ xảy ra khi
     // VNPay gọi về (vnpay-return / vnpay-ipn) với chữ ký hợp lệ.
     PaymentResponse getPaymentStatus(String customerEmail, String transactionId);
-
-    PaymentResponse confirmPayment(
-            String customerEmail,
-            PaymentConfirmationRequest request
-    );
 
     PaymentResponse getPendingExtensionPayment(
             String customerEmail,

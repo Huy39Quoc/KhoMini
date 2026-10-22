@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
+import '../../widgets/logout_dialog.dart';
 import '../auth/login_screen.dart';
 import 'transaction_history_screen.dart';
 
 const Map<String, String> _kRoleLabels = {
-  'ADMIN': 'System Administrator',
-  'BUSINESS_MANAGER': 'Business Operations Manager',
-  'FACILITY_MANAGER': 'Facility Manager',
-  'STAFF': 'Facility Staff',
-  'CUSTOMER': 'Storage Customer',
+  'ADMIN': 'Quản trị hệ thống',
+  'BUSINESS_MANAGER': 'Quản lý vận hành',
+  'FACILITY_MANAGER': 'Quản lý cơ sở',
+  'STAFF': 'Nhân viên cơ sở',
+  'CUSTOMER': 'Khách hàng thuê kho',
 };
 
 class ProfileScreen extends StatefulWidget {
@@ -67,7 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _confirmPasswordController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Password changed successfully'),
+          content: Text('Đổi mật khẩu thành công'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -85,25 +86,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handleLogout() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Sign out?'),
-        content: const Text('You will need to sign in again to continue.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Sign out'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
+    final confirm = await confirmLogout(context);
+    if (!confirm) return;
 
     setState(() => _isLoggingOut = true);
     await _authApiService.logout();
@@ -122,86 +106,172 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _kRoleLabels[user.roleName.toUpperCase()] ?? user.roleName;
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(title: const Text('My Profile')),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Hồ sơ tài khoản'),
+        backgroundColor: Colors.transparent,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // User Avatar & Role Card
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppColors.primaryContainer,
-                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0F172A).withValues(alpha: 0.15),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 34,
-                    backgroundColor: AppColors.secondaryContainer,
-                    child: Text(
-                      _initials(user.fullName.isNotEmpty
-                          ? user.fullName
-                          : user.username),
-                      style: const TextStyle(
-                          fontSize: 24,
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF97316), Color(0xFFEA580C)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFF97316).withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        _initials(user.fullName.isNotEmpty
+                            ? user.fullName
+                            : user.username),
+                        style: const TextStyle(
+                          fontSize: 26,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white),
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   Text(
                     user.fullName.isNotEmpty ? user.fullName : user.username,
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold),
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: Colors.white.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
                     ),
-                    child: Text(roleLabel,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 12)),
+                    child: Text(
+                      roleLabel,
+                      style: const TextStyle(
+                        color: Color(0xFFE2E8F0),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  children: [
-                    _infoTile(Icons.email_outlined, 'Email', user.email),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    _infoTile(Icons.account_circle_outlined, 'Username',
-                        user.username),
-                    if (user.phone.isNotEmpty) ...[
-                      const Divider(height: 1, indent: 16, endIndent: 16),
-                      _infoTile(Icons.phone_outlined, 'Phone', user.phone),
-                    ],
+            // Account Information Group
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.outlineVariant),
+              ),
+              child: Column(
+                children: [
+                  _infoTile(Icons.mail_outline_rounded, 'Email', user.email),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.outlineVariant.withValues(alpha: 0.6),
+                    indent: 56,
+                  ),
+                  _infoTile(Icons.badge_outlined, 'Tên đăng nhập', user.username),
+                  if (user.phone.isNotEmpty) ...[
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: AppColors.outlineVariant.withValues(alpha: 0.6),
+                      indent: 56,
+                    ),
+                    _infoTile(
+                        Icons.phone_outlined, 'Số điện thoại', user.phone),
                   ],
-                ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-            Card(
+            // Transaction History Shortcut
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.outlineVariant),
+              ),
               child: ListTile(
-                leading: const Icon(Icons.receipt_long_outlined, color: AppColors.primaryContainer),
-                title: const Text('Transaction History',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('View payment history & receipts',
-                    style: TextStyle(fontSize: 12)),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long_rounded,
+                    color: AppColors.primaryContainer,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Lịch sử giao dịch',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Xem lịch sử giao dịch & biên lai thanh toán',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded,
+                    color: AppColors.outline, size: 20),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -217,122 +287,150 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 20),
 
-            const Text('Change Password',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            // Change Password Section
+            const Text(
+              'Đổi mật khẩu',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.2,
+              ),
+            ),
             const SizedBox(height: 10),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextFormField(
-                        controller: _oldPasswordController,
-                        obscureText: _obscureOld,
-                        decoration: InputDecoration(
-                          labelText: 'Current password',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscureOld
-                                ? Icons.visibility_off
-                                : Icons.visibility),
-                            onPressed: () =>
-                                setState(() => _obscureOld = !_obscureOld),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.outlineVariant),
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      controller: _oldPasswordController,
+                      obscureText: _obscureOld,
+                      decoration: InputDecoration(
+                        labelText: 'Mật khẩu hiện tại',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureOld
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            size: 20,
                           ),
+                          onPressed: () =>
+                              setState(() => _obscureOld = !_obscureOld),
                         ),
-                        validator: (v) => (v == null || v.isEmpty)
-                            ? 'Current password is required'
-                            : null,
                       ),
-                      const SizedBox(height: 14),
-                      TextFormField(
-                        controller: _newPasswordController,
-                        obscureText: _obscureNew,
-                        decoration: InputDecoration(
-                          labelText: 'New password',
-                          prefixIcon: const Icon(Icons.lock_reset_outlined),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscureNew
-                                ? Icons.visibility_off
-                                : Icons.visibility),
-                            onPressed: () =>
-                                setState(() => _obscureNew = !_obscureNew),
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? 'Vui lòng nhập mật khẩu hiện tại'
+                          : null,
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _newPasswordController,
+                      obscureText: _obscureNew,
+                      decoration: InputDecoration(
+                        labelText: 'Mật khẩu mới',
+                        prefixIcon: const Icon(Icons.lock_reset_rounded),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureNew
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            size: 20,
                           ),
-                          helperText: 'At least 5 characters',
+                          onPressed: () =>
+                              setState(() => _obscureNew = !_obscureNew),
                         ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) {
-                            return 'New password is required';
-                          }
-                          if (v.length < 5) {
-                            return 'Password must be at least 5 characters long';
-                          }
-                          return null;
-                        },
+                        helperText: 'Tối thiểu 5 ký tự',
                       ),
-                      const SizedBox(height: 14),
-                      TextFormField(
-                        controller: _confirmPasswordController,
-                        obscureText: _obscureConfirm,
-                        decoration: InputDecoration(
-                          labelText: 'Confirm new password',
-                          prefixIcon: const Icon(Icons.check_circle_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscureConfirm
-                                ? Icons.visibility_off
-                                : Icons.visibility),
-                            onPressed: () => setState(
-                                () => _obscureConfirm = !_obscureConfirm),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) {
+                          return 'Vui lòng nhập mật khẩu mới';
+                        }
+                        if (v.length < 5) {
+                          return 'Mật khẩu tối thiểu 5 ký tự';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: _obscureConfirm,
+                      decoration: InputDecoration(
+                        labelText: 'Xác nhận mật khẩu mới',
+                        prefixIcon: const Icon(Icons.check_circle_outline_rounded),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirm
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            size: 20,
                           ),
+                          onPressed: () => setState(
+                              () => _obscureConfirm = !_obscureConfirm),
                         ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) {
-                            return 'Please confirm your new password';
-                          }
-                          if (v != _newPasswordController.text) {
-                            return 'Passwords do not match';
-                          }
-                          return null;
-                        },
                       ),
-                      const SizedBox(height: 18),
-                      ElevatedButton(
-                        onPressed: _isSaving ? null : _handleChangePassword,
-                        child: _isSaving
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text('Update Password'),
-                      ),
-                    ],
-                  ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) {
+                          return 'Vui lòng xác nhận mật khẩu mới';
+                        }
+                        if (v != _newPasswordController.text) {
+                          return 'Mật khẩu xác nhận không khớp';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    ElevatedButton(
+                      onPressed: _isSaving ? null : _handleChangePassword,
+                      child: _isSaving
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text('Cập nhật mật khẩu'),
+                    ),
+                  ],
                 ),
               ),
             ),
             const SizedBox(height: 24),
 
-            OutlinedButton.icon(
+            // Logout Action
+            ElevatedButton.icon(
               onPressed: _isLoggingOut ? null : _handleLogout,
               icon: _isLoggingOut
                   ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.error),
+                      ),
                     )
-                  : const Icon(Icons.logout, color: AppColors.error),
-              label: const Text('Sign Out',
-                  style: TextStyle(color: AppColors.error)),
-              style: OutlinedButton.styleFrom(
+                  : const Icon(Icons.logout_rounded, size: 20),
+              label: const Text('Đăng xuất tài khoản'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.errorContainer,
+                foregroundColor: AppColors.error,
+                disabledBackgroundColor: AppColors.errorContainer,
+                disabledForegroundColor: AppColors.error,
                 minimumSize: const Size.fromHeight(50),
-                side: const BorderSide(color: AppColors.error),
               ),
             ),
-            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -341,12 +439,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _infoTile(IconData icon, String label, String value) {
     return ListTile(
-      leading: Icon(icon, color: AppColors.onSurfaceVariant),
-      title: Text(label,
-          style:
-              const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
-      subtitle: Text(value.isNotEmpty ? value : '-',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: AppColors.textSecondary, size: 18),
+      ),
+      title: Text(
+        label,
+        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+      ),
+      subtitle: Text(
+        value.isNotEmpty ? value : '-',
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
     );
   }
 }

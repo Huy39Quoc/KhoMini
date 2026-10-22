@@ -29,9 +29,12 @@ public interface CustomerStorageMapper {
     @Mapping(target = "overdue", expression = "java(booking.getOverdueDetectedAt() != null)")
     @Mapping(target = "overdueDays", ignore = true)
     @Mapping(target = "overdueFeeOutstanding", ignore = true)
+    @Mapping(target = "renewalOpensDate", ignore = true)
     @Mapping(target = "scheduledReturnTime", source = "scheduledReturnTime")
     @Mapping(target = "hasPendingExtension", expression = "java(booking.getPendingExtraMonths() != null)")
     @Mapping(target = "pendingNewEndDate", expression = "java(booking.getPendingExtraMonths() != null && booking.getEndDate() != null ? booking.getEndDate().plusMonths(booking.getPendingExtraMonths()) : null)")
+    @Mapping(target = "openTime", source = "storageUnit.facility.openTime")
+    @Mapping(target = "closeTime", source = "storageUnit.facility.closeTime")
     MyUnitResponse toMyUnitResponse(Booking booking);
 
     @Mapping(target = "bookingId", source = "id")

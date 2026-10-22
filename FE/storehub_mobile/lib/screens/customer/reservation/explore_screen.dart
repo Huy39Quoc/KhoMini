@@ -137,7 +137,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Search Filters',
+                    const Text('Bộ lọc tìm kiếm',
                         style: TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold)),
                     TextButton(
@@ -148,7 +148,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                           tempAirConditioned = false;
                         });
                       },
-                      child: const Text('Clear all',
+                      child: const Text('Xóa tất cả',
                           style: TextStyle(color: AppColors.primary)),
                     ),
                   ],
@@ -157,7 +157,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Area (m²)',
+                    const Text('Diện tích (m²)',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     Text(
                       '${tempMin.toInt()} – ${tempMax.toInt()} m²',
@@ -205,7 +205,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                       });
                       _fadeCtrl.forward(from: 0);
                     },
-                    child: const Text('Apply',
+                    child: const Text('Áp dụng',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
@@ -230,30 +230,38 @@ class _ExploreScreenState extends State<ExploreScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
+                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
                 ),
               ),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Explore Facilities',
+                  const Text('Khám phá cơ sở',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 22,
-                          fontWeight: FontWeight.bold)),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.3)),
                   const SizedBox(height: 4),
-                  const Text('Find the right storage for your needs',
-                      style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const Text('Tìm kiếm kho tự phục vụ phù hợp với nhu cầu của bạn',
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
                   const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
                         child: Container(
-                          height: 44,
+                          height: 46,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: TextField(
                             controller: _searchCtrl,
@@ -262,32 +270,34 @@ class _ExploreScreenState extends State<ExploreScreen>
                               _fadeCtrl.forward(from: 0);
                             }),
                             decoration: const InputDecoration(
-                              hintText: 'Search by facility name or address...',
-                              prefixIcon: Icon(Icons.search,
-                                  color: AppColors.primary, size: 20),
+                              hintText: 'Tìm theo tên hoặc địa chỉ cơ sở...',
+                              prefixIcon: Icon(Icons.search_rounded,
+                                  color: AppColors.textSecondary, size: 20),
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
                               contentPadding:
-                                  EdgeInsets.symmetric(vertical: 12),
+                                  EdgeInsets.symmetric(vertical: 13),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       GestureDetector(
                         onTap: _showFilterSheet,
                         child: Stack(
                           children: [
                             Container(
-                              height: 44,
-                              width: 44,
+                              height: 46,
+                              width: 46,
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.4)),
+                                    color: Colors.white.withValues(alpha: 0.25)),
                               ),
                               child:
-                                  const Icon(Icons.tune, color: Colors.white),
+                                  const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
                             ),
                             if (_activeFilterCount > 0)
                               Positioned(
@@ -376,7 +386,7 @@ class _ExploreScreenState extends State<ExploreScreen>
           children: [
             CircularProgressIndicator(color: AppColors.primary),
             SizedBox(height: 12),
-            Text('Loading facilities...'),
+            Text('Đang tải danh sách cơ sở...'),
           ],
         ),
       );
@@ -397,7 +407,7 @@ class _ExploreScreenState extends State<ExploreScreen>
               ElevatedButton.icon(
                 onPressed: _loadFacilities,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Try again'),
+                label: const Text('Thử lại'),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white),
@@ -414,7 +424,7 @@ class _ExploreScreenState extends State<ExploreScreen>
           children: [
             Icon(Icons.search_off, size: 56, color: Colors.grey.shade400),
             const SizedBox(height: 12),
-            const Text('No matching facilities found.',
+            const Text('Không tìm thấy cơ sở phù hợp.',
                 style: TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 8),
             TextButton(
@@ -425,7 +435,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                 _airConditioned24hOnly = false;
                 _applyFilter();
               }),
-              child: const Text('Clear filters'),
+              child: const Text('Xóa bộ lọc'),
             ),
           ],
         ),
@@ -479,10 +489,10 @@ class _FacilityCard extends StatelessWidget {
                 ? Colors.orange
                 : AppColors.error;
     final availLabel = available == null
-        ? 'Not available'
+        ? 'Không khả dụng'
         : available > 0
-            ? '$available units available'
-            : 'Fully booked';
+            ? 'Còn $available ngăn trống'
+            : 'Đã hết chỗ';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -491,10 +501,11 @@ class _FacilityCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.outlineVariant),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.07),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -504,18 +515,18 @@ class _FacilityCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                height: 80,
-                decoration: BoxDecoration(
+                height: 84,
+                decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF1E3C72).withValues(alpha: 0.9),
-                      const Color(0xFF2A5298).withValues(alpha: 0.9),
+                      Color(0xFF0F172A),
+                      Color(0xFF1E293B),
                     ],
                   ),
                   borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(16)),
+                      BorderRadius.vertical(top: Radius.circular(18)),
                 ),
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 child: Row(
@@ -523,22 +534,22 @@ class _FacilityCard extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        width: 48,
-                        height: 48,
-                        color: Colors.white.withValues(alpha: 0.15),
+                        width: 50,
+                        height: 50,
+                        color: Colors.white.withValues(alpha: 0.12),
                         child: (facility.imageUrl != null &&
                                 facility.imageUrl!.isNotEmpty)
                             ? Image.network(
                                 facility.imageUrl!,
-                                width: 48,
-                                height: 48,
+                                width: 50,
+                                height: 50,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(Icons.warehouse_outlined,
-                                        color: Colors.white, size: 26),
+                                    const Icon(Icons.warehouse_rounded,
+                                        color: Colors.white, size: 28),
                               )
-                            : const Icon(Icons.warehouse_outlined,
-                                color: Colors.white, size: 26),
+                            : const Icon(Icons.warehouse_rounded,
+                                color: Colors.white, size: 28),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -550,20 +561,21 @@ class _FacilityCard extends StatelessWidget {
                           Text(facility.name,
                               style: const TextStyle(
                                   color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15.5,
+                                  letterSpacing: -0.2),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Row(
                             children: [
-                              const Icon(Icons.location_on,
-                                  color: Colors.white70, size: 12),
-                              const SizedBox(width: 2),
+                              const Icon(Icons.location_on_rounded,
+                                  color: AppColors.secondaryContainer, size: 13),
+                              const SizedBox(width: 3),
                               Expanded(
                                 child: Text(facility.fullAddress,
                                     style: const TextStyle(
-                                        color: Colors.white70, fontSize: 11),
+                                        color: Color(0xFF94A3B8), fontSize: 11.5),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis),
                               ),
@@ -590,10 +602,10 @@ class _FacilityCard extends StatelessWidget {
                           if (facility.minAreaSqm != null &&
                               facility.maxAreaSqm != null)
                             _infoChip(
-                                Icons.straighten,
+                                Icons.straighten_rounded,
                                 '${facility.minAreaSqm!.toInt()}–${facility.maxAreaSqm!.toInt()} m²',
-                                Colors.indigo),
-                          _infoChip(Icons.inventory_2_outlined, availLabel,
+                                const Color(0xFF0284C7)),
+                          _infoChip(Icons.inventory_2_rounded, availLabel,
                               availColor),
                         ],
                       ),
@@ -603,17 +615,17 @@ class _FacilityCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('From',
+                        const Text('Giá từ',
                             style: TextStyle(
-                                fontSize: 10, color: AppColors.textSecondary)),
+                                fontSize: 10.5, color: AppColors.textSecondary)),
                         Text(
                           facility.minPricePerMonth != null
-                              ? '${_formatPrice(facility.minPricePerMonth!)}/month'
-                              : 'Contact us',
+                              ? '${_formatPrice(facility.minPricePerMonth!)}/tháng'
+                              : 'Liên hệ',
                           style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.secondaryContainer),
                         ),
                       ],
                     ),
@@ -627,14 +639,14 @@ class _FacilityCard extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onTap,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.secondaryContainer,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                          borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text('View Details & Reserve',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    child: const Text('Xem chi tiết & đặt kho',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
                   ),
                 ),
               ),

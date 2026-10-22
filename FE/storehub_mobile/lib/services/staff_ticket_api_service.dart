@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
@@ -7,13 +6,13 @@ import '../models/staff_ticket_model.dart';
 import '../models/paged_result.dart';
 
 class StaffTicketApiService {
-  final Dio _dio = HttpClient.instance.dio;
+  final HttpClient _http = HttpClient.instance;
 
   Future<PagedResult<StaffTicketModel>> getFacilityTickets(
     String facilityId, {int page = 0}
   ) async {
     try {
-      final response = await _dio.get(
+      final response = await _http.get(
         ApiEndpoints.staffTickets,
         queryParameters: {
           'facilityId': facilityId,
@@ -25,8 +24,8 @@ class StaffTicketApiService {
 
       return PagedResult.fromApi(response.data, (item) =>
           StaffTicketMapper.fromJson(StaffTicketMapper.asJsonMap(item)));
-    } on DioException catch (error) {
-      throw _error(error, 'load facility tickets');
+    } on ApiException catch (error) {
+      throw _error(error, 'tải yêu cầu hỗ trợ của cơ sở');
     }
   }
 
@@ -35,7 +34,7 @@ class StaffTicketApiService {
     required String ticketId,
   }) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.staffTicketAssign(ticketId),
         queryParameters: {'facilityId': facilityId},
       );
@@ -43,8 +42,8 @@ class StaffTicketApiService {
       return StaffTicketMapper.fromJson(
         _unwrap(response.data),
       );
-    } on DioException catch (error) {
-      throw _error(error, 'accept this ticket');
+    } on ApiException catch (error) {
+      throw _error(error, 'tiếp nhận yêu cầu này');
     }
   }
 
@@ -54,7 +53,7 @@ class StaffTicketApiService {
     required String staffId,
   }) async {
     try {
-      final response = await _dio.post(
+      final response = await _http.post(
         ApiEndpoints.staffTicketAssignTo(ticketId, staffId),
         queryParameters: {'facilityId': facilityId},
       );
@@ -62,8 +61,8 @@ class StaffTicketApiService {
       return StaffTicketMapper.fromJson(
         _unwrap(response.data),
       );
-    } on DioException catch (error) {
-      throw _error(error, 'assign this ticket');
+    } on ApiException catch (error) {
+      throw _error(error, 'giao yêu cầu này');
     }
   }
 
@@ -74,7 +73,7 @@ class StaffTicketApiService {
     String? resolutionNote,
   }) async {
     try {
-      final response = await _dio.patch(
+      final response = await _http.patch(
         ApiEndpoints.staffTicketStatus(ticketId),
         queryParameters: {'facilityId': facilityId},
         data: StaffTicketMapper.statusRequestToJson(
@@ -86,8 +85,8 @@ class StaffTicketApiService {
       return StaffTicketMapper.fromJson(
         _unwrap(response.data),
       );
-    } on DioException catch (error) {
-      throw _error(error, 'update ticket status');
+    } on ApiException catch (error) {
+      throw _error(error, 'cập nhật trạng thái yêu cầu');
     }
   }
 
@@ -103,12 +102,12 @@ class StaffTicketApiService {
     return <String, dynamic>{};
   }
 
-  Exception _error(DioException error, String action) {
+  Exception _error(ApiException error, String action) {
     final data = error.response?.data;
     final message = data is Map ? data['message']?.toString() : error.message;
 
     return Exception(
-      'Failed to $action: ${message ?? 'Unknown error'}',
+      'Không thể $action: ${message ?? 'Lỗi không xác định'}',
     );
   }
 }

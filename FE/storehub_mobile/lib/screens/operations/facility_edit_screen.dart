@@ -159,11 +159,14 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     super.dispose();
   }
 
-  Future<void> _loadPolicy() async {
+  Future<void> _loadPolicy({String? policyId}) async {
     setState(() => _isLoadingPolicy = true);
     try {
       final facilityId = widget.facility!['id'].toString();
-      final policy = await _service.getFacilityPolicyByFacility(facilityId);
+      // Sau khi lưu đã biết id chính sách thì tải đúng bản ghi đó; lần đầu tải theo cơ sở.
+      final policy = policyId != null
+          ? await _service.getFacilityPolicyById(policyId)
+          : await _service.getFacilityPolicyByFacility(facilityId);
       if (!mounted) return;
       setState(() {
         _policy = policy;
@@ -569,17 +572,21 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
     };
 
     try {
+      String? savedPolicyId;
       if (_policy != null) {
-        await _service.updateFacilityPolicy(_policy!['id'].toString(), body);
+        final updated =
+            await _service.updateFacilityPolicy(_policy!['id'].toString(), body);
+        savedPolicyId = (updated['id'] ?? _policy!['id'])?.toString();
       } else {
-        await _service.createFacilityPolicy(body);
+        final created = await _service.createFacilityPolicy(body);
+        savedPolicyId = created['id']?.toString();
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Đã lưu chính sách'), backgroundColor: AppColors.success),
       );
-      _loadPolicy();
+      _loadPolicy(policyId: savedPolicyId);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -600,7 +607,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
-                "Couldn't load users: ${e.toString().replaceAll('Exception: ', '')}")),
+                "Không tải được người dùng: ${e.toString().replaceAll('Exception: ', '')}")),
       );
       return;
     }
@@ -720,7 +727,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                          '$name assigned as Facility Manager'),
+                                          'Đã gán $name làm Quản lý cơ sở'),
                                       backgroundColor: AppColors.success,
                                     ),
                                   );
@@ -1337,7 +1344,7 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
           _section(
             icon: Icons.gavel_outlined,
             title: 'Điều khoản & hàng cấm',
-            subtitle: 'Configured dynamically for customer agreement.',
+            subtitle: 'Được cấu hình theo chính sách của cơ sở.',
             children: [
               _policyField(_termsVersionController, 'Phiên bản điều khoản',
                   hint: 'VD: v2026.1'),

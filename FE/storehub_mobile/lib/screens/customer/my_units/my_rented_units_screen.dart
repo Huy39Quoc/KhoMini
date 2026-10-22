@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/vi_labels.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/booking_api_service.dart';
 import '../../../services/auth_api_service.dart';
+import '../../../widgets/logout_dialog.dart';
 import '../../../services/storage_api_service.dart';
 import '../../../models/my_unit_model.dart';
 import '../../../widgets/state_views.dart';
@@ -26,13 +28,15 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   bool _showAwaiting = false;
   final _currency = NumberFormat.currency(
       locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
-  final _dateFmt = DateFormat('MMM d, yyyy');
-  final _dateTimeFmt = DateFormat('MMM d, yyyy • h:mm a');
+  final _dateFmt = DateFormat('dd/MM/yyyy');
+  final _dateTimeFmt = DateFormat('dd/MM/yyyy • HH:mm');
 
   // Chỉ gia hạn khi đã nhận kho; nếu đang treo yêu cầu gia hạn thì vẫn cho mở lại
   // để thanh toán/hủy; nợ phí trễ hạn thì phải trả trước.
   bool _canExtend(MyUnitModel unit) =>
-      unit.isActive && (unit.hasPendingExtension || !unit.hasLateFeeDue);
+      unit.isActive &&
+      (unit.hasPendingExtension ||
+          (!unit.hasLateFeeDue && !unit.renewalNotYetOpen));
 
   @override
   void initState() {
@@ -60,43 +64,82 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   void _showUnitActions(MyUnitModel unit) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    unit.displayUnit,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.outline.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.inventory_2_outlined,
+                          color: AppColors.primary, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            unit.displayUnit,
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          if (unit.facilityName.isNotEmpty)
+                            Text(
+                              unit.facilityName,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.onSurfaceVariant),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainer,
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child:
-                      const Icon(Icons.key, color: AppColors.primaryContainer),
+                  child: const Icon(Icons.key, color: AppColors.primary),
                 ),
-                title: const Text('Smart Access (PIN & Gate QR)'),
+                title: const Text('Khóa thông minh ngăn kho',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 enabled: unit.hasActiveAccess,
-                subtitle: unit.hasActiveAccess
-                    ? null
-                    : Text(unit.accessDisabled
-                        ? 'Đã khóa truy cập vì quá hạn thuê'
-                        : 'Dùng được sau khi nhân viên bàn giao tại cơ sở'),
+                subtitle: Text(
+                  !unit.hasActiveAccess
+                      ? (unit.accessDisabled
+                          ? 'Đã khóa truy cập vì quá hạn thuê'
+                          : 'Dùng được sau khi nhân viên bàn giao tại cơ sở')
+                      : 'Mở / đóng khóa ngăn kho bằng mã PIN 6 số',
+                  style: const TextStyle(fontSize: 12),
+                ),
                 onTap: unit.hasActiveAccess
                     ? () {
                         Navigator.pop(ctx);
@@ -123,9 +166,11 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     child: const Icon(Icons.payments_outlined,
                         color: AppColors.error),
                   ),
-                  title: const Text('Pay Late Fee'),
+                  title: const Text('Thanh toán phí trễ hạn',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   subtitle: Text(
-                      '${_currency.format(unit.overdueFeeOutstanding)} outstanding'),
+                      'còn nợ ${_currency.format(unit.overdueFeeOutstanding)}',
+                      style: const TextStyle(fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
                     _openContractOperation(unit,
@@ -136,21 +181,32 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainer,
+                    color: AppColors.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.update,
-                      color: AppColors.primaryContainer),
+                      color: AppColors.primary),
                 ),
-                title: const Text('Extend Rental'),
+                title: const Text('Gia hạn thuê',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 enabled: _canExtend(unit),
                 subtitle: !unit.isActive
-                    ? const Text('Dùng được sau khi nhân viên bàn giao tại cơ sở')
+                    ? const Text('Dùng được sau khi nhân viên bàn giao tại cơ sở',
+                        style: TextStyle(fontSize: 12))
                     : unit.hasPendingExtension
-                        ? const Text('Resume or cancel your pending extension')
+                        ? const Text('Tiếp tục hoặc hủy yêu cầu gia hạn đang chờ',
+                            style: TextStyle(fontSize: 12))
                         : unit.hasLateFeeDue
-                            ? const Text('Pay the outstanding late fee first')
-                            : null,
+                            ? const Text('Vui lòng thanh toán phí trễ hạn trước',
+                                style: TextStyle(fontSize: 12))
+                            : unit.renewalNotYetOpen
+                                ? Text(
+                                    'Chưa đến thời điểm gia hạn. Gia hạn mở từ '
+                                    '${_dateFmt.format(unit.renewalOpensDate!)} '
+                                    '(trong ${unit.endDate!.difference(unit.renewalOpensDate!).inDays} '
+                                    'ngày cuối trước ngày hết hạn ${_dateFmt.format(unit.endDate!)}).',
+                                    style: const TextStyle(fontSize: 12))
+                                : null,
                 onTap: _canExtend(unit)
                     ? () {
                         Navigator.pop(ctx);
@@ -166,21 +222,24 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.errorContainer,
+                    color: AppColors.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.logout, color: AppColors.error),
                 ),
                 title: Text(unit.scheduledReturnTime != null
-                    ? 'Reschedule Checkout'
-                    : 'Request Checkout'),
+                    ? 'Đổi lịch trả kho'
+                    : 'Yêu cầu trả kho',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 enabled: unit.isActive,
                 subtitle: unit.isActive
                     ? (unit.scheduledReturnTime != null
                         ? Text(
-                            'Currently ${_dateTimeFmt.format(unit.scheduledReturnTime!)}')
+                            'Hiện tại: ${_dateTimeFmt.format(unit.scheduledReturnTime!)}',
+                            style: const TextStyle(fontSize: 12))
                         : null)
-                    : const Text('Dùng được sau khi nhân viên bàn giao tại cơ sở'),
+                    : const Text('Dùng được sau khi nhân viên bàn giao tại cơ sở',
+                        style: TextStyle(fontSize: 12)),
                 onTap: unit.isActive
                     ? () {
                         Navigator.pop(ctx);
@@ -199,9 +258,11 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     child: const Icon(Icons.cancel_outlined,
                         color: AppColors.error),
                   ),
-                  title: const Text('Cancel Booking'),
+                  title: const Text('Hủy đơn',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   subtitle: const Text(
-                      'Deposit is refunded per the facility cancellation policy'),
+                      'Tiền cọc được hoàn theo chính sách hủy của cơ sở',
+                      style: TextStyle(fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
                     _confirmCancelBooking(unit);
@@ -211,14 +272,16 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainer,
+                    color: AppColors.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.history_edu_outlined,
-                      color: AppColors.primaryContainer),
+                      color: AppColors.primary),
                 ),
-                title: const Text('Handover Records & Photos'),
-                subtitle: const Text('View condition & photos from check-in/return'),
+                title: const Text('Biên bản bàn giao & ảnh',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text('Xem tình trạng & ảnh lúc bàn giao/trả kho',
+                    style: TextStyle(fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _openCustomerHandoverHistory(unit);
@@ -228,13 +291,14 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainer,
+                    color: AppColors.secondary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.report_problem_outlined,
                       color: AppColors.secondary),
                 ),
-                title: const Text('Report an Issue'),
+                title: const Text('Báo sự cố',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final result = await Navigator.push(
@@ -281,7 +345,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Handover Records • Unit ${unit.unitCode}',
+                        'Biên bản bàn giao • Ngăn ${unit.unitCode}',
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold),
                       ),
@@ -300,7 +364,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const AppLoadingState(
-                        message: 'Loading handover records...',
+                        message: 'Đang tải biên bản bàn giao...',
                       );
                     }
                     if (snapshot.hasError) {
@@ -315,9 +379,9 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     if (records.isEmpty) {
                       return const AppEmptyState(
                         icon: Icons.history,
-                        title: 'No handover records yet',
+                        title: 'Chưa có biên bản bàn giao',
                         message:
-                            'Handover records with photos will appear here after staff check-in.',
+                            'Biên bản bàn giao kèm ảnh sẽ hiển thị tại đây sau khi nhân viên bàn giao kho.',
                       );
                     }
 
@@ -362,8 +426,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                                         children: [
                                           Text(
                                             isCheckIn
-                                                ? 'Check-in Handover'
-                                                : 'Return / Check-out Handover',
+                                                ? 'Biên bản bàn giao kho'
+                                                : 'Biên bản nghiệm thu trả kho',
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.bold),
                                           ),
@@ -385,7 +449,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 4),
                                     child: Text(
-                                      'Condition: ${record.unitCondition}',
+                                      'Tình trạng: ${record.unitCondition}',
                                       style: const TextStyle(fontSize: 13),
                                     ),
                                   ),
@@ -394,7 +458,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 4),
                                     child: Text(
-                                      'Deduction: ${_currency.format(record.damageFee)}${record.damageReason != null ? " (${record.damageReason})" : ""}',
+                                      'Khấu trừ: ${_currency.format(record.damageFee)}${record.damageReason != null ? " (${record.damageReason})" : ""}',
                                       style: const TextStyle(
                                           fontSize: 13,
                                           color: AppColors.error,
@@ -405,7 +469,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 4),
                                     child: Text(
-                                      'Notes: ${record.notes}',
+                                      'Ghi chú: ${record.notes}',
                                       style: const TextStyle(fontSize: 13),
                                     ),
                                   ),
@@ -413,7 +477,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 4),
                                     child: Text(
-                                      'Inspected by: ${record.staffName}',
+                                      'Người kiểm tra: ${record.staffName}',
                                       style: const TextStyle(
                                           fontSize: 12,
                                           color: AppColors.onSurfaceVariant),
@@ -422,7 +486,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                                 if (record.photos.isNotEmpty) ...[
                                   const SizedBox(height: 10),
                                   const Text(
-                                    'Photo Evidence:',
+                                    'Ảnh bằng chứng:',
                                     style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold),
@@ -451,20 +515,20 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Cancel booking?'),
+        title: const Text('Hủy đơn đặt kho?'),
         content: Text(
-          'Booking ${unit.bookingCode} (${unit.displayUnit}) will be '
-          'cancelled and the unit released. Your deposit is refunded '
-          'according to the facility cancellation policy.',
+          'Đơn ${unit.bookingCode} (${unit.displayUnit}) sẽ được '
+          'bị hủy và ngăn kho được trả lại. Tiền cọc của bạn được hoàn '
+          'theo chính sách hủy của cơ sở.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Keep booking'),
+            child: const Text('Giữ đơn'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Cancel booking'),
+            child: const Text('Hủy đơn'),
           ),
         ],
       ),
@@ -477,7 +541,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Booking cancelled'),
+          content: Text('Đã hủy đơn'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -514,6 +578,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   }
 
   void _logout(BuildContext context) async {
+    if (!await confirmLogout(context)) return;
     await AuthApiService().logout();
 
     if (!context.mounted) return;
@@ -542,12 +607,28 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
     }
   }
 
+  String _unitBadgeLabel(MyUnitModel unit) {
+    if (unit.overdue) return 'Quá hạn';
+    if (unit.isActive && unit.scheduledReturnTime != null) {
+      return 'Đã hẹn trả kho';
+    }
+    return ViLabels.booking(unit.status);
+  }
+
+  Color _unitBadgeColor(MyUnitModel unit) {
+    if (unit.overdue) return AppColors.error;
+    if (unit.isActive && unit.scheduledReturnTime != null) {
+      return AppColors.warning;
+    }
+    return _statusColor(unit.status);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: const Text('My Storage Units'),
+        title: const Text('Kho của tôi'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -555,7 +636,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
+            tooltip: 'Đăng xuất',
             onPressed: () => _logout(context),
           ),
         ],
@@ -566,7 +647,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
           future: _unitsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const AppLoadingState(message: 'Loading your units...');
+              return const AppLoadingState(message: 'Đang tải kho của bạn...');
             } else if (snapshot.hasError) {
               return ListView(
                 children: [
@@ -587,41 +668,65 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryContainer,
-                    borderRadius: BorderRadius.circular(16),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white10,
-                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(Icons.inventory_2,
-                            color: AppColors.secondaryContainer, size: 22),
+                        child: const Icon(Icons.warehouse_outlined,
+                            color: AppColors.secondary, size: 24),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '${active.length} đang thuê • ${awaiting.length} chờ nhận kho',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14),
+                            Row(
+                              children: [
+                                Text(
+                                  '${active.length} đang thuê',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14),
+                                ),
+                                const Text(' • ',
+                                    style: TextStyle(color: Colors.white38)),
+                                Text(
+                                  '${awaiting.length} chờ nhận kho',
+                                  style: const TextStyle(
+                                      color: AppColors.secondary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 4),
                             Text(
                               _showAwaiting
-                                  ? 'Bạn đã thanh toán. Hãy đến cơ sở đúng ngày giờ hẹn: nhân viên sẽ kiểm tra và bàn giao ngăn kho, '
-                                      'sau đó booking chuyển sang "Đang thuê".'
-                                  : 'Bấm vào ngăn kho để xem khóa thông minh, QR cổng, gia hạn/trả kho và hỗ trợ.',
+                                  ? 'Bạn đã thanh toán. Hãy đến đúng giờ hẹn để nhân viên bàn giao ngăn kho.'
+                                  : 'Chạm vào ngăn kho để mở khóa thông minh hoặc quản lý hợp đồng.',
                               style: const TextStyle(
-                                  color: Colors.white70, fontSize: 11),
+                                  color: Colors.white70, fontSize: 11.5, height: 1.3),
                             ),
                           ],
                         ),
@@ -630,22 +735,95 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: Text('Đang thuê (${active.length})'),
-                      selected: !_showAwaiting,
-                      onSelected: (_) => setState(() => _showAwaiting = false),
-                    ),
-                    ChoiceChip(
-                      label: Text('Chờ nhận kho (${awaiting.length})'),
-                      selected: _showAwaiting,
-                      onSelected: (_) => setState(() => _showAwaiting = true),
-                    ),
-                  ],
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setState(() => _showAwaiting = false),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            decoration: BoxDecoration(
+                              color: !_showAwaiting
+                                  ? AppColors.primaryContainer
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check_circle_outline,
+                                    size: 15,
+                                    color: !_showAwaiting
+                                        ? Colors.white
+                                        : AppColors.onSurfaceVariant),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Đang thuê (${active.length})',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: !_showAwaiting
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                    color: !_showAwaiting
+                                        ? Colors.white
+                                        : AppColors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setState(() => _showAwaiting = true),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            decoration: BoxDecoration(
+                              color: _showAwaiting
+                                  ? AppColors.primaryContainer
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.schedule,
+                                    size: 15,
+                                    color: _showAwaiting
+                                        ? Colors.white
+                                        : AppColors.onSurfaceVariant),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Chờ nhận (${awaiting.length})',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: _showAwaiting
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                    color: _showAwaiting
+                                        ? Colors.white
+                                        : AppColors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 if (units.isEmpty)
                   AppEmptyState(
                     icon: Icons.inventory_2_outlined,
@@ -701,20 +879,15 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color:
-                          _statusColor(unit.overdue ? 'OVERDUE' : unit.status)
-                              .withValues(alpha: 0.15),
+                      color: _unitBadgeColor(unit).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      unit.overdue
-                          ? 'OVERDUE'
-                          : unit.status.replaceAll('_', ' '),
+                      _unitBadgeLabel(unit),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: _statusColor(
-                            unit.overdue ? 'OVERDUE' : unit.status),
+                        color: _unitBadgeColor(unit),
                       ),
                     ),
                   ),
@@ -730,7 +903,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     child: Text(
                       unit.facilityName.isNotEmpty
                           ? '${unit.facilityName}${unit.facilityAddress.isNotEmpty ? ', ${unit.facilityAddress}' : ''}'
-                          : 'Facility not specified',
+                          : 'Chưa xác định cơ sở',
                       style: const TextStyle(
                           fontSize: 11, color: AppColors.onSurfaceVariant),
                       maxLines: 1,
@@ -758,12 +931,12 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       Expanded(
                         child: Text(
                           [
-                            'Rental overdue${unit.overdueDays > 0 ? ' by ${unit.overdueDays} day(s)' : ''}.',
+                            'Hợp đồng đã quá hạn${unit.overdueDays > 0 ? ' ${unit.overdueDays} ngày' : ''}.',
                             if (unit.hasLateFeeDue)
-                              'Late fee due: ${_currency.format(unit.overdueFeeOutstanding)}.',
+                              'Phí trễ hạn cần thanh toán: ${_currency.format(unit.overdueFeeOutstanding)}.',
                             if (unit.accessDisabled)
-                              'Smart access has been disabled.',
-                            'Pay the fee, then extend or return the unit.',
+                              'Khóa thông minh đã bị vô hiệu hóa.',
+                            'Hãy thanh toán phí, sau đó gia hạn hoặc trả kho.',
                           ].join(' '),
                           style: const TextStyle(
                               fontSize: 11, fontWeight: FontWeight.w600),
@@ -790,7 +963,7 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Checkout scheduled for ${_dateTimeFmt.format(unit.scheduledReturnTime!)}',
+                          'Hẹn trả kho lúc ${_dateTimeFmt.format(unit.scheduledReturnTime!)}',
                           style: const TextStyle(
                               fontSize: 11, fontWeight: FontWeight.w600),
                         ),
@@ -817,9 +990,9 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       Expanded(
                         child: Text(
                           unit.pendingExtensionFee != null
-                              ? 'Extension of ${unit.pendingExtraMonths ?? '?'} month(s) awaiting payment '
-                                  '(${_currency.format(unit.pendingExtensionFee)}). Tap "Extend Rental" to pay or cancel it.'
-                              : 'You have an extension request awaiting payment.',
+                              ? 'Yêu cầu gia hạn ${unit.pendingExtraMonths ?? '?'} tháng đang chờ thanh toán '
+                                  '(${_currency.format(unit.pendingExtensionFee)}). Chạm "Gia hạn thuê" để thanh toán hoặc hủy yêu cầu.'
+                              : 'Bạn có yêu cầu gia hạn đang chờ thanh toán.',
                           style: const TextStyle(
                               fontSize: 11, fontWeight: FontWeight.w600),
                         ),
@@ -830,10 +1003,11 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
               ],
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.outline.withValues(alpha: 0.15)),
                 ),
                 child: Row(
                   children: [
@@ -842,31 +1016,39 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Monthly rate',
+                            const Text('Giá thuê / tháng',
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: AppColors.onSurfaceVariant)),
+                            const SizedBox(height: 2),
                             Text(_currency.format(monthlyRate),
                                 style: const TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.bold)),
+                                    fontSize: 14, fontWeight: FontWeight.bold)),
                           ],
                         ),
+                      ),
+                      Container(
+                        height: 28,
+                        width: 1,
+                        color: AppColors.outline.withValues(alpha: 0.2),
+                        margin: const EdgeInsets.symmetric(horizontal: 12),
                       ),
                     ],
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Ends on',
+                          const Text('Ngày hết hạn',
                               style: TextStyle(
                                   fontSize: 10,
                                   color: AppColors.onSurfaceVariant)),
+                          const SizedBox(height: 2),
                           Text(
                             unit.endDate != null
                                 ? _dateFmt.format(unit.endDate!)
                                 : '-',
                             style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.bold),
+                                fontSize: 14, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -878,7 +1060,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
+                    flex: 3,
+                    child: ElevatedButton.icon(
                       onPressed: unit.hasActiveAccess
                           ? () {
                               Navigator.push(
@@ -893,21 +1076,22 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                             }
                           : null,
                       icon: const Icon(Icons.key, size: 16),
-                      label: const Text('Smart Key',
-                          style: TextStyle(fontSize: 12)),
-                      style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(40)),
+                      label: const Text('Mở khóa',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(42)),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: ElevatedButton.icon(
+                    flex: 2,
+                    child: OutlinedButton.icon(
                       onPressed: () => _showUnitActions(unit),
                       icon: const Icon(Icons.more_horiz, size: 16),
                       label:
-                          const Text('Manage', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(40)),
+                          const Text('Quản lý', style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(42)),
                     ),
                   ),
                 ],

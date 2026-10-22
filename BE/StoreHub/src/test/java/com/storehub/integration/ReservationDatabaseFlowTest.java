@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ContextConfiguration;
 
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,12 +54,27 @@ class ReservationDatabaseFlowTest {
     }
 
     @Test
-    void migrationsAuthReservationPaymentAttemptAndCancellation() throws Exception {
+    void sameFacilityCannotHaveTwoPhysicalUnitsWithTheSameCode() {
         assertEquals(1, jdbc.queryForObject(
-                "select count(*) from flyway_schema_history where version = '19' and success = true",
+                "select count(*) from pg_constraint where conname = 'uq_storage_units_facility_code'",
+                Integer.class));
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.update("""
+                INSERT INTO storage_units
+                    (id, created_at, updated_at, unit_code, floor_level, status, facility_id, unit_type_id)
+                SELECT gen_random_uuid(), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+                       unit_code, floor_level, 'AVAILABLE', facility_id, unit_type_id
+                FROM storage_units LIMIT 1
+                """));
+    }
+
+    @Test
+    void migrationsAuthReservationPaymentAttemptAndCancellation() throws Exception {
+        // Các migration V1..V30 cũ đã được gộp thành V1; V2 bảo vệ mã ngăn trong từng cơ sở.
+        assertEquals(1, jdbc.queryForObject(
+                "select count(*) from flyway_schema_history where version = '1' and success = true",
                 Integer.class));
         assertEquals(1, jdbc.queryForObject(
-                "select count(*) from flyway_schema_history where version = '20' and success = true",
+                "select count(*) from pg_constraint where conname = 'uq_storage_units_facility_code'",
                 Integer.class));
 
         Map<String, String> available = jdbc.queryForMap("""
@@ -95,7 +112,9 @@ class ReservationDatabaseFlowTest {
                         "facilityId", available.get("facility_id"),
                         "unitTypeId", available.get("unit_type_id"),
                         "startDate", LocalDate.now().plusDays(2).toString(),
-                        "rentalMonths", 1))))
+                        "rentalMonths", 1,
+                        "prohibitedItemsConfirmed", true,
+                        "termsConfirmed", true))))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         JsonNode booking = json.readTree(booked).path("data");
         UUID bookingId = UUID.fromString(booking.path("id").asText());

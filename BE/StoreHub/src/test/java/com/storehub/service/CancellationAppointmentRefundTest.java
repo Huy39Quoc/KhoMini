@@ -52,12 +52,12 @@ class CancellationAppointmentRefundTest {
                 .depositPaid(BigDecimal.valueOf(100))
                 .storageUnit(StorageUnit.builder().facility(facility).build())
                 .build();
-        when(pricing.calculateCancellationRefund(eq(facilityId), eq(BigDecimal.valueOf(100)),
+        when(pricing.calculateCancellationRefund(eq(booking), eq(BigDecimal.valueOf(100)),
                 eq(appointment), any(LocalDateTime.class)))
                 .thenReturn(BigDecimal.ZERO);
 
         assertEquals(BigDecimal.ZERO, service.refundOnCancellation(booking));
-        verify(pricing).calculateCancellationRefund(eq(facilityId), eq(BigDecimal.valueOf(100)),
+        verify(pricing).calculateCancellationRefund(eq(booking), eq(BigDecimal.valueOf(100)),
                 eq(appointment), any(LocalDateTime.class));
     }
 }

@@ -29,9 +29,9 @@ class StaffDashboardScreen extends StatefulWidget {
 class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   final FacilityOpsApiService _opsService = FacilityOpsApiService();
 
-  final DateFormat _dateFormat = DateFormat('MMM d, yyyy');
+  final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 
-  final DateFormat _timeFormat = DateFormat('h:mm a');
+  final DateFormat _timeFormat = DateFormat('HH:mm');
 
   bool _isLoadingFacility = true;
 
@@ -135,8 +135,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   ) async {
     final bool isCheckIn = item.isCheckIn;
 
-    String unitCondition = 'Good / clean';
-    String lockCondition = 'Locked & working';
+    String unitCondition = 'Tốt / sạch sẽ';
+    String lockCondition = 'Đã khóa & hoạt động tốt';
 
     final notesController = TextEditingController();
     final damageFeeController = TextEditingController();
@@ -145,6 +145,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
 
     bool submitting = false;
     bool inspectionConfirmed = false;
+    // Lỗi hiện ngay trong bảng (SnackBar của màn hình bên dưới bị bảng che mất).
+    String? sheetError;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -157,6 +159,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
+            final bool handoverBlocked = isCheckIn &&
+                (unitCondition != 'Tốt / sạch sẽ' ||
+                    lockCondition != 'Đã khóa & hoạt động tốt');
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(
@@ -170,8 +175,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   children: [
                     Text(
                       isCheckIn
-                          ? 'Check-in • Unit ${item.unitCode}'
-                          : 'Check-out • Unit ${item.unitCode}',
+                          ? 'Bàn giao • Ngăn ${item.unitCode}'
+                          : 'Nghiệm thu • Ngăn ${item.unitCode}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -180,13 +185,41 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     const SizedBox(height: 4),
                     Text(
                       item.customerName.isEmpty
-                          ? 'Customer'
+                          ? 'Khách hàng'
                           : item.customerName,
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.onSurfaceVariant,
                       ),
                     ),
+                    if (isCheckIn) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline, size: 16, color: Colors.blue.shade800),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Lưu ý: Hợp đồng của khách tính cước từ Ngày bắt đầu thuê đã đăng ký. Việc bàn giao hôm nay không làm thay đổi ngày kết thúc hợp đồng ban đầu.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Colors.blue.shade900,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     const Text(
                       'Tình trạng ngăn kho',
@@ -200,15 +233,15 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       initialValue: unitCondition,
                       items: const [
                         DropdownMenuItem(
-                          value: 'Good / clean',
+                          value: 'Tốt / sạch sẽ',
                           child: Text('Tốt / sạch'),
                         ),
                         DropdownMenuItem(
-                          value: 'Needs cleaning',
+                          value: 'Cần vệ sinh',
                           child: Text('Cần vệ sinh'),
                         ),
                         DropdownMenuItem(
-                          value: 'Damaged',
+                          value: 'Hư hỏng',
                           child: Text('Hư hỏng'),
                         ),
                       ],
@@ -235,17 +268,17 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       initialValue: lockCondition,
                       items: const [
                         DropdownMenuItem(
-                          value: 'Locked & working',
+                          value: 'Đã khóa & hoạt động tốt',
                           child: Text(
                             'Khóa hoạt động tốt',
                           ),
                         ),
                         DropdownMenuItem(
-                          value: 'Unlocked',
+                          value: 'Chưa khóa',
                           child: Text('Chưa khóa'),
                         ),
                         DropdownMenuItem(
-                          value: 'Damaged / needs repair',
+                          value: 'Hỏng / cần sửa chữa',
                           child: Text(
                             'Hỏng / cần sửa',
                           ),
@@ -261,10 +294,50 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                               }
                             },
                     ),
+                    if (handoverBlocked) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded,
+                                    size: 18, color: Colors.orange.shade900),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Ngăn hoặc khóa chưa đạt yêu cầu',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Colors.orange.shade900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Hệ thống sẽ KHÔNG bàn giao ngăn này cho khách. Ngăn được chuyển sang '
+                              '"Cần kiểm tra / bảo trì" và đơn của khách được trả về cho quản lý '
+                              'để đổi sang ngăn khác. Hãy mô tả rõ tình trạng bên dưới và chụp ảnh bằng chứng.',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (!isCheckIn &&
-                        (unitCondition == 'Damaged' ||
-                            unitCondition == 'Needs cleaning' ||
-                            lockCondition == 'Damaged / needs repair')) ...[
+                        (unitCondition == 'Hư hỏng' ||
+                            unitCondition == 'Cần vệ sinh' ||
+                            lockCondition == 'Hỏng / cần sửa chữa')) ...[
                       const SizedBox(height: 14),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -315,7 +388,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                               enabled: !submitting,
                               decoration: const InputDecoration(
                                 labelText:
-                                    'Deduction Reason (e.g. Scratched wall, broken lock)',
+                                    'Lý do khấu trừ (VD: trầy tường, hỏng khóa)',
                                 prefixIcon:
                                     Icon(Icons.description_outlined, size: 20),
                                 isDense: true,
@@ -330,8 +403,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       controller: notesController,
                       maxLines: 3,
                       enabled: !submitting,
-                      decoration: const InputDecoration(
-                        labelText: 'Ghi chú (không bắt buộc)',
+                      decoration: InputDecoration(
+                        labelText: handoverBlocked
+                            ? 'Mô tả lý do chưa thể bàn giao (bắt buộc)'
+                            : 'Ghi chú (không bắt buộc)',
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -345,8 +420,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     const SizedBox(height: 4),
                     Text(
                       isCheckIn
-                          ? 'Capture photos of clean unit, working lock, and meter (if any) as check-in proof.'
-                          : 'Capture photos of return condition, damages, or left-behind items to avoid disputes.',
+                          ? (handoverBlocked
+                              ? 'Chụp ảnh chỗ hư hỏng / chưa sạch của ngăn hoặc khóa để quản lý và khách đối chiếu.'
+                              : 'Chụp ảnh ngăn kho sạch, khóa hoạt động tốt làm bằng chứng bàn giao.')
+                          : 'Chụp ảnh hiện trạng khi trả, chỗ hư hỏng hoặc đồ còn sót lại để tránh tranh chấp.',
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.onSurfaceVariant,
@@ -371,17 +448,66 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                           : (value) => setSheetState(() {
                                 inspectionConfirmed = value ?? false;
                               }),
-                      title: Text(isCheckIn
-                          ? 'I verified the customer, unit and lock before handover'
-                          : 'I inspected the returned unit and lock'),
+                      title: Text(handoverBlocked
+                          ? 'Tôi đã kiểm tra và xác nhận tình trạng ngăn/khóa nêu trên là đúng'
+                          : isCheckIn
+                              ? 'Tôi đã xác minh khách hàng, ngăn kho và khóa trước khi bàn giao'
+                              : 'Tôi đã kiểm tra ngăn kho và khóa khi nhận lại'),
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                     const SizedBox(height: 20),
+                    if (sheetError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorContainer,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline,
+                                size: 18, color: AppColors.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                sheetError!,
+                                style: const TextStyle(
+                                    fontSize: 12, color: AppColors.error),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     ElevatedButton(
                       onPressed: submitting || !inspectionConfirmed
                           ? null
                           : () async {
+                              final String? validation = () {
+                                if (handoverBlocked &&
+                                    notesController.text.trim().isEmpty) {
+                                  return 'Vui lòng mô tả vì sao ngăn hoặc khóa chưa đạt yêu cầu.';
+                                }
+                                final num? fee = num.tryParse(
+                                    damageFeeController.text.trim());
+                                if (!isCheckIn &&
+                                    fee != null &&
+                                    fee > 0 &&
+                                    damageReasonController.text.trim().isEmpty) {
+                                  return 'Vui lòng nhập lý do khấu trừ phí hư hại.';
+                                }
+                                return null;
+                              }();
+                              if (validation != null) {
+                                setSheetState(() => sheetError = validation);
+                                return;
+                              }
+
                               setSheetState(() {
+                                sheetError = null;
                                 submitting = true;
                               });
 
@@ -438,13 +564,19 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                                   return;
                                 }
 
-                                _showSuccess(
-                                  result.message.isNotEmpty
-                                      ? result.message
-                                      : isCheckIn
-                                          ? 'Check-in completed successfully'
-                                          : 'Check-out completed successfully',
-                                );
+                                if (isCheckIn &&
+                                    result.recordType.toUpperCase() ==
+                                        'CHECK_IN_REJECTED') {
+                                  _showRejectionResult(item.unitCode);
+                                } else {
+                                  _showSuccess(
+                                    result.message.isNotEmpty
+                                        ? result.message
+                                        : isCheckIn
+                                            ? 'Bàn giao kho thành công'
+                                            : 'Nghiệm thu trả kho thành công',
+                                  );
+                                }
 
                                 _loadSchedule();
                               } catch (error) {
@@ -454,18 +586,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
 
                                 setSheetState(() {
                                   submitting = false;
+                                  sheetError = _errorMessage(error);
                                 });
-
-                                ScaffoldMessenger.of(
-                                  sheetContext,
-                                ).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      _errorMessage(error),
-                                    ),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
                               }
                             },
                       child: submitting
@@ -479,8 +601,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                             )
                           : Text(
                               isCheckIn
-                                  ? 'Complete Check-in'
-                                  : 'Complete Check-out',
+                                  ? (handoverBlocked
+                                      ? 'Báo không đạt, chưa bàn giao'
+                                      : 'Xác nhận bàn giao')
+                                  : 'Xác nhận nghiệm thu',
                             ),
                     ),
                   ],
@@ -539,7 +663,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${item.bookingCode} • Unit ${item.unitCode}',
+                            '${item.bookingCode} • Ngăn ${item.unitCode}',
                             style: const TextStyle(
                               fontSize: 13,
                               color: AppColors.onSurfaceVariant,
@@ -621,15 +745,15 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     final recordedTime = record.recordedAt == null
         ? ''
         : DateFormat(
-            'MMM d, yyyy • h:mm a',
+            'dd/MM/yyyy • HH:mm',
           ).format(record.recordedAt!);
 
     final details = <String>[
-      if (record.unitCondition.isNotEmpty) 'Condition: ${record.unitCondition}',
+      if (record.unitCondition.isNotEmpty) 'Tình trạng: ${record.unitCondition}',
       if (record.damageFee != null && record.damageFee! > 0)
-        'Damage Fee: ${record.damageFee} ₫${record.damageReason != null ? " (${record.damageReason})" : ""}',
-      if (record.notes.isNotEmpty) 'Notes: ${record.notes}',
-      if (record.staffName.isNotEmpty) 'Staff: ${record.staffName}',
+        'Phí hư hại: ${record.damageFee} ₫${record.damageReason != null ? " (${record.damageReason})" : ""}',
+      if (record.notes.isNotEmpty) 'Ghi chú: ${record.notes}',
+      if (record.staffName.isNotEmpty) 'Nhân viên: ${record.staffName}',
       if (recordedTime.isNotEmpty) recordedTime,
     ];
 
@@ -709,7 +833,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
           );
 
     final customerName =
-        item.customerName.isEmpty ? 'Customer' : item.customerName;
+        item.customerName.isEmpty ? 'Khách hàng' : item.customerName;
 
     final unitCode = item.unitCode.isEmpty ? '-' : item.unitCode;
 
@@ -746,8 +870,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Unit $unitCode • '
-                    '${isCheckIn ? 'Check-in' : 'Check-out'}'
+                    'Ngăn $unitCode • '
+                    '${isCheckIn ? 'Bàn giao' : 'Nghiệm thu'}'
                     '${scheduledTime.isEmpty ? '' : ' • $scheduledTime'}',
                     style: const TextStyle(
                       fontSize: 12,
@@ -766,8 +890,35 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       ),
                     ),
                   if (item.assignedStaffName?.isNotEmpty == true)
-                    Text('Assigned: ${item.assignedStaffName}',
+                    Text(
+                        item.assignedStaffId == widget.user.id
+                            ? 'Phụ trách: bạn'
+                            : 'Phụ trách: ${item.assignedStaffName}',
                         style: const TextStyle(fontSize: 11)),
+                  if (isCheckIn && !item.unitAssignmentConfirmed)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Chờ quản lý cơ sở xác nhận ngăn kho - chưa thể bàn giao',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.warning,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  if (item.assignedStaffId != null &&
+                      item.assignedStaffId != widget.user.id)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Đã giao cho nhân viên khác',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -785,14 +936,15 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                   horizontal: 12,
                 ),
               ),
-              onPressed: item.assignedStaffId != null &&
-                      item.assignedStaffId != widget.user.id
+              onPressed: (item.assignedStaffId != null &&
+                          item.assignedStaffId != widget.user.id) ||
+                      (isCheckIn && !item.unitAssignmentConfirmed)
                   ? null
                   : () {
                 _openHandoverSheet(item);
               },
               child: Text(
-                isCheckIn ? 'Check in' : 'Check out',
+                isCheckIn ? 'Bàn giao' : 'Nghiệm thu',
                 style: const TextStyle(
                   fontSize: 12,
                 ),
@@ -807,13 +959,40 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   String _recordTypeLabel(String recordType) {
     switch (recordType.toUpperCase()) {
       case 'CHECK_IN':
-        return 'Check-in';
+        return 'Bàn giao';
+      case 'CHECK_IN_REJECTED':
+        return 'Từ chối bàn giao';
       case 'CHECK_OUT':
       case 'RETURN':
-        return 'Check-out';
+        return 'Nghiệm thu';
       default:
         return recordType.replaceAll('_', ' ');
     }
+  }
+
+  /// Giải thích rõ chuyện gì xảy ra sau khi nhân viên báo ngăn/khóa không đạt.
+  Future<void> _showRejectionResult(String unitCode) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Chưa bàn giao ngăn $unitCode'),
+        content: const Text(
+          '1. Ngăn đã chuyển sang "Cần kiểm tra / bảo trì".\n'
+          '2. Đơn của khách được trả về cho quản lý cơ sở để đổi sang ngăn khác '
+          '(cùng loại, đang trống). Lịch hẹn sẽ hiện "Chờ quản lý xác nhận ngăn" '
+          'cho tới khi quản lý đổi xong.\n'
+          '3. Hãy báo khách chờ. Khi có ngăn mới, bàn giao lại cho khách.\n'
+          '4. Khi ngăn cũ đã kiểm tra/sửa xong, vào "Ngăn kho" và bấm '
+          '"Đã kiểm tra xong, cho thuê lại".',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSuccess(String message) {
@@ -838,54 +1017,16 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         actions: [
           if (_facilityId != null && _facilityId!.isNotEmpty)
             IconButton(
-              tooltip: 'Quét QR cổng',
-              icon: const Icon(Icons.qr_code_scanner),
+              tooltip: 'Xác thực mã vào cổng',
+              icon: const Icon(Icons.vpn_key_outlined),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) =>
                     GatePassVerifyScreen(facilityId: _facilityId!)),
               ),
             ),
-          if (_facilityId != null && _facilityId!.isNotEmpty)
-            PopupMenuButton<String>(
-              tooltip: 'Ngăn kho, hỗ trợ và giao dịch',
-              icon: const Icon(Icons.more_vert),
-              onSelected: (value) {
-                final facilityId = _facilityId!;
-                Widget page;
-                switch (value) {
-                  case 'units':
-                    page = StaffUnitsScreen(
-                      facilityId: facilityId,
-                      facilityName: _facilityName ?? 'Facility',
-                    );
-                    break;
-                  case 'tickets':
-                    page = StaffTicketScreen(
-                      facilityId: facilityId,
-                      staffId: widget.user.id,
-                    );
-                    break;
-                  default:
-                    page = TransactionHistoryScreen(
-                      userRole: widget.user.roleName,
-                      facilityId: facilityId,
-                    );
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => page),
-                );
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'units', child: Text('Ngăn kho')),
-                PopupMenuItem(value: 'tickets', child: Text('Yêu cầu hỗ trợ')),
-                PopupMenuItem(
-                    value: 'transactions', child: Text('Lịch sử giao dịch')),
-              ],
-            ),
           IconButton(
-            tooltip: 'Profile',
+            tooltip: 'Hồ sơ',
             icon: CircleAvatar(
               radius: 15,
               backgroundColor: AppColors.primaryContainer,
@@ -944,6 +1085,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     return Column(
       children: [
         _buildFacilityHeader(),
+        _buildQuickActions(),
         Expanded(
           child: FutureBuilder<List<DailyScheduleModel>>(
             future: _scheduleFuture,
@@ -1003,60 +1145,217 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   Widget _buildFacilityHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      color: AppColors.primaryContainer,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _facilityName ?? 'Your facility',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.storefront, color: AppColors.secondary, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _facilityName ?? 'Cơ sở của bạn',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          InkWell(
-            onTap: _pickDate,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white12,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.calendar_today,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _dateFormat.format(
-                      _selectedDate,
+          const SizedBox(height: 6),
+          const Text(
+            'Lịch bàn giao kho cho khách và nghiệm thu kiểm tra khi khách trả kho.',
+            style: TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.3),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _dateChip('Hôm nay', 0),
+              const SizedBox(width: 8),
+              _dateChip('Ngày mai', 1),
+              const SizedBox(width: 8),
+              Flexible(
+                child: InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
                     ),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.calendar_today,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _dateFormat.format(_selectedDate),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.arrow_drop_down,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.arrow_drop_down,
-                    color: Colors.white,
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    Widget tile(IconData icon, String label, VoidCallback onTap) {
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.outline.withValues(alpha: 0.15)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 20, color: AppColors.primary),
+                ),
+                const SizedBox(height: 6),
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 11.5, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final facilityId = _facilityId!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      child: Row(
+        children: [
+          tile(Icons.grid_view_outlined, 'Ngăn kho', () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StaffUnitsScreen(
+                  facilityId: facilityId,
+                  facilityName: _facilityName ?? 'Cơ sở',
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: 8),
+          tile(Icons.support_agent_outlined, 'Hỗ trợ khách', () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StaffTicketScreen(
+                  facilityId: facilityId,
+                  staffId: widget.user.id,
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: 8),
+          tile(Icons.receipt_long_outlined, 'Giao dịch', () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TransactionHistoryScreen(
+                  userRole: widget.user.roleName,
+                  facilityId: facilityId,
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _dateChip(String label, int offsetDays) {
+    final now = DateTime.now();
+    final target = DateTime(now.year, now.month, now.day)
+        .add(Duration(days: offsetDays));
+    final selected = _selectedDate.year == target.year &&
+        _selectedDate.month == target.month &&
+        _selectedDate.day == target.day;
+    return InkWell(
+      onTap: () {
+        setState(() => _selectedDate = target);
+        _loadSchedule();
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.secondary
+              : Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+            color: Colors.white,
+          ),
+        ),
       ),
     );
   }

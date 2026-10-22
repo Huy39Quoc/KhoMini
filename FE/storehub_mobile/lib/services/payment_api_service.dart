@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 import '../mappers/payment_mapper.dart';
@@ -12,51 +11,51 @@ class PaymentPage {
 }
 
 class PaymentApiService {
-  final Dio _dio = HttpClient.instance.dio;
+  final HttpClient _http = HttpClient.instance;
 
   Future<PaymentPage> getMyPayments({int page = 0}) async {
     try {
-      final response = await _dio
+      final response = await _http
           .get(ApiEndpoints.paymentMyHistory, queryParameters: {'page': page});
       return _extractPage(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = _errorMessage(e);
-      throw Exception('Failed to load payment history: $message');
+      throw Exception('Không tải được lịch sử giao dịch: $message');
     }
   }
 
   Future<PaymentPage> getFacilityPayments(String facilityId,
       {int page = 0}) async {
     try {
-      final response = await _dio.get(
+      final response = await _http.get(
           ApiEndpoints.paymentFacilityHistory(facilityId),
           queryParameters: {'page': page});
       return _extractPage(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = _errorMessage(e);
-      throw Exception('Failed to load facility payments: $message');
+      throw Exception('Không tải được giao dịch của cơ sở: $message');
     }
   }
 
   Future<PaymentPage> getAllPayments({int page = 0}) async {
     try {
-      final response = await _dio
+      final response = await _http
           .get(ApiEndpoints.paymentAllHistory, queryParameters: {'page': page});
       return _extractPage(response.data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = _errorMessage(e);
-      throw Exception('Failed to load system payment history: $message');
+      throw Exception('Không tải được lịch sử giao dịch hệ thống: $message');
     }
   }
 
   Future<PaymentModel> getPaymentDetail(String paymentId) async {
     try {
-      final response = await _dio.get(ApiEndpoints.paymentDetail(paymentId));
+      final response = await _http.get(ApiEndpoints.paymentDetail(paymentId));
       final data = _extractObject(response.data);
       return PaymentMapper.fromJson(data);
-    } on DioException catch (e) {
+    } on ApiException catch (e) {
       final message = _errorMessage(e);
-      throw Exception('Failed to load payment detail: $message');
+      throw Exception('Không tải được chi tiết giao dịch: $message');
     }
   }
 
@@ -64,7 +63,7 @@ class PaymentApiService {
     final envelope = responseData is Map ? responseData : const {};
     final data = envelope['data'] ?? envelope['result'];
     if (data is! Map || data['content'] is! List) {
-      throw const FormatException('Invalid payment history response');
+      throw const FormatException('Dữ liệu lịch sử thanh toán không hợp lệ');
     }
     final items = (data['content'] as List)
         .map((json) => PaymentMapper.fromJson(PaymentMapper.asJsonMap(json)))
@@ -84,11 +83,11 @@ class PaymentApiService {
     return {};
   }
 
-  String _errorMessage(DioException error) {
+  String _errorMessage(ApiException error) {
     final data = error.response?.data;
     if (data is Map && data['message'] != null) {
       return data['message'].toString();
     }
-    return error.message ?? 'Unknown error';
+    return error.message ?? 'Lỗi không xác định';
   }
 }

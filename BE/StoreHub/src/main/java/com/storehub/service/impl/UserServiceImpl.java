@@ -15,6 +15,7 @@ import com.storehub.repository.UserRepository;
 import com.storehub.enums.ActivityAction;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.UserService;
+import com.storehub.service.StaffWorkloadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,7 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final ActivityLogService activityLogService;
+    private final StaffWorkloadService staffWorkloadService;
 
 
     @Override
@@ -79,7 +81,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse update(UUID id, UserUpdateRequest request) {
 
-        User user = userRepository.findById(id)
+        User user = userRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         // Check username duplicate — exclude current user
@@ -90,12 +92,18 @@ public class UserServiceImpl implements UserService {
 
         // Update role if provided
         boolean roleChanged = false;
+        Role nextRole = user.getRole();
         if (request.getRoleId() != null) {
-            Role role = roleRepository.findById(request.getRoleId())
+            nextRole = roleRepository.findById(request.getRoleId())
                     .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
-            user.setRole(role);
-            roleChanged = true;
+            roleChanged = user.getRole() == null
+                    || !java.util.Objects.equals(user.getRole().getName(), nextRole.getName());
         }
+
+        if (roleChanged || Boolean.FALSE.equals(request.getIsActive())) {
+            staffWorkloadService.releaseOpenAssignments(id);
+        }
+        user.setRole(nextRole);
 
         userMapper.updateEntityFromRequest(request, user);
         User updated = userRepository.save(user);
@@ -145,20 +153,26 @@ public class UserServiceImpl implements UserService {
     public PageResponse<UserResponse> findAllWithFilters(
             String search,
             Boolean isActive,
+            String roleName,
+            UUID facilityId,
             int page,
             int size,
             String sortBy,
             String sortDir
     ) {
 
-        Sort sort = sortDir.equalsIgnoreCase("desc")
-                ? Sort.by(sortBy).descending()
-                : Sort.by(sortBy).ascending();
+        Sort.Direction direction = sortDir.equalsIgnoreCase("desc")
+                ? Sort.Direction.DESC
+                : Sort.Direction.ASC;
+        // sortBy=role: nhóm theo vai trò rồi theo email để danh sách ổn định giữa các trang
+        Sort sort = "role".equalsIgnoreCase(sortBy)
+                ? Sort.by(direction, "role.name").and(Sort.by(Sort.Direction.ASC, "email"))
+                : Sort.by(direction, sortBy);
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Page<UserResponse> result = userRepository
-                .findAllWithFilters(search, isActive, pageable)
+                .findAllWithFilters(search, isActive, roleName, facilityId, pageable)
                 .map(userMapper::toResponse);
 
         return PageResponse.from(result);
@@ -167,10 +181,13 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse toggleActive(UUID id) {
 
-        User user = userRepository.findById(id)
+        User user = userRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         boolean oldStatus = user.getIsActive();
+        if (oldStatus) {
+            staffWorkloadService.releaseOpenAssignments(id);
+        }
         user.setIsActive(!oldStatus);
         User updated = userRepository.save(user);
 

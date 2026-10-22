@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ConfirmBankTransferRequest {
 
-    @NotBlank(message = "Transfer reference is required")
+    @NotBlank(message = "Vui lòng nhập mã tham chiếu chuyển khoản")
     private String transferReference;
 
     private String notes;

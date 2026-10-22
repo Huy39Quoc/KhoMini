@@ -1,6 +1,5 @@
 package com.storehub.service.impl;
 
-import com.storehub.dto.response.CatalogOverviewResponse;
 import com.storehub.dto.response.FacilityResponse;
 import com.storehub.dto.response.UnitTypeCatalogResponse;
 import com.storehub.entity.Facility;
@@ -23,15 +22,6 @@ public class CatalogServiceImpl implements CatalogService {
 
     private final FacilityRepository facilityRepository;
     private final UnitTypeRepository unitTypeRepository;
-
-    @Override
-    @Transactional(readOnly = true)
-    public CatalogOverviewResponse getCatalogOverview(UUID facilityId) {
-        return CatalogOverviewResponse.builder()
-                .facilities(getAllFacilities())
-                .unitTypes(getUnitTypes(facilityId))
-                .build();
-    }
 
     @Override
     @Transactional(readOnly = true)

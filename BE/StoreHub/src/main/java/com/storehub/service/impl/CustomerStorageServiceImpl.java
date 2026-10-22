@@ -15,6 +15,7 @@ import com.storehub.entity.User;
 import com.storehub.enums.BookingStatus;
 import com.storehub.exception.AppException;
 import com.storehub.exception.ErrorCode;
+import com.storehub.exception.OutstandingOverdueExtensionException;
 import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
 import com.storehub.entity.Payment;
@@ -26,6 +27,7 @@ import static com.storehub.common.PaymentNotes.OVERDUE_LATE_FEE;
 import static com.storehub.common.PaymentNotes.RENTAL_EXTENSION;
 import com.storehub.repository.BookingRepository;
 import com.storehub.repository.UserRepository;
+import com.storehub.scheduler.OverdueScheduler;
 import com.storehub.enums.ActivityAction;
 import com.storehub.mapper.CustomerStorageMapper;
 import com.storehub.service.ActivityLogService;
@@ -58,6 +60,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     private final PricingService pricingService;
     private final FacilityPolicyService facilityPolicyService;
     private final PaymentService paymentService;
+    private final OverdueScheduler overdueScheduler;
     private final CustomerStorageMapper customerStorageMapper;
     private final PasswordEncoder passwordEncoder;
     private final com.storehub.repository.HandoverRecordRepository handoverRecordRepository;
@@ -137,13 +140,20 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
         verifyPinOrCount(booking, request.getCurrentPin());
 
-        storeNewPin(booking, request.getNewPin());
+        String plainPin = request.getNewPin();
+        boolean generated = plainPin == null || plainPin.isBlank();
+        if (generated) {
+            plainPin = generateRandomPin();
+        }
+        storeNewPin(booking, plainPin);
         bookingRepository.save(booking);
 
         activityLogService.record(customerId, ActivityAction.ACCESS_CREDENTIAL_UPDATE, "BOOKING", booking.getId(),
-                "Changed access PIN for booking " + booking.getBookingCode(), null, null);
+                "Changed access PIN for booking " + booking.getBookingCode()
+                        + (generated ? " (system generated)" : " (customer chosen)"),
+                null, null);
 
-        return buildAccessResponse(booking, null);
+        return buildAccessResponse(booking, generated ? plainPin : null);
     }
 
     @Override
@@ -266,10 +276,16 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = OutstandingOverdueExtensionException.class)
     public ContractOperationResponse extendRental(UUID bookingId, String customerEmail, ExtendRentalRequest request) {
         UUID customerId = resolveCustomerId(customerEmail);
         Booking booking = validateActiveBooking(bookingId, customerId);
+
+        // The booking is locked. Accrue missed nightly charges before opening an
+        // extension payment URL, then commit the debt even when we reject it.
+        if (overdueScheduler.accrueOutstandingForCheckout(booking, LocalDateTime.now())) {
+            throw new OutstandingOverdueExtensionException();
+        }
 
         if (booking.getPendingExtraMonths() != null) {
             throw new AppException(ErrorCode.EXTENSION_ALREADY_PENDING);
@@ -298,16 +314,26 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
         booking.setPendingExtensionFee(additionalFee);
         bookingRepository.save(booking);
 
-        activityLogService.record(customerId, ActivityAction.RENEWAL_REQUEST, "BOOKING", booking.getId(),
-                "Requested extension for booking " + booking.getBookingCode() + " by " + extraMonths
-                        + " month(s), fee " + additionalFee + " awaiting payment",
-                oldEndDate, projectedNewEndDate);
-
         PaymentInitiationRequest paymentRequest = new PaymentInitiationRequest();
         paymentRequest.setBookingId(booking.getId());
         paymentRequest.setPaymentType(PaymentType.EXTRA_CHARGE);
         paymentRequest.setPaymentMethod(request.getPaymentMethod());
-        PaymentResponse payment = paymentService.initiatePayment(customerEmail, paymentRequest);
+        PaymentResponse payment;
+        try {
+            payment = paymentService.initiatePayment(customerEmail, paymentRequest);
+        } catch (OutstandingOverdueExtensionException ex) {
+            // The date can cross midnight between the first accrual and the URL
+            // request. Preserve the new debt without leaving a pending extension.
+            booking.setPendingExtraMonths(null);
+            booking.setPendingExtensionFee(null);
+            bookingRepository.save(booking);
+            throw ex;
+        }
+
+        activityLogService.record(customerId, ActivityAction.RENEWAL_REQUEST, "BOOKING", booking.getId(),
+                "Requested extension for booking " + booking.getBookingCode() + " by " + extraMonths
+                        + " month(s), fee " + additionalFee + " awaiting payment",
+                oldEndDate, projectedNewEndDate);
 
         return ContractOperationResponse.builder()
                 .bookingId(booking.getId())
@@ -339,10 +365,10 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
 
         var facility = booking.getStorageUnit().getFacility();
         var returnTime = request.getScheduledReturnTime().toLocalTime();
-        if (facility.getOpenTime() == null || facility.getCloseTime() == null
-                || returnTime.isBefore(facility.getOpenTime())
-                || !returnTime.isBefore(facility.getCloseTime())) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+        var openTime = facility.getOpenTime() != null ? facility.getOpenTime() : java.time.LocalTime.of(8, 0);
+        var closeTime = facility.getCloseTime() != null ? facility.getCloseTime() : java.time.LocalTime.of(20, 0);
+        if (returnTime.isBefore(openTime) || returnTime.isAfter(closeTime)) {
+            throw new AppException(ErrorCode.CHECKOUT_TIME_OUTSIDE_OPEN_HOURS);
         }
 
         if (!facilityPolicyService.isReturnNoticeSatisfied(facilityId, request.getScheduledReturnTime())) {
@@ -381,7 +407,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(noRollbackFor = OutstandingOverdueExtensionException.class)
     public PaymentResponse getPendingExtensionPayment(UUID bookingId, String customerEmail) {
         return paymentService.getPendingExtensionPayment(customerEmail, bookingId);
     }
@@ -435,7 +461,8 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     private void reconcileOverdueState(Booking booking) {
         if (booking.getOverdueDetectedAt() == null
                 || booking.getEndDate() == null
-                || booking.getEndDate().isBefore(LocalDate.now())) {
+                || booking.getEndDate().isBefore(LocalDate.now())
+                || findPendingLateFee(booking.getId()) != null) {
             return;
         }
 
@@ -511,6 +538,12 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                         .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)
                 : BigDecimal.ZERO;
         response.setOverdueFeeOutstanding(lateFees);
+
+        if (b.getStatus() == BookingStatus.ACTIVE && b.getEndDate() != null
+                && b.getStorageUnit() != null && b.getStorageUnit().getFacility() != null) {
+            response.setRenewalOpensDate(facilityPolicyService.getRenewalOpensDate(
+                    b.getStorageUnit().getFacility().getId(), b.getEndDate()));
+        }
         return response;
     }
 

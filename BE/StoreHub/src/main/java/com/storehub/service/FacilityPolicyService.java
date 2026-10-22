@@ -19,6 +19,9 @@ public interface FacilityPolicyService {
             LocalDate currentEndDate
     );
 
+    /** Ngày bắt đầu được phép gia hạn (ngày hết hạn trừ số ngày cửa sổ gia hạn); null nếu không giới hạn. */
+    LocalDate getRenewalOpensDate(UUID facilityId, LocalDate currentEndDate);
+
     boolean isReturnNoticeSatisfied(
             UUID facilityId,
             LocalDateTime scheduledReturnTime
@@ -44,8 +47,6 @@ public interface FacilityPolicyService {
             UUID id,
             FacilityPolicyUpdateRequest request
     );
-
-    void delete(UUID id);
 
     PageResponse<FacilityPolicyResponse> getAll(
             String search,

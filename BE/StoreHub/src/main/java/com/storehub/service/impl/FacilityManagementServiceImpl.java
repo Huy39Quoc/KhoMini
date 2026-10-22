@@ -31,13 +31,12 @@ import com.storehub.enums.ActivityAction;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.WaitlistService;
 import com.storehub.service.EmailService;
+import com.storehub.service.StaffWorkloadService;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import lombok.extern.slf4j.Slf4j;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
-import com.storehub.repository.SupportTicketRepository;
-import com.storehub.enums.TicketStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -59,10 +58,10 @@ public class FacilityManagementServiceImpl
     private final UserRepository users;
     private final PaymentRepository payments;
     private final RefundRequestRepository refunds;
-    private final SupportTicketRepository tickets;
     private final ActivityLogService activityLogService;
     private final WaitlistService waitlistService;
     private final EmailService emailService;
+    private final StaffWorkloadService staffWorkloadService;
 
     @Transactional(readOnly = true)
     public AssignedFacilityResponse myFacility(String email) {
@@ -190,12 +189,20 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
         }
 
+        // Ngăn cũ có thể đang cần kiểm tra/bảo trì (nhân viên từ chối bàn giao vì hư hỏng):
+        // khi đó đơn chưa được xác nhận ngăn và quản lý phải chọn ngăn khác.
+        boolean oldUnderMaintenance = oldUnit.getStatus() == UnitStatus.UNDER_MAINTENANCE
+                && !Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed());
+
         if (booking.getStatus() != BookingStatus.CONFIRMED
-                || oldUnit.getStatus() != UnitStatus.RESERVED) {
+                || (oldUnit.getStatus() != UnitStatus.RESERVED && !oldUnderMaintenance)) {
             throw new AppException(ErrorCode.UNIT_UNAVAILABLE);
         }
 
         if (oldUnit.getId().equals(unitId)) {
+            if (oldUnderMaintenance) {
+                throw new AppException(ErrorCode.UNIT_UNAVAILABLE);
+            }
             // Manager accepts the provisional inventory hold as the final unit.
             if (!Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())) {
                 booking.setUnitAssignmentConfirmed(true);
@@ -222,17 +229,21 @@ public class FacilityManagementServiceImpl
         replacement.setStatus(UnitStatus.RESERVED);
         booking.setStorageUnit(replacement);
         booking.setUnitAssignmentConfirmed(true);
-        oldUnit.setStatus(UnitStatus.AVAILABLE);
+        if (!oldUnderMaintenance) {
+            oldUnit.setStatus(UnitStatus.AVAILABLE);
+        }
         units.save(oldUnit);
         units.save(replacement);
         bookings.save(booking);
         notifyUnitAssignmentAfterCommit(booking, replacement);
 
-        try {
-            waitlistService.notifyNextInWaitlist(facilityId, oldUnit.getUnitType().getId());
-        } catch (Exception e) {
-            log.warn("Failed to notify waitlist after reassigning booking {}: {}",
-                    bookingId, e.getMessage());
+        if (!oldUnderMaintenance) {
+            try {
+                waitlistService.notifyNextInWaitlist(facilityId, oldUnit.getUnitType().getId());
+            } catch (Exception e) {
+                log.warn("Failed to notify waitlist after reassigning booking {}: {}",
+                        bookingId, e.getMessage());
+            }
         }
 
         return toUnit(replacement);
@@ -349,6 +360,10 @@ public class FacilityManagementServiceImpl
                 && user.getFacility() != null
                 && !facilityId.equals(user.getFacility().getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        if (user.getFacility() != null && !facilityId.equals(user.getFacility().getId())) {
+            staffWorkloadService.releaseOpenAssignments(userId);
         }
 
         if ("FACILITY_MANAGER".equals(role)) {
@@ -580,7 +595,8 @@ public class FacilityManagementServiceImpl
                 unitType.getId(),
                 unitType.getTypeName(),
                 booking.getStatus(),
-                Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())
+                Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()),
+                unit.getStatus() != null ? unit.getStatus().name() : null
         );
     }
 
@@ -603,12 +619,7 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
-        if (tickets.existsByAssignedStaff_IdAndStatusNot(userId, TicketStatus.CLOSED)) {
-            throw new AppException(ErrorCode.STAFF_HAS_UNCLOSED_TICKETS);
-        }
-
-        bookings.clearOpenCheckInAssignments(userId);
-        bookings.clearOpenCheckOutAssignments(userId);
+        staffWorkloadService.releaseOpenAssignments(userId);
         staff.setFacility(null);
     }
 }

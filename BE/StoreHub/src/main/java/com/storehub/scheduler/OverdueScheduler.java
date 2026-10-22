@@ -84,10 +84,9 @@ public class OverdueScheduler {
     }
 
     /**
-     * Bring the late-fee ledger up to the return date while the caller holds the
-     * booking lock. A missed nightly run must not let a return close the booking
-     * before the newly accrued debt is paid. The caller commits this debt even
-     * when it rejects the return with OVERDUE_FEE_UNPAID_ON_RETURN.
+     * Bring the late-fee ledger up to the current date while the caller holds the
+     * booking lock. Both checkout and extension must account for missed nightly
+     * runs; callers that reject a transition commit the newly accrued debt.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean accrueOutstandingForCheckout(Booking booking, LocalDateTime now) {

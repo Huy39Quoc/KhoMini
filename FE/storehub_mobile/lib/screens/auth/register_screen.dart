@@ -55,7 +55,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Account created successfully! Please sign in.'),
+          content: Text('Tạo tài khoản thành công! Vui lòng đăng nhập.'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -76,9 +76,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Create Account'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text('Tạo tài khoản'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -87,161 +89,182 @@ class _RegisterScreenState extends State<RegisterScreen> {
             key: _formKey,
             autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.surfaceContainerHigh),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.outlineVariant),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    'Join StoreHub',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    'Tham gia StoreHub',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.3,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Fill in your details to create a customer account',
+                    'Điền thông tin để tạo tài khoản khách hàng thuê kho',
                     style: TextStyle(
-                        fontSize: 13, color: AppColors.onSurfaceVariant),
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   if (_errorMessage != null)
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(14),
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: AppColors.errorContainer,
-                        borderRadius: BorderRadius.circular(12),
+                        color: AppColors.errorContainer.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.2),
+                        ),
                       ),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.error_outline,
+                          const Icon(Icons.error_outline_rounded,
                               color: AppColors.error, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               _errorMessage!,
                               style: const TextStyle(
-                                  color: AppColors.error, fontSize: 13),
+                                color: AppColors.error,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  const _FieldLabel('Full name'),
+                  const _FieldLabel('Họ và tên'),
                   TextFormField(
                     controller: _fullNameController,
                     maxLength: 30,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      hintText: 'e.g. Nguyen Van A',
-                      prefixIcon: Icon(Icons.person_outline),
-                      helperText: 'Up to 30 characters',
+                      hintText: 'VD: Nguyễn Văn A',
+                      prefixIcon: Icon(Icons.person_outline_rounded),
+                      helperText: 'Tối đa 30 ký tự',
                       counterText: '',
                     ),
                     validator: (value) {
                       final v = value?.trim() ?? '';
-                      if (v.isEmpty) return 'Full name is required';
+                      if (v.isEmpty) return 'Vui lòng nhập họ tên';
                       if (v.length > 30) {
-                        return 'Full name must be less than 30 characters';
+                        return 'Họ tên tối đa 30 ký tự';
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-                  const _FieldLabel('Username'),
+                  const _FieldLabel('Tên đăng nhập'),
                   TextFormField(
                     controller: _usernameController,
                     maxLength: 30,
                     decoration: const InputDecoration(
-                      hintText: 'e.g. nguyenvana',
-                      prefixIcon: Icon(Icons.account_circle_outlined),
+                      hintText: 'VD: nguyenvana',
+                      prefixIcon: Icon(Icons.badge_outlined),
                       helperText:
-                          'Between 3 and 30 characters, shown on your profile',
+                          'Từ 3 đến 30 ký tự, hiển thị trên hồ sơ',
                       counterText: '',
                     ),
                     validator: (value) {
                       final v = value?.trim() ?? '';
-                      if (v.isEmpty) return 'Username is required';
+                      if (v.isEmpty) return 'Vui lòng nhập tên đăng nhập';
                       if (v.length < 3 || v.length > 30) {
-                        return 'Username must be between 3 and 30 characters';
+                        return 'Tên đăng nhập phải từ 3 đến 30 ký tự';
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-                  const _FieldLabel('Email address'),
+                  const _FieldLabel('Địa chỉ email'),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                      hintText: 'name@example.com',
-                      prefixIcon: Icon(Icons.email_outlined),
-                      helperText: "You'll use this email to sign in",
+                      hintText: 'ten@example.com',
+                      prefixIcon: Icon(Icons.mail_outline_rounded),
+                      helperText: "Bạn sẽ dùng email này để đăng nhập",
                     ),
                     validator: (value) {
                       final v = value?.trim() ?? '';
-                      if (v.isEmpty) return 'Email is required';
+                      if (v.isEmpty) return 'Vui lòng nhập email';
                       if (!RegExp(r'^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$')
                           .hasMatch(v)) {
-                        return 'Enter a valid email address';
+                        return 'Nhập email hợp lệ';
                       }
                       if (v.length > 255) {
-                        return 'Email must not exceed 255 characters';
+                        return 'Email tối đa 255 ký tự';
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-                  const _FieldLabel('Phone number'),
+                  const _FieldLabel('Số điện thoại'),
                   TextFormField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
-                      hintText: 'e.g. 0912345678',
+                      hintText: 'VD: 0912345678',
                       prefixIcon: Icon(Icons.phone_outlined),
                       helperText:
-                          'Vietnamese mobile number, starting with 0 or +84',
+                          'Số di động Việt Nam, bắt đầu bằng 0 hoặc +84',
                     ),
                     validator: (value) {
                       final v = value?.trim() ?? '';
-                      if (v.isEmpty) return 'Phone number is required';
+                      if (v.isEmpty) return 'Vui lòng nhập số điện thoại';
                       if (!RegExp(r'^(0|\+84)(3|5|7|8|9)[0-9]{8}$')
                           .hasMatch(v)) {
-                        return 'Enter a valid Vietnamese phone number (e.g. 0912345678)';
+                        return 'Nhập số điện thoại Việt Nam hợp lệ (VD: 0912345678)';
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-                  const _FieldLabel('Password'),
+                  const _FieldLabel('Mật khẩu'),
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      hintText: 'Create a password',
-                      prefixIcon: const Icon(Icons.lock_outline),
+                      hintText: 'Tạo mật khẩu',
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
                       suffixIcon: IconButton(
                         icon: Icon(_obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility),
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined, size: 20),
                         onPressed: () {
                           setState(() {
                             _obscurePassword = !_obscurePassword;
                           });
                         },
                       ),
-                      helperText: 'At least 5 characters',
+                      helperText: 'Tối thiểu 5 ký tự',
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Password is required';
+                        return 'Vui lòng nhập mật khẩu';
                       }
                       if (value.length < 5) {
-                        return 'Password must be at least 5 characters long';
+                        return 'Mật khẩu tối thiểu 5 ký tự';
                       }
                       return null;
                     },
@@ -259,14 +282,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Text('Create Account'),
+                        : const Text('Tạo tài khoản'),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Center(
                     child: TextButton(
                       onPressed:
                           _isLoading ? null : () => Navigator.pop(context),
-                      child: const Text('Already have an account? Sign in'),
+                      child: const Text('Đã có tài khoản? Đăng nhập ngay'),
                     ),
                   ),
                 ],
@@ -287,8 +310,14 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
     );
   }
 }

@@ -38,13 +38,13 @@ public class UserController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('USER_VIEW')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
     public ResponseEntity<ApiResponse<UserSummaryResponse>> getSummary() {
         return ResponseEntity.ok(ApiResponse.success(userService.getSummary()));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('USER_VIEW')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
     public ResponseEntity<ApiResponse<UserResponse>> getById(
             @PathVariable UUID id
     ) {
@@ -53,17 +53,19 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('USER_VIEW')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
     public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getAll(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean isActive,
+            @RequestParam(required = false) String roleName,
+            @RequestParam(required = false) UUID facilityId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
         PageResponse<UserResponse> response = userService.findAllWithFilters(
-                search, isActive, page, size, sortBy, sortDir
+                search, isActive, roleName, facilityId, page, size, sortBy, sortDir
         );
         return ResponseEntity.ok(ApiResponse.success(response));
     }

@@ -44,7 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
         lower.contains('connection') ||
         lower.contains('10.0.2.2') ||
         lower.contains('network') ||
-        lower.contains('failed');
+        lower.contains('failed') ||
+        lower.contains('hết thời gian') ||
+        lower.contains('không kết nối được');
   }
 
   void _showServerConfigDialog() {
@@ -53,13 +55,14 @@ class _LoginScreenState extends State<LoginScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
+          left: 20,
+          right: 20,
           top: 20,
           bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
         ),
@@ -67,39 +70,55 @@ class _LoginScreenState extends State<LoginScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             Row(
               children: [
-                const Icon(Icons.dns_outlined, color: AppColors.primary),
-                const SizedBox(width: 8),
-                const Text(
-                  'Cài đặt địa chỉ máy chủ (API)',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.dns_rounded, color: AppColors.primaryContainer, size: 20),
                 ),
-                const Spacer(),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cài đặt máy chủ (API)',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      Text(
+                        'Chọn môi trường kết nối máy chủ',
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close_rounded, size: 20),
                   onPressed: () => Navigator.pop(ctx),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              'Hiện tại: ${ApiEndpoints.baseUrl}',
-              style:
-                  const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
             const SizedBox(height: 16),
-            const Text(
-              'Chọn cấu hình phù hợp với thiết bị của bạn:',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
             if (!const bool.fromEnvironment('dart.vm.product')) ...[
               _serverOptionTile(
                 ctx,
                 title: '📱 Máy thật Android (qua cáp USB)',
-                subtitle:
-                    'http://127.0.0.1:8080/api/v1 (Khuyên dùng khi cắm cáp)',
+                subtitle: 'http://127.0.0.1:8080/api/v1 (Khuyên dùng khi cắm cáp)',
                 url: 'http://127.0.0.1:8080/api/v1',
               ),
               _serverOptionTile(
@@ -115,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 url: 'http://10.0.2.2:8080/api/v1',
               ),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             TextField(
               controller: customController,
               decoration: const InputDecoration(
@@ -123,11 +142,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 hintText: bool.fromEnvironment('dart.vm.product')
                     ? 'https://api.example.com/api/v1'
                     : 'http://192.168.x.x:8080/api/v1',
-                suffixIcon: Icon(Icons.edit_outlined),
+                suffixIcon: Icon(Icons.edit_outlined, size: 18),
               ),
               style: const TextStyle(fontSize: 13),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -149,20 +168,51 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _serverOptionTile(BuildContext ctx,
       {required String title, required String subtitle, required String url}) {
     final isSelected = ApiEndpoints.baseUrl == url;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11)),
-      trailing: isSelected
-          ? const Icon(Icons.check_circle, color: AppColors.success, size: 20)
-          : const Icon(Icons.chevron_right, size: 18),
-      onTap: () async {
-        if (await _applyServerUrl(url) && ctx.mounted) {
-          Navigator.pop(ctx);
-        }
-      },
-    );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? AppColors.secondaryContainer.withValues(alpha: 0.08)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected
+              ? AppColors.secondaryContainer
+              : AppColors.outlineVariant,
+          width: isSelected ? 1.5 : 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: isSelected
+                ? AppColors.secondaryContainer
+                : AppColors.textPrimary,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+        ),
+        trailing: isSelected
+            ? const Icon(Icons.check_circle_rounded,
+                color: AppColors.secondaryContainer, size: 20)
+            : const Icon(Icons.chevron_right_rounded,
+                size: 18, color: AppColors.outline),
+        onTap: () async {
+          if (await _applyServerUrl(url) && ctx.mounted) {
+            Navigator.pop(ctx);
+          }
+        },
+      ),
+    ));
   }
 
   Future<bool> _applyServerUrl(String newUrl) async {
@@ -234,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (userMap != null) {
         final user = UserModel.fromJson(userMap);
         if (!user.hasSupportedRole) {
-          throw Exception('Unsupported account role. Contact support.');
+          throw Exception('Vai trò tài khoản không được hỗ trợ. Vui lòng liên hệ hỗ trợ.');
         }
         Navigator.pushReplacement(
           context,
@@ -243,7 +293,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       } else {
-        throw Exception('Invalid user data received from server.');
+        throw Exception('Dữ liệu người dùng từ máy chủ không hợp lệ.');
       }
     } catch (e) {
       setState(() {
@@ -269,7 +319,7 @@ class _LoginScreenState extends State<LoginScreen> {
         builder: (dialogContext, setDialogState) => AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Reset your password'),
+          title: const Text('Đặt lại mật khẩu của bạn'),
           content: Form(
             key: formKey,
             child: Column(
@@ -277,7 +327,7 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "Enter the email on your account. We'll send you a link to reset your password.",
+                  "Nhập email của tài khoản. Chúng tôi sẽ gửi liên kết để bạn đặt lại mật khẩu.",
                   style: TextStyle(
                       fontSize: 13, color: AppColors.onSurfaceVariant),
                 ),
@@ -287,14 +337,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autofocus: true,
                   decoration: const InputDecoration(
-                    labelText: 'Email address',
-                    hintText: 'name@example.com',
+                    labelText: 'Địa chỉ email',
+                    hintText: 'ten@example.com',
                   ),
                   validator: (value) {
                     final v = value?.trim() ?? '';
-                    if (v.isEmpty) return 'Email is required';
+                    if (v.isEmpty) return 'Vui lòng nhập email';
                     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v)) {
-                      return 'Enter a valid email address';
+                      return 'Nhập email hợp lệ';
                     }
                     return null;
                   },
@@ -308,11 +358,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 Navigator.pop(dialogContext);
                 _showResetPasswordDialog();
               },
-              child: const Text('I have a reset link'),
+              child: const Text('Tôi đã có liên kết đặt lại'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: const Text('Hủy'),
             ),
             ElevatedButton(
               onPressed: sending
@@ -349,7 +399,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Send link'),
+                  : const Text('Gửi liên kết'),
             ),
           ],
         ),
@@ -378,7 +428,7 @@ class _LoginScreenState extends State<LoginScreen> {
         builder: (dialogContext, setDialogState) => AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Set a new password'),
+          title: const Text('Đặt mật khẩu mới'),
           content: SingleChildScrollView(
             child: Form(
               key: formKey,
@@ -387,7 +437,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Paste the reset link from your email (valid for 15 minutes), then choose a new password.',
+                    'Dán liên kết đặt lại từ email (hiệu lực 15 phút), rồi chọn mật khẩu mới.',
                     style: TextStyle(
                         fontSize: 13, color: AppColors.onSurfaceVariant),
                   ),
@@ -396,10 +446,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: tokenController,
                     maxLines: 2,
                     decoration: const InputDecoration(
-                      labelText: 'Reset link or code',
+                      labelText: 'Liên kết hoặc mã đặt lại',
                     ),
                     validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Reset link is required'
+                        ? 'Vui lòng nhập liên kết đặt lại'
                         : null,
                   ),
                   const SizedBox(height: 10),
@@ -407,7 +457,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: passwordController,
                     obscureText: obscure,
                     decoration: InputDecoration(
-                      labelText: 'New password',
+                      labelText: 'Mật khẩu mới',
                       suffixIcon: IconButton(
                         icon: Icon(
                             obscure ? Icons.visibility_off : Icons.visibility),
@@ -416,7 +466,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     validator: (v) => (v == null || v.length < 5)
-                        ? 'At least 5 characters'
+                        ? 'Tối thiểu 5 ký tự'
                         : null,
                   ),
                   const SizedBox(height: 10),
@@ -424,9 +474,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: confirmController,
                     obscureText: obscure,
                     decoration: const InputDecoration(
-                        labelText: 'Confirm new password'),
+                        labelText: 'Xác nhận mật khẩu mới'),
                     validator: (v) => v != passwordController.text
-                        ? 'Passwords do not match'
+                        ? 'Mật khẩu xác nhận không khớp'
                         : null,
                   ),
                 ],
@@ -436,7 +486,7 @@ class _LoginScreenState extends State<LoginScreen> {
           actions: [
             TextButton(
               onPressed: submitting ? null : () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
+              child: const Text('Hủy'),
             ),
             ElevatedButton(
               onPressed: submitting
@@ -456,7 +506,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                                '$message. Please sign in with your new password.'),
+                                '$message. Vui lòng đăng nhập bằng mật khẩu mới.'),
                             backgroundColor: AppColors.success,
                           ),
                         );
@@ -479,7 +529,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Reset password'),
+                  : const Text('Đặt lại mật khẩu'),
             ),
           ],
         ),
@@ -490,71 +540,100 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.outlineVariant),
+              ),
+              child: const Icon(Icons.dns_rounded,
+                  size: 18, color: AppColors.textSecondary),
+            ),
+            tooltip: 'Cài đặt IP máy chủ (API)',
+            onPressed: _showServerConfigDialog,
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryContainer,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
+              // Brand Hero Header
+              Center(
+                child: Column(
                   children: [
                     Container(
-                      width: 52,
-                      height: 52,
+                      width: 64,
+                      height: 64,
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.warehouse_rounded,
-                          color: AppColors.secondaryContainer, size: 30),
-                    ),
-                    const SizedBox(width: 14),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'StoreHub',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Self-Storage Management Platform',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.onPrimaryContainer),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0F172A)
+                                .withValues(alpha: 0.18),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.warehouse_rounded,
+                          color: Colors.white, size: 34),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.settings_outlined,
-                          color: Colors.white70),
-                      tooltip: 'Cài đặt IP máy chủ',
-                      onPressed: _showServerConfigDialog,
+                    const SizedBox(height: 14),
+                    const Text(
+                      'StoreHub',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Nền tảng thuê kho thông minh & tự phục vụ 24/7',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 28),
+
+              // Login Form Card
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.surfaceContainerHigh),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.outlineVariant),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Form(
                   key: _formKey,
@@ -562,39 +641,54 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Sign in to your account',
+                        'Đăng nhập tài khoản',
                         style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                          letterSpacing: -0.3,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Enter your credentials below to continue',
+                        'Nhập email và mật khẩu của bạn để tiếp tục',
                         style: TextStyle(
-                            fontSize: 13, color: AppColors.onSurfaceVariant),
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 20),
+
                       if (_errorMessage != null)
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(14),
                           margin: const EdgeInsets.only(bottom: 16),
                           decoration: BoxDecoration(
-                            color: AppColors.errorContainer,
-                            borderRadius: BorderRadius.circular(12),
+                            color:
+                                AppColors.errorContainer.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppColors.error.withValues(alpha: 0.2),
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.error_outline,
+                                  const Icon(Icons.error_outline_rounded,
                                       color: AppColors.error, size: 20),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       _errorMessage!,
                                       style: const TextStyle(
-                                          color: AppColors.error, fontSize: 13),
+                                        color: AppColors.error,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -605,7 +699,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   onTap: _showServerConfigDialog,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 6),
+                                        horizontal: 12, vertical: 7),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(8),
@@ -616,15 +710,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.wifi_tethering,
+                                        Icon(Icons.wifi_tethering_rounded,
                                             size: 15, color: AppColors.error),
                                         SizedBox(width: 6),
                                         Text(
                                           'Đổi IP sang máy thật (127.0.0.1 / Wi-Fi)',
                                           style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.error),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.error,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -634,28 +729,32 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                         ),
-                      const Text('Email address',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
+
+                      const Text(
+                        'Địa chỉ email',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
-                          hintText: 'name@example.com',
-                          prefixIcon: Icon(Icons.email_outlined),
-                          helperText:
-                              'Use the email address you registered with',
+                          hintText: 'ten@example.com',
+                          prefixIcon: Icon(Icons.mail_outline_rounded),
                         ),
                         validator: (value) {
                           final v = value?.trim() ?? '';
                           if (v.isEmpty) {
-                            return 'Email is required';
+                            return 'Vui lòng nhập email';
                           }
                           if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                               .hasMatch(v)) {
-                            return 'Enter a valid email address (e.g. name@example.com)';
+                            return 'Nhập email hợp lệ (VD: ten@example.com)';
                           }
                           return null;
                         },
@@ -664,15 +763,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Password',
-                              style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                          const Text(
+                            'Mật khẩu',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
                           GestureDetector(
                             onTap: _showForgotPasswordDialog,
                             child: const Text(
-                              'Forgot password?',
+                              'Quên mật khẩu?',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 12.5,
                                 color: AppColors.secondary,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -687,13 +791,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _handleLogin(),
                         decoration: InputDecoration(
-                          hintText: 'Enter your password',
-                          prefixIcon: const Icon(Icons.lock_outline),
+                          hintText: 'Nhập mật khẩu',
+                          prefixIcon: const Icon(Icons.lock_outline_rounded),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 20,
                             ),
                             onPressed: () {
                               setState(() {
@@ -701,11 +806,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               });
                             },
                           ),
-                          helperText: 'Case-sensitive',
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Password is required';
+                            return 'Vui lòng nhập mật khẩu';
                           }
                           return null;
                         },
@@ -723,17 +827,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                       Colors.white),
                                 ),
                               )
-                            : const Text('Sign In'),
+                            : const Text('Đăng nhập'),
                       ),
                       const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text(
-                            "Don't have an account?",
+                            "Chưa có tài khoản?",
                             style: TextStyle(
-                                color: AppColors.onSurfaceVariant,
-                                fontSize: 13),
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                            ),
                           ),
                           TextButton(
                             onPressed: () {
@@ -744,7 +849,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               );
                             },
-                            child: const Text('Register now'),
+                            child: const Text('Đăng ký ngay'),
                           ),
                         ],
                       ),

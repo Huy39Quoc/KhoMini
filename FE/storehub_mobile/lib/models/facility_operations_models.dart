@@ -27,6 +27,7 @@ class DailyScheduleModel {
   final String? assignedStaffId;
   final String? assignedStaffName;
   final String bookingStatus;
+  final bool unitAssignmentConfirmed;
 
   const DailyScheduleModel({
     required this.bookingId,
@@ -45,6 +46,7 @@ class DailyScheduleModel {
     this.assignedStaffId,
     this.assignedStaffName,
     required this.bookingStatus,
+    this.unitAssignmentConfirmed = true,
   });
 
   bool get isCheckIn => scheduleType.toUpperCase() == 'CHECK_IN';

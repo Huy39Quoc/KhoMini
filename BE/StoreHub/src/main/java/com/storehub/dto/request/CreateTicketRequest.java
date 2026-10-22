@@ -17,21 +17,21 @@ import java.util.UUID;
 public class CreateTicketRequest {
 
     @NotNull(
-            message = "Booking ID is required so the ticket can be routed to a facility"
+            message = "Cần chọn đơn thuê để yêu cầu hỗ trợ được chuyển đúng cơ sở"
     )
     private UUID bookingId;
 
-    @NotNull(message = "Ticket category cannot be null")
+    @NotNull(message = "Vui lòng chọn loại sự cố")
     private TicketCategory category;
 
-    @NotBlank(message = "Title cannot be blank")
+    @NotBlank(message = "Vui lòng nhập tiêu đề")
     @Size(
             max = 255,
-            message = "Title cannot exceed 255 characters"
+            message = "Tiêu đề tối đa 255 ký tự"
     )
     private String title;
 
-    @NotBlank(message = "Description cannot be blank")
+    @NotBlank(message = "Vui lòng nhập mô tả")
     private String description;
 
     private List<String> photos;

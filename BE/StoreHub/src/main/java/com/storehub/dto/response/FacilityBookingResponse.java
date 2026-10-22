@@ -17,6 +17,7 @@ public record FacilityBookingResponse(
         UUID unitTypeId,
         String unitType,
         BookingStatus status,
-        boolean unitAssignmentConfirmed
+        boolean unitAssignmentConfirmed,
+        String unitStatus
 ) {
 }
