@@ -18,6 +18,10 @@ import java.util.UUID;
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
+    boolean existsByBookingCode(String bookingCode);
+
+    Optional<Booking> findByBookingCode(String bookingCode);
+
     @Query("""
             SELECT b FROM Booking b
             JOIN FETCH b.storageUnit su

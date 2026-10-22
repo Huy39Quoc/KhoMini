@@ -301,7 +301,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Ra vào kho thông minh',
+                  'Khóa thông minh ngăn kho',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -311,7 +311,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Mở ngăn kho và lấy mã ra vào cổng cơ sở mọi lúc bằng điện thoại của bạn.',
+                  'Mở và đóng khóa ngăn kho an toàn, nhanh chóng bằng mã PIN 6 số trên điện thoại của bạn.',
                   style: TextStyle(
                     color: Color(0xFF94A3B8),
                     fontSize: 13,

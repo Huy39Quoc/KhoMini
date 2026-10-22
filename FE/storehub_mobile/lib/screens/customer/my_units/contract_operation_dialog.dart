@@ -40,12 +40,27 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
 
   int _extraMonths = 3;
   DateTime? _scheduledReturnTime;
+  String? _timeValidationError;
+  bool _provideBankInfo = false;
+  String? _bankError;
+  String? _accountNumberError;
+  String? _accountNameError;
   bool _isLoading = false;
   bool _isResuming = false;
   bool _isCancellingExtension = false;
   String? _resumeError;
   Map<String, dynamic>? _result;
   Map<String, dynamic>? _paymentConfirmed;
+
+  static const List<String> _popularBanks = [
+    'MBBank',
+    'Vietcombank',
+    'Techcombank',
+    'BIDV',
+    'ACB',
+    'VietinBank',
+    'VPBank',
+  ];
 
   @override
   void initState() {
@@ -54,6 +69,18 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
       _loadOverduePayment();
     } else if (widget.resumePending) {
       _loadPendingExtensionPayment();
+    } else if (!widget.isExtension) {
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      final defaultHour = (widget.unit.openHour <= 9 && widget.unit.closeHour >= 9)
+          ? 9
+          : widget.unit.openHour;
+      _scheduledReturnTime = DateTime(
+        tomorrow.year,
+        tomorrow.month,
+        tomorrow.day,
+        defaultHour,
+        0,
+      );
     }
   }
 
@@ -204,37 +231,130 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     super.dispose();
   }
 
-  Future<void> _pickScheduledReturnTime() async {
-    final now = DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: now.add(const Duration(days: 1)),
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (date == null || !mounted) return;
+  void _setScheduledTime(DateTime dt) {
+    final minuteFraction = dt.minute / 60.0;
+    final totalHours = dt.hour + minuteFraction;
+    final openH = widget.unit.openHour.toDouble();
+    final closeH = widget.unit.closeHour.toDouble();
 
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-    if (time == null) return;
+    String? error;
+    if (totalHours < openH || totalHours > closeH) {
+      final hourStr =
+          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      error =
+          'Giờ hẹn ($hourStr) nằm ngoài khung giờ mở cửa (${widget.unit.operatingHours}). Vui lòng chọn giờ trong khung giờ này.';
+    } else if (dt.isBefore(DateTime.now())) {
+      error = 'Giờ hẹn trả kho phải ở thời điểm tương lai.';
+    }
 
     setState(() {
-      _scheduledReturnTime =
-          DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _scheduledReturnTime = dt;
+      _timeValidationError = error;
     });
   }
 
+  List<TimeOfDay> get _suggestedTimeSlots {
+    final defaultSlots = <TimeOfDay>[
+      const TimeOfDay(hour: 9, minute: 0),
+      const TimeOfDay(hour: 11, minute: 0),
+      const TimeOfDay(hour: 14, minute: 0),
+      const TimeOfDay(hour: 16, minute: 0),
+      const TimeOfDay(hour: 18, minute: 0),
+    ];
+    return defaultSlots.where((s) {
+      final h = s.hour + s.minute / 60.0;
+      return h >= widget.unit.openHour && h <= widget.unit.closeHour;
+    }).toList();
+  }
+
+  Future<void> _pickScheduledReturnTime() async {
+    final now = DateTime.now();
+    final initialDate =
+        _scheduledReturnTime ?? now.add(const Duration(days: 1));
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isBefore(now) ? now : initialDate,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      helpText: 'CHỌN NGÀY HẸN TRẢ KHO',
+    );
+    if (date == null || !mounted) return;
+
+    final initialHour = _scheduledReturnTime?.hour ??
+        ((widget.unit.openHour <= 9 && widget.unit.closeHour >= 9)
+            ? 9
+            : widget.unit.openHour);
+    final initialMinute = _scheduledReturnTime?.minute ?? 0;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: initialHour, minute: initialMinute),
+      helpText: 'CHỌN GIỜ HẸN TRẢ KHO (${widget.unit.operatingHours})',
+    );
+    if (time == null) return;
+
+    _setScheduledTime(
+      DateTime(date.year, date.month, date.day, time.hour, time.minute),
+    );
+  }
+
   Future<void> _submitAction() async {
-    if (!widget.isExtension && _scheduledReturnTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chọn ngày giờ hẹn trả kho.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
+    if (!widget.isExtension) {
+      if (_scheduledReturnTime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng chọn ngày giờ hẹn trả kho.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      if (_timeValidationError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_timeValidationError!),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+
+      if (_provideBankInfo) {
+        final bank = _bankCodeController.text.trim();
+        final accountNum = _accountNumberController.text.trim();
+        final accountName = _accountNameController.text.trim();
+
+        String? bankErr;
+        String? numErr;
+        String? nameErr;
+
+        if (bank.isEmpty) {
+          bankErr = 'Vui lòng chọn hoặc nhập tên ngân hàng';
+        }
+        if (accountNum.isEmpty) {
+          numErr = 'Vui lòng nhập số tài khoản';
+        } else if (accountNum.length < 6) {
+          numErr = 'Số tài khoản không hợp lệ (tối thiểu 6 ký tự)';
+        }
+        if (accountName.isEmpty) {
+          nameErr = 'Vui lòng nhập tên chủ tài khoản';
+        }
+
+        if (bankErr != null || numErr != null || nameErr != null) {
+          setState(() {
+            _bankError = bankErr;
+            _accountNumberError = numErr;
+            _accountNameError = nameErr;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn cọc.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          return;
+        }
+      }
     }
 
     setState(() {
@@ -250,10 +370,12 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
         result = await _storageService.checkoutRental(
           widget.unit.bookingId,
           _scheduledReturnTime!,
-          notes: _notesController.text,
-          bankCode: _bankCodeController.text,
-          bankAccountNumber: _accountNumberController.text,
-          bankAccountName: _accountNameController.text,
+          notes: _notesController.text.trim(),
+          bankCode: _provideBankInfo ? _bankCodeController.text.trim() : null,
+          bankAccountNumber:
+              _provideBankInfo ? _accountNumberController.text.trim() : null,
+          bankAccountName:
+              _provideBankInfo ? _accountNameController.text.trim() : null,
         );
       }
 
@@ -355,9 +477,32 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     if (_result != null) {
       return _buildResultDialog();
     }
+
+    final titleWidget = widget.isExtension
+        ? const Text('Gia hạn thuê')
+        : Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.assignment_return_rounded,
+                    color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Yêu cầu trả kho',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(widget.isExtension ? 'Gia hạn thuê' : 'Yêu cầu trả kho'),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      title: titleWidget,
       content: SingleChildScrollView(
         child: widget.isExtension ? _buildExtendForm() : _buildCheckoutForm(),
       ),
@@ -367,7 +512,16 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
           child: const Text('Hủy'),
         ),
         ElevatedButton(
-          onPressed: _isLoading ? null : _submitAction,
+          onPressed: (_isLoading ||
+                  (!widget.isExtension && _timeValidationError != null))
+              ? null
+              : _submitAction,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
           child: _isLoading
               ? const SizedBox(
                   width: 20,
@@ -375,7 +529,8 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white),
                 )
-              : Text(widget.isExtension ? 'Gia hạn' : 'Xác nhận trả kho'),
+              : Text(widget.isExtension ? 'Gia hạn' : 'Xác nhận trả kho',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -456,31 +611,271 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
   }
 
   Widget _buildCheckoutForm() {
+    final unit = widget.unit;
+    final currentDateStr = _scheduledReturnTime != null
+        ? _dateTimeFmt.format(_scheduledReturnTime!)
+        : 'Chưa chọn thời gian';
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Ngăn ${widget.unit.unitCode}',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        const Text('Chọn ngày giờ để hẹn trả kho.',
-            style: TextStyle(fontSize: 13)),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _isLoading ? null : _pickScheduledReturnTime,
-          icon: const Icon(Icons.event),
-          label: Text(
-            _scheduledReturnTime == null
-                ? 'Chọn ngày giờ trả kho'
-                : _dateTimeFmt.format(_scheduledReturnTime!),
+        // 1. Thẻ thông tin ngăn kho & cơ sở
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: AppColors.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.warehouse_outlined,
+                          size: 18, color: AppColors.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Ngăn ${unit.unitCode}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.schedule,
+                            size: 12, color: Colors.green.shade800),
+                        const SizedBox(width: 4),
+                        Text(
+                          unit.operatingHours,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                unit.dimensions.isNotEmpty
+                    ? '${unit.typeName} • ${unit.dimensions}'
+                    : unit.typeName,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.location_on_outlined,
+                      size: 13, color: AppColors.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      unit.facilityName,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
+
+        // 2. Khối chọn ngày giờ hẹn trả kho
+        const Row(
+          children: [
+            Icon(Icons.event_available_outlined,
+                size: 17, color: AppColors.primary),
+            SizedBox(width: 6),
+            Text(
+              '1. Chọn ngày & giờ hẹn trả kho',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Vui lòng chọn thời điểm trong khung giờ mở cửa (${unit.operatingHours}).',
+          style: const TextStyle(
+            fontSize: 11.5,
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Nút chọn ngày giờ lớn
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: _isLoading ? null : _pickScheduledReturnTime,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _timeValidationError != null
+                    ? AppColors.error
+                    : AppColors.outline.withValues(alpha: 0.5),
+                width: _timeValidationError != null ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.calendar_today,
+                  size: 18,
+                  color: _timeValidationError != null
+                      ? AppColors.error
+                      : AppColors.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    currentDateStr,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                      color: _timeValidationError != null
+                          ? AppColors.error
+                          : Colors.black87,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Đổi ngày/giờ',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Quick time slot pills
+        if (_suggestedTimeSlots.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _suggestedTimeSlots.map((slot) {
+                final isSelected = _scheduledReturnTime != null &&
+                    _scheduledReturnTime!.hour == slot.hour &&
+                    _scheduledReturnTime!.minute == slot.minute;
+                final slotText =
+                    '${slot.hour.toString().padLeft(2, '0')}:${slot.minute.toString().padLeft(2, '0')}';
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(slotText,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? Colors.white : Colors.black87,
+                        )),
+                    selected: isSelected,
+                    selectedColor: AppColors.primary,
+                    backgroundColor: AppColors.surfaceContainerHigh,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    visualDensity: VisualDensity.compact,
+                    onSelected: (selected) {
+                      if (!selected) return;
+                      final base = _scheduledReturnTime ??
+                          DateTime.now().add(const Duration(days: 1));
+                      _setScheduledTime(DateTime(
+                          base.year, base.month, base.day, slot.hour, slot.minute));
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+
+        // Lỗi cảnh báo ngoài khung giờ
+        if (_timeValidationError != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.errorContainer,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    size: 16, color: AppColors.error),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _timeValidationError!,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 16),
+
+        // 3. Khối thông tin ngân hàng hoàn cọc (Tùy chọn)
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.blue.shade50.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.blue.shade50.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.blue.shade100),
           ),
           child: Column(
@@ -488,10 +883,11 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.account_balance, size: 18, color: Colors.blue.shade800),
-                  const SizedBox(width: 8),
+                  Icon(Icons.account_balance_wallet_outlined,
+                      size: 17, color: Colors.blue.shade800),
+                  const SizedBox(width: 6),
                   Text(
-                    'Thông tin ngân hàng nhận hoàn cọc',
+                    '2. Tài khoản nhận hoàn cọc (Tùy chọn)',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
@@ -501,49 +897,239 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                 ],
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Nhập tài khoản ngân hàng để quản lý cơ sở chuyển khoản hoàn cọc sau khi nghiệm thu.',
-                style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _bankCodeController,
-                decoration: const InputDecoration(
-                  labelText: 'Ngân hàng (VD: MBBank, VCB)',
-                  prefixIcon: Icon(Icons.account_balance_outlined, size: 20),
-                  isDense: true,
+
+              // Switch / Checkbox toggle
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _provideBankInfo = !_provideBankInfo;
+                    if (!_provideBankInfo) {
+                      _bankError = null;
+                      _accountNumberError = null;
+                      _accountNameError = null;
+                    }
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: Checkbox(
+                          value: _provideBankInfo,
+                          onChanged: (val) {
+                            setState(() {
+                              _provideBankInfo = val ?? false;
+                              if (!_provideBankInfo) {
+                                _bankError = null;
+                                _accountNumberError = null;
+                                _accountNameError = null;
+                              }
+                            });
+                          },
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          activeColor: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Nhận hoàn cọc qua chuyển khoản ngân hàng',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _accountNumberController,
-                decoration: const InputDecoration(
-                  labelText: 'Số tài khoản',
-                  prefixIcon: Icon(Icons.numbers, size: 20),
-                  isDense: true,
+
+              if (!_provideBankInfo) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade100),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 15, color: Colors.blue.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Không bắt buộc nhập lúc này. Bạn có thể đối soát và nhận hoàn cọc trực tiếp tại cơ sở với nhân viên sau khi nghiệm thu.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.blue.shade900,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _accountNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Tên chủ tài khoản',
-                  prefixIcon: Icon(Icons.person_outline, size: 20),
-                  isDense: true,
+              ] else ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Khoản tiền cọc sẽ được chuyển về tài khoản này sau khi nghiệm thu trả kho thành công:',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
-                textCapitalization: TextCapitalization.characters,
-              ),
+                const SizedBox(height: 8),
+
+                // Gợi ý ngân hàng nhanh
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _popularBanks.map((bank) {
+                      final selected = _bankCodeController.text == bank;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _bankCodeController.text = bank;
+                              _bankError = null;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? Colors.blue.shade800
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: selected
+                                    ? Colors.blue.shade800
+                                    : Colors.blue.shade200,
+                              ),
+                            ),
+                            child: Text(
+                              bank,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: selected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: selected
+                                    ? Colors.white
+                                    : Colors.blue.shade900,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                TextField(
+                  controller: _bankCodeController,
+                  decoration: InputDecoration(
+                    labelText: 'Ngân hàng (VD: MBBank, Vietcombank)',
+                    prefixIcon:
+                        const Icon(Icons.account_balance_outlined, size: 18),
+                    isDense: true,
+                    errorText: _bankError,
+                  ),
+                  onChanged: (_) {
+                    if (_bankError != null) setState(() => _bankError = null);
+                  },
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _accountNumberController,
+                  decoration: InputDecoration(
+                    labelText: 'Số tài khoản',
+                    prefixIcon: const Icon(Icons.numbers, size: 18),
+                    isDense: true,
+                    errorText: _accountNumberError,
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) {
+                    if (_accountNumberError != null) {
+                      setState(() => _accountNumberError = null);
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _accountNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Tên chủ tài khoản',
+                    prefixIcon: const Icon(Icons.person_outline, size: 18),
+                    isDense: true,
+                    errorText: _accountNameError,
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                  onChanged: (_) {
+                    if (_accountNameError != null) {
+                      setState(() => _accountNameError = null);
+                    }
+                  },
+                ),
+              ],
             ],
           ),
         ),
-        const SizedBox(height: 16),
+
+        const SizedBox(height: 14),
+
+        // 4. Ghi chú
         TextField(
           controller: _notesController,
           decoration: const InputDecoration(
             labelText: 'Ghi chú cho nhân viên cơ sở (không bắt buộc)',
+            prefixIcon: Icon(Icons.edit_note, size: 20),
+            hintText: 'Ví dụ: Đã dọn dẹp xong, cần hỗ trợ mở cửa...',
+            isDense: true,
           ),
           maxLines: 2,
+        ),
+
+        const SizedBox(height: 12),
+
+        // 5. Quy trình tóm tắt 3 bước
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info_outline, size: 15, color: AppColors.primary),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Quy trình: 1. Hẹn giờ -> 2. Nghiệm thu tại kho -> 3. Hoàn cọc trong 3-5 ngày',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: AppColors.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -614,6 +1200,82 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
 
   Widget _buildResultDialog() {
     final result = _result!;
+
+    if (!widget.isExtension && !widget.payOverdue) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle_rounded, color: AppColors.success, size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Đã hẹn trả kho thành công',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Yêu cầu trả kho của bạn đã được ghi nhận. Vui lòng có mặt tại cơ sở theo lịch hẹn để cùng nhân viên nghiệm thu bàn giao và nhận hoàn cọc.',
+              style: TextStyle(fontSize: 12.5, color: Colors.black87),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppColors.outlineVariant.withValues(alpha: 0.5)),
+              ),
+              child: Column(
+                children: [
+                  _resultRow('Ngăn kho', 'Ngăn ${widget.unit.unitCode}'),
+                  if (_scheduledReturnTime != null)
+                    _resultRow('Thời gian hẹn',
+                        _dateTimeFmt.format(_scheduledReturnTime!)),
+                  _resultRow('Cơ sở', widget.unit.facilityName),
+                  if (_provideBankInfo &&
+                      _bankCodeController.text.trim().isNotEmpty &&
+                      _accountNumberController.text.trim().isNotEmpty) ...[
+                    _resultRow(
+                      'Tài khoản hoàn cọc',
+                      '${_bankCodeController.text.trim()} • ${_accountNumberController.text.trim()}',
+                    ),
+                    if (_accountNameController.text.trim().isNotEmpty)
+                      _resultRow(
+                        'Chủ tài khoản',
+                        _accountNameController.text.trim().toUpperCase(),
+                      ),
+                  ] else
+                    _resultRow(
+                      'Phương thức hoàn cọc',
+                      'Đối soát trực tiếp tại cơ sở',
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            ),
+            child: const Text('Đã hiểu & Về danh sách'),
+          ),
+        ],
+      );
+    }
+
     final message = widget.payOverdue
         ? 'Đã thanh toán phí trễ hạn. Hãy gia hạn hoặc hẹn trả kho để khôi phục quyền truy cập.'
         : (widget.isExtension && _paymentConfirmed != null)
@@ -658,12 +1320,6 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
                 _currency.format(
                     num.tryParse(result['additionalFee'].toString()) ?? 0),
               ),
-          ] else ...[
-            if (result['scheduledReturnTime'] != null)
-              _resultRow(
-                  'Hẹn trả kho', result['scheduledReturnTime'].toString()),
-            if (result['status'] != null)
-              _resultRow('Trạng thái', result['status'].toString()),
           ],
         ],
       ),
@@ -680,14 +1336,22 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
               style: const TextStyle(
                   fontSize: 12, color: AppColors.onSurfaceVariant)),
-          Text(value,
-              style:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ],
       ),
     );

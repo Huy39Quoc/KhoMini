@@ -1353,7 +1353,7 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-            color: selected ? const Color(0xFF0F172A) : Colors.white,
+            color: Colors.white,
           ),
         ),
       ),

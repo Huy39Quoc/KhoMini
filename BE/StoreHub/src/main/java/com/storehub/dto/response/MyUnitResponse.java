@@ -49,4 +49,8 @@ public class MyUnitResponse {
 
     // Lịch hẹn trả kho khách đã gửi (null nếu chưa gửi yêu cầu)
     private LocalDateTime scheduledReturnTime;
+
+    // Giờ hoạt động của cơ sở (để hiển thị và ràng buộc giờ hẹn nhận/trả)
+    private java.time.LocalTime openTime;
+    private java.time.LocalTime closeTime;
 }

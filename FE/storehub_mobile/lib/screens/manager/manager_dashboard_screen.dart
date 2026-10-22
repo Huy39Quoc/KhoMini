@@ -43,6 +43,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
   String? _facilityId;
   String? _facilityName;
   String? _facilityError;
+  bool _unitsAccessDenied = false;
 
   Future<List<FacilityUnitModel>>? _unitsFuture;
   Future<List<FacilityStaffModel>>? _staffFuture;
@@ -119,6 +120,15 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     _loadReport();
   }
 
+  bool _isPermissionDenied(Object error) {
+    final str = error.toString().toLowerCase();
+    return str.contains('không có quyền') ||
+        str.contains('chức năng này') ||
+        str.contains('forbidden') ||
+        str.contains('403') ||
+        str.contains('access denied');
+  }
+
   void _loadUnits() {
     final facilityId = _facilityId;
 
@@ -126,8 +136,20 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       return;
     }
 
+    final future = _opsService.getFacilityUnits(facilityId);
     setState(() {
-      _unitsFuture = _opsService.getFacilityUnits(facilityId);
+      _unitsFuture = future;
+      _unitsAccessDenied = false;
+    });
+
+    future.then((_) {
+      if (mounted && _unitsAccessDenied) {
+        setState(() => _unitsAccessDenied = false);
+      }
+    }).catchError((err) {
+      if (mounted && _isPermissionDenied(err)) {
+        setState(() => _unitsAccessDenied = true);
+      }
     });
   }
 
@@ -794,10 +816,28 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
   }
 
   void _showError(String message) {
+    final isPermission = _isPermissionDenied(message);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
+        content: Row(
+          children: [
+            Icon(
+              isPermission ? Icons.lock_outline_rounded : Icons.error_outline_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isPermission ? 'Chốt chặn phân quyền: $message' : message,
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isPermission ? const Color(0xFF1E293B) : AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -874,7 +914,8 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
       body: _buildBody(),
       floatingActionButton: _facilityId != null &&
               _facilityId!.isNotEmpty &&
-              _tabController.index == 0
+              _tabController.index == 0 &&
+              !_unitsAccessDenied
           ? FloatingActionButton.extended(
               onPressed: () {
                 _openUnitSheet();
@@ -1098,10 +1139,21 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
         }
 
         if (snapshot.hasError) {
+          final error = snapshot.error!;
+          if (_isPermissionDenied(error)) {
+            return AppPermissionDeniedState(
+              featureName: 'Sơ đồ & Danh sách ngăn kho',
+              permissionCode: 'STORAGE_UNIT_VIEW',
+              roleName: 'Quản lý cơ sở',
+              customMessage:
+                  'Tài khoản Quản lý cơ sở của bạn hiện chưa được cấp quyền xem sơ đồ và danh sách ngăn kho tại chi nhánh này.',
+              onRefresh: _refreshUnits,
+              onSwitchTab: () => _tabController.animateTo(1),
+              switchTabLabel: 'Xem tab Nhân viên',
+            );
+          }
           return AppErrorState(
-            message: _errorMessage(
-              snapshot.error!,
-            ),
+            message: _errorMessage(error),
             onRetry: _loadUnits,
           );
         }
@@ -1237,10 +1289,19 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
         }
 
         if (snapshot.hasError) {
+          final error = snapshot.error!;
+          if (_isPermissionDenied(error)) {
+            return AppPermissionDeniedState(
+              featureName: 'Quản lý nhân sự chi nhánh',
+              permissionCode: 'STAFF_ASSIGNMENT_VIEW',
+              roleName: 'Quản lý cơ sở',
+              customMessage:
+                  'Tài khoản Quản lý cơ sở của bạn hiện chưa được cấp quyền xem danh sách nhân sự tại chi nhánh này.',
+              onRefresh: _refreshStaff,
+            );
+          }
           return AppErrorState(
-            message: _errorMessage(
-              snapshot.error!,
-            ),
+            message: _errorMessage(error),
             onRetry: _loadStaff,
           );
         }
@@ -1339,10 +1400,19 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
         }
 
         if (snapshot.hasError) {
+          final error = snapshot.error!;
+          if (_isPermissionDenied(error)) {
+            return AppPermissionDeniedState(
+              featureName: 'Báo cáo chỉ số chi nhánh',
+              permissionCode: 'REPORT_VIEW',
+              roleName: 'Quản lý cơ sở',
+              customMessage:
+                  'Tài khoản Quản lý cơ sở của bạn hiện chưa được cấp quyền xem báo cáo thống kê doanh thu và công suất tại chi nhánh này.',
+              onRefresh: _refreshReport,
+            );
+          }
           return AppErrorState(
-            message: _errorMessage(
-              snapshot.error!,
-            ),
+            message: _errorMessage(error),
             onRetry: _loadReport,
           );
         }
@@ -1428,7 +1498,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 1.55,
+                childAspectRatio: 1.42,
                 children: [
                   _statTile(
                     'Tổng số ngăn',

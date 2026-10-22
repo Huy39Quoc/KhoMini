@@ -55,7 +55,7 @@ public class WaitlistNotificationDispatcher {
                     first.getCustomer().getEmail(), first.getCustomer().getFullName(),
                     first.getFacility().getName(), first.getUnitType().getTypeName());
         } catch (Exception exception) {
-            log.error("Waitlist email failed for entry {}; scheduler will retry", first.getId(), exception);
+            log.warn("Waitlist email failed for entry {}: {}. Scheduler will retry later.", first.getId(), exception.getMessage());
             return;
         }
 

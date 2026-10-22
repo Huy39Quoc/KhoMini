@@ -179,8 +179,23 @@ class _FacilityTicketsTabState extends State<FacilityTicketsTab> {
         }
 
         if (snapshot.hasError) {
+          final error = snapshot.error!;
+          final str = error.toString().toLowerCase();
+          if (str.contains('không có quyền') ||
+              str.contains('forbidden') ||
+              str.contains('403') ||
+              str.contains('access denied')) {
+            return AppPermissionDeniedState(
+              featureName: 'Phiếu hỗ trợ & sự cố',
+              permissionCode: 'SUPPORT_VIEW',
+              roleName: 'Quản lý cơ sở',
+              customMessage:
+                  'Tài khoản Quản lý cơ sở của bạn hiện chưa được cấp quyền xem danh sách phiếu hỗ trợ tại chi nhánh này.',
+              onRefresh: _reload,
+            );
+          }
           return AppErrorState(
-            message: snapshot.error.toString().replaceFirst('Exception: ', ''),
+            message: error.toString().replaceFirst('Exception: ', ''),
             onRetry: _reload,
           );
         }

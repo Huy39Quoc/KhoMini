@@ -17,6 +17,8 @@ import java.util.UUID;
 @Repository
 public interface SupportTicketRepository extends JpaRepository<SupportTicket, UUID> {
 
+    boolean existsByTicketCode(String ticketCode);
+
     @Query("SELECT t FROM SupportTicket t WHERE t.customer.id = :customerId")
     Page<SupportTicket> findAllByCustomerId(
             @Param("customerId") UUID customerId,
