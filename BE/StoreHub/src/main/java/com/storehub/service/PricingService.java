@@ -35,11 +35,11 @@ public interface PricingService {
             BigDecimal defaultDepositAmount
     );
 
-    // Số tiền cọc được hoàn khi khách huỷ đơn đã CONFIRMED, theo bậc chính sách huỷ của cơ sở:
+    // Refund uses the immutable cancellation rules captured on this booking, never today's facility policy.
     // >= cancellationFullRefundHours trước giờ nhận kho: hoàn 100%;
     // >= cancellationPartialRefundHours: hoàn cancellationPartialRefundPercent%; còn lại: 0.
     BigDecimal calculateCancellationRefund(
-            UUID facilityId,
+            com.storehub.entity.Booking booking,
             BigDecimal depositPaid,
             LocalDateTime scheduledStart,
             LocalDateTime cancelTime
