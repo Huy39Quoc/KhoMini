@@ -31,13 +31,12 @@ import com.storehub.enums.ActivityAction;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.WaitlistService;
 import com.storehub.service.EmailService;
+import com.storehub.service.StaffWorkloadService;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import lombok.extern.slf4j.Slf4j;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.repository.RefundRequestRepository;
-import com.storehub.repository.SupportTicketRepository;
-import com.storehub.enums.TicketStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -59,10 +58,10 @@ public class FacilityManagementServiceImpl
     private final UserRepository users;
     private final PaymentRepository payments;
     private final RefundRequestRepository refunds;
-    private final SupportTicketRepository tickets;
     private final ActivityLogService activityLogService;
     private final WaitlistService waitlistService;
     private final EmailService emailService;
+    private final StaffWorkloadService staffWorkloadService;
 
     @Transactional(readOnly = true)
     public AssignedFacilityResponse myFacility(String email) {
@@ -363,6 +362,10 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
+        if (user.getFacility() != null && !facilityId.equals(user.getFacility().getId())) {
+            staffWorkloadService.releaseOpenAssignments(userId);
+        }
+
         if ("FACILITY_MANAGER".equals(role)) {
             Facility previousFacility = user.getFacility();
 
@@ -616,12 +619,7 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
-        if (tickets.existsByAssignedStaff_IdAndStatusNot(userId, TicketStatus.CLOSED)) {
-            throw new AppException(ErrorCode.STAFF_HAS_UNCLOSED_TICKETS);
-        }
-
-        bookings.clearOpenCheckInAssignments(userId);
-        bookings.clearOpenCheckOutAssignments(userId);
+        staffWorkloadService.releaseOpenAssignments(userId);
         staff.setFacility(null);
     }
 }

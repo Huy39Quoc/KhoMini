@@ -43,6 +43,9 @@ class UserServiceRoleAssignmentTest {
     @Mock
     private ActivityLogService activityLogService;
 
+    @Mock
+    private StaffWorkloadService staffWorkloadService;
+
     @InjectMocks
     private UserServiceImpl userService;
 
@@ -138,7 +141,7 @@ class UserServiceRoleAssignmentTest {
                 .roleId(roleId)
                 .build();
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(existingUser));
         when(roleRepository.findById(roleId)).thenReturn(Optional.of(staffRole));
         when(userRepository.save(existingUser)).thenReturn(existingUser);
         when(userMapper.toResponse(existingUser)).thenReturn(UserResponse.builder().roleName("STAFF").build());
