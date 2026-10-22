@@ -46,12 +46,45 @@ Hệ thống đã nạp sẵn dữ liệu khởi tạo (Seed Data) cho 5 nhóm v
 
 | Role (Vai trò) | Email đăng nhập | Mật khẩu | Chi nhánh / Cơ sở | Phạm vi & Chức năng chính |
 | :--- | :--- | :--- | :--- | :--- |
-| **CUSTOMER** *(Khách hàng)* | `customer@gmail.com` *(hoặc tự đăng ký)* | `customer` | Tự do | Đặt kho, thanh toán VNPay, dùng Khóa thông minh (PIN 6 số), mở/đóng ngăn, tạo QR cổng, gia hạn, trả kho. |
-| **STAFF** *(Nhân viên cơ sở)* | `staff1@gmail.com` | `staff` | HCM-D1 (Quận 1) | Xem lịch bàn giao hôm nay, kiểm tra hiện trạng ngăn, bấm Check-in / Check-out, quét mã QR vào cổng của khách, xử lý ticket. |
-| **STAFF** *(Nhân viên dự phòng)* | `staff4@gmail.com` | `staff` | *Chưa gán cơ sở* | Dùng để kiểm thử tính năng "Thêm / Phân công nhân viên vào chi nhánh" của Quản lý cơ sở. |
-| **FACILITY_MANAGER** *(Quản lý cơ sở)* | `facility1@gmail.com` | `facility` | HCM-D1 (Quận 1) | Quản lý danh sách ngăn kho, phân công nhân viên nhận/trả kho, duyệt hoàn cọc, cấp lại PIN khi khách quên, niêm phong kho quá hạn. |
-| **BUSINESS_MANAGER** *(Quản lý vận hành)* | `business@gmail.com` | `business` | Toàn hệ thống | Xem báo cáo tài chính/doanh thu toàn hệ thống, tỷ lệ lấp đầy kho, điều chỉnh bảng giá niêm yết, chính sách phạt/hoàn tiền. |
-| **ADMIN** *(Quản trị viên)* | `admin@gmail.com` | `admin` | Toàn hệ thống | Quản trị tài khoản người dùng, phân quyền các Role, xem toàn bộ nhật ký kiểm toán hệ thống (Audit Activity Logs). |
+| **CUSTOMER** *(Khách hàng 1)* | `customer@gmail.com` | `customer` | Tự do | Đã có sẵn 2 kho đang thuê (`S-101` mã PIN `123456`, `M-201` sắp hết hạn để test gia hạn), 1 đơn chờ thanh toán, 2 support tickets. |
+| **CUSTOMER** *(Khách hàng 2)* | `customer2@gmail.com` | `customer` | Tự do | Đã có sẵn 1 đơn đã xác nhận chờ nhận kho (`L-301`), 1 đơn đã trả kho chờ nhận lại cọc (`S-102`), 1 đơn tại Thủ Đức (`HCM-TD`). |
+| **CUSTOMER** *(Khách hàng 3)* | `customer3@gmail.com` | `customer` | Tự do | Đã có sẵn đơn thuê tại Quận 7 (`HCM-D7`) và đang nằm trong Hàng đợi (Waitlist) kho Large Quận 1. |
+| **STAFF** *(Nhân viên 1)* | `staff1@gmail.com` | `staff` | HCM-D1 (Quận 1) | Xem lịch bàn giao hôm nay (`L-301`), quét mã QR cổng, bảo trì ngăn (`S-102`), xử lý support ticket. |
+| **STAFF** *(Nhân viên 2)* | `staff2@gmail.com` | `staff` | HCM-D1 (Quận 1) | Nhân viên hỗ trợ cơ sở Quận 1, tiếp nhận lịch phân công ca làm việc. |
+| **STAFF** *(Nhân viên 3)* | `staff3@gmail.com` | `staff` | HCM-D7 (Quận 7) | Nhân viên trực tại cơ sở Quận 7, xử lý hỗ trợ và bàn giao kho tại Quận 7. |
+| **STAFF** *(Nhân viên 5)* | `staff5@gmail.com` | `staff` | HCM-TD (Thủ Đức) | Nhân viên trực tại cơ sở Thủ Đức, xử lý hỗ trợ và bàn giao kho tại Thủ Đức. |
+| **STAFF** *(Nhân viên 6)* | `staff6@gmail.com` | `staff` | HCM-TD (Thủ Đức) | Nhân viên hỗ trợ cơ sở Thủ Đức, thực hiện kiểm tra và nghiệm thu kho. |
+| **STAFF** *(Nhân viên 7)* | `staff7@gmail.com` | `staff` | HCM-D7 (Quận 7) | Nhân viên hỗ trợ cơ sở Quận 7, tiếp nhận phân công lịch hẹn. |
+| **STAFF** *(Nhân viên dự phòng)* | `staff4@gmail.com` | `staff` | *Chưa gán cơ sở* | Dùng để kiểm thử tính năng "Thêm / Phân công nhân viên vào cơ sở" của Quản lý cơ sở. |
+| **STAFF** *(Nhân viên dự phòng 2)* | `staff8@gmail.com` | `staff` | *Chưa gán cơ sở* | Dùng để kiểm thử tính năng "Thêm / Phân công nhân viên vào cơ sở" của Quản lý cơ sở. |
+| **STAFF** *(Nhân viên dự phòng 3)* | `staff9@gmail.com` | `staff` | *Chưa gán cơ sở* | Dùng để kiểm thử tính năng "Thêm / Phân công nhân viên vào cơ sở" của Quản lý cơ sở. |
+| **FACILITY_MANAGER** *(Quản lý Q1)* | `facility1@gmail.com` | `facility` | HCM-D1 (Quận 1) | Quản lý ngăn kho, phân công nhận kho (`L-301`), duyệt hoàn cọc chuyển khoản (`S-102`), giao ticket cho nhân viên. |
+| **FACILITY_MANAGER** *(Quản lý Q7)* | `facility2@gmail.com` | `facility` | HCM-D7 (Quận 7) | Quản lý cơ sở Quận 7: điều phối ngăn kho, phân công nhân viên Q7, duyệt hoàn cọc, xử lý ticket. |
+| **FACILITY_MANAGER** *(Quản lý Thủ Đức)*| `facility3@gmail.com` | `facility` | HCM-TD (Thủ Đức) | Quản lý cơ sở Thủ Đức: điều phối ngăn kho, phân công nhân viên Thủ Đức, duyệt hoàn cọc, xử lý ticket. |
+| **FACILITY_MANAGER** *(Quản lý dự phòng)*| `facility4@gmail.com` | `facility` | *Chưa gán cơ sở* | Dùng để kiểm thử tính năng "Gán quản lý cho cơ sở" của Quản trị viên (Admin). |
+| **FACILITY_MANAGER** *(Quản lý dự phòng 2)*| `facility5@gmail.com` | `facility` | *Chưa gán cơ sở* | Dùng để kiểm thử tính năng "Gán quản lý cho cơ sở" của Quản trị viên (Admin). |
+| **BUSINESS_MANAGER** *(Quản lý vận hành)* | `business@gmail.com` | `business` | Toàn hệ thống | Xem báo cáo tài chính/doanh thu đa cơ sở có sẵn số liệu & biểu đồ, tỷ lệ lấp đầy kho, điều chỉnh bảng giá niêm yết, chính sách. |
+| **ADMIN** *(Quản trị viên)* | `admin@gmail.com` | `admin` | Toàn hệ thống | Quản trị tài khoản, phân quyền Role, xem toàn bộ nhật ký kiểm toán hệ thống (Audit Activity Logs) đã có sẵn dữ liệu. |
+
+---
+
+## 2.1. Bảng kịch bản dữ liệu có sẵn để thao tác ngay (Pre-seeded Test Scenarios)
+
+Để bạn có thể kiểm thử ngay lập tức mà không cần tự tạo dữ liệu từ đầu, hệ thống đã nạp sẵn các kịch bản thực tế sau:
+
+| Mã ngăn | Cơ sở | Trạng thái ngăn | Trạng thái Booking | Tài khoản sở hữu | Dữ liệu kiểm thử có sẵn | Thao tác kiểm thử ngay |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **S-101** | HCM-D1 | `OCCUPIED` | `ACTIVE` | `customer@gmail.com` | PIN: **`123456`**, Cửa: Đang Khóa | Mở kho của tôi -> Khóa thông minh: Thử mở khóa với mã `123456`, đổi PIN, đặt lại PIN khi quên, tạo QR vào cổng. |
+| **M-201** | HCM-D1 | `OCCUPIED` | `ACTIVE` | `customer@gmail.com` | PIN: **`888999`**, Hạn còn **2 ngày** | Thử tính năng **Gia hạn thời gian thuê** (Flow 4) hoặc bấm **Yêu cầu trả kho** nhập số tài khoản ngân hàng (Flow 5). |
+| **M-202** | HCM-D1 | `RESERVED` | `PENDING_PAYMENT` | `customer@gmail.com` | Còn 25 phút hết hạn | Mở tab Khám phá / Thanh toán -> Mục "Đơn chờ thanh toán": Thử bấm **Thanh toán ngay** hoặc bấm **Hủy đơn**. |
+| **L-301** | HCM-D1 | `RESERVED` | `CONFIRMED` | `customer2@gmail.com` | Lịch hẹn check-in: **Hôm nay** | - Đăng nhập `facility1@gmail.com`: Vào Booking Assignment để gán ngăn/staff.<br>- Đăng nhập `staff1@gmail.com`: Vào Lịch hôm nay -> Bấm **Check-in**. |
+| **S-102** | HCM-D1 | `UNDER_MAINTENANCE` | `COMPLETED` | `customer2@gmail.com` | Yêu cầu hoàn cọc 500k VNĐ (VCB) | - Đăng nhập `facility1@gmail.com`: Vào "Duyệt hoàn tiền cọc" -> Bấm **Xác nhận chuyển khoản**.<br>- Đăng nhập `staff1@gmail.com`: Vào Ngăn kho -> Chuyển về `AVAILABLE`. |
+| **TK-HCM-001** | HCM-D1 | Ticket sự cố PIN | `IN_PROGRESS` | `customer@gmail.com` | Gán cho: `staff1@gmail.com` | Đăng nhập `staff1@gmail.com`: Vào Support Ticket -> Cập nhật trạng thái sang `RESOLVED`. |
+| **TK-HCM-002** | HCM-D1 | Ticket kẹt cửa | `OPEN` | `customer@gmail.com` | Chưa gán ai | Đăng nhập `staff1@gmail.com`: Bấm **Nhận xử lý (Assign to me)**. |
+| **TK-D7-001** | HCM-D7 | Ticket hỏi giờ mở cổng | `OPEN` | `customer3@gmail.com` | Chưa gán ai | Đăng nhập `facility2@gmail.com`: Gán cho `staff3@gmail.com` hoặc `staff7@gmail.com`. |
+| **TK-TD-001** | HCM-TD | Ticket xe đẩy đồ | `IN_PROGRESS` | `customer2@gmail.com` | Gán cho: `staff5@gmail.com` | Đăng nhập `staff5@gmail.com`: Xem danh sách ticket Thủ Đức và phản hồi hoàn tất. |
+| **D7-S101** | HCM-D7 | `OCCUPIED` | `ACTIVE` | `customer3@gmail.com` | PIN: **`112233`** | Đăng nhập `customer3@gmail.com`: Mở kho tại cơ sở Quận 7. |
+| **TD-S101** | HCM-TD | `OCCUPIED` | `ACTIVE` | `customer2@gmail.com` | PIN: **`445566`** | Đăng nhập `customer2@gmail.com`: Mở kho tại cơ sở Thủ Đức. |
 
 ---
 

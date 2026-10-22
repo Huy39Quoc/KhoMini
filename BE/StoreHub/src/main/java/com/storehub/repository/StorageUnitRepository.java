@@ -37,6 +37,11 @@ public interface StorageUnitRepository
             String unitCode
     );
 
+    Optional<StorageUnit> findByFacility_IdAndUnitCode(
+            UUID facilityId,
+            String unitCode
+    );
+
     @Query(
             value = """
                 SELECT id
