@@ -192,7 +192,9 @@ public class OverdueScheduler {
         if (overdueDays >= config.sealingDays()
                 && booking.getSealingPendingAt() == null) {
 
+            LocalDateTime previousApproval = booking.getSealingApprovedAt();
             booking.setSealingPendingAt(now);
+            booking.setSealingApprovedAt(null);
 
             activityLogService.recordSystem(
                     ActivityAction.OVERDUE_SEALING_PENDING,
@@ -200,6 +202,8 @@ public class OverdueScheduler {
                     booking.getId(),
                     "Booking " + booking.getBookingCode()
                             + " was marked pending for sealing"
+                            + (previousApproval != null
+                                ? "; prior episode approval expired: " + previousApproval : "")
             );
         }
 

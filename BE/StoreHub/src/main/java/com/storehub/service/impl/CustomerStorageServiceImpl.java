@@ -455,22 +455,17 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 .build();
     }
 
-    // Sau khi gia hạn (do PaymentService xác nhận) mà ngày hết hạn mới đã ở tương lai thì
-    // hợp đồng hết quá hạn: gỡ cờ quá hạn và mở lại truy cập (PIN được cấp/đặt lại ở lần
-    // xem Smart Key kế tiếp). Đặt ở đây để không phải sửa luồng thanh toán của Flow 1.
+    // Compatibility recovery for renewals captured before payment confirmation
+    // started closing overdue episodes immediately. Never clear unpaid late fees.
     private void reconcileOverdueState(Booking booking) {
-        if (booking.getOverdueDetectedAt() == null
-                || booking.getEndDate() == null
+        if (booking.getEndDate() == null
                 || booking.getEndDate().isBefore(LocalDate.now())
                 || findPendingLateFee(booking.getId()) != null) {
             return;
         }
 
         boolean accessWasDisabled = booking.getAccessDisabledAt() != null;
-        booking.setOverdueDetectedAt(null);
-        booking.setOverdueFeeAccrued(BigDecimal.ZERO);
-        booking.setSealingPendingAt(null);
-        booking.setAccessDisabledAt(null);
+        if (!com.storehub.common.OverdueRecovery.restore(booking, activityLogService)) return;
         bookingRepository.save(booking);
 
         if (accessWasDisabled) {

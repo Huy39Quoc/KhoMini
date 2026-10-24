@@ -601,6 +601,8 @@ public class PaymentServiceImpl implements PaymentService {
             booking.setPendingExtraMonths(null);
             booking.setPendingExtensionFee(null);
 
+            com.storehub.common.OverdueRecovery.restore(booking, activityLogService);
+
             activityLogService.record(
                     ActivityAction.CONTRACT_EXTENDED,
                     "BOOKING",

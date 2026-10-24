@@ -524,7 +524,8 @@ public class FacilityManagementServiceImpl
                 booking.getAccessDisabledAt() != null,
                 booking.getSealingPendingAt() != null,
                 booking.getPendingExtensionFee(),
-                booking.getSealingApprovedAt() != null
+                booking.getSealingPendingAt() != null && booking.getSealingApprovedAt() != null
+                        && !booking.getSealingApprovedAt().isBefore(booking.getSealingPendingAt())
         );
     }
 
@@ -538,7 +539,7 @@ public class FacilityManagementServiceImpl
         access.require(managerEmail, facilityId);
         requireFacility(facilityId);
 
-        Booking booking = bookings.findById(bookingId)
+        Booking booking = bookings.lockById(bookingId)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         if (booking.getStorageUnit() == null
@@ -547,11 +548,14 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
         }
         if (booking.getStatus() != BookingStatus.ACTIVE
-                || booking.getSealingPendingAt() == null) {
+                || booking.getSealingPendingAt() == null
+                || booking.getEndDate() == null
+                || !booking.getEndDate().isBefore(LocalDate.now())) {
             throw new AppException(ErrorCode.UNIT_NOT_OVERDUE);
         }
 
-        if (booking.getSealingApprovedAt() == null) {
+        if (booking.getSealingApprovedAt() == null
+                || booking.getSealingApprovedAt().isBefore(booking.getSealingPendingAt())) {
             booking.setSealingApprovedAt(LocalDateTime.now());
             bookings.save(booking);
 
@@ -562,7 +566,9 @@ public class FacilityManagementServiceImpl
                     "Sealing approved for overdue booking " + booking.getBookingCode()
                             + " (unit " + booking.getStorageUnit().getUnitCode() + ")",
                     null,
-                    null
+                    java.util.Map.of("overdueDetectedAt", String.valueOf(booking.getOverdueDetectedAt()),
+                            "sealingPendingAt", booking.getSealingPendingAt().toString(),
+                            "sealingApprovedAt", booking.getSealingApprovedAt().toString())
             );
         }
         return toContract(booking);
