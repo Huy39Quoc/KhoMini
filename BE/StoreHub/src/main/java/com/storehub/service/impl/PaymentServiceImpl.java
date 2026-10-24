@@ -67,6 +67,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final VnpayRefundClient gateway;
     private final WaitlistService waitlistService;
     private final OverdueScheduler overdueScheduler;
+    private final com.storehub.repository.DepositDeductionRepository depositDeductions;
 
     // Dòng RENTAL_FEE đi kèm khoản cọc dùng mã giao dịch = mã của dòng DEPOSIT + hậu tố này.
     private static final String RENTAL_SUFFIX = "-R";
@@ -871,12 +872,17 @@ public class PaymentServiceImpl implements PaymentService {
                         ? booking.getScheduledCheckInTime()
                         : booking.getStartDate().atStartOfDay(),
                 LocalDateTime.now());
-        if (refundTotal.signum() <= 0) {
-            return BigDecimal.ZERO;
-        }
-
-        BigDecimal depositPart = refundTotal.min(depositPaid);
+        BigDecimal depositPart = refundTotal.max(BigDecimal.ZERO).min(depositPaid);
         BigDecimal rentalPart = refundTotal.subtract(depositPart).min(rentPaid);
+        BigDecimal retained = depositPaid.subtract(depositPart);
+        if (retained.signum() > 0) {
+            Payment original = paymentRepository
+                    .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                            booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
+                    .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+            recordDepositDeduction(booking, original, retained, "CANCELLATION", "Deposit retained under cancellation policy");
+        }
+        if (refundTotal.signum() <= 0) return BigDecimal.ZERO;
         return queueRefund(booking, depositPart, rentalPart);
     }
 
@@ -1001,7 +1007,13 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         BigDecimal depositPaid = booking.getDepositPaid() != null ? booking.getDepositPaid() : BigDecimal.ZERO;
+        if (damageFee != null && damageFee.signum() < 0) {
+            throw new AppException(ErrorCode.DAMAGE_FEE_EXCEEDS_DEPOSIT);
+        }
         BigDecimal safeDamage = (damageFee != null && damageFee.signum() > 0) ? damageFee : BigDecimal.ZERO;
+        if (safeDamage.signum() > 0 && (damageReason == null || damageReason.isBlank())) {
+            throw new AppException(ErrorCode.DAMAGE_REASON_REQUIRED);
+        }
         BigDecimal netRefund = depositPaid.subtract(safeDamage);
 
         if (netRefund.signum() < 0) {
@@ -1009,7 +1021,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new AppException(ErrorCode.DAMAGE_FEE_EXCEEDS_DEPOSIT);
         }
 
-        if (netRefund.signum() == 0) {
+        if (depositPaid.signum() == 0) {
             return BigDecimal.ZERO;
         }
 
@@ -1018,7 +1030,29 @@ public class PaymentServiceImpl implements PaymentService {
                         booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
+        if (safeDamage.signum() > 0) {
+            recordDepositDeduction(booking, original, safeDamage, "DAMAGE", damageReason);
+        }
+        if (netRefund.signum() == 0) return BigDecimal.ZERO;
         return queueRefund(booking, original, netRefund, BigDecimal.ZERO, safeDamage);
+    }
+
+    private void recordDepositDeduction(Booking booking, Payment original, BigDecimal amount,
+                                        String type, String reason) {
+        // Cancellation and checkout hold the booking lock. A unique source payment
+        // also prevents duplicate deposit conversions if an operation is retried.
+        if (depositDeductions.existsByOriginalPayment_Id(original.getId())
+                || refundRequests.existsByOriginalPayment_Id(original.getId())) {
+            throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        }
+        if (amount.compareTo(booking.getDepositPaid()) > 0 || amount.compareTo(original.getAmount()) > 0) {
+            throw new AppException(ErrorCode.DAMAGE_FEE_EXCEEDS_DEPOSIT);
+        }
+        depositDeductions.save(com.storehub.entity.DepositDeduction.builder()
+                .booking(booking).originalPayment(original).amount(amount).deductionType(type)
+                .reason(reason).recordedAt(LocalDateTime.now()).build());
+        booking.setDepositPaid(booking.getDepositPaid().subtract(amount));
+        bookingRepository.save(booking);
     }
 
     @Override

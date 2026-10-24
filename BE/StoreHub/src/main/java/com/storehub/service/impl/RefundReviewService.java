@@ -25,6 +25,7 @@ public class RefundReviewService {
     private final RefundRequestRepository refunds;
     private final UserRepository users;
     private final RefundDispatcher dispatcher;
+    private final com.storehub.repository.BookingRepository bookings;
 
     public void reconcile(UUID facilityId, UUID refundId, String managerEmail) {
         requireManager(facilityId, managerEmail);
@@ -105,12 +106,12 @@ public class RefundReviewService {
         refund.setUpdatedStatusAt(now);
         refund.setTransferReference(request.getTransferReference());
 
-        com.storehub.entity.Booking booking = refund.getBooking();
+        com.storehub.entity.Booking booking = bookings.lockById(refund.getBooking().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
         if (booking != null && booking.getDepositPaid() != null) {
             java.math.BigDecimal depositRemaining = booking.getDepositPaid().subtract(refund.getDepositAmount());
-            if (depositRemaining.signum() >= 0) {
-                booking.setDepositPaid(depositRemaining);
-            }
+            if (depositRemaining.signum() < 0) throw new AppException(ErrorCode.INVALID_REQUEST);
+            booking.setDepositPaid(depositRemaining);
         }
 
         Payment original = refund.getOriginalPayment();

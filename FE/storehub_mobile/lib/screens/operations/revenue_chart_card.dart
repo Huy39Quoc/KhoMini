@@ -28,7 +28,8 @@ class RevenueChartCard extends StatelessWidget {
     final currency = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
     final compact = NumberFormat.compact(locale: 'vi_VN');
     final total = (summary['totalRevenue'] as num?)?.toDouble() ?? 0;
-    final deposit = (summary['depositRevenue'] as num?)?.toDouble() ?? 0;
+    final deposits = (summary['depositReconciliation'] as Map?) ?? {};
+    final deposit = (deposits['closingBalance'] as num?)?.toDouble() ?? 0;
     final maxMagnitude = rows.fold<double>(0, (max, row) {
       final value = ((row['totalRevenue'] as num?)?.toDouble() ?? 0).abs();
       return value > max ? value : max;
@@ -46,7 +47,7 @@ class RevenueChartCard extends StatelessWidget {
             Text(currency.format(total),
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
                     color: AppColors.primaryContainer)),
-            Text('Dòng tiền cọc ròng trong kỳ: ${currency.format(deposit)}',
+            Text('Cọc còn giữ cuối kỳ: ${currency.format(deposit)}',
                 style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
             const SizedBox(height: 16),
             if (rows.isEmpty || maxMagnitude <= 0)

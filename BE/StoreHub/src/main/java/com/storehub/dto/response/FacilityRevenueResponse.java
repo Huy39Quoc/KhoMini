@@ -13,10 +13,13 @@ public class FacilityRevenueResponse {
     private UUID facilityId;
     private String facilityName;
     private BigDecimal totalRevenue;
+    // Net deposit cash flow; held liability is depositReconciliation.closingBalance.
     private BigDecimal depositRevenue;
     private BigDecimal rentalFeeRevenue;
     private BigDecimal extraChargeRevenue;
     private Long paymentCount;
+    private BigDecimal depositRetentionRevenue;
+    private DepositReconciliationResponse depositReconciliation;
 
     public FacilityRevenueResponse(UUID facilityId, String facilityName, Object totalRevenue, Object depositRevenue, Object rentalFeeRevenue, Object extraChargeRevenue, Number paymentCount) {
         this.facilityId = facilityId;

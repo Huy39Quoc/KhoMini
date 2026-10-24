@@ -62,6 +62,7 @@ public class FacilityManagementServiceImpl
     private final WaitlistService waitlistService;
     private final EmailService emailService;
     private final StaffWorkloadService staffWorkloadService;
+    private final com.storehub.repository.DepositDeductionRepository depositDeductions;
 
     @Transactional(readOnly = true)
     public AssignedFacilityResponse myFacility(String email) {
@@ -280,7 +281,7 @@ public class FacilityManagementServiceImpl
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public FacilityReportResponse report(
             UUID facilityId,
             String managerEmail
@@ -320,6 +321,8 @@ public class FacilityManagementServiceImpl
         BigDecimal refunded = refunds.sumCompletedRentalRefundsByFacility(facilityId);
         BigDecimal revenue = (captured == null ? BigDecimal.ZERO : captured)
                 .subtract(refunded == null ? BigDecimal.ZERO : refunded);
+        BigDecimal retained = depositDeductions.sumRetainedByFacility(facilityId);
+        revenue = revenue.add(retained == null ? BigDecimal.ZERO : retained);
 
         return new FacilityReportResponse(
                 facilityId,
