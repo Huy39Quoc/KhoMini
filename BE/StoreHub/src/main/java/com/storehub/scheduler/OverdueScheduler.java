@@ -147,7 +147,12 @@ public class OverdueScheduler {
                 overdueDays - config.graceDays()
         );
 
-        if (chargeableDays <= 0) {
+        if (overdueDays <= 0) {
+            return;
+        }
+        boolean accessDue = overdueDays >= config.accessDisableDays();
+        boolean sealingDue = overdueDays >= config.sealingDays();
+        if (chargeableDays <= 0 && !accessDue && !sealingDue) {
             return;
         }
 
@@ -159,20 +164,18 @@ public class OverdueScheduler {
                     "BOOKING",
                     booking.getId(),
                     "Booking " + booking.getBookingCode()
-                            + " became overdue after "
+                            + " requires overdue handling; late-fee grace period: "
                             + config.graceDays()
-                            + " grace day(s)"
+                            + " day(s)"
             );
         }
 
-        updateLateFee(
-                booking,
-                facilityId,
-                chargeableDays,
-                now
-        );
+        // Grace applies only to late fees. Security deadlines must still be evaluated.
+        if (chargeableDays > 0) {
+            updateLateFee(booking, facilityId, chargeableDays, now);
+        }
 
-        if (overdueDays >= config.accessDisableDays()
+        if (accessDue
                 && booking.getAccessDisabledAt() == null) {
 
             booking.setAccessCode(null);
@@ -189,7 +192,7 @@ public class OverdueScheduler {
             );
         }
 
-        if (overdueDays >= config.sealingDays()
+        if (sealingDue
                 && booking.getSealingPendingAt() == null) {
 
             LocalDateTime previousApproval = booking.getSealingApprovedAt();

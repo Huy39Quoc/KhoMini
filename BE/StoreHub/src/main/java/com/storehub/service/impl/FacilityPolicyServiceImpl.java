@@ -63,6 +63,8 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
 
     @Override
     public FacilityPolicyResponse create(FacilityPolicyCreateRequest request) {
+        validateOverdueTimeline(request.getOverdueGraceDays(), request.getOverdueAccessDisableDays(),
+                request.getOverdueSealingDays());
         if (request.getCancellationFullRefundHours() != null
                 && request.getCancellationPartialRefundHours() != null
                 && request.getCancellationFullRefundHours() < request.getCancellationPartialRefundHours()) {
@@ -142,6 +144,10 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
                 || partialHours != policy.getCancellationPartialRefundHours()
                 || (request.getCancellationPartialRefundPercent() != null
                     && !request.getCancellationPartialRefundPercent().equals(policy.getCancellationPartialRefundPercent()));
+        validateOverdueTimeline(
+                request.getOverdueGraceDays() != null ? request.getOverdueGraceDays() : policy.getOverdueGraceDays(),
+                request.getOverdueAccessDisableDays() != null ? request.getOverdueAccessDisableDays() : policy.getOverdueAccessDisableDays(),
+                request.getOverdueSealingDays() != null ? request.getOverdueSealingDays() : policy.getOverdueSealingDays());
         facilityPolicyMapper.updateEntityFromRequest(request, policy);
         if (cancellationChanged) {
             policy.setCancellationPolicyEffectiveAt(LocalDateTime.now());
@@ -152,6 +158,14 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
                 "Updated policy for facility " + (policy.getFacility() != null ? policy.getFacility().getName() : updated.getId()), null, updated.getId());
 
         return facilityPolicyMapper.toResponse(updated);
+    }
+
+    private void validateOverdueTimeline(Integer grace, Integer accessDisable, Integer sealing) {
+        // Every threshold is measured from the rental end date, not from the previous milestone.
+        if (grace == null || accessDisable == null || sealing == null
+                || grace < 0 || accessDisable < grace || sealing < accessDisable) {
+            throw new AppException(ErrorCode.FACILITY_POLICY_INVALID_OVERDUE_TIMELINE);
+        }
     }
 
     @Override

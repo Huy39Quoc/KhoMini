@@ -125,6 +125,7 @@ public enum ErrorCode {
     FACILITY_POLICY_NOT_FOUND(1100, "Không tìm thấy chính sách của cơ sở", HttpStatus.NOT_FOUND),
     FACILITY_POLICY_ALREADY_EXISTS(1101, "Cơ sở này đã có chính sách", HttpStatus.BAD_REQUEST),
     FACILITY_POLICY_INVALID_CANCELLATION(1102, "Số giờ hoàn tiền toàn phần phải lớn hơn hoặc bằng số giờ hoàn tiền một phần", HttpStatus.BAD_REQUEST),
+    FACILITY_POLICY_INVALID_OVERDUE_TIMELINE(1103, "Các mốc tính từ ngày hết hạn phải thỏa: 0 ≤ ngày ân hạn ≤ ngày khóa truy cập ≤ ngày chờ niêm phong", HttpStatus.BAD_REQUEST),
 
     // ========================= SUPPORT_TICKET (1200 - 1299) =========================
     TICKET_NOT_FOUND(1200, "Không tìm thấy yêu cầu hỗ trợ hoặc yêu cầu không thuộc về bạn", HttpStatus.NOT_FOUND),
