@@ -81,6 +81,7 @@ public enum ErrorCode {
     CHECKIN_TIME_OUTSIDE_OPEN_HOURS(739, "Giờ nhận kho phải nằm trong khung giờ mở cửa của cơ sở", HttpStatus.BAD_REQUEST),
     CHECKIN_TIME_IN_PAST(740, "Thời điểm nhận kho đã qua. Hãy chọn giờ nhận kho muộn hơn hiện tại hoặc chọn ngày bắt đầu khác", HttpStatus.BAD_REQUEST),
     CHECKOUT_TIME_OUTSIDE_OPEN_HOURS(741, "Giờ hẹn trả kho phải nằm trong khung giờ mở cửa của cơ sở", HttpStatus.BAD_REQUEST),
+    REFUND_BANK_INFO_REQUIRED(742, "Vui lòng cung cấp đầy đủ thông tin tài khoản ngân hàng để nhận hoàn tiền cọc", HttpStatus.BAD_REQUEST),
     DAMAGE_REASON_REQUIRED(738, "Vui lòng nhập lý do khấu trừ phí hư hại", HttpStatus.BAD_REQUEST),
 
 

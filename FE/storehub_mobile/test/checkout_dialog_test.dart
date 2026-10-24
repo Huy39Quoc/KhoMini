@@ -5,7 +5,7 @@ import 'package:storehub_mobile/screens/customer/my_units/contract_operation_dia
 
 void main() {
   testWidgets(
-      'Checkout dialog has optional bank account info and expands when checked',
+      'Checkout dialog requires bank account info to submit',
       (WidgetTester tester) async {
     final unit = MyUnitModel(
       bookingId: 'b-1',
@@ -34,27 +34,11 @@ void main() {
 
     // Verify title and return appointment section
     expect(find.text('Yêu cầu trả kho'), findsOneWidget);
-    expect(find.text('2. Tài khoản nhận hoàn cọc (Tùy chọn)'), findsOneWidget);
-    expect(
-      find.text('Nhận hoàn cọc qua chuyển khoản ngân hàng'),
-      findsOneWidget,
-    );
-    expect(
-      find.text(
-          'Không bắt buộc nhập lúc này. Bạn có thể đối soát và nhận hoàn cọc trực tiếp tại cơ sở với nhân viên sau khi nghiệm thu.'),
-      findsOneWidget,
-    );
+    expect(find.text('2. Tài khoản nhận hoàn cọc (Bắt buộc)'), findsOneWidget);
 
-    // Bank fields shouldn't be visible yet
-    expect(find.text('Số tài khoản'), findsNothing);
-
-    // Tap checkbox to enable bank input
-    await tester.tap(find.text('Nhận hoàn cọc qua chuyển khoản ngân hàng'));
-    await tester.pumpAndSettle();
-
-    // Bank fields should now be visible
-    expect(find.text('Số tài khoản'), findsOneWidget);
-    expect(find.text('Tên chủ tài khoản'), findsOneWidget);
+    // Bank fields should be visible immediately
+    expect(find.text('Số tài khoản *'), findsOneWidget);
+    expect(find.text('Tên chủ tài khoản *'), findsOneWidget);
 
     // Tap 'Xác nhận trả kho' without filling bank details
     await tester.tap(find.text('Xác nhận trả kho'));

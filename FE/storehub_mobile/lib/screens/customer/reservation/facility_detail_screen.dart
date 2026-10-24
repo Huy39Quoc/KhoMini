@@ -34,7 +34,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   late Future<List<UnitTypeModel>> _unitTypesFuture;
 
   UnitTypeModel? _selectedType;
-  DateTime _startDate = DateTime.now().add(const Duration(days: 1));
+  DateTime _startDate = DateTime.now();
   TimeOfDay _checkInTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay? _opensAt;
   TimeOfDay? _closesAt;
@@ -64,6 +64,20 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     } else if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
       _facilityImages = [widget.imageUrl!];
     }
+
+    final now = DateTime.now();
+    // Khởi tạo mặc định ngày nhận kho là hôm nay (nếu còn trước 20:00)
+    if (now.hour < 20) {
+      _startDate = DateTime(now.year, now.month, now.day);
+      int h = now.minute >= 45 ? now.hour + 2 : now.hour + 1;
+      if (h < 8) h = 8;
+      if (h >= 20) h = 19;
+      _checkInTime = TimeOfDay(hour: h, minute: 0);
+    } else {
+      _startDate = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
+      _checkInTime = const TimeOfDay(hour: 9, minute: 0);
+    }
+
     _loadUnitTypes();
     _loadFacilityHours();
   }
@@ -118,10 +132,26 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         if (open != null && close != null) {
           _opensAt = open;
           _closesAt = close;
-          final chosen = _checkInTime.hour * 60 + _checkInTime.minute;
-          final opens = open.hour * 60 + open.minute;
-          final closes = close.hour * 60 + close.minute;
-          if (chosen < opens || chosen >= closes) _checkInTime = open;
+          final now = DateTime.now();
+          final isToday = _startDate.year == now.year &&
+              _startDate.month == now.month &&
+              _startDate.day == now.day;
+          if (isToday) {
+            if (now.hour < close.hour) {
+              int h = now.minute >= 45 ? now.hour + 2 : now.hour + 1;
+              if (h < open.hour) h = open.hour;
+              if (h >= close.hour) h = close.hour - 1 >= open.hour ? close.hour - 1 : open.hour;
+              _checkInTime = TimeOfDay(hour: h, minute: 0);
+            } else {
+              _startDate = now.add(const Duration(days: 1));
+              _checkInTime = open;
+            }
+          } else {
+            final chosen = _checkInTime.hour * 60 + _checkInTime.minute;
+            final opens = open.hour * 60 + open.minute;
+            final closes = close.hour * 60 + close.minute;
+            if (chosen < opens || chosen >= closes) _checkInTime = open;
+          }
         }
       });
 
@@ -712,7 +742,11 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           onTap: () async {
             final picked = await showDatePicker(
               context: context,
-              initialDate: _startDate.isAfter(maxAllowedDate) ? maxAllowedDate : _startDate,
+              initialDate: _startDate.isAfter(maxAllowedDate)
+                  ? maxAllowedDate
+                  : (_startDate.isBefore(DateTime.now())
+                      ? DateTime.now()
+                      : _startDate),
               firstDate: DateTime.now(),
               lastDate: maxAllowedDate,
               builder: (ctx, child) => Theme(
@@ -724,7 +758,21 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
               ),
             );
             if (picked != null) {
-              setState(() => _startDate = picked);
+              setState(() {
+                _startDate = picked;
+                final now = DateTime.now();
+                final isPickedToday = picked.year == now.year &&
+                    picked.month == now.month &&
+                    picked.day == now.day;
+                if (isPickedToday && _isStartInPast(picked, _checkInTime)) {
+                  int h = now.minute >= 45 ? now.hour + 2 : now.hour + 1;
+                  final openH = _opensAt?.hour ?? 8;
+                  final closeH = _closesAt?.hour ?? 20;
+                  if (h < openH) h = openH;
+                  if (h >= closeH) h = closeH - 1 >= openH ? closeH - 1 : openH;
+                  _checkInTime = TimeOfDay(hour: h, minute: 0);
+                }
+              });
               _refreshQuote();
             }
           },
@@ -939,6 +987,11 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     final total = _quote!['totalRentalFee'];
     final deposit = _quote!['depositAmount'];
     final initial = _quote!['initialPaymentAmount'];
+    final depositPct = _facilityPolicy?['depositPercentage'] != null
+        ? (_facilityPolicy!['depositPercentage'] as num).toInt()
+        : (total is num && deposit is num && total > 0
+            ? ((deposit / total) * 100).round()
+            : 20);
 
     return Container(
       decoration: BoxDecoration(
@@ -983,7 +1036,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             ],
           ),
           const Divider(height: 20),
-          ..._quoteBreakdownLines(total, deposit),
+          ..._quoteBreakdownLines(total, deposit, depositPct),
           const Divider(height: 20),
           _quoteLine('💳 Cần thanh toán ngay', initial, isHighlight: true),
           const SizedBox(height: 10),
@@ -1014,28 +1067,28 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-              '* Khi kết thúc thuê chỉ hoàn lại tiền cọc. Tiền thuê và phí quản lý không được hoàn sau khi đã nhận kho.',
-              style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+          Text(
+              '* Khi kết thúc thuê chỉ hoàn lại tiền cọc ($depositPct%). Tiền thuê và phí quản lý không được hoàn sau khi đã nhận kho.',
+              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         ],
       ),
     );
   }
 
   /// Các dòng chi tiết lấy từ breakdown của BE: tiền thuê, giảm giá (nếu có), cọc, phí quản lý.
-  List<Widget> _quoteBreakdownLines(dynamic total, dynamic deposit) {
+  List<Widget> _quoteBreakdownLines(dynamic total, dynamic deposit, [int depositPct = 20]) {
     final items = (_quote!['breakdown'] as List?) ?? const [];
     if (items.isEmpty) {
       return [
         _quoteLine('Tiền thuê ($_rentalMonths tháng)', total),
         const SizedBox(height: 8),
-        _quoteLine('Tiền cọc (hoàn khi trả kho)', deposit),
+        _quoteLine('Tiền cọc ($depositPct% - hoàn khi trả kho)', deposit),
       ];
     }
-    const labels = {
+    final labels = {
       'RENTAL_FEE': 'Tiền thuê',
       'DISCOUNT': 'Ưu đãi thuê dài hạn',
-      'DEPOSIT': 'Tiền cọc (hoàn khi trả kho)',
+      'DEPOSIT': 'Tiền cọc ($depositPct% - hoàn khi trả kho)',
       'MANAGEMENT_FEE': 'Phí quản lý',
     };
     final widgets = <Widget>[];
@@ -1043,7 +1096,10 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       final item = Map<String, dynamic>.from(raw as Map);
       final type = item['feeType']?.toString() ?? '';
       final amount = item['totalAmount'];
-      final label = labels[type] ?? item['name']?.toString() ?? type;
+      String label = labels[type] ?? item['name']?.toString() ?? type;
+      if (type == 'DEPOSIT') {
+        label = 'Tiền cọc ($depositPct% - hoàn khi trả kho)';
+      }
       if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
       if (type == 'DISCOUNT' && amount is num) {
         widgets.add(Row(
@@ -1283,18 +1339,33 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
   }
 
   Future<bool?> _showLegalAgreementSheet() async {
-    final prohibitedRaw = _facilityPolicy?['prohibitedItems']?.toString() ??
-        'Chất dễ cháy nổ, bình gas, xăng dầu; Ma túy, chất kích thích, hóa chất độc hại; Động vật sống, thực phẩm tươi sống dễ thối rữa; Vũ khí, hàng lậu, pháo hoa; Hàng hóa có mùi nồng nặc gây ảnh hưởng kho xung quanh';
-    final termsRaw = _facilityPolicy?['termsAndConditions']?.toString() ??
-        '1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.\n5. Thời hạn hợp đồng và cước phí được tính từ Ngày bắt đầu thuê đã thỏa thuận. Việc nhận kho trễ hơn ngày hẹn không làm kéo dài thời hạn kết thúc hợp đồng hay giảm trừ tiền thuê.';
-    final termsVersion =
-        _facilityPolicy?['termsVersion']?.toString() ?? 'v2026.1';
+    final pStr = _facilityPolicy?['prohibitedItems']?.toString().trim();
+    final prohibitedRaw = (pStr != null && pStr.isNotEmpty)
+        ? pStr
+        : 'Chất dễ cháy nổ, bình gas, xăng dầu; Ma túy, chất kích thích, hóa chất độc hại; Động vật sống, thực phẩm tươi sống dễ thối rữa; Vũ khí, đạn dược, hàng cấm, pháo hoa; Hàng hóa có mùi nồng nặc gây ảnh hưởng kho xung quanh';
+
+    final tStr = _facilityPolicy?['termsAndConditions']?.toString().trim();
+    final termsRaw = (tStr != null && tStr.isNotEmpty)
+        ? tStr
+        : '1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n'
+          '2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n'
+          '3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n'
+          '4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.\n'
+          '5. Thời hạn hợp đồng và cước phí được tính từ Ngày bắt đầu thuê đã thỏa thuận. Việc nhận kho trễ hơn ngày hẹn không làm kéo dài thời hạn kết thúc hợp đồng hay giảm trừ tiền thuê.';
 
     final prohibitedItemsList = prohibitedRaw
         .split(RegExp(r'[;\n]'))
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .toList();
+
+    final total = _quote?['totalRentalFee'];
+    final deposit = _quote?['depositAmount'];
+    final depositPct = _facilityPolicy?['depositPercentage'] != null
+        ? (_facilityPolicy!['depositPercentage'] as num).toInt()
+        : (total is num && deposit is num && total > 0
+            ? ((deposit / total) * 100).round()
+            : 20);
 
     return showModalBottomSheet<bool>(
       context: context,
@@ -1343,7 +1414,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                             color: AppColors.primary.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.gavel_rounded,
+                          child: const Icon(Icons.description_outlined,
                               color: AppColors.primary, size: 22),
                         ),
                         const SizedBox(width: 12),
@@ -1352,7 +1423,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Thỏa thuận & Cam kết lưu kho',
+                                'Hợp đồng & Cam kết lưu kho',
                                 style: TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.bold,
@@ -1361,7 +1432,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                               ),
                               SizedBox(height: 2),
                               Text(
-                                'Xác nhận quy định an toàn trước khi đặt cọc',
+                                'Xác nhận hợp đồng & quy định an toàn trước khi đặt cọc',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.textSecondary,
@@ -1386,6 +1457,106 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Contract Overview Card
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: AppColors.primary.withValues(alpha: 0.25),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.assignment_outlined,
+                                            color: AppColors.primary, size: 18),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'HỢP ĐỒNG THUÊ KHO',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade50,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.green.shade200),
+                                      ),
+                                      child: Text(
+                                        'Hợp đồng điện tử',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green.shade800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  '• Cơ sở: ${widget.facilityName}',
+                                  style: const TextStyle(
+                                      fontSize: 12.5, color: AppColors.textPrimary),
+                                ),
+                                if (_selectedType != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '• Loại kho: ${_selectedType!.name} (${_selectedType!.dimensions} · ${_selectedType!.areaSqm} m²)',
+                                    style: const TextStyle(
+                                        fontSize: 12.5, color: AppColors.textPrimary),
+                                  ),
+                                ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  '• Ngày bắt đầu thuê: ${_formatDate(_startDate)} (giờ hẹn: ${_checkInTime.format(context)})',
+                                  style: const TextStyle(
+                                      fontSize: 12.5, color: AppColors.textPrimary),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '• Thời hạn hợp đồng: $_rentalMonths tháng',
+                                  style: const TextStyle(
+                                      fontSize: 12.5, color: AppColors.textPrimary),
+                                ),
+                                if (total != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '• Tiền thuê: ${_formatPrice(total is num ? total : null)}',
+                                    style: const TextStyle(
+                                        fontSize: 12.5, color: AppColors.textPrimary),
+                                  ),
+                                ],
+                                if (deposit != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '• Tiền cọc: ${_formatPrice(deposit is num ? deposit : null)} ($depositPct% tiền thuê - hoàn trả khi kết thúc hợp đồng)',
+                                    style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
                           // Prohibited Items Warning Card
                           Container(
                             padding: const EdgeInsets.all(14),
@@ -1458,38 +1629,22 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                const Row(
                                   children: [
-                                    const Text(
-                                      'Điều khoản dịch vụ lưu kho',
+                                    Icon(Icons.gavel_rounded,
+                                        size: 18, color: AppColors.primary),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Điều khoản hợp đồng thuê kho',
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                         color: AppColors.textPrimary,
                                       ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary
-                                            .withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        termsVersion,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                                    ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 10),
                                 Text(
                                   termsRaw,
                                   style: const TextStyle(
@@ -1566,12 +1721,12 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                                       });
                                     },
                                   ),
-                                  Expanded(
+                                  const Expanded(
                                     child: Padding(
-                                      padding: const EdgeInsets.only(top: 10),
+                                      padding: EdgeInsets.only(top: 10),
                                       child: Text(
-                                        'Tôi đã đọc, hiểu rõ và đồng ý với Điều khoản dịch vụ lưu kho StoreHub ($termsVersion).',
-                                        style: const TextStyle(
+                                        'Tôi đã đọc, hiểu rõ và đồng ý với Hợp đồng & Điều khoản dịch vụ lưu kho StoreHub.',
+                                        style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
                                           color: AppColors.textPrimary,
