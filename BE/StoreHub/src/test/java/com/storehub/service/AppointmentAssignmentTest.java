@@ -56,8 +56,8 @@ class AppointmentAssignmentTest {
 
         AppException error = assertThrows(AppException.class,
                 () -> operations.checkOut(bookingId, facilityId, "caller@test.com",
-                        HandoverRequest.builder().unitCondition("Good")
-                                .lockCondition("Working").build()));
+                        HandoverRequest.builder().unitCondition(com.storehub.enums.HandoverUnitCondition.GOOD)
+                                .lockCondition(com.storehub.enums.HandoverLockCondition.LOCKED_WORKING).build()));
         assertEquals(ErrorCode.HANDOVER_ASSIGNED_TO_ANOTHER_STAFF, error.getErrorCode());
     }
 

@@ -265,6 +265,7 @@ public class FacilityOperationsServiceImpl
             String staffEmail,
             HandoverRequest request
     ) {
+        validateHandoverConditions(request);
         User staff = facilityAccess.require(
                 staffEmail,
                 facilityId
@@ -362,7 +363,7 @@ public class FacilityOperationsServiceImpl
                 booking,
                 storageUnit,
                 record,
-                request.getLockCondition(),
+                request.getLockCondition().getLabel(),
                 staff,
                 "Check-in completed successfully"
         );
@@ -376,6 +377,7 @@ public class FacilityOperationsServiceImpl
             String staffEmail,
             HandoverRequest request
     ) {
+        validateHandoverConditions(request);
         User staff = facilityAccess.require(
                 staffEmail,
                 facilityId
@@ -491,7 +493,7 @@ public class FacilityOperationsServiceImpl
                 booking,
                 storageUnit,
                 record,
-                request.getLockCondition(),
+                request.getLockCondition().getLabel(),
                 staff,
                 message
         );
@@ -573,15 +575,15 @@ public class FacilityOperationsServiceImpl
         return "Storage unit status updated successfully";
     }
 
+    private void validateHandoverConditions(HandoverRequest request) {
+        if (request == null || request.getUnitCondition() == null || request.getLockCondition() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+    }
+
     private boolean notReadyForHandover(HandoverRequest request) {
-        String unit = request.getUnitCondition() == null
-                ? "" : request.getUnitCondition().toLowerCase();
-        String lock = request.getLockCondition() == null
-                ? "" : request.getLockCondition().toLowerCase();
-        return unit.contains("hư hỏng")
-                || unit.contains("vệ sinh")
-                || lock.contains("hỏng")
-                || lock.contains("chưa khóa");
+        return request.getUnitCondition() != com.storehub.enums.HandoverUnitCondition.GOOD
+                || request.getLockCondition() != com.storehub.enums.HandoverLockCondition.LOCKED_WORKING;
     }
 
     private HandoverResponse rejectHandover(
@@ -616,7 +618,7 @@ public class FacilityOperationsServiceImpl
                 booking,
                 storageUnit,
                 record,
-                request.getLockCondition(),
+                request.getLockCondition().getLabel(),
                 staff,
                 "Ngăn " + storageUnit.getUnitCode()
                         + " chưa thể bàn giao và đã chuyển sang trạng thái cần kiểm tra/bảo trì. "
@@ -628,9 +630,9 @@ public class FacilityOperationsServiceImpl
             HandoverRequest request
     ) {
         return "Unit: "
-                + request.getUnitCondition()
+                + request.getUnitCondition().getLabel()
                 + " | Lock: "
-                + request.getLockCondition();
+                + request.getLockCondition().getLabel();
     }
 
     private LocalDateTime checkInTime(Booking booking) {

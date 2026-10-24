@@ -135,8 +135,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   ) async {
     final bool isCheckIn = item.isCheckIn;
 
-    String unitCondition = 'Tốt / sạch sẽ';
-    String lockCondition = 'Đã khóa & hoạt động tốt';
+    String unitCondition = 'GOOD';
+    String lockCondition = 'LOCKED_WORKING';
 
     final notesController = TextEditingController();
     final damageFeeController = TextEditingController();
@@ -160,8 +160,8 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
             final bool handoverBlocked = isCheckIn &&
-                (unitCondition != 'Tốt / sạch sẽ' ||
-                    lockCondition != 'Đã khóa & hoạt động tốt');
+                (unitCondition != 'GOOD' ||
+                    lockCondition != 'LOCKED_WORKING');
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(
@@ -233,15 +233,15 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       initialValue: unitCondition,
                       items: const [
                         DropdownMenuItem(
-                          value: 'Tốt / sạch sẽ',
+                          value: 'GOOD',
                           child: Text('Tốt / sạch'),
                         ),
                         DropdownMenuItem(
-                          value: 'Cần vệ sinh',
+                          value: 'NEEDS_CLEANING',
                           child: Text('Cần vệ sinh'),
                         ),
                         DropdownMenuItem(
-                          value: 'Hư hỏng',
+                          value: 'DAMAGED',
                           child: Text('Hư hỏng'),
                         ),
                       ],
@@ -268,17 +268,17 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       initialValue: lockCondition,
                       items: const [
                         DropdownMenuItem(
-                          value: 'Đã khóa & hoạt động tốt',
+                          value: 'LOCKED_WORKING',
                           child: Text(
                             'Khóa hoạt động tốt',
                           ),
                         ),
                         DropdownMenuItem(
-                          value: 'Chưa khóa',
+                          value: 'UNLOCKED',
                           child: Text('Chưa khóa'),
                         ),
                         DropdownMenuItem(
-                          value: 'Hỏng / cần sửa chữa',
+                          value: 'BROKEN',
                           child: Text(
                             'Hỏng / cần sửa',
                           ),
@@ -335,9 +335,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                       ),
                     ],
                     if (!isCheckIn &&
-                        (unitCondition == 'Hư hỏng' ||
-                            unitCondition == 'Cần vệ sinh' ||
-                            lockCondition == 'Hỏng / cần sửa chữa')) ...[
+                        (unitCondition == 'DAMAGED' ||
+                            unitCondition == 'NEEDS_CLEANING' ||
+                            lockCondition == 'BROKEN')) ...[
                       const SizedBox(height: 14),
                       Container(
                         padding: const EdgeInsets.all(12),

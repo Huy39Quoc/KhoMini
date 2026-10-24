@@ -1,7 +1,9 @@
 package com.storehub.dto.request;
 
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import com.storehub.enums.HandoverUnitCondition;
+import com.storehub.enums.HandoverLockCondition;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,11 +18,11 @@ import java.util.List;
 @AllArgsConstructor
 public class HandoverRequest {
 
-    @NotBlank(message = "Vui lòng chọn tình trạng ngăn kho")
-    private String unitCondition;
+    @NotNull(message = "Vui lòng chọn tình trạng ngăn kho")
+    private HandoverUnitCondition unitCondition;
 
-    @NotBlank(message = "Vui lòng chọn tình trạng khóa")
-    private String lockCondition;
+    @NotNull(message = "Vui lòng chọn tình trạng khóa")
+    private HandoverLockCondition lockCondition;
 
     private String notes;
 
