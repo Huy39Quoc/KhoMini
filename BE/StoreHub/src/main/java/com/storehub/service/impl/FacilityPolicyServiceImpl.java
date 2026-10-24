@@ -55,6 +55,13 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public FacilityPolicyResponse getForBooking(UUID facilityId) {
+        return facilityPolicyMapper.toResponse(facilityPolicyRepository.lockByFacilityId(facilityId)
+                .orElseThrow(() -> new AppException(ErrorCode.TERMS_NOT_AVAILABLE)));
+    }
+
+    @Override
     public FacilityPolicyResponse create(FacilityPolicyCreateRequest request) {
         if (request.getCancellationFullRefundHours() != null
                 && request.getCancellationPartialRefundHours() != null
@@ -108,8 +115,17 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
 
     @Override
     public FacilityPolicyResponse update(UUID id, FacilityPolicyUpdateRequest request) {
-        FacilityPolicy policy = facilityPolicyRepository.findById(id)
+        FacilityPolicy policy = facilityPolicyRepository.lockById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_POLICY_NOT_FOUND));
+
+        boolean textChanged = (request.getTermsAndConditions() != null
+                && !request.getTermsAndConditions().equals(policy.getTermsAndConditions()))
+                || (request.getProhibitedItems() != null
+                && !request.getProhibitedItems().equals(policy.getProhibitedItems()));
+        if (textChanged && (request.getTermsVersion() == null || request.getTermsVersion().isBlank()
+                || request.getTermsVersion().equals(policy.getTermsVersion()))) {
+            throw new AppException(ErrorCode.TERMS_VERSION_REQUIRED);
+        }
 
         int fullHours = request.getCancellationFullRefundHours() != null
                 ? request.getCancellationFullRefundHours()

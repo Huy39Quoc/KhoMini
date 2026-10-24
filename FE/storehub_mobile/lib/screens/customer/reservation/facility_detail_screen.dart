@@ -1260,7 +1260,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       '(trong giờ mở cửa) hoặc chọn ngày bắt đầu khác.';
 
   Future<void> _handleReserve() async {
-    if (_selectedType == null || _quote == null) return;
+    if (_isBooking || _selectedType == null || _quote == null) return;
 
     if (_isStartInPast(_startDate, _checkInTime)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1272,14 +1272,19 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
       return;
     }
 
-    // Hiển thị BottomSheet ký cam kết hàng cấm & điều khoản dịch vụ lưu kho
-    final agreed = await _showLegalAgreementSheet();
-    if (agreed != true) return;
-
     setState(() => _isBooking = true);
     try {
-      final termsVersion =
-          _facilityPolicy?['termsVersion']?.toString() ?? 'v2026.1';
+      final policy = await _catalogService.getFacilityPolicy(widget.facilityId);
+      if (!mounted) return;
+      final termsVersion = policy?['termsVersion']?.toString() ?? '';
+      final termsHash = policy?['termsHash']?.toString() ?? '';
+      if (policy == null || termsVersion.trim().isEmpty || termsHash.isEmpty ||
+          (policy['termsAndConditions']?.toString().trim().isEmpty ?? true) ||
+          (policy['prohibitedItems']?.toString().trim().isEmpty ?? true)) {
+        throw Exception('Không tải được điều khoản hiện hành của cơ sở. Vui lòng thử lại sau.');
+      }
+      final agreed = await _showLegalAgreementSheet(policy);
+      if (!mounted || agreed != true) return;
       final booking = await _bookingService.createBooking(
         facilityId: widget.facilityId,
         unitTypeId: _selectedType!.id,
@@ -1290,6 +1295,7 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
         prohibitedItemsConfirmed: true,
         termsConfirmed: true,
         termsVersion: termsVersion,
+        termsHash: termsHash,
       );
       if (!mounted) return;
 
@@ -1338,21 +1344,9 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
     }
   }
 
-  Future<bool?> _showLegalAgreementSheet() async {
-    final pStr = _facilityPolicy?['prohibitedItems']?.toString().trim();
-    final prohibitedRaw = (pStr != null && pStr.isNotEmpty)
-        ? pStr
-        : 'Chất dễ cháy nổ, bình gas, xăng dầu; Ma túy, chất kích thích, hóa chất độc hại; Động vật sống, thực phẩm tươi sống dễ thối rữa; Vũ khí, đạn dược, hàng cấm, pháo hoa; Hàng hóa có mùi nồng nặc gây ảnh hưởng kho xung quanh';
-
-    final tStr = _facilityPolicy?['termsAndConditions']?.toString().trim();
-    final termsRaw = (tStr != null && tStr.isNotEmpty)
-        ? tStr
-        : '1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n'
-          '2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n'
-          '3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n'
-          '4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.\n'
-          '5. Thời hạn hợp đồng và cước phí được tính từ Ngày bắt đầu thuê đã thỏa thuận. Việc nhận kho trễ hơn ngày hẹn không làm kéo dài thời hạn kết thúc hợp đồng hay giảm trừ tiền thuê.';
-
+  Future<bool?> _showLegalAgreementSheet(Map<String, dynamic> policy) async {
+    final prohibitedRaw = policy['prohibitedItems'].toString();
+    final termsRaw = policy['termsAndConditions'].toString();
     final prohibitedItemsList = prohibitedRaw
         .split(RegExp(r'[;\n]'))
         .map((s) => s.trim())
@@ -1361,8 +1355,8 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
 
     final total = _quote?['totalRentalFee'];
     final deposit = _quote?['depositAmount'];
-    final depositPct = _facilityPolicy?['depositPercentage'] != null
-        ? (_facilityPolicy!['depositPercentage'] as num).toInt()
+    final depositPct = policy['depositPercentage'] != null
+        ? (policy['depositPercentage'] as num).toInt()
         : (total is num && deposit is num && total > 0
             ? ((deposit / total) * 100).round()
             : 20);

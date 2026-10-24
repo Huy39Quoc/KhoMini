@@ -117,6 +117,10 @@ public enum ErrorCode {
     FACILITY_CODE_EXISTED(1001, "Mã cơ sở đã tồn tại", HttpStatus.BAD_REQUEST),
     INVALID_MANAGER_TO_ASSIGN(1002,"Người được chọn không hợp lệ để làm quản lý cơ sở này",HttpStatus.BAD_REQUEST),
     FACILITY_NOT_ACTIVE(1003, "Cơ sở này hiện không nhận đặt kho mới", HttpStatus.CONFLICT),
+    TERMS_NOT_AVAILABLE(736, "Cơ sở chưa công bố đầy đủ điều khoản và danh mục hàng cấm. Vui lòng thử lại sau", HttpStatus.CONFLICT),
+    TERMS_CHANGED(737, "Điều khoản đã thay đổi hoặc chưa được xác nhận. Vui lòng mở lại và đồng ý điều khoản hiện hành", HttpStatus.CONFLICT),
+    TERMS_VERSION_REQUIRED(738, "Khi sửa nội dung điều khoản hoặc danh mục hàng cấm, hãy sử dụng phiên bản điều khoản mới", HttpStatus.BAD_REQUEST),
+
     // ========================= FACILITY_POLICY (1100 - 1199) =========================
     FACILITY_POLICY_NOT_FOUND(1100, "Không tìm thấy chính sách của cơ sở", HttpStatus.NOT_FOUND),
     FACILITY_POLICY_ALREADY_EXISTS(1101, "Cơ sở này đã có chính sách", HttpStatus.BAD_REQUEST),

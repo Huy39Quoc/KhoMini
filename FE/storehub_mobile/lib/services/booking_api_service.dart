@@ -34,7 +34,8 @@ class BookingApiService {
     required int rentalMonths,
     bool prohibitedItemsConfirmed = true,
     bool termsConfirmed = true,
-    String? termsVersion,
+    required String termsVersion,
+    required String termsHash,
   }) async {
     try {
       final response = await _http.post(
@@ -47,8 +48,8 @@ class BookingApiService {
           'rentalMonths': rentalMonths,
           'prohibitedItemsConfirmed': prohibitedItemsConfirmed,
           'termsConfirmed': termsConfirmed,
-          if (termsVersion != null && termsVersion.isNotEmpty)
-            'termsVersion': termsVersion,
+          'termsVersion': termsVersion,
+          'termsHash': termsHash,
         },
       );
       return _unwrapMap(response.data);

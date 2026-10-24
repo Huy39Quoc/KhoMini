@@ -170,6 +170,15 @@ public class Booking extends BaseEntity {
     @Column(name = "terms_accepted_at")
     private LocalDateTime termsAcceptedAt;
 
-    @Column(name = "terms_version", length = 30)
+    @Column(name = "terms_version", length = 30, updatable = false)
     private String termsVersion;
+
+    @Column(columnDefinition = "TEXT", updatable = false)
+    private String termsContentSnapshot;
+
+    @Column(columnDefinition = "TEXT", updatable = false)
+    private String prohibitedItemsSnapshot;
+
+    @Column(length = 64, updatable = false)
+    private String termsHash;
 }

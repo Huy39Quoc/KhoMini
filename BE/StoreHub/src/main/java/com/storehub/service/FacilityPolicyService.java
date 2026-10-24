@@ -41,6 +41,8 @@ public interface FacilityPolicyService {
 
     FacilityPolicyResponse getByFacilityId(UUID facilityId);
 
+    FacilityPolicyResponse getForBooking(UUID facilityId);
+
     FacilityPolicyResponse create(FacilityPolicyCreateRequest request);
 
     FacilityPolicyResponse update(

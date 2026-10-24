@@ -105,6 +105,10 @@ class ReservationDatabaseFlowTest {
         mvc.perform(get("/api/v1/catalog/facilities"))
                 .andExpect(status().isOk());
 
+        String policyBody = mvc.perform(get("/api/v1/facility-policies/by-facility/" + available.get("facility_id"))
+                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        JsonNode acceptedPolicy = json.readTree(policyBody).path("data");
         String booked = mvc.perform(post("/api/v1/bookings")
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -114,7 +118,9 @@ class ReservationDatabaseFlowTest {
                         "startDate", LocalDate.now().plusDays(2).toString(),
                         "rentalMonths", 1,
                         "prohibitedItemsConfirmed", true,
-                        "termsConfirmed", true))))
+                        "termsConfirmed", true,
+                        "termsVersion", acceptedPolicy.path("termsVersion").asText(),
+                        "termsHash", acceptedPolicy.path("termsHash").asText()))))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         JsonNode booking = json.readTree(booked).path("data");
         UUID bookingId = UUID.fromString(booking.path("id").asText());

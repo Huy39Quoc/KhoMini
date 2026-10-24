@@ -99,22 +99,15 @@ public class BookingServiceImpl implements BookingService {
             throw new AppException(ErrorCode.TERMS_AND_CONDITIONS_REQUIRED);
         }
 
-        FacilityPolicyResponse cancellationPolicy = null;
-        try {
-            cancellationPolicy = facilityPolicyService.getByFacilityId(request.getFacilityId());
-        } catch (AppException ex) {
-            if (ex.getErrorCode() != ErrorCode.FACILITY_POLICY_NOT_FOUND) throw ex;
+        FacilityPolicyResponse cancellationPolicy = facilityPolicyService.getForBooking(request.getFacilityId());
+        if (cancellationPolicy == null || cancellationPolicy.getTermsHash() == null) {
+            throw new AppException(ErrorCode.TERMS_NOT_AVAILABLE);
+        }
+        if (!cancellationPolicy.getTermsVersion().equals(request.getTermsVersion())
+                || !cancellationPolicy.getTermsHash().equals(request.getTermsHash())) {
+            throw new AppException(ErrorCode.TERMS_CHANGED);
         }
         LocalDateTime policyCapturedAt = LocalDateTime.now();
-        String resolvedTermsVersion = request.getTermsVersion();
-        if (resolvedTermsVersion == null || resolvedTermsVersion.isBlank()) {
-            try {
-                resolvedTermsVersion = cancellationPolicy != null ? cancellationPolicy.getTermsVersion() : "v2026.1";
-            } catch (Exception ignored) {
-                resolvedTermsVersion = "v2026.1";
-            }
-        }
-
         StorageUnit selectedUnit = storageUnitRepository
                 .claimAvailableUnitId(
                         request.getFacilityId(),
@@ -146,9 +139,9 @@ public class BookingServiceImpl implements BookingService {
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(BOOKING_EXPIRY_MINUTES);
 
         Booking booking = Booking.builder()
-                .cancellationFullRefundHours(cancellationPolicy != null ? cancellationPolicy.getCancellationFullRefundHours() : Integer.MIN_VALUE)
-                .cancellationPartialRefundHours(cancellationPolicy != null ? cancellationPolicy.getCancellationPartialRefundHours() : Integer.MIN_VALUE)
-                .cancellationPartialRefundPercent(cancellationPolicy != null ? cancellationPolicy.getCancellationPartialRefundPercent() : 100.0)
+                .cancellationFullRefundHours(cancellationPolicy.getCancellationFullRefundHours())
+                .cancellationPartialRefundHours(cancellationPolicy.getCancellationPartialRefundHours())
+                .cancellationPartialRefundPercent(cancellationPolicy.getCancellationPartialRefundPercent())
                 .cancellationPolicyEffectiveAt(cancellationPolicy != null && cancellationPolicy.getCancellationPolicyEffectiveAt() != null
                         ? cancellationPolicy.getCancellationPolicyEffectiveAt() : policyCapturedAt)
                 .cancellationPolicyCapturedAt(policyCapturedAt)
@@ -170,7 +163,10 @@ public class BookingServiceImpl implements BookingService {
                 .prohibitedItemsAccepted(true)
                 .termsAccepted(true)
                 .termsAcceptedAt(LocalDateTime.now())
-                .termsVersion(resolvedTermsVersion)
+                .termsVersion(cancellationPolicy.getTermsVersion())
+                .termsContentSnapshot(cancellationPolicy.getTermsAndConditions())
+                .prohibitedItemsSnapshot(cancellationPolicy.getProhibitedItems())
+                .termsHash(cancellationPolicy.getTermsHash())
                 .build();
 
         Booking savedBooking = bookingRepository.save(booking);
