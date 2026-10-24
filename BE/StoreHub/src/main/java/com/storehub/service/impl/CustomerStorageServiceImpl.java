@@ -375,20 +375,20 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
             throw new AppException(ErrorCode.RETURN_NOTICE_NOT_SATISFIED);
         }
 
+        if (request.getBankAccountNumber() == null || request.getBankAccountNumber().isBlank()
+                || request.getBankCode() == null || request.getBankCode().isBlank()
+                || request.getBankAccountName() == null || request.getBankAccountName().isBlank()) {
+            throw new AppException(ErrorCode.REFUND_BANK_INFO_REQUIRED);
+        }
+
         if (!request.getScheduledReturnTime().equals(booking.getScheduledReturnTime())) {
             // Lịch cũ đã giao cho nhân viên không tự động chuyển sang giờ mới.
             booking.setAssignedCheckOutStaff(null);
         }
         booking.setScheduledReturnTime(request.getScheduledReturnTime());
-        if (request.getBankCode() != null && !request.getBankCode().isBlank()) {
-            booking.setRefundBankCode(request.getBankCode().trim());
-        }
-        if (request.getBankAccountNumber() != null && !request.getBankAccountNumber().isBlank()) {
-            booking.setRefundAccountNumber(request.getBankAccountNumber().trim());
-        }
-        if (request.getBankAccountName() != null && !request.getBankAccountName().isBlank()) {
-            booking.setRefundAccountName(request.getBankAccountName().trim());
-        }
+        booking.setRefundBankCode(request.getBankCode().trim());
+        booking.setRefundAccountNumber(request.getBankAccountNumber().trim());
+        booking.setRefundAccountName(request.getBankAccountName().trim());
         bookingRepository.save(booking);
 
         activityLogService.record(customerId, ActivityAction.CHECKOUT_REQUEST, "BOOKING", booking.getId(),

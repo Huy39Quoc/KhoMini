@@ -744,7 +744,9 @@ class _PaymentScreenState extends State<PaymentScreen>
           const Divider(height: 16),
           _summaryRow(
               icon: Icons.shield_outlined,
-              label: 'Tiền cọc (được hoàn)',
+              label: widget.totalRentalFee > 0
+                  ? 'Tiền cọc (${((widget.depositAmount / widget.totalRentalFee) * 100).round()}% - được hoàn)'
+                  : 'Tiền cọc (được hoàn)',
               value: _formatPrice(widget.depositAmount)),
           if (widget.totalExtraFees > 0) ...[
             const Divider(height: 16),

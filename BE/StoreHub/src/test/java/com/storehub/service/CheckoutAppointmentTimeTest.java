@@ -72,6 +72,48 @@ class CheckoutAppointmentTimeTest {
     }
 
     @Test
+    void rejectsCheckoutWithoutBankInfo() {
+        UUID bookingId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        String customerEmail = "customer@test.com";
+
+        Facility facility = Facility.builder()
+                .openTime(LocalTime.of(8, 0))
+                .closeTime(LocalTime.of(20, 0))
+                .build();
+        facility.setId(UUID.randomUUID());
+
+        StorageUnit unit = StorageUnit.builder()
+                .facility(facility)
+                .build();
+
+        Booking booking = Booking.builder()
+                .bookingCode("BK-102")
+                .status(BookingStatus.ACTIVE)
+                .storageUnit(unit)
+                .build();
+        booking.setId(bookingId);
+
+        User user = new User();
+        user.setId(customerId);
+
+        when(userRepository.findByEmail(customerEmail)).thenReturn(Optional.of(user));
+        when(bookingRepository.lockByIdAndCustomerId(bookingId, customerId)).thenReturn(Optional.of(booking));
+        when(facilityPolicyService.isReturnNoticeSatisfied(any(), any())).thenReturn(true);
+
+        CheckoutRequest request = new CheckoutRequest();
+        LocalDateTime validTime = LocalDateTime.now().plusDays(1).withHour(9).withMinute(0);
+        request.setScheduledReturnTime(validTime);
+        // Bank details left null
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.requestCheckout(bookingId, customerEmail, request));
+
+        assertEquals(ErrorCode.REFUND_BANK_INFO_REQUIRED, ex.getErrorCode());
+        assertEquals("Vui lòng cung cấp đầy đủ thông tin tài khoản ngân hàng để nhận hoàn tiền cọc", ex.getErrorCode().getMessage());
+    }
+
+    @Test
     void acceptsCheckoutWithinFacilityHours() {
         UUID bookingId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
