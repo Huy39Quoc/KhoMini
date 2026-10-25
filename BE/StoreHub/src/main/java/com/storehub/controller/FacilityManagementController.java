@@ -22,6 +22,16 @@ import java.util.UUID;
 public class FacilityManagementController {
 
     private final FacilityManagementService service;
+    private final com.storehub.service.HandoverIssueService handoverIssues;
+
+    @PostMapping("/{facilityId}/bookings/{bookingId}/handover-issue")
+    @PreAuthorize("hasRole('FACILITY_MANAGER') and hasAuthority('BOOKING_UPDATE')")
+    public ApiResponse<Void> resolveHandoverIssue(@PathVariable UUID facilityId, @PathVariable UUID bookingId,
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody com.storehub.dto.request.HandoverIssueResolutionRequest request) {
+        handoverIssues.resolve(facilityId, bookingId, principal.getUsername(), request);
+        return ApiResponse.success("Đã ghi nhận phương án xử lý sự cố bàn giao", null);
+    }
 
     @GetMapping("/my-facility")
     @PreAuthorize("hasAnyRole('STAFF', 'FACILITY_MANAGER') and hasAuthority('FACILITY_VIEW')")

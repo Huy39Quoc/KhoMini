@@ -223,6 +223,15 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             """)
     List<UUID> findExpiredUnclaimedBookingIds(@Param("today") LocalDate today);
 
+    @Query("""
+            SELECT b.id FROM Booking b WHERE b.status = com.storehub.enums.BookingStatus.CONFIRMED
+            AND b.handoverIssueStatus IN (com.storehub.enums.HandoverIssueStatus.OPEN,
+                com.storehub.enums.HandoverIssueStatus.ARRANGED)
+            AND b.handoverIssueDueAt <= :now AND b.handoverTime IS NULL
+            AND b.handedOverByStaffId IS NULL
+            """)
+    List<UUID> findOverdueHandoverIssueIds(@Param("now") LocalDateTime now);
+
     long countByStorageUnit_Facility_IdAndStatusAndOverdueDetectedAtIsNotNull(
             UUID facilityId,
             BookingStatus status

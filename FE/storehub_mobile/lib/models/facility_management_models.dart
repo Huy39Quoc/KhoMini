@@ -108,6 +108,10 @@ class FacilityBookingModel {
   final String status;
   final bool unitAssignmentConfirmed;
   final String unitStatus;
+  final String handoverIssueStatus;
+  final String handoverIssueReason;
+  final String handoverIssueDueAt;
+  final String handoverIssueResolutionNote;
 
   const FacilityBookingModel({
     required this.id,
@@ -123,7 +127,14 @@ class FacilityBookingModel {
     required this.status,
     required this.unitAssignmentConfirmed,
     this.unitStatus = '',
+    this.handoverIssueStatus = '',
+    this.handoverIssueReason = '',
+    this.handoverIssueDueAt = '',
+    this.handoverIssueResolutionNote = '',
   });
+
+  bool get hasHandoverIssue =>
+      handoverIssueStatus == 'OPEN' || handoverIssueStatus == 'ARRANGED';
 
   /// Ngăn hiện tại đang cần kiểm tra/bảo trì (nhân viên từ chối bàn giao).
   bool get unitNeedsInspection =>

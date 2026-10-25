@@ -125,6 +125,10 @@ class FacilityManagementMapper {
       status: _text(json['status']),
       unitAssignmentConfirmed: json['unitAssignmentConfirmed'] == true,
       unitStatus: _text(json['unitStatus']),
+      handoverIssueStatus: _text(json['handoverIssueStatus']),
+      handoverIssueReason: _text(json['handoverIssueReason']),
+      handoverIssueDueAt: _text(json['handoverIssueDueAt']),
+      handoverIssueResolutionNote: _text(json['handoverIssueResolutionNote']),
     );
   }
 

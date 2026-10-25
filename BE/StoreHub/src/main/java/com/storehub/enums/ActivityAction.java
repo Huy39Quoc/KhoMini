@@ -35,7 +35,7 @@ public enum ActivityAction {
     CONTRACT_CREATE(true), CONTRACT_SIGNED(true),
 
     // Check-in / Handover / Access
-    CHECKIN_VERIFIED(false), HANDOVER_COMPLETE(true),
+    CHECKIN_VERIFIED(false), HANDOVER_COMPLETE(true), HANDOVER_ISSUE_UPDATE(true),
     ACCESS_CREDENTIAL_ISSUE(true), ACCESS_CREDENTIAL_UPDATE(false), ACCESS_CREDENTIAL_REVOKE(true),
     MASTER_KEY_OVERRIDE(true),
     UNIT_UNLOCKED(false), UNIT_LOCKED(false),

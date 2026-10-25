@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/facility_management_models.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
+import 'handover_issue_resolution_dialog.dart';
 
 class BookingAssignmentScreen extends StatefulWidget {
   final String facilityId;
@@ -44,8 +45,7 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
 
     try {
       await _bookingsFuture;
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   /// Cho quản lý đọc lý do nhân viên từ chối bàn giao ngăn này.
@@ -68,8 +68,7 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
         if (record == null) 'Chưa có biên bản từ chối bàn giao cho đơn này.',
         if (record != null && record.unitCondition.isNotEmpty)
           'Tình trạng: ${record.unitCondition}',
-        if (record != null && record.notes.isNotEmpty)
-          'Mô tả: ${record.notes}',
+        if (record != null && record.notes.isNotEmpty) 'Mô tả: ${record.notes}',
         if (record != null && record.staffName.isNotEmpty)
           'Nhân viên: ${record.staffName}',
         if (time != null)
@@ -91,6 +90,27 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
     } catch (error) {
       if (!mounted) return;
       _showError(_errorMessage(error));
+    }
+  }
+
+  Future<void> _resolveIssue(FacilityBookingModel booking) async {
+    try {
+      final units = await _opsService.getFacilityUnits(widget.facilityId);
+      if (!mounted) return;
+      final request = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (_) =>
+            HandoverIssueResolutionDialog(booking: booking, units: units),
+      );
+      if (request == null) return;
+      await _opsService.resolveHandoverIssue(
+          widget.facilityId, booking.id, request);
+      if (!mounted) return;
+      _loadBookings();
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã ghi nhận phương án xử lý sự cố')));
+    } catch (error) {
+      if (mounted) _showError(_errorMessage(error));
     }
   }
 
@@ -156,7 +176,8 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
               children: [
                 Text(
                   booking.unitAssignmentConfirmed
-                      ? 'Đổi ngăn kho đã chọn' : 'Chọn ngăn kho cụ thể',
+                      ? 'Đổi ngăn kho đã chọn'
+                      : 'Chọn ngăn kho cụ thể',
                   style: Theme.of(sheetContext).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
@@ -207,7 +228,8 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                               return;
                             }
 
-                            _showSuccess('Đã chọn ngăn ${unit.unitCode} cho đơn.');
+                            _showSuccess(
+                                'Đã chọn ngăn ${unit.unitCode} cho đơn.');
                             _loadBookings();
                           } catch (error) {
                             if (!sheetContext.mounted) {
@@ -292,7 +314,8 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                   AppEmptyState(
                     icon: Icons.assignment_turned_in_outlined,
                     title: 'Chưa có booking cần xác nhận',
-                    message: 'Booking đã thanh toán sẽ hiện ở đây để bạn xác nhận ngăn kho.',
+                    message:
+                        'Booking đã thanh toán sẽ hiện ở đây để bạn xác nhận ngăn kho.',
                   ),
                 ],
               ),
@@ -350,6 +373,16 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
+                        if (booking.hasHandoverIssue) ...[
+                          Text('Sự cố cơ sở: ${booking.handoverIssueReason}',
+                              style: const TextStyle(color: AppColors.error)),
+                          Text(
+                              'Hạn xử lý / chờ bàn giao: ${booking.handoverIssueDueAt.replaceAll('T', ' ')}'),
+                          if (booking.handoverIssueResolutionNote.isNotEmpty)
+                            Text(booking.handoverIssueResolutionNote),
+                          const Text('Khách không bị áp phí hủy do lỗi cơ sở.',
+                              style: TextStyle(fontSize: 12)),
+                        ],
                         if (booking.unitNeedsInspection)
                           Container(
                             width: double.infinity,
@@ -391,17 +424,28 @@ class _BookingAssignmentScreenState extends State<BookingAssignmentScreen> {
                                 onPressed: () => _showRejectionReason(booking),
                                 child: const Text('Xem lý do'),
                               ),
-                            OutlinedButton.icon(
-                            onPressed: () {
-                              _openUnitSelector(booking);
-                            },
-                            icon:  Icon(
-                              (booking.unitAssignmentConfirmed || booking.unitNeedsInspection)
-                                  ? Icons.swap_horiz : Icons.assignment_turned_in_outlined,
-                            ),
-                            label: Text((booking.unitAssignmentConfirmed || booking.unitNeedsInspection)
-                                ? 'Đổi ngăn' : 'Xác nhận ngăn'),
-                          ),
+                            if (booking.hasHandoverIssue)
+                              FilledButton.icon(
+                                onPressed: () => _resolveIssue(booking),
+                                icon: const Icon(Icons.build_circle_outlined),
+                                label: const Text('Xử lý sự cố'),
+                              )
+                            else
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  _openUnitSelector(booking);
+                                },
+                                icon: Icon(
+                                  (booking.unitAssignmentConfirmed ||
+                                          booking.unitNeedsInspection)
+                                      ? Icons.swap_horiz
+                                      : Icons.assignment_turned_in_outlined,
+                                ),
+                                label: Text((booking.unitAssignmentConfirmed ||
+                                        booking.unitNeedsInspection)
+                                    ? 'Đổi ngăn'
+                                    : 'Xác nhận ngăn'),
+                              ),
                           ],
                         ),
                       ],

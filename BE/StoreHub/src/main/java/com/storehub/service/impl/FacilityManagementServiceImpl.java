@@ -182,6 +182,10 @@ public class FacilityManagementServiceImpl
         Booking booking = bookings.lockById(bookingId)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
+        if (booking.getHandoverIssueReportedAt() != null) {
+            throw new AppException(ErrorCode.HANDOVER_ISSUE_RESOLUTION_REQUIRED);
+        }
+
         StorageUnit oldUnit = booking.getStorageUnit();
 
         if (oldUnit == null
@@ -605,7 +609,10 @@ public class FacilityManagementServiceImpl
                 unitType.getTypeName(),
                 booking.getStatus(),
                 Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()),
-                unit.getStatus() != null ? unit.getStatus().name() : null
+                unit.getStatus() != null ? unit.getStatus().name() : null,
+                booking.getHandoverIssueStatus() != null ? booking.getHandoverIssueStatus().name() : null,
+                booking.getHandoverIssueReason(), booking.getHandoverIssueDueAt(),
+                booking.getScheduledCheckInTime(), booking.getHandoverIssueResolutionNote()
         );
     }
 

@@ -197,7 +197,13 @@ class FacilityOperationsReturnScheduleTest {
         assertEquals(ready ? UnitStatus.OCCUPIED : UnitStatus.UNDER_MAINTENANCE, unit.getStatus());
         assertEquals(ready, Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()));
         if (ready) assertNotNull(booking.getHandoverTime());
-        else assertNull(booking.getHandoverTime());
+        else {
+            assertNull(booking.getHandoverTime());
+            assertEquals(com.storehub.enums.HandoverIssueStatus.OPEN, booking.getHandoverIssueStatus());
+            assertNotNull(booking.getHandoverIssueReportedAt());
+            assertEquals(booking.getHandoverIssueReportedAt().plusHours(48), booking.getHandoverIssueDueAt());
+            assertEquals("Biên bản kiểm tra ngăn và khóa", booking.getHandoverIssueReason());
+        }
         assertTrue(result.getUnitCondition().contains(condition.getLabel()));
     }
 }

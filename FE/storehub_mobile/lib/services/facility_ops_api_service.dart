@@ -1,4 +1,3 @@
-
 import '../core/constants/api_endpoints.dart';
 import '../core/network/http_client.dart';
 import '../mappers/facility_operations_mapper.dart';
@@ -203,7 +202,8 @@ class FacilityOpsApiService {
     }
   }
 
-  Future<List<AssignableUserModel>> getAssignableUsers(String facilityId) async {
+  Future<List<AssignableUserModel>> getAssignableUsers(
+      String facilityId) async {
     try {
       final response = await _http.get(
         ApiEndpoints.facilityAssignableStaff(facilityId),
@@ -216,9 +216,7 @@ class FacilityOpsApiService {
           )
           .where(
             (user) =>
-                user.id.isNotEmpty &&
-                user.isActive &&
-                user.roleName == 'STAFF',
+                user.id.isNotEmpty && user.isActive && user.roleName == 'STAFF',
           )
           .toList();
     } on ApiException catch (error) {
@@ -283,6 +281,17 @@ class FacilityOpsApiService {
     }
   }
 
+  Future<void> resolveHandoverIssue(
+      String facilityId, String bookingId, Map<String, dynamic> request) async {
+    try {
+      await _http.post(
+          '/facility/management/$facilityId/bookings/$bookingId/handover-issue',
+          data: request);
+    } on ApiException catch (error) {
+      throw _err(error, 'xử lý sự cố bàn giao');
+    }
+  }
+
   Future<List<FacilityBookingModel>> getConfirmedBookings(
     String facilityId,
   ) async {
@@ -299,6 +308,7 @@ class FacilityOpsApiService {
       throw _err(error, 'tải các đơn đã xác nhận');
     }
   }
+
   /// Hợp đồng đang CONFIRMED / ACTIVE của cơ sở (Facility Manager theo dõi).
   Future<List<FacilityContractModel>> getFacilityContracts(
     String facilityId,
@@ -416,7 +426,8 @@ class FacilityOpsApiService {
   Future<void> provideRefundDetails(String facilityId, String refundId,
       String transactionDate, String transactionNo, num originalAmount) async {
     try {
-      await _http.put('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/gateway-details',
+      await _http.put(
+          '${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/gateway-details',
           data: {
             'transactionDate': transactionDate,
             'transactionNo': transactionNo.isEmpty ? null : transactionNo,
@@ -429,7 +440,8 @@ class FacilityOpsApiService {
 
   Future<void> retryRejectedRefund(String facilityId, String refundId) async {
     try {
-      await _http.post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/retry');
+      await _http
+          .post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/retry');
     } on ApiException catch (error) {
       throw _err(error, 'gửi lại yêu cầu hoàn tiền bị từ chối');
     }
@@ -437,7 +449,8 @@ class FacilityOpsApiService {
 
   Future<void> reconcileRefund(String facilityId, String refundId) async {
     try {
-      await _http.post('${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/reconcile');
+      await _http.post(
+          '${ApiEndpoints.facilityRefunds(facilityId)}/$refundId/reconcile');
     } on ApiException catch (error) {
       throw _err(error, 'kiểm tra hoàn tiền với VNPay');
     }
@@ -453,7 +466,9 @@ class FacilityOpsApiService {
         ]),
       );
       if (response.data is Map && response.data['data'] is List) {
-        return (response.data['data'] as List).map((e) => e.toString()).toList();
+        return (response.data['data'] as List)
+            .map((e) => e.toString())
+            .toList();
       }
       return [];
     } on ApiException catch (error) {
@@ -491,7 +506,9 @@ class FacilityOpsApiService {
     }
   }
 
-  Future<void> confirmBankTransfer(String facilityId, String refundId, {
+  Future<void> confirmBankTransfer(
+    String facilityId,
+    String refundId, {
     required String transferReference,
     String? notes,
   }) async {

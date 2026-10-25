@@ -16,6 +16,36 @@ import static org.junit.jupiter.api.Assertions.*;
 @EnabledIfEnvironmentVariable(named = "STOREHUB_INTEGRATION_TEST", matches = "true")
 class OverduePolicyMigrationTest {
     @Test
+    void existingRejectedHandoversReceiveFacilityProtectionAndANewResolutionWindow() throws Exception {
+        try (Connection connection = connect()) {
+            connection.setAutoCommit(false);
+            try {
+                String schema = "handover_migration_" + UUID.randomUUID().toString().replace("-", "");
+                execute(connection, "CREATE SCHEMA " + schema);
+                connection.setSchema(schema);
+                execute(connection, "CREATE TABLE bookings (id uuid PRIMARY KEY, status varchar(30), handover_time timestamp, handed_over_by_staff_id uuid)");
+                execute(connection, "CREATE TABLE handover_records (id uuid, booking_id uuid, recorded_at timestamp, notes text, record_type varchar(30))");
+                UUID rejected = UUID.randomUUID(), normal = UUID.randomUUID();
+                execute(connection, "INSERT INTO bookings VALUES ('" + rejected + "', 'CONFIRMED', NULL, NULL), ('" + normal + "', 'CONFIRMED', NULL, NULL)");
+                execute(connection, "INSERT INTO handover_records VALUES ('" + UUID.randomUUID() + "', '" + rejected
+                        + "', CURRENT_TIMESTAMP - interval '1 month', 'Khóa hỏng', 'CHECK_IN_REJECTED')");
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V7__facility_handover_issues.sql"));
+                try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                        "SELECT handover_issue_status, handover_issue_reason, handover_issue_due_at > (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh') FROM bookings WHERE id = '" + rejected + "'")) {
+                    assertTrue(rows.next());
+                    assertEquals("OPEN", rows.getString(1));
+                    assertEquals("Khóa hỏng", rows.getString(2));
+                    assertTrue(rows.getBoolean(3));
+                }
+                try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                        "SELECT handover_issue_status FROM bookings WHERE id = '" + normal + "'")) {
+                    assertTrue(rows.next()); assertNull(rows.getString(1));
+                }
+            } finally { connection.rollback(); }
+        }
+    }
+
+    @Test
     void backfillsExistingContractsWithoutChangingDebtAndFreezesLaterPolicyEdits() throws Exception {
         try (Connection connection = connect()) {
             connection.setAutoCommit(false);

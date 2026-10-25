@@ -311,6 +311,17 @@ public class FacilityOperationsServiceImpl
             );
         }
 
+        if (booking.getHandoverIssueStatus() == com.storehub.enums.HandoverIssueStatus.OPEN) {
+            throw new AppException(ErrorCode.HANDOVER_ISSUE_RESOLUTION_REQUIRED);
+        }
+        if (booking.getHandoverIssueStatus() == com.storehub.enums.HandoverIssueStatus.ARRANGED
+                && (booking.getHandoverIssueCustomerAgreedAt() == null
+                    || booking.getScheduledCheckInTime() == null
+                    || booking.getScheduledCheckInTime().isAfter(LocalDateTime.now())
+                    || booking.getHandoverIssueDueAt() == null
+                    || !booking.getHandoverIssueDueAt().isAfter(LocalDateTime.now()))) {
+            throw new AppException(ErrorCode.HANDOVER_ISSUE_RESOLUTION_REQUIRED);
+        }
         if (booking.getAssignedCheckInStaff() != null
                 && !staff.getId().equals(booking.getAssignedCheckInStaff().getId())) {
             throw new AppException(ErrorCode.HANDOVER_ASSIGNED_TO_ANOTHER_STAFF);
@@ -364,6 +375,9 @@ public class FacilityOperationsServiceImpl
         booking.setStatus(BookingStatus.ACTIVE);
         booking.setHandedOverByStaffId(staff.getId());
         booking.setHandoverTime(now);
+        if (booking.getHandoverIssueReportedAt() != null) {
+            booking.setHandoverIssueStatus(com.storehub.enums.HandoverIssueStatus.RESOLVED);
+        }
 
         storageUnit.setStatus(UnitStatus.OCCUPIED);
 
@@ -622,6 +636,13 @@ public class FacilityOperationsServiceImpl
 
         storageUnit.setStatus(UnitStatus.UNDER_MAINTENANCE);
         booking.setUnitAssignmentConfirmed(false);
+        booking.setHandoverIssueStatus(com.storehub.enums.HandoverIssueStatus.OPEN);
+        booking.setHandoverIssueReportedAt(now);
+        booking.setHandoverIssueReason(request.getNotes().trim());
+        booking.setHandoverIssueDueAt(now.plusHours(48));
+        booking.setHandoverIssueCustomerAgreedAt(null);
+        booking.setHandoverIssueResolvedBy(null);
+        booking.setHandoverIssueResolutionNote(null);
         storageUnitRepository.save(storageUnit);
         bookingRepository.save(booking);
 

@@ -855,6 +855,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public BigDecimal refundOnCancellation(Booking booking) {
+        if (booking.getHandoverIssueReportedAt() != null && booking.getHandoverTime() == null) {
+            return refundForFacilityFailure(booking);
+        }
         if (booking.getStorageUnit() == null || booking.getStorageUnit().getFacility() == null) {
             return BigDecimal.ZERO;
         }
@@ -884,6 +887,33 @@ public class PaymentServiceImpl implements PaymentService {
         }
         if (refundTotal.signum() <= 0) return BigDecimal.ZERO;
         return queueRefund(booking, depositPart, rentalPart);
+    }
+
+    @Override
+    @Transactional
+    public BigDecimal refundForFacilityFailure(Booking booking) {
+        if (booking.getStatus() != BookingStatus.CONFIRMED || booking.getHandoverTime() != null
+                || booking.getHandedOverByStaffId() != null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        Payment original = paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                        booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+        // Other late-captured attempts can already have their own pending refunds.
+        // Refund only this original charge, never the booking's aggregated deposit.
+        BigDecimal deposit = original.getAmount();
+        if (deposit == null || deposit.signum() < 0 || booking.getDepositPaid() == null
+                || deposit.compareTo(booking.getDepositPaid()) > 0) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        BigDecimal rent = paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                        booking.getId(), PaymentType.RENTAL_FEE, PaymentStatus.PAID)
+                .map(Payment::getAmount).orElse(BigDecimal.ZERO);
+        // Rental payment includes prepaid management fees. Never retain a deposit
+        // or apply the customer's cancellation percentages for a facility failure.
+        return queueRefund(booking, original, deposit, rent);
     }
 
     @Override

@@ -293,6 +293,9 @@ public class BookingServiceImpl implements BookingService {
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
+        if (booking.getHandoverIssueReportedAt() != null) {
+            booking.setHandoverIssueStatus(com.storehub.enums.HandoverIssueStatus.CANCELLED);
+        }
         bookingRepository.save(booking);
 
         StorageUnit unit = booking.getStorageUnit();

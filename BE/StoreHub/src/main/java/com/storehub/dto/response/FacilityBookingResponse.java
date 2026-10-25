@@ -18,6 +18,11 @@ public record FacilityBookingResponse(
         String unitType,
         BookingStatus status,
         boolean unitAssignmentConfirmed,
-        String unitStatus
+        String unitStatus,
+        String handoverIssueStatus,
+        String handoverIssueReason,
+        java.time.LocalDateTime handoverIssueDueAt,
+        java.time.LocalDateTime scheduledCheckInTime,
+        String handoverIssueResolutionNote
 ) {
 }

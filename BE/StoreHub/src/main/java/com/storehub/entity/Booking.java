@@ -18,6 +18,18 @@ import java.util.UUID;
 @Builder
 public class Booking extends BaseEntity {
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private com.storehub.enums.HandoverIssueStatus handoverIssueStatus;
+    private LocalDateTime handoverIssueReportedAt;
+    @Column(columnDefinition = "TEXT")
+    private String handoverIssueReason;
+    private LocalDateTime handoverIssueDueAt;
+    private LocalDateTime handoverIssueCustomerAgreedAt;
+    private UUID handoverIssueResolvedBy;
+    @Column(columnDefinition = "TEXT")
+    private String handoverIssueResolutionNote;
+
     // Immutable contract terms. Facility policy edits affect future bookings only.
     @Column(nullable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal overdueDailyLateFee;

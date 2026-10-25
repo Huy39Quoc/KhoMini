@@ -55,6 +55,34 @@ class UnclaimedBookingExpiryTest {
     }
 
     @Test
+    void facilityFailureWaitsForResolutionDeadlineEvenAfterOriginalRentalEnds() {
+        booking.setEndDate(today.minusDays(1));
+        booking.setHandoverIssueReportedAt(LocalDateTime.now().minusHours(1));
+        booking.setHandoverIssueStatus(HandoverIssueStatus.OPEN);
+        booking.setHandoverIssueDueAt(LocalDateTime.now().plusHours(47));
+        scheduler.expireUnclaimedBookings();
+        assertEquals(BookingStatus.CONFIRMED, booking.getStatus());
+        verifyNoInteractions(units, payments, waitlist, logs);
+    }
+
+    @Test
+    void overdueFacilityFailureUsesFullRefundAndNeverCustomerCancellationPolicy() {
+        booking.setHandoverIssueReportedAt(LocalDateTime.now().minusDays(3));
+        booking.setHandoverIssueStatus(HandoverIssueStatus.OPEN);
+        booking.setHandoverIssueDueAt(LocalDateTime.now().minusHours(1));
+        unit.setStatus(UnitStatus.UNDER_MAINTENANCE);
+        when(units.lockById(unit.getId())).thenReturn(Optional.of(unit));
+        scheduler.expireUnclaimedBookings();
+        scheduler.expireUnclaimedBookings();
+        assertEquals(BookingStatus.CANCELLED, booking.getStatus());
+        assertEquals(HandoverIssueStatus.CANCELLED, booking.getHandoverIssueStatus());
+        assertEquals(UnitStatus.UNDER_MAINTENANCE, unit.getStatus());
+        verify(payments).refundForFacilityFailure(booking);
+        verify(payments, never()).refundOnCancellation(any());
+        verifyNoInteractions(waitlist);
+    }
+
+    @Test
     void expiresAtTheSameBoundaryAsCheckInAndNotifiesOnlyAfterCommit() {
         when(units.lockById(unit.getId())).thenReturn(Optional.of(unit));
         scheduler.expireUnclaimedBookings();

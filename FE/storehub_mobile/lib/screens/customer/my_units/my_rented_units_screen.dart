@@ -24,10 +24,11 @@ class MyRentedUnitsScreen extends StatefulWidget {
 class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
   final StorageApiService _storageService = StorageApiService();
   final BookingApiService _bookingService = BookingApiService();
-  late Future<({List<MyUnitModel> active, List<MyUnitModel> awaiting})> _unitsFuture;
+  late Future<({List<MyUnitModel> active, List<MyUnitModel> awaiting})>
+      _unitsFuture;
   bool _showAwaiting = false;
-  final _currency = NumberFormat.currency(
-      locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+  final _currency =
+      NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _dateFmt = DateFormat('dd/MM/yyyy');
   final _dateTimeFmt = DateFormat('dd/MM/yyyy • HH:mm');
 
@@ -50,13 +51,15 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
     });
   }
 
-  Future<({List<MyUnitModel> active, List<MyUnitModel> awaiting})> _fetchUnits() async {
+  Future<({List<MyUnitModel> active, List<MyUnitModel> awaiting})>
+      _fetchUnits() async {
     final results = await Future.wait([
       _storageService.getMyRentedUnits(),
       _storageService.getAwaitingHandover(),
     ]);
     List<MyUnitModel> parse(List<dynamic> items) => items
-        .map((item) => MyUnitModel.fromJson(Map<String, dynamic>.from(item as Map)))
+        .map((item) =>
+            MyUnitModel.fromJson(Map<String, dynamic>.from(item as Map)))
         .toList();
     return (active: parse(results[0]), awaiting: parse(results[1]));
   }
@@ -111,7 +114,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                             Text(
                               unit.facilityName,
                               style: const TextStyle(
-                                  fontSize: 12, color: AppColors.onSurfaceVariant),
+                                  fontSize: 12,
+                                  color: AppColors.onSurfaceVariant),
                             ),
                         ],
                       ),
@@ -130,7 +134,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   child: const Icon(Icons.key, color: AppColors.primary),
                 ),
                 title: const Text('Khóa thông minh ngăn kho',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 enabled: unit.hasActiveAccess,
                 subtitle: Text(
                   !unit.hasActiveAccess
@@ -167,7 +172,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                         color: AppColors.error),
                   ),
                   title: const Text('Thanh toán phí trễ hạn',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   subtitle: Text(
                       'còn nợ ${_currency.format(unit.overdueFeeOutstanding)}',
                       style: const TextStyle(fontSize: 12)),
@@ -184,20 +190,23 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                     color: AppColors.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.update,
-                      color: AppColors.primary),
+                  child: const Icon(Icons.update, color: AppColors.primary),
                 ),
                 title: const Text('Gia hạn thuê',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 enabled: _canExtend(unit),
                 subtitle: !unit.isActive
-                    ? const Text('Dùng được sau khi nhân viên bàn giao tại cơ sở',
+                    ? const Text(
+                        'Dùng được sau khi nhân viên bàn giao tại cơ sở',
                         style: TextStyle(fontSize: 12))
                     : unit.hasPendingExtension
-                        ? const Text('Tiếp tục hoặc hủy yêu cầu gia hạn đang chờ',
+                        ? const Text(
+                            'Tiếp tục hoặc hủy yêu cầu gia hạn đang chờ',
                             style: TextStyle(fontSize: 12))
                         : unit.hasLateFeeDue
-                            ? const Text('Vui lòng thanh toán phí trễ hạn trước',
+                            ? const Text(
+                                'Vui lòng thanh toán phí trễ hạn trước',
                                 style: TextStyle(fontSize: 12))
                             : unit.renewalNotYetOpen
                                 ? Text(
@@ -227,10 +236,12 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                   child: const Icon(Icons.logout, color: AppColors.error),
                 ),
-                title: Text(unit.scheduledReturnTime != null
-                    ? 'Đổi lịch trả kho'
-                    : 'Yêu cầu trả kho',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                title: Text(
+                    unit.scheduledReturnTime != null
+                        ? 'Đổi lịch trả kho'
+                        : 'Yêu cầu trả kho',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14)),
                 enabled: unit.isActive,
                 subtitle: unit.isActive
                     ? (unit.scheduledReturnTime != null
@@ -238,7 +249,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                             'Hiện tại: ${_dateTimeFmt.format(unit.scheduledReturnTime!)}',
                             style: const TextStyle(fontSize: 12))
                         : null)
-                    : const Text('Dùng được sau khi nhân viên bàn giao tại cơ sở',
+                    : const Text(
+                        'Dùng được sau khi nhân viên bàn giao tại cơ sở',
                         style: TextStyle(fontSize: 12)),
                 onTap: unit.isActive
                     ? () {
@@ -259,10 +271,13 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                         color: AppColors.error),
                   ),
                   title: const Text('Hủy đơn',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text(
-                      'Tiền cọc được hoàn theo chính sách hủy của cơ sở',
-                      style: TextStyle(fontSize: 12)),
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  subtitle: Text(
+                      unit.hasHandoverIssue
+                          ? 'Hủy do lỗi cơ sở: hoàn toàn bộ tiền đã thu'
+                          : 'Tiền cọc được hoàn theo chính sách hủy của cơ sở',
+                      style: const TextStyle(fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
                     _confirmCancelBooking(unit);
@@ -279,8 +294,10 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       color: AppColors.primary),
                 ),
                 title: const Text('Biên bản bàn giao & ảnh',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                subtitle: const Text('Xem tình trạng & ảnh lúc bàn giao/trả kho',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text(
+                    'Xem tình trạng & ảnh lúc bàn giao/trả kho',
                     style: TextStyle(fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -298,7 +315,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                       color: AppColors.secondary),
                 ),
                 title: const Text('Báo sự cố',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final result = await Navigator.push(
@@ -517,9 +535,9 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Hủy đơn đặt kho?'),
         content: Text(
-          'Đơn ${unit.bookingCode} (${unit.displayUnit}) sẽ được '
-          'bị hủy và ngăn kho được trả lại. Tiền cọc của bạn được hoàn '
-          'theo chính sách hủy của cơ sở.',
+          unit.hasHandoverIssue
+              ? 'Đơn ${unit.bookingCode} sẽ hủy do lỗi cơ sở. Hệ thống tạo yêu cầu hoàn toàn bộ khoản đã thu, không áp phí hủy của khách.'
+              : 'Đơn ${unit.bookingCode} (${unit.displayUnit}) sẽ bị hủy và ngăn kho được trả lại. Tiền cọc được hoàn theo chính sách hủy của cơ sở.',
         ),
         actions: [
           TextButton(
@@ -643,7 +661,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async => _loadUnits(),
-        child: FutureBuilder<({List<MyUnitModel> active, List<MyUnitModel> awaiting})>(
+        child: FutureBuilder<
+            ({List<MyUnitModel> active, List<MyUnitModel> awaiting})>(
           future: _unitsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -726,7 +745,9 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                                   ? 'Bạn đã thanh toán. Hãy đến đúng giờ hẹn để nhân viên bàn giao ngăn kho.'
                                   : 'Chạm vào ngăn kho để mở khóa thông minh hoặc quản lý hợp đồng.',
                               style: const TextStyle(
-                                  color: Colors.white70, fontSize: 11.5, height: 1.3),
+                                  color: Colors.white70,
+                                  fontSize: 11.5,
+                                  height: 1.3),
                             ),
                           ],
                         ),
@@ -827,7 +848,9 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                 if (units.isEmpty)
                   AppEmptyState(
                     icon: Icons.inventory_2_outlined,
-                    title: _showAwaiting ? 'Chưa có lịch nhận kho' : 'Chưa có kho đang thuê',
+                    title: _showAwaiting
+                        ? 'Chưa có lịch nhận kho'
+                        : 'Chưa có kho đang thuê',
                     message: _showAwaiting
                         ? 'Booking đã thanh toán sẽ hiện ở đây cho đến khi nhân viên bàn giao.'
                         : 'Ngăn kho sẽ hiện ở đây sau khi nhân viên hoàn tất bàn giao.',
@@ -912,6 +935,19 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                   ),
                 ],
               ),
+              if (unit.hasHandoverIssue) ...[
+                const SizedBox(height: 10),
+                Text(
+                    'Cơ sở đang xử lý sự cố bàn giao: ${unit.handoverIssueReason}',
+                    style:
+                        const TextStyle(color: AppColors.error, fontSize: 12)),
+                Text(
+                    'Hạn xử lý / chờ bàn giao: ${unit.handoverIssueDueAt.replaceAll('T', ' ')}',
+                    style: const TextStyle(fontSize: 12)),
+                const Text(
+                    'Bạn không bị áp phí hủy do lỗi cơ sở. Nếu hủy trước khi nhận kho, hệ thống tạo yêu cầu hoàn toàn bộ tiền đã thu.',
+                    style: TextStyle(fontSize: 12)),
+              ],
               if (unit.overdue || unit.accessDisabled) ...[
                 const SizedBox(height: 10),
                 Container(
@@ -1003,11 +1039,13 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
               ],
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.outline.withValues(alpha: 0.15)),
+                  border: Border.all(
+                      color: AppColors.outline.withValues(alpha: 0.15)),
                 ),
                 child: Row(
                   children: [
@@ -1077,7 +1115,8 @@ class _MyRentedUnitsScreenState extends State<MyRentedUnitsScreen> {
                           : null,
                       icon: const Icon(Icons.key, size: 16),
                       label: const Text('Mở khóa',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(42)),
                     ),

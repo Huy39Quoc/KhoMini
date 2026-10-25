@@ -131,6 +131,8 @@ public enum ErrorCode {
     TICKET_NOT_FOUND(1200, "Không tìm thấy yêu cầu hỗ trợ hoặc yêu cầu không thuộc về bạn", HttpStatus.NOT_FOUND),
     STAFF_HAS_UNCLOSED_TICKETS(1201, "Hãy chuyển giao hoặc đóng các yêu cầu hỗ trợ của nhân viên này trước khi khóa tài khoản, đổi vai trò hoặc thay đổi cơ sở", HttpStatus.CONFLICT),
     STAFF_APPOINTMENT_CONFLICT(1202, "Nhân viên đã có lịch nhận hoặc trả kho vào thời điểm này. Vui lòng chọn nhân viên khác hoặc đổi giờ hẹn", HttpStatus.CONFLICT),
+    HANDOVER_ISSUE_RESOLUTION_REQUIRED(1203, "Quản lý cần xử lý sự cố bàn giao và ghi nhận phương án đã thống nhất với khách", HttpStatus.CONFLICT),
+    HANDOVER_ISSUE_CONSENT_REQUIRED(1204, "Cần xác nhận khách đã đồng ý phương án và ngày giờ nhận kho mới", HttpStatus.BAD_REQUEST),
 
     // ========================= ACTIVITY_LOG (1300 - 1399) =========================
     ACTIVITY_LOG_NOT_FOUND(1300, "Không tìm thấy bản ghi nhật ký", HttpStatus.NOT_FOUND),
