@@ -173,6 +173,9 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             List<BookingStatus> statuses
     );
 
+    boolean existsByStorageUnit_IdAndStatusInAndIdNot(
+            UUID unitId, List<BookingStatus> statuses, UUID bookingId);
+
     @Query("""
             SELECT b FROM Booking b
             JOIN FETCH b.storageUnit su
@@ -186,6 +189,15 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("status") BookingStatus status,
             @Param("now") LocalDateTime now
     );
+
+    @Query("""
+            SELECT b.id FROM Booking b
+            WHERE b.status = com.storehub.enums.BookingStatus.CONFIRMED
+            AND b.endDate <= :today
+            AND b.handoverTime IS NULL
+            AND b.handedOverByStaffId IS NULL
+            """)
+    List<UUID> findExpiredUnclaimedBookingIds(@Param("today") LocalDate today);
 
     long countByStorageUnit_Facility_IdAndStatusAndOverdueDetectedAtIsNotNull(
             UUID facilityId,

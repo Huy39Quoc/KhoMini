@@ -43,6 +43,7 @@ class ReservationDatabaseFlowTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper json;
     @Autowired ReportService reports;
+    @Autowired com.storehub.scheduler.UnclaimedBookingExpiryScheduler unclaimedExpiry;
     @MockBean EmailService emailService;
     @MockBean RefundDispatcher refundDispatcher;
 
@@ -65,6 +66,76 @@ class ReservationDatabaseFlowTest {
                        unit_code, floor_level, 'AVAILABLE', facility_id, unit_type_id
                 FROM storage_units LIMIT 1
                 """));
+    }
+
+    @Test
+    void paidUnclaimedReservationsExpireAtomicallyWithContractSettlementAndNoDuplicateMoney() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        for (boolean fullRefund : new boolean[]{false, true}) {
+            UUID id = UUID.randomUUID();
+            UUID unitId = UUID.randomUUID();
+            jdbc.update("""
+                    INSERT INTO storage_units SELECT (jsonb_populate_record(NULL::storage_units,
+                        to_jsonb(s) || jsonb_build_object('id', CAST(? AS text),
+                            'unit_code', CAST(? AS text), 'status', 'RESERVED'))).*
+                    FROM storage_units s JOIN bookings b ON b.storage_unit_id = s.id
+                    WHERE b.booking_code = 'BK-TEST-CONFIRMED-01'
+                    """, unitId, "NS-" + unitId.toString().substring(0, 12));
+            // Clone a valid paid contract so all historical policy fields are real.
+            jdbc.update("""
+                    INSERT INTO bookings SELECT (jsonb_populate_record(NULL::bookings,
+                        to_jsonb(b) || jsonb_build_object(
+                            'id', CAST(? AS text), 'booking_code', CAST(? AS text),
+                            'storage_unit_id', CAST(? AS text), 'start_date', CAST(? AS text),
+                            'scheduled_check_in_time', CAST(? AS text), 'end_date', CAST(? AS text),
+                            'cancellation_full_refund_hours', CAST(? AS integer),
+                            'handover_time', NULL, 'handed_over_by_staff_id', NULL))).*
+                    FROM bookings b WHERE b.booking_code = 'BK-TEST-CONFIRMED-01'
+                    """, id, "BK-NS-" + id.toString().substring(0, 20), unitId,
+                    today.minusMonths(1).toString(), today.minusMonths(1).atTime(9, 0).toString(),
+                    today.plusDays(1).toString(), fullRefund ? Integer.MIN_VALUE : 48);
+            jdbc.update("""
+                    INSERT INTO payments SELECT (jsonb_populate_record(NULL::payments,
+                        to_jsonb(p) || jsonb_build_object('id', gen_random_uuid()::text,
+                            'booking_id', CAST(? AS text),
+                            'transaction_id', CAST(? AS text) || p.payment_type))).*
+                    FROM payments p JOIN bookings b ON b.id = p.booking_id
+                    WHERE b.booking_code = 'BK-TEST-CONFIRMED-01' AND p.status = 'PAID'
+                    """, id, "NS-" + id + "-");
+            BigDecimal deposit = jdbc.queryForObject("SELECT deposit_paid FROM bookings WHERE id = ?", BigDecimal.class, id);
+            BigDecimal paid = jdbc.queryForObject("SELECT SUM(amount) FROM payments WHERE booking_id = ?", BigDecimal.class, id);
+
+            assertTrue(!jdbc.queryForList("""
+                    SELECT id FROM bookings WHERE status = 'CONFIRMED'
+                    AND end_date <= ? AND handover_time IS NULL AND handed_over_by_staff_id IS NULL
+                    """, UUID.class, today).contains(id));
+            jdbc.update("UPDATE bookings SET end_date = ? WHERE id = ?", today, id);
+            unclaimedExpiry.expireUnclaimedBookings();
+            unclaimedExpiry.expireUnclaimedBookings();
+
+            assertEquals("CANCELLED", jdbc.queryForObject("SELECT status FROM bookings WHERE id = ?", String.class, id));
+            assertEquals("AVAILABLE", jdbc.queryForObject("SELECT status FROM storage_units WHERE id = ?", String.class, unitId));
+            assertEquals(1, jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM activity_logs WHERE resource_id = ? AND action = 'RESERVATION_EXPIRE'
+                    """, Integer.class, id));
+            assertEquals(fullRefund ? 1 : 0, jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM refund_requests WHERE booking_id = ?", Integer.class, id));
+            assertEquals(fullRefund ? 0 : 1, jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM deposit_deductions WHERE booking_id = ?", Integer.class, id));
+            if (fullRefund) {
+                assertEquals(0, paid.compareTo(jdbc.queryForObject(
+                        "SELECT amount FROM refund_requests WHERE booking_id = ?", BigDecimal.class, id)));
+                assertEquals(0, deposit.compareTo(jdbc.queryForObject(
+                        "SELECT deposit_paid FROM bookings WHERE id = ?", BigDecimal.class, id)));
+                assertTrue(!"COMPLETED".equals(jdbc.queryForObject(
+                        "SELECT status FROM refund_requests WHERE booking_id = ?", String.class, id)));
+            } else {
+                assertEquals(0, deposit.compareTo(jdbc.queryForObject(
+                        "SELECT amount FROM deposit_deductions WHERE booking_id = ?", BigDecimal.class, id)));
+                assertEquals(0, jdbc.queryForObject("SELECT deposit_paid FROM bookings WHERE id = ?",
+                        BigDecimal.class, id).signum());
+            }
+        }
     }
 
     @Test
