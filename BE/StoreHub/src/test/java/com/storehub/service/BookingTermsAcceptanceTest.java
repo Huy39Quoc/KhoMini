@@ -41,7 +41,8 @@ class BookingTermsAcceptanceTest {
         facility = Facility.builder().status(FacilityStatus.ACTIVE)
                 .openTime(LocalTime.of(8, 0)).closeTime(LocalTime.of(20, 0)).build();
         facility.setId(facilityId);
-        policy = FacilityPolicyResponse.builder().termsVersion("v1").termsAndConditions("Original terms")
+        policy = FacilityPolicyResponse.builder().dailyLateFee(new BigDecimal("50000.00"))
+                .overdueGraceDays(1).overdueAccessDisableDays(3).overdueSealingDays(7).termsVersion("v1").termsAndConditions("Original terms")
                 .prohibitedItems("Original prohibited items").cancellationFullRefundHours(48)
                 .cancellationPartialRefundHours(24).cancellationPartialRefundPercent(50.0).build();
         request = BookingCreationRequest.builder().facilityId(facilityId).unitTypeId(UUID.randomUUID())
@@ -75,6 +76,16 @@ class BookingTermsAcceptanceTest {
         service.createBooking("customer@test.com", request);
         var saved = ArgumentCaptor.forClass(Booking.class);
         verify(bookings).save(saved.capture());
+        policy.setDailyLateFee(new BigDecimal("100000.00"));
+        policy.setOverdueGraceDays(0);
+        policy.setOverdueAccessDisableDays(1);
+        policy.setOverdueSealingDays(2);
+        assertEquals(new BigDecimal("50000.00"), saved.getValue().getOverdueDailyLateFee());
+        assertEquals(1, saved.getValue().getOverdueGraceDays());
+        assertEquals(3, saved.getValue().getOverdueAccessDisableDays());
+        assertEquals(7, saved.getValue().getOverdueSealingDays());
+        assertNotNull(saved.getValue().getOverduePolicyCapturedAt());
+        assertFalse(saved.getValue().getOverduePolicyLegacy());
         policy.setTermsAndConditions("Changed terms");
         policy.setProhibitedItems("Changed prohibited items");
         assertEquals("Original terms", saved.getValue().getTermsContentSnapshot());

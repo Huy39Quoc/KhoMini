@@ -139,6 +139,12 @@ public class BookingServiceImpl implements BookingService {
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(BOOKING_EXPIRY_MINUTES);
 
         Booking booking = Booking.builder()
+                .overdueDailyLateFee(cancellationPolicy.getDailyLateFee())
+                .overdueGraceDays(cancellationPolicy.getOverdueGraceDays())
+                .overdueAccessDisableDays(cancellationPolicy.getOverdueAccessDisableDays())
+                .overdueSealingDays(cancellationPolicy.getOverdueSealingDays())
+                .overduePolicyCapturedAt(policyCapturedAt)
+                .overduePolicyLegacy(false)
                 .cancellationFullRefundHours(cancellationPolicy.getCancellationFullRefundHours())
                 .cancellationPartialRefundHours(cancellationPolicy.getCancellationPartialRefundHours())
                 .cancellationPartialRefundPercent(cancellationPolicy.getCancellationPartialRefundPercent())

@@ -18,6 +18,20 @@ import java.util.UUID;
 @Builder
 public class Booking extends BaseEntity {
 
+    // Immutable contract terms. Facility policy edits affect future bookings only.
+    @Column(nullable = false, updatable = false, precision = 12, scale = 2)
+    private BigDecimal overdueDailyLateFee;
+    @Column(nullable = false, updatable = false)
+    private Integer overdueGraceDays;
+    @Column(nullable = false, updatable = false)
+    private Integer overdueAccessDisableDays;
+    @Column(nullable = false, updatable = false)
+    private Integer overdueSealingDays;
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime overduePolicyCapturedAt;
+    @Column(nullable = false, updatable = false)
+    private Boolean overduePolicyLegacy;
+
     @Column(nullable = false, updatable = false)
     private Integer cancellationFullRefundHours;
     @Column(nullable = false, updatable = false)

@@ -105,22 +105,17 @@ class OverdueTimelineTest {
         UUID facilityId = UUID.randomUUID();
         Facility facility = new Facility(); facility.setId(facilityId);
         LocalDate end = LocalDate.of(2026, 1, 1);
-        Booking booking = Booking.builder().bookingCode("BK-TIMELINE").endDate(end)
+        Booking booking = Booking.builder().overdueDailyLateFee(new BigDecimal("10.00"))
+                .overdueGraceDays(grace).overdueAccessDisableDays(disable).overdueSealingDays(sealing)
+                .bookingCode("BK-TIMELINE").endDate(end)
                 .storageUnit(StorageUnit.builder().facility(facility).build())
                 .accessPin("hashed-pin").accessCode("old-code").unitLocked(false).build();
         booking.setId(UUID.randomUUID());
-        when(repository.existsByFacility_Id(facilityId)).thenReturn(true);
-        when(policyReader.getOverdueConfig(facilityId))
-                .thenReturn(new OverdueConfigResponse(grace, BigDecimal.TEN, disable, sealing));
-        if (chargeableDays > 0) {
-            when(pricing.calculateLateFee(facilityId, chargeableDays))
-                    .thenReturn(BigDecimal.TEN.multiply(BigDecimal.valueOf(chargeableDays)));
-        }
         LocalDate today = end.plusDays(overdueDays);
         ReflectionTestUtils.invokeMethod(scheduler, "processOneBooking", booking, today, today.atTime(0, 5));
         assertEquals(accessDisabled, booking.getAccessDisabledAt() != null);
         assertEquals(sealingPending, booking.getSealingPendingAt() != null);
-        assertEquals(BigDecimal.TEN.multiply(BigDecimal.valueOf(chargeableDays)), booking.getOverdueFeeAccrued());
+        assertEquals(0, BigDecimal.TEN.multiply(BigDecimal.valueOf(chargeableDays)).compareTo(booking.getOverdueFeeAccrued()));
         if (accessDisabled) {
             assertNull(booking.getAccessPin());
             assertNull(booking.getAccessCode());

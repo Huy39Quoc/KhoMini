@@ -312,6 +312,9 @@ public class SeedConfig implements ApplicationRunner {
             storageUnitRepository.save(suS101);
 
             bkActive01 = Booking.builder()
+                    .overdueDailyLateFee(new BigDecimal("50000.00"))
+                    .overdueGraceDays(1).overdueAccessDisableDays(3).overdueSealingDays(7)
+                    .overduePolicyCapturedAt(now).overduePolicyLegacy(false)
                     .cancellationFullRefundHours(48)
                     .cancellationPartialRefundHours(24)
                     .cancellationPartialRefundPercent(50.0)
@@ -385,6 +388,9 @@ public class SeedConfig implements ApplicationRunner {
             storageUnitRepository.save(suM201);
 
             bkActive02 = Booking.builder()
+                    .overdueDailyLateFee(new BigDecimal("50000.00"))
+                    .overdueGraceDays(1).overdueAccessDisableDays(3).overdueSealingDays(7)
+                    .overduePolicyCapturedAt(now).overduePolicyLegacy(false)
                     .cancellationFullRefundHours(48)
                     .cancellationPartialRefundHours(24)
                     .cancellationPartialRefundPercent(50.0)
@@ -457,6 +463,9 @@ public class SeedConfig implements ApplicationRunner {
             storageUnitRepository.save(suL301);
 
             bkConfirmed01 = Booking.builder()
+                    .overdueDailyLateFee(new BigDecimal("50000.00"))
+                    .overdueGraceDays(1).overdueAccessDisableDays(3).overdueSealingDays(7)
+                    .overduePolicyCapturedAt(now).overduePolicyLegacy(false)
                     .cancellationFullRefundHours(48)
                     .cancellationPartialRefundHours(24)
                     .cancellationPartialRefundPercent(50.0)
@@ -513,6 +522,9 @@ public class SeedConfig implements ApplicationRunner {
             storageUnitRepository.save(suS102);
 
             bkCompleted01 = Booking.builder()
+                    .overdueDailyLateFee(new BigDecimal("50000.00"))
+                    .overdueGraceDays(1).overdueAccessDisableDays(3).overdueSealingDays(7)
+                    .overduePolicyCapturedAt(now).overduePolicyLegacy(false)
                     .cancellationFullRefundHours(48)
                     .cancellationPartialRefundHours(24)
                     .cancellationPartialRefundPercent(50.0)
@@ -599,6 +611,9 @@ public class SeedConfig implements ApplicationRunner {
             storageUnitRepository.save(suM202);
 
             Booking bkPending01 = Booking.builder()
+                    .overdueDailyLateFee(new BigDecimal("50000.00"))
+                    .overdueGraceDays(1).overdueAccessDisableDays(3).overdueSealingDays(7)
+                    .overduePolicyCapturedAt(now).overduePolicyLegacy(false)
                     .cancellationFullRefundHours(48)
                     .cancellationPartialRefundHours(24)
                     .cancellationPartialRefundPercent(50.0)
@@ -636,6 +651,9 @@ public class SeedConfig implements ApplicationRunner {
                 storageUnitRepository.save(suD7S101);
 
                 bkD7 = Booking.builder()
+                    .overdueDailyLateFee(new BigDecimal("50000.00"))
+                    .overdueGraceDays(1).overdueAccessDisableDays(3).overdueSealingDays(7)
+                    .overduePolicyCapturedAt(now).overduePolicyLegacy(false)
                         .cancellationFullRefundHours(48)
                         .cancellationPartialRefundHours(24)
                         .cancellationPartialRefundPercent(50.0)
@@ -690,6 +708,9 @@ public class SeedConfig implements ApplicationRunner {
                 storageUnitRepository.save(suTdS101);
 
                 bkTd = Booking.builder()
+                    .overdueDailyLateFee(new BigDecimal("50000.00"))
+                    .overdueGraceDays(1).overdueAccessDisableDays(3).overdueSealingDays(7)
+                    .overduePolicyCapturedAt(now).overduePolicyLegacy(false)
                         .cancellationFullRefundHours(48)
                         .cancellationPartialRefundHours(24)
                         .cancellationPartialRefundPercent(50.0)
