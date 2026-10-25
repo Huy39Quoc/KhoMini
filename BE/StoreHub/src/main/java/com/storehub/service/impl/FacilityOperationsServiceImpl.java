@@ -82,6 +82,17 @@ public class FacilityOperationsServiceImpl
                     || !facilityId.equals(staff.getFacility().getId())) {
                 throw new AppException(ErrorCode.INVALID_REQUEST);
             }
+            LocalDateTime appointmentTime = "CHECK_IN".equals(scheduleType)
+                    ? checkInTime(booking)
+                    : booking.getScheduledReturnTime() != null
+                        ? booking.getScheduledReturnTime() : booking.getEndDate().atTime(9, 0);
+            // Appointments are selected to minute precision. Keep the staff row
+            // locked through conflict detection and save, including concurrent requests.
+            LocalDateTime slotStart = appointmentTime.truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+            if (bookingRepository.existsConflictingStaffAppointment(
+                    staffId, bookingId, slotStart, slotStart.plusMinutes(1))) {
+                throw new AppException(ErrorCode.STAFF_APPOINTMENT_CONFLICT);
+            }
         }
         if ("CHECK_IN".equals(scheduleType)) {
             booking.setAssignedCheckInStaff(staff);

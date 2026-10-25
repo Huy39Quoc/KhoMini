@@ -130,6 +130,7 @@ public enum ErrorCode {
     // ========================= SUPPORT_TICKET (1200 - 1299) =========================
     TICKET_NOT_FOUND(1200, "Không tìm thấy yêu cầu hỗ trợ hoặc yêu cầu không thuộc về bạn", HttpStatus.NOT_FOUND),
     STAFF_HAS_UNCLOSED_TICKETS(1201, "Hãy chuyển giao hoặc đóng các yêu cầu hỗ trợ của nhân viên này trước khi khóa tài khoản, đổi vai trò hoặc thay đổi cơ sở", HttpStatus.CONFLICT),
+    STAFF_APPOINTMENT_CONFLICT(1202, "Nhân viên đã có lịch nhận hoặc trả kho vào thời điểm này. Vui lòng chọn nhân viên khác hoặc đổi giờ hẹn", HttpStatus.CONFLICT),
 
     // ========================= ACTIVITY_LOG (1300 - 1399) =========================
     ACTIVITY_LOG_NOT_FOUND(1300, "Không tìm thấy bản ghi nhật ký", HttpStatus.NOT_FOUND),
