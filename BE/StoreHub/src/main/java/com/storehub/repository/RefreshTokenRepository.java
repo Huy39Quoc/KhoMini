@@ -15,6 +15,13 @@ import java.util.UUID;
 @Repository
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
 
+    // Projection only: do not load a stale token entity before acquiring its user lock.
+    @Query("SELECT rt.user.id FROM RefreshToken rt WHERE rt.token = :token AND rt.type = :type AND rt.revoked = false")
+    Optional<UUID> findActiveTokenUserId(@Param("token") String token, @Param("type") TokenType type);
+
+    boolean existsByIdAndUser_EmailAndTypeAndRevokedFalseAndExpiredAtAfter(
+            UUID id, String email, TokenType type, java.time.LocalDateTime now);
+
     Optional<RefreshToken> findByTokenAndType(String token, TokenType type);
 
     Optional<RefreshToken> findByTokenAndTypeAndRevokedFalse(String token, TokenType type);

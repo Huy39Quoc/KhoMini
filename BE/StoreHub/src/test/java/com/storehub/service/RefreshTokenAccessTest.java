@@ -61,6 +61,10 @@ class RefreshTokenAccessTest {
     }
 
     private void assertRejected(User user, ErrorCode expected) {
+        user.setId(java.util.UUID.randomUUID());
+        when(refreshTokenRepository.findActiveTokenUserId("refresh-token", TokenType.REFRESH))
+                .thenReturn(Optional.of(user.getId()));
+        when(userRepository.lockAuthUserById(user.getId())).thenReturn(Optional.of(user));
         RefreshToken stored = RefreshToken.builder()
                 .user(user)
                 .token("refresh-token")
@@ -74,6 +78,6 @@ class RefreshTokenAccessTest {
         AppException error = assertThrows(AppException.class,
                 () -> authService.refreshToken(new RefreshTokenRequest("refresh-token")));
         assertEquals(expected, error.getErrorCode());
-        verify(jwtService, never()).generateAccessToken(user);
+        verify(jwtService, never()).generateAccessToken(org.mockito.ArgumentMatchers.eq(user), org.mockito.ArgumentMatchers.any());
     }
 }

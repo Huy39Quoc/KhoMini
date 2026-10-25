@@ -27,6 +27,7 @@ class FacilityManagementPermissionTest {
     @MockBean FacilityManagementService facilityManagementService;
     @MockBean com.storehub.service.HandoverIssueService handoverIssues;
     @MockBean JwtServiceImpl jwtService;
+    @MockBean com.storehub.service.AccessSessionService accessSessions;
     @MockBean UserDetailsService userDetailsService;
 
     @Test

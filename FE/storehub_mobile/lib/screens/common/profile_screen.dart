@@ -68,9 +68,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _confirmPasswordController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Đổi mật khẩu thành công'),
+          content: Text('Đổi mật khẩu thành công. Vui lòng đăng nhập lại.'),
           backgroundColor: AppColors.success,
         ),
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
       );
     } catch (e) {
       if (!mounted) return;

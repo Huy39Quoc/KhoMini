@@ -25,7 +25,7 @@ class JwtAuthenticationFilterTest {
     void refreshTokenCannotAuthenticateProtectedRequest() throws Exception {
         JwtServiceImpl jwtService = mock(JwtServiceImpl.class);
         UserDetailsService userDetailsService = mock(UserDetailsService.class);
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, userDetailsService);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, userDetailsService, mock(com.storehub.service.AccessSessionService.class));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/users");
         request.setServletPath("/api/v1/users");

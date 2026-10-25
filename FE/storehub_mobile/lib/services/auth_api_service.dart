@@ -199,6 +199,7 @@ class AuthApiService {
           'confirmPassword': confirmPassword,
         },
       );
+      await TokenStore.instance.clear();
     } on ApiException catch (e) {
       final message = e.response?.data?['message'] ?? e.message;
       throw Exception('Không thể đổi mật khẩu: $message');

@@ -3,7 +3,9 @@ package com.storehub.service;
 import com.storehub.entity.User;
 
 public interface JwtService {
-    String generateAccessToken(User user);
+    String generateAccessToken(User user, java.util.UUID sessionId);
+    java.util.UUID extractSessionId(String token);
+    java.time.LocalDateTime extractExpiration(String token);
     String generateRefreshToken(User user);
     String generateResetPasswordToken(User user);
     String extractEmail(String token);
