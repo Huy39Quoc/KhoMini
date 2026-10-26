@@ -14,12 +14,11 @@ import com.storehub.repository.FacilityRepository;
 import com.storehub.enums.ActivityAction;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.FacilityPolicyService;
+import com.storehub.util.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.storehub.dto.response.OverdueConfigResponse;
@@ -27,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -241,11 +241,16 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
 
     @Override
     public PageResponse<FacilityPolicyResponse> getAll(String search, int page, int size, String sortBy, String sortDir) {
-        String resolvedSortBy = "facilityName".equalsIgnoreCase(sortBy) ? "facility.name" : sortBy;
-        Sort sort = sortDir.equalsIgnoreCase("desc")
-                ? Sort.by(resolvedSortBy).descending()
-                : Sort.by(resolvedSortBy).ascending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = PaginationUtils.pageRequest(page, size, sortBy, sortDir, Map.ofEntries(
+                Map.entry("id", "id"),
+                Map.entry("createdAt", "createdAt"),
+                Map.entry("facilityName", "facility.name"),
+                Map.entry("depositPercentage", "depositPercentage"),
+                Map.entry("minimumRentalMonths", "minimumRentalMonths"),
+                Map.entry("maxAdvanceReservationDays", "maxAdvanceReservationDays"),
+                Map.entry("dailyLateFee", "dailyLateFee"),
+                Map.entry("termsVersion", "termsVersion")
+        ));
         Page<FacilityPolicyResponse> result = facilityPolicyRepository.findAllWithFilters(search, pageable)
                 .map(facilityPolicyMapper::toResponse);
         return PageResponse.from(result);

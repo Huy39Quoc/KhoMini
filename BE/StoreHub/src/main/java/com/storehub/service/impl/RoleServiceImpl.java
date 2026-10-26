@@ -12,10 +12,9 @@ import com.storehub.repository.RolePermissionRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.repository.RoleRepository;
 import com.storehub.service.RoleService;
+import com.storehub.util.PaginationUtils;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
@@ -83,10 +82,11 @@ public class RoleServiceImpl implements RoleService {
     @Override
     public PageResponse<RoleResponse> getAll
             (String search, Boolean isActive, int page, int size, String sortBy, String sortDir) {
-        Sort sort = sortDir.equalsIgnoreCase("desc")
-                ?Sort.by(sortBy).descending()
-                :Sort.by(sortBy).ascending();
-        Pageable pageable= PageRequest.of(page,size,sort);
+        Pageable pageable = PaginationUtils.pageRequest(page, size, sortBy, sortDir, Map.of(
+                "createdAt", "createdAt",
+                "name", "name",
+                "isActive", "isActive"
+        ));
         Page<RoleResponse> result = roleRepository.findAllWithFilters(search,isActive,pageable).
                 map(roleMapper::toResponse);
         return PageResponse.from(result);

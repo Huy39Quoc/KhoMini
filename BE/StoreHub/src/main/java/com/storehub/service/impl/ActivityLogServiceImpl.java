@@ -17,12 +17,11 @@ import com.storehub.repository.UserRepository;
 import com.storehub.repository.spec.ActivityLogSpecification;
 import com.storehub.security.RequestContext;
 import com.storehub.service.ActivityLogService;
+import com.storehub.util.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -32,6 +31,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -168,10 +168,14 @@ public class ActivityLogServiceImpl implements ActivityLogService {
         LocalDateTime from = fromDate != null ? fromDate.atStartOfDay() : null;
         LocalDateTime to = toDate != null ? toDate.atTime(LocalTime.MAX) : null;
 
-        Sort sort = sortDir.equalsIgnoreCase("desc")
-                ? Sort.by(sortBy).descending()
-                : Sort.by(sortBy).ascending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = PaginationUtils.pageRequest(page, size, sortBy, sortDir, Map.of(
+                "createdAt", "createdAt",
+                "action", "action",
+                "status", "status",
+                "logType", "logType",
+                "emailAttempted", "emailAttempted",
+                "resourceType", "resourceType"
+        ));
 
         // Only build the critical-action list when the caller actually asked for it -
         // otherwise pass null so the specification skips the IN(...) clause entirely.

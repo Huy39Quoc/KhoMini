@@ -16,6 +16,7 @@ import com.storehub.enums.ActivityAction;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.UserService;
 import com.storehub.service.StaffWorkloadService;
+import com.storehub.util.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -161,13 +163,20 @@ public class UserServiceImpl implements UserService {
             String sortDir
     ) {
 
-        Sort.Direction direction = sortDir.equalsIgnoreCase("desc")
-                ? Sort.Direction.DESC
-                : Sort.Direction.ASC;
+        PaginationUtils.validatePage(page, size);
+        Sort.Direction direction = PaginationUtils.direction(sortDir);
+        String resolvedSortBy = PaginationUtils.resolveSortProperty(sortBy, Map.of(
+                "createdAt", "createdAt",
+                "username", "username",
+                "email", "email",
+                "fullName", "fullName",
+                "isActive", "isActive",
+                "role", "role.name"
+        ));
         // sortBy=role: nhóm theo vai trò rồi theo email để danh sách ổn định giữa các trang
-        Sort sort = "role".equalsIgnoreCase(sortBy)
+        Sort sort = "role.name".equals(resolvedSortBy)
                 ? Sort.by(direction, "role.name").and(Sort.by(Sort.Direction.ASC, "email"))
-                : Sort.by(direction, sortBy);
+                : Sort.by(direction, resolvedSortBy);
 
         Pageable pageable = PageRequest.of(page, size, sort);
 

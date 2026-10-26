@@ -20,7 +20,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("api/v1/activity-logs")
 @Tag(name = "Activity Log", description = "API tra cứu nhật ký đăng nhập và thao tác dữ liệu")
-@PreAuthorize("hasRole('ADMIN') and hasAuthority('ACTIVITY_LOG_VIEW')")
+@PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 @Slf4j
 public class ActivityLogController {
@@ -28,6 +28,7 @@ public class ActivityLogController {
     private final ActivityLogService activityLogService;
 
     @GetMapping("{id}")
+    @PreAuthorize("hasAuthority('ACTIVITY_LOG_VIEW')")
     @Operation(summary = "Lấy chi tiết một bản ghi log")
     public ResponseEntity<ApiResponse<ActivityLogResponse>> getById(@PathVariable UUID id) {
         ActivityLogResponse response = activityLogService.getById(id);
@@ -35,6 +36,7 @@ public class ActivityLogController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ACTIVITY_LOG_VIEW')")
     @Operation(summary = "Tra cứu toàn bộ activity log (đăng nhập + thao tác dữ liệu)")
     public ResponseEntity<ApiResponse<PageResponse<ActivityLogResponse>>> getAll(
             @RequestParam(required = false) UUID userId,
@@ -56,6 +58,7 @@ public class ActivityLogController {
     }
 
     @GetMapping("/login-history")
+    @PreAuthorize("hasAuthority('LOGIN_HISTORY_VIEW')")
     @Operation(summary = "Tra cứu riêng lịch sử đăng nhập")
     public ResponseEntity<ApiResponse<PageResponse<ActivityLogResponse>>> getLoginHistory(
             @RequestParam(required = false) UUID userId,
