@@ -87,8 +87,13 @@ class _VnpayCheckoutScreenState extends State<VnpayCheckoutScreen> {
             // Chỉ ở bản debug (chạy thử trên máy ảo/máy tính): phần mềm diệt virus, proxy hoặc
             // hệ thống máy ảo cũ có thể làm WebView không tin chứng chỉ của trang sandbox.
             // Trang này chỉ dùng thẻ test nên cho phép tiếp tục. Bản release luôn từ chối.
-            if (kDebugMode) {
-              debugPrint('[VNPay] Bỏ qua lỗi chứng chỉ SSL (chỉ bản debug)');
+            final paymentHost =
+                Uri.tryParse(widget.paymentUrl)?.host.toLowerCase();
+            if (kDebugMode &&
+                _sandboxMode &&
+                paymentHost == 'sandbox.vnpayment.vn') {
+              debugPrint(
+                  '[VNPay] Bỏ qua lỗi chứng chỉ SSL của sandbox (chỉ bản debug)');
               await error.proceed();
               return;
             }

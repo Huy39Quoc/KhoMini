@@ -256,7 +256,7 @@ class FacilityAdminApiService {
     }
   }
 
-  Future<List<dynamic>> getActivityLogs({
+  Future<PagedResult<Map<String, dynamic>>> getActivityLogs({
     String? search,
     bool? criticalOnly,
     int page = 0,
@@ -272,31 +272,28 @@ class FacilityAdminApiService {
           if (criticalOnly == true) 'isCriticalOnly': true,
         },
       );
-      final data = response.data;
-      if (data is Map &&
-          data['data'] is Map &&
-          data['data']['content'] is List) {
-        return data['data']['content'];
-      }
-      return [];
+      return PagedResult.fromApi(
+        response.data,
+        (item) => Map<String, dynamic>.from(item as Map),
+      );
     } on ApiException catch (e) {
       throw _err(e, 'tải nhật ký hoạt động');
     }
   }
 
-  Future<List<dynamic>> getLoginHistory({int page = 0, int size = 30}) async {
+  Future<PagedResult<Map<String, dynamic>>> getLoginHistory({
+    int page = 0,
+    int size = 30,
+  }) async {
     try {
       final response = await _http.get(
         ApiEndpoints.activityLogLoginHistory,
         queryParameters: {'page': page, 'size': size},
       );
-      final data = response.data;
-      if (data is Map &&
-          data['data'] is Map &&
-          data['data']['content'] is List) {
-        return data['data']['content'];
-      }
-      return [];
+      return PagedResult.fromApi(
+        response.data,
+        (item) => Map<String, dynamic>.from(item as Map),
+      );
     } on ApiException catch (e) {
       throw _err(e, 'tải lịch sử đăng nhập');
     }
