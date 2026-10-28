@@ -51,7 +51,9 @@ public class HandoverIssueService {
         LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
         StorageUnit oldUnit = units.lockById(booking.getStorageUnit().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.STORAGE_UNIT_NOT_FOUND));
-        if (oldUnit.getStatus() != UnitStatus.RESERVED && oldUnit.getStatus() != UnitStatus.UNDER_MAINTENANCE) {
+        if (oldUnit.getStatus() != UnitStatus.RESERVED
+                && oldUnit.getStatus() != UnitStatus.UNDER_MAINTENANCE
+                && oldUnit.getStatus() != UnitStatus.AVAILABLE) {
             throw new AppException(ErrorCode.UNIT_UNAVAILABLE);
         }
         if (bookings.existsByStorageUnit_IdAndStatusInAndIdNot(oldUnit.getId(),
@@ -76,8 +78,11 @@ public class HandoverIssueService {
             }
             LocalDateTime appointment = request.getScheduledCheckInTime();
             Facility facility = oldUnit.getFacility();
-            if (!appointment.isAfter(now) || appointment.toLocalDate().isBefore(booking.getStartDate())
-                    || appointment.toLocalDate().isAfter(now.toLocalDate().plusDays(policies.getMaxAdvanceReservationDays(facilityId)))
+            LocalDate today = now.toLocalDate();
+            boolean isToday = appointment.toLocalDate().equals(today);
+            if (appointment.toLocalDate().isBefore(today)
+                    || (!isToday && !appointment.isAfter(now))
+                    || appointment.toLocalDate().isAfter(today.plusDays(policies.getMaxAdvanceReservationDays(facilityId)))
                     || facility.getOpenTime() == null || facility.getCloseTime() == null
                     || appointment.toLocalTime().isBefore(facility.getOpenTime())
                     || !appointment.toLocalTime().isBefore(facility.getCloseTime())
@@ -105,6 +110,10 @@ public class HandoverIssueService {
                     waitlist.notifyNextInWaitlist(facilityId, oldUnit.getUnitType().getId());
                 }
                 booking.setStorageUnit(target);
+            }
+            if (request.getAction() == HandoverIssueResolutionRequest.Action.RESCHEDULE) {
+                target.setStatus(UnitStatus.RESERVED);
+                units.save(target);
             }
             // The customer receives the full agreed number of months, with no
             // extra charge or price recalculation for delays caused by the facility.

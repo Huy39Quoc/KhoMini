@@ -25,9 +25,14 @@ class _HandoverIssueResolutionDialogState
   @override
   void initState() {
     super.initState();
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    final original = DateTime.tryParse(widget.booking.startDate);
-    _day = original != null && original.isAfter(tomorrow) ? original : tomorrow;
+    final hasReplacements = widget.units.any((u) =>
+        u.isAvailable &&
+        u.unitTypeId == widget.booking.unitTypeId &&
+        u.id != widget.booking.storageUnitId);
+    _action = hasReplacements ? 'REPLACE_UNIT' : 'RESCHEDULE';
+    _day = DateTime.now(); // Mặc định là HÔM NAY
+    _time = TimeOfDay.now(); // Mặc định là giờ hiện tại
+    _agreed = true; // Mặc định đã đồng ý để người dùng không bị kẹt
   }
 
   @override
@@ -38,11 +43,14 @@ class _HandoverIssueResolutionDialogState
 
   void _submit() {
     final cancelling = _action == 'CANCEL_REFUND';
+    final now = DateTime.now();
     final appointment =
         DateTime(_day.year, _day.month, _day.day, _time.hour, _time.minute);
+    final isPastDay = DateTime(_day.year, _day.month, _day.day)
+        .isBefore(DateTime(now.year, now.month, now.day));
     if (_notes.text.trim().isEmpty ||
         (!cancelling && !_agreed) ||
-        (!cancelling && !appointment.isAfter(DateTime.now())) ||
+        (!cancelling && isPastDay) ||
         (_action == 'REPLACE_UNIT' && _unit == null)) {
       setState(() => _error =
           'Nhập lý do; chọn ngăn/giờ hợp lệ và xác nhận khách đã đồng ý nếu đổi ngăn hoặc đổi lịch.');
@@ -88,7 +96,7 @@ class _HandoverIssueResolutionDialogState
                         child: Text('Đổi ngăn cùng loại')),
                     DropdownMenuItem(
                         value: 'RESCHEDULE',
-                        child: Text('Đổi lịch chờ sửa ngăn hiện tại')),
+                        child: Text('Tiếp tục ngăn hiện tại (đã sửa xong / hẹn lịch mới)')),
                     DropdownMenuItem(
                         value: 'CANCEL_REFUND',
                         child: Text('Hủy do lỗi cơ sở, hoàn toàn bộ')),
@@ -115,9 +123,21 @@ class _HandoverIssueResolutionDialogState
                       _agreed = false;
                     }),
                   ),
-                  if (options.isEmpty)
-                    const Text(
-                        'Chưa có ngăn cùng loại đang trống. Có thể xử lý hủy và hoàn toàn bộ.'),
+                  if (options.isEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.shade300),
+                      ),
+                      child: const Text(
+                        'Chưa có ngăn khác cùng loại đang trống. Nếu ngăn hiện tại đã sửa xong, vui lòng chọn phương án "Tiếp tục ngăn hiện tại", hoặc chọn "Hủy do lỗi cơ sở, hoàn toàn bộ" để hoàn lại 100% tiền cho khách.',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF78350F), height: 1.3),
+                      ),
+                    ),
+                  ],
                 ],
                 if (_action != 'CANCEL_REFUND') ...[
                   const SizedBox(height: 12),
@@ -170,9 +190,34 @@ class _HandoverIssueResolutionDialogState
                 TextField(
                     controller: _notes,
                     maxLength: 2000,
-                    maxLines: 3,
+                    maxLines: 2,
                     decoration: const InputDecoration(
-                        labelText: 'Lý do / nội dung đã trao đổi với khách *')),
+                        labelText: 'Lý do / nội dung đã trao đổi với khách *',
+                        hintText: 'VD: Đã sửa xong ngăn, khách đồng ý nhận kho ngay')),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    ActionChip(
+                      label: const Text('Đã sửa xong, bàn giao ngay', style: TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        setState(() {
+                          _notes.text = 'Đã sửa xong ngăn, khách đồng ý nhận kho ngay';
+                          _error = null;
+                        });
+                      },
+                    ),
+                    ActionChip(
+                      label: const Text('Thống nhất lịch mới', style: TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        setState(() {
+                          _notes.text = 'Đã thống nhất lịch nhận kho mới với khách';
+                          _error = null;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 if (_error != null)
                   Text(_error!,
                       style: TextStyle(

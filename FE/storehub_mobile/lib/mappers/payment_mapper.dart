@@ -20,6 +20,11 @@ class PaymentMapper {
       paymentMethod: json['paymentMethod']?.toString(),
       note: json['note']?.toString(),
       paymentTime: DateTime.tryParse(json['paymentTime']?.toString() ?? ''),
+      rentalFee: (json['rentalFee'] as num?)?.toDouble(),
+      managementFee: (json['managementFee'] as num?)?.toDouble(),
+      depositAmount: (json['depositAmount'] as num?)?.toDouble(),
+      damageDeduction: (json['damageDeduction'] as num?)?.toDouble(),
+      refundedAmount: (json['refundedAmount'] as num?)?.toDouble(),
     );
   }
 
