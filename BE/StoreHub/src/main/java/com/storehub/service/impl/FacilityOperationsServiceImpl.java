@@ -82,6 +82,17 @@ public class FacilityOperationsServiceImpl
                     || !facilityId.equals(staff.getFacility().getId())) {
                 throw new AppException(ErrorCode.INVALID_REQUEST);
             }
+            LocalDateTime appointmentTime = "CHECK_IN".equals(scheduleType)
+                    ? checkInTime(booking)
+                    : booking.getScheduledReturnTime() != null
+                        ? booking.getScheduledReturnTime() : booking.getEndDate().atTime(9, 0);
+            // Appointments are selected to minute precision. Keep the staff row
+            // locked through conflict detection and save, including concurrent requests.
+            LocalDateTime slotStart = appointmentTime.truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+            if (bookingRepository.existsConflictingStaffAppointment(
+                    staffId, bookingId, slotStart, slotStart.plusMinutes(1))) {
+                throw new AppException(ErrorCode.STAFF_APPOINTMENT_CONFLICT);
+            }
         }
         if ("CHECK_IN".equals(scheduleType)) {
             booking.setAssignedCheckInStaff(staff);
@@ -265,6 +276,7 @@ public class FacilityOperationsServiceImpl
             String staffEmail,
             HandoverRequest request
     ) {
+        validateHandoverConditions(request);
         User staff = facilityAccess.require(
                 staffEmail,
                 facilityId
@@ -299,6 +311,16 @@ public class FacilityOperationsServiceImpl
             );
         }
 
+        if (booking.getHandoverIssueStatus() == com.storehub.enums.HandoverIssueStatus.OPEN) {
+            throw new AppException(ErrorCode.HANDOVER_ISSUE_RESOLUTION_REQUIRED);
+        }
+        if (booking.getHandoverIssueStatus() == com.storehub.enums.HandoverIssueStatus.ARRANGED
+                && (booking.getHandoverIssueCustomerAgreedAt() == null
+                    || booking.getScheduledCheckInTime() == null
+                    || booking.getHandoverIssueDueAt() == null
+                    || !booking.getHandoverIssueDueAt().isAfter(LocalDateTime.now()))) {
+            throw new AppException(ErrorCode.HANDOVER_ISSUE_RESOLUTION_REQUIRED);
+        }
         if (booking.getAssignedCheckInStaff() != null
                 && !staff.getId().equals(booking.getAssignedCheckInStaff().getId())) {
             throw new AppException(ErrorCode.HANDOVER_ASSIGNED_TO_ANOTHER_STAFF);
@@ -335,6 +357,9 @@ public class FacilityOperationsServiceImpl
             return rejectHandover(booking, storageUnit, staff, request);
         }
 
+        if (booking.getAssignedCheckOutStaff() == null) {
+            booking.setAssignedCheckOutStaff(staff);
+        }
         LocalDateTime now = LocalDateTime.now();
 
         HandoverRecord record = HandoverRecord.builder()
@@ -351,7 +376,13 @@ public class FacilityOperationsServiceImpl
 
         booking.setStatus(BookingStatus.ACTIVE);
         booking.setHandedOverByStaffId(staff.getId());
+        if (booking.getAssignedCheckInStaff() == null) {
+            booking.setAssignedCheckInStaff(staff);
+        }
         booking.setHandoverTime(now);
+        if (booking.getHandoverIssueReportedAt() != null) {
+            booking.setHandoverIssueStatus(com.storehub.enums.HandoverIssueStatus.RESOLVED);
+        }
 
         storageUnit.setStatus(UnitStatus.OCCUPIED);
 
@@ -362,7 +393,7 @@ public class FacilityOperationsServiceImpl
                 booking,
                 storageUnit,
                 record,
-                request.getLockCondition(),
+                request.getLockCondition().getLabel(),
                 staff,
                 "Check-in completed successfully"
         );
@@ -376,6 +407,7 @@ public class FacilityOperationsServiceImpl
             String staffEmail,
             HandoverRequest request
     ) {
+        validateHandoverConditions(request);
         User staff = facilityAccess.require(
                 staffEmail,
                 facilityId
@@ -452,6 +484,9 @@ public class FacilityOperationsServiceImpl
                 ? paymentService.refundDepositOnReturn(booking, request.getDamageFee(), request.getDamageReason())
                 : paymentService.refundDepositOnReturn(booking);
 
+        if (booking.getAssignedCheckOutStaff() == null) {
+            booking.setAssignedCheckOutStaff(staff);
+        }
         LocalDateTime now = LocalDateTime.now();
 
         HandoverRecord record = HandoverRecord.builder()
@@ -491,7 +526,7 @@ public class FacilityOperationsServiceImpl
                 booking,
                 storageUnit,
                 record,
-                request.getLockCondition(),
+                request.getLockCondition().getLabel(),
                 staff,
                 message
         );
@@ -573,15 +608,15 @@ public class FacilityOperationsServiceImpl
         return "Storage unit status updated successfully";
     }
 
+    private void validateHandoverConditions(HandoverRequest request) {
+        if (request == null || request.getUnitCondition() == null || request.getLockCondition() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+    }
+
     private boolean notReadyForHandover(HandoverRequest request) {
-        String unit = request.getUnitCondition() == null
-                ? "" : request.getUnitCondition().toLowerCase();
-        String lock = request.getLockCondition() == null
-                ? "" : request.getLockCondition().toLowerCase();
-        return unit.contains("hư hỏng")
-                || unit.contains("vệ sinh")
-                || lock.contains("hỏng")
-                || lock.contains("chưa khóa");
+        return request.getUnitCondition() != com.storehub.enums.HandoverUnitCondition.GOOD
+                || request.getLockCondition() != com.storehub.enums.HandoverLockCondition.LOCKED_WORKING;
     }
 
     private HandoverResponse rejectHandover(
@@ -594,6 +629,9 @@ public class FacilityOperationsServiceImpl
             throw new AppException(ErrorCode.HANDOVER_DEFECT_NOTE_REQUIRED);
         }
 
+        if (booking.getAssignedCheckOutStaff() == null) {
+            booking.setAssignedCheckOutStaff(staff);
+        }
         LocalDateTime now = LocalDateTime.now();
 
         HandoverRecord record = HandoverRecord.builder()
@@ -609,6 +647,13 @@ public class FacilityOperationsServiceImpl
 
         storageUnit.setStatus(UnitStatus.UNDER_MAINTENANCE);
         booking.setUnitAssignmentConfirmed(false);
+        booking.setHandoverIssueStatus(com.storehub.enums.HandoverIssueStatus.OPEN);
+        booking.setHandoverIssueReportedAt(now);
+        booking.setHandoverIssueReason(request.getNotes().trim());
+        booking.setHandoverIssueDueAt(now.plusHours(48));
+        booking.setHandoverIssueCustomerAgreedAt(null);
+        booking.setHandoverIssueResolvedBy(null);
+        booking.setHandoverIssueResolutionNote(null);
         storageUnitRepository.save(storageUnit);
         bookingRepository.save(booking);
 
@@ -616,7 +661,7 @@ public class FacilityOperationsServiceImpl
                 booking,
                 storageUnit,
                 record,
-                request.getLockCondition(),
+                request.getLockCondition().getLabel(),
                 staff,
                 "Ngăn " + storageUnit.getUnitCode()
                         + " chưa thể bàn giao và đã chuyển sang trạng thái cần kiểm tra/bảo trì. "
@@ -628,9 +673,9 @@ public class FacilityOperationsServiceImpl
             HandoverRequest request
     ) {
         return "Unit: "
-                + request.getUnitCondition()
+                + request.getUnitCondition().getLabel()
                 + " | Lock: "
-                + request.getLockCondition();
+                + request.getLockCondition().getLabel();
     }
 
     private LocalDateTime checkInTime(Booking booking) {

@@ -67,6 +67,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final VnpayRefundClient gateway;
     private final WaitlistService waitlistService;
     private final OverdueScheduler overdueScheduler;
+    private final com.storehub.repository.DepositDeductionRepository depositDeductions;
 
     // Dòng RENTAL_FEE đi kèm khoản cọc dùng mã giao dịch = mã của dòng DEPOSIT + hậu tố này.
     private static final String RENTAL_SUFFIX = "-R";
@@ -462,6 +463,45 @@ public class PaymentServiceImpl implements PaymentService {
         StorageUnit unit = booking != null ? booking.getStorageUnit() : null;
         Facility facility = unit != null ? unit.getFacility() : null;
 
+        Payment companion = (payment.getTransactionId() != null && payment.getTransactionId().startsWith("TXN-"))
+                ? paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX).orElse(null)
+                : null;
+        BigDecimal displayAmount = companion != null ? payment.getAmount().add(companion.getAmount()) : payment.getAmount();
+        PaymentStatus displayStatus = payment.getStatus();
+        if (displayStatus == PaymentStatus.REFUNDED && companion != null && companion.getStatus() == PaymentStatus.PAID) {
+            displayStatus = PaymentStatus.PAID;
+        }
+
+        BigDecimal rentalFee = null;
+        BigDecimal managementFee = null;
+        BigDecimal depositAmount = null;
+        BigDecimal damageDeduction = null;
+        BigDecimal refundedAmount = null;
+
+        if (payment.getTransactionId() != null && payment.getTransactionId().startsWith("RF-")) {
+            RefundRequest refund = refundRequests.findByRefundPayment_Id(payment.getId()).orElse(null);
+            if (refund != null) {
+                damageDeduction = refund.getDamageDeduction();
+                refundedAmount = refund.getAmount();
+                rentalFee = refund.getRentalAmount();
+                if (refund.getOriginalPayment() != null && refund.getOriginalPayment().getAmount() != null) {
+                    depositAmount = refund.getOriginalPayment().getAmount();
+                } else if (refund.getDepositAmount() != null) {
+                    depositAmount = refund.getDepositAmount().add(damageDeduction != null ? damageDeduction : BigDecimal.ZERO);
+                } else {
+                    depositAmount = refund.getAmount().add(damageDeduction != null ? damageDeduction : BigDecimal.ZERO);
+                }
+            }
+        } else if (booking != null && companion != null) {
+            rentalFee = booking.getTotalRentalFee();
+            managementFee = booking.getQuotedManagementFee();
+            depositAmount = booking.getQuotedDepositAmount();
+            refundedAmount = refundRequests.findByOriginalPayment_Id(payment.getId())
+                    .filter(r -> r.getStatus() == com.storehub.enums.RefundStatus.COMPLETED)
+                    .map(RefundRequest::getAmount)
+                    .orElse(null);
+        }
+
         return PaymentResponse.builder()
                 .id(payment.getId())
                 .transactionId(payment.getTransactionId())
@@ -473,9 +513,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .unitCode(unit != null && booking != null
                         && Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())
                         ? unit.getUnitCode() : null)
-                .amount(groupAmount(payment))
+                .amount(displayAmount)
                 .paymentType(payment.getPaymentType())
-                .status(payment.getStatus())
+                .status(displayStatus)
                 .refundStatus(payment.getTransactionId() != null
                         && payment.getTransactionId().startsWith("RF-")
                         ? refundRequests.findByRefundPayment_Id(payment.getId())
@@ -485,6 +525,11 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentMethod(payment.getPaymentMethod())
                 .paymentTime(payment.getPaymentTime())
                 .note(payment.getNote())
+                .rentalFee(rentalFee)
+                .managementFee(managementFee)
+                .depositAmount(depositAmount)
+                .damageDeduction(damageDeduction)
+                .refundedAmount(refundedAmount)
                 .build();
     }
 
@@ -600,6 +645,8 @@ public class PaymentServiceImpl implements PaymentService {
             int extendedMonths = booking.getPendingExtraMonths();
             booking.setPendingExtraMonths(null);
             booking.setPendingExtensionFee(null);
+
+            com.storehub.common.OverdueRecovery.restore(booking, activityLogService);
 
             activityLogService.record(
                     ActivityAction.CONTRACT_EXTENDED,
@@ -835,14 +882,8 @@ public class PaymentServiceImpl implements PaymentService {
     private BigDecimal groupAmount(Payment payment) {
         if (payment.getPaymentType() == PaymentType.DEPOSIT
                 && payment.getTransactionId() != null
-                && payment.getTransactionId().startsWith("TXN-")
-                && (payment.getStatus() == PaymentStatus.PENDING
-                || payment.getStatus() == PaymentStatus.PAID
-                || payment.getStatus() == PaymentStatus.FAILED
-                || payment.getStatus() == PaymentStatus.REFUND_PENDING
-                || payment.getStatus() == PaymentStatus.REFUNDED)) {
+                && payment.getTransactionId().startsWith("TXN-")) {
             return paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX)
-                    .filter(p -> p.getStatus() == payment.getStatus())
                     .map(p -> payment.getAmount().add(p.getAmount()))
                     .orElse(payment.getAmount());
         }
@@ -852,6 +893,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public BigDecimal refundOnCancellation(Booking booking) {
+        if (booking.getHandoverIssueReportedAt() != null && booking.getHandoverTime() == null) {
+            return refundForFacilityFailure(booking);
+        }
         if (booking.getStorageUnit() == null || booking.getStorageUnit().getFacility() == null) {
             return BigDecimal.ZERO;
         }
@@ -869,13 +913,45 @@ public class PaymentServiceImpl implements PaymentService {
                         ? booking.getScheduledCheckInTime()
                         : booking.getStartDate().atStartOfDay(),
                 LocalDateTime.now());
-        if (refundTotal.signum() <= 0) {
-            return BigDecimal.ZERO;
-        }
-
-        BigDecimal depositPart = refundTotal.min(depositPaid);
+        BigDecimal depositPart = refundTotal.max(BigDecimal.ZERO).min(depositPaid);
         BigDecimal rentalPart = refundTotal.subtract(depositPart).min(rentPaid);
+        BigDecimal retained = depositPaid.subtract(depositPart);
+        if (retained.signum() > 0) {
+            Payment original = paymentRepository
+                    .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                            booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
+                    .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+            recordDepositDeduction(booking, original, retained, "CANCELLATION", "Deposit retained under cancellation policy");
+        }
+        if (refundTotal.signum() <= 0) return BigDecimal.ZERO;
         return queueRefund(booking, depositPart, rentalPart);
+    }
+
+    @Override
+    @Transactional
+    public BigDecimal refundForFacilityFailure(Booking booking) {
+        if (booking.getStatus() != BookingStatus.CONFIRMED || booking.getHandoverTime() != null
+                || booking.getHandedOverByStaffId() != null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        Payment original = paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                        booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+        // Other late-captured attempts can already have their own pending refunds.
+        // Refund only this original charge, never the booking's aggregated deposit.
+        BigDecimal deposit = original.getAmount();
+        if (deposit == null || deposit.signum() < 0 || booking.getDepositPaid() == null
+                || deposit.compareTo(booking.getDepositPaid()) > 0) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        BigDecimal rent = paymentRepository
+                .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                        booking.getId(), PaymentType.RENTAL_FEE, PaymentStatus.PAID)
+                .map(Payment::getAmount).orElse(BigDecimal.ZERO);
+        // Rental payment includes prepaid management fees. Never retain a deposit
+        // or apply the customer's cancellation percentages for a facility failure.
+        return queueRefund(booking, original, deposit, rent);
     }
 
     @Override
@@ -999,7 +1075,13 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         BigDecimal depositPaid = booking.getDepositPaid() != null ? booking.getDepositPaid() : BigDecimal.ZERO;
+        if (damageFee != null && damageFee.signum() < 0) {
+            throw new AppException(ErrorCode.DAMAGE_FEE_EXCEEDS_DEPOSIT);
+        }
         BigDecimal safeDamage = (damageFee != null && damageFee.signum() > 0) ? damageFee : BigDecimal.ZERO;
+        if (safeDamage.signum() > 0 && (damageReason == null || damageReason.isBlank())) {
+            throw new AppException(ErrorCode.DAMAGE_REASON_REQUIRED);
+        }
         BigDecimal netRefund = depositPaid.subtract(safeDamage);
 
         if (netRefund.signum() < 0) {
@@ -1007,7 +1089,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new AppException(ErrorCode.DAMAGE_FEE_EXCEEDS_DEPOSIT);
         }
 
-        if (netRefund.signum() == 0) {
+        if (depositPaid.signum() == 0) {
             return BigDecimal.ZERO;
         }
 
@@ -1016,7 +1098,29 @@ public class PaymentServiceImpl implements PaymentService {
                         booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
+        if (safeDamage.signum() > 0) {
+            recordDepositDeduction(booking, original, safeDamage, "DAMAGE", damageReason);
+        }
+        if (netRefund.signum() == 0) return BigDecimal.ZERO;
         return queueRefund(booking, original, netRefund, BigDecimal.ZERO, safeDamage);
+    }
+
+    private void recordDepositDeduction(Booking booking, Payment original, BigDecimal amount,
+                                        String type, String reason) {
+        // Cancellation and checkout hold the booking lock. A unique source payment
+        // also prevents duplicate deposit conversions if an operation is retried.
+        if (depositDeductions.existsByOriginalPayment_Id(original.getId())
+                || refundRequests.existsByOriginalPayment_Id(original.getId())) {
+            throw new AppException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        }
+        if (amount.compareTo(booking.getDepositPaid()) > 0 || amount.compareTo(original.getAmount()) > 0) {
+            throw new AppException(ErrorCode.DAMAGE_FEE_EXCEEDS_DEPOSIT);
+        }
+        depositDeductions.save(com.storehub.entity.DepositDeduction.builder()
+                .booking(booking).originalPayment(original).amount(amount).deductionType(type)
+                .reason(reason).recordedAt(LocalDateTime.now()).build());
+        booking.setDepositPaid(booking.getDepositPaid().subtract(amount));
+        bookingRepository.save(booking);
     }
 
     @Override

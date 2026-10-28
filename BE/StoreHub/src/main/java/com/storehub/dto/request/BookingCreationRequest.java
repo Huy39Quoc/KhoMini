@@ -48,5 +48,11 @@ public class BookingCreationRequest {
     private Boolean termsConfirmed;
 
     // Phiên bản điều khoản đã chấp thuận
+    @jakarta.validation.constraints.NotBlank(message = "Vui lòng xem và chấp nhận điều khoản hiện hành")
+    @jakarta.validation.constraints.Size(max = 30)
     private String termsVersion;
+
+    @jakarta.validation.constraints.NotBlank(message = "Thiếu thông tin điều khoản đã xem")
+    @jakarta.validation.constraints.Pattern(regexp = "[a-f0-9]{64}", message = "Mã xác nhận điều khoản không hợp lệ")
+    private String termsHash;
 }

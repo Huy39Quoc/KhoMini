@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../models/paged_result.dart';
 import '../../services/facility_admin_api_service.dart';
 import '../../widgets/state_views.dart';
 
@@ -17,33 +18,16 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
   late final TabController _tabController;
   final _dateFmt = DateFormat('dd/MM, HH:mm');
 
-  Future<List<dynamic>>? _allLogsFuture;
-  Future<List<dynamic>>? _loginHistoryFuture;
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadAll();
-    _loadLoginHistory();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
-  }
-
-  void _loadAll() {
-    setState(() {
-      _allLogsFuture = _service.getActivityLogs();
-    });
-  }
-
-  void _loadLoginHistory() {
-    setState(() {
-      _loginHistoryFuture = _service.getLoginHistory();
-    });
   }
 
   Color _statusColor(String? status) =>
@@ -136,76 +120,168 @@ class _ActivityLogScreenState extends State<ActivityLogScreen>
           labelColor: AppColors.secondaryContainer,
           unselectedLabelColor: AppColors.onSurfaceVariant,
           indicatorColor: AppColors.secondaryContainer,
-          tabs: const [Tab(text: 'Mọi hoạt động'), Tab(text: 'Lịch sử đăng nhập')],
+          tabs: const [
+            Tab(text: 'Mọi hoạt động'),
+            Tab(text: 'Lịch sử đăng nhập')
+          ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          RefreshIndicator(
-            onRefresh: () async => _loadAll(),
-            child: FutureBuilder<List<dynamic>>(
-              future: _allLogsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const AppLoadingState(message: 'Đang tải nhật ký...');
-                }
-                if (snapshot.hasError) {
-                  return AppErrorState(
-                      message: snapshot.error
-                          .toString()
-                          .replaceAll('Exception: ', ''),
-                      onRetry: _loadAll);
-                }
-                final logs = snapshot.data ?? [];
-                if (logs.isEmpty) {
-                  return const AppEmptyState(
-                      icon: Icons.history,
-                      title: 'Chưa có hoạt động',
-                      message: 'Các thao tác trong hệ thống sẽ hiển thị tại đây.');
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: logs.length,
-                  itemBuilder: (context, index) =>
-                      _buildLogTile(logs[index] as Map),
-                );
-              },
-            ),
+          _PaginatedLogTab(
+            loadPage: (page) => _service.getActivityLogs(page: page),
+            tileBuilder: _buildLogTile,
+            loadingMessage: 'Đang tải nhật ký...',
+            emptyIcon: Icons.history,
+            emptyTitle: 'Chưa có hoạt động',
+            emptyMessage: 'Các thao tác trong hệ thống sẽ hiển thị tại đây.',
           ),
-          RefreshIndicator(
-            onRefresh: () async => _loadLoginHistory(),
-            child: FutureBuilder<List<dynamic>>(
-              future: _loginHistoryFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const AppLoadingState(
-                      message: 'Đang tải lịch sử đăng nhập...');
-                }
-                if (snapshot.hasError) {
-                  return AppErrorState(
-                      message: snapshot.error
-                          .toString()
-                          .replaceAll('Exception: ', ''),
-                      onRetry: _loadLoginHistory);
-                }
-                final logs = snapshot.data ?? [];
-                if (logs.isEmpty) {
-                  return const AppEmptyState(
-                      icon: Icons.login,
-                      title: 'Chưa có lịch sử đăng nhập',
-                      message: 'Các lần đăng nhập sẽ hiển thị tại đây.');
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: logs.length,
-                  itemBuilder: (context, index) =>
-                      _buildLogTile(logs[index] as Map),
-                );
-              },
-            ),
+          _PaginatedLogTab(
+            loadPage: (page) => _service.getLoginHistory(page: page),
+            tileBuilder: _buildLogTile,
+            loadingMessage: 'Đang tải lịch sử đăng nhập...',
+            emptyIcon: Icons.login,
+            emptyTitle: 'Chưa có lịch sử đăng nhập',
+            emptyMessage: 'Các lần đăng nhập sẽ hiển thị tại đây.',
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PaginatedLogTab extends StatefulWidget {
+  final Future<PagedResult<Map<String, dynamic>>> Function(int page) loadPage;
+  final Widget Function(Map<String, dynamic> log) tileBuilder;
+  final String loadingMessage;
+  final IconData emptyIcon;
+  final String emptyTitle;
+  final String emptyMessage;
+
+  const _PaginatedLogTab({
+    required this.loadPage,
+    required this.tileBuilder,
+    required this.loadingMessage,
+    required this.emptyIcon,
+    required this.emptyTitle,
+    required this.emptyMessage,
+  });
+
+  @override
+  State<_PaginatedLogTab> createState() => _PaginatedLogTabState();
+}
+
+class _PaginatedLogTabState extends State<_PaginatedLogTab> {
+  final List<Map<String, dynamic>> _logs = [];
+  bool _initialLoading = true;
+  bool _loading = false;
+  bool _loadingMore = false;
+  bool _lastPage = false;
+  int _nextPage = 0;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load(refresh: true);
+  }
+
+  Future<void> _load({bool refresh = false}) async {
+    if (_loading || (!refresh && _lastPage)) return;
+    final requestedPage = refresh ? 0 : _nextPage;
+    setState(() {
+      _loading = true;
+      if (refresh) {
+        _initialLoading = _logs.isEmpty;
+        _error = null;
+      } else {
+        _loadingMore = true;
+      }
+    });
+
+    try {
+      final result = await widget.loadPage(requestedPage);
+      if (!mounted) return;
+      setState(() {
+        if (refresh) _logs.clear();
+        _logs.addAll(result.content);
+        _nextPage = result.page + 1;
+        _lastPage = result.last;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString().replaceAll('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _initialLoading = false;
+          _loadingMore = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_initialLoading) {
+      return AppLoadingState(message: widget.loadingMessage);
+    }
+    if (_error != null && _logs.isEmpty) {
+      return AppErrorState(
+          message: _error!, onRetry: () => _load(refresh: true));
+    }
+    if (_logs.isEmpty) {
+      return AppEmptyState(
+        icon: widget.emptyIcon,
+        title: widget.emptyTitle,
+        message: widget.emptyMessage,
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _load(refresh: true),
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: _logs.length + (_lastPage ? 0 : 1),
+        itemBuilder: (context, index) {
+          if (index < _logs.length) return widget.tileBuilder(_logs[index]);
+          return Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 16),
+            child: Center(
+              child: _loadingMore
+                  ? const CircularProgressIndicator()
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_error != null) ...[
+                          Text(
+                            _error!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppColors.error,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        OutlinedButton.icon(
+                          onPressed: _load,
+                          icon: Icon(
+                            _error == null ? Icons.expand_more : Icons.refresh,
+                          ),
+                          label: Text(_error == null ? 'Tải thêm' : 'Thử lại'),
+                        ),
+                      ],
+                    ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -244,8 +320,8 @@ class _LogDetailSheetState extends State<_LogDetailSheet> {
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -306,8 +382,12 @@ class _LogDetailSheetState extends State<_LogDetailSheet> {
                       '${oldV.isEmpty ? '—' : oldV}  →  ${newV.isEmpty ? '—' : newV}'),
                 _row('Địa chỉ IP', d['ipAddress']?.toString()),
                 _row('Thiết bị', d['userAgent']?.toString()),
-                _row('Thời gian',
-                    created == null ? null : DateFormat('dd/MM/yyyy HH:mm:ss').format(created.toLocal())),
+                _row(
+                    'Thời gian',
+                    created == null
+                        ? null
+                        : DateFormat('dd/MM/yyyy HH:mm:ss')
+                            .format(created.toLocal())),
                 if (snapshot.hasError)
                   const Padding(
                     padding: EdgeInsets.only(top: 6),

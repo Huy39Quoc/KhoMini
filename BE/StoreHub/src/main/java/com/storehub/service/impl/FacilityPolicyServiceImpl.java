@@ -14,12 +14,11 @@ import com.storehub.repository.FacilityRepository;
 import com.storehub.enums.ActivityAction;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.FacilityPolicyService;
+import com.storehub.util.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.storehub.dto.response.OverdueConfigResponse;
@@ -27,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -55,7 +55,16 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
     }
 
     @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public FacilityPolicyResponse getForBooking(UUID facilityId) {
+        return facilityPolicyMapper.toResponse(facilityPolicyRepository.lockByFacilityId(facilityId)
+                .orElseThrow(() -> new AppException(ErrorCode.TERMS_NOT_AVAILABLE)));
+    }
+
+    @Override
     public FacilityPolicyResponse create(FacilityPolicyCreateRequest request) {
+        validateOverdueTimeline(request.getOverdueGraceDays(), request.getOverdueAccessDisableDays(),
+                request.getOverdueSealingDays());
         if (request.getCancellationFullRefundHours() != null
                 && request.getCancellationPartialRefundHours() != null
                 && request.getCancellationFullRefundHours() < request.getCancellationPartialRefundHours()) {
@@ -108,8 +117,17 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
 
     @Override
     public FacilityPolicyResponse update(UUID id, FacilityPolicyUpdateRequest request) {
-        FacilityPolicy policy = facilityPolicyRepository.findById(id)
+        FacilityPolicy policy = facilityPolicyRepository.lockById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.FACILITY_POLICY_NOT_FOUND));
+
+        boolean textChanged = (request.getTermsAndConditions() != null
+                && !request.getTermsAndConditions().equals(policy.getTermsAndConditions()))
+                || (request.getProhibitedItems() != null
+                && !request.getProhibitedItems().equals(policy.getProhibitedItems()));
+        if (textChanged && (request.getTermsVersion() == null || request.getTermsVersion().isBlank()
+                || request.getTermsVersion().equals(policy.getTermsVersion()))) {
+            throw new AppException(ErrorCode.TERMS_VERSION_REQUIRED);
+        }
 
         int fullHours = request.getCancellationFullRefundHours() != null
                 ? request.getCancellationFullRefundHours()
@@ -126,6 +144,10 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
                 || partialHours != policy.getCancellationPartialRefundHours()
                 || (request.getCancellationPartialRefundPercent() != null
                     && !request.getCancellationPartialRefundPercent().equals(policy.getCancellationPartialRefundPercent()));
+        validateOverdueTimeline(
+                request.getOverdueGraceDays() != null ? request.getOverdueGraceDays() : policy.getOverdueGraceDays(),
+                request.getOverdueAccessDisableDays() != null ? request.getOverdueAccessDisableDays() : policy.getOverdueAccessDisableDays(),
+                request.getOverdueSealingDays() != null ? request.getOverdueSealingDays() : policy.getOverdueSealingDays());
         facilityPolicyMapper.updateEntityFromRequest(request, policy);
         if (cancellationChanged) {
             policy.setCancellationPolicyEffectiveAt(LocalDateTime.now());
@@ -136,6 +158,14 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
                 "Updated policy for facility " + (policy.getFacility() != null ? policy.getFacility().getName() : updated.getId()), null, updated.getId());
 
         return facilityPolicyMapper.toResponse(updated);
+    }
+
+    private void validateOverdueTimeline(Integer grace, Integer accessDisable, Integer sealing) {
+        // Every threshold is measured from the rental end date, not from the previous milestone.
+        if (grace == null || accessDisable == null || sealing == null
+                || grace < 0 || accessDisable < grace || sealing < accessDisable) {
+            throw new AppException(ErrorCode.FACILITY_POLICY_INVALID_OVERDUE_TIMELINE);
+        }
     }
 
     @Override
@@ -211,11 +241,16 @@ public class FacilityPolicyServiceImpl implements FacilityPolicyService {
 
     @Override
     public PageResponse<FacilityPolicyResponse> getAll(String search, int page, int size, String sortBy, String sortDir) {
-        String resolvedSortBy = "facilityName".equalsIgnoreCase(sortBy) ? "facility.name" : sortBy;
-        Sort sort = sortDir.equalsIgnoreCase("desc")
-                ? Sort.by(resolvedSortBy).descending()
-                : Sort.by(resolvedSortBy).ascending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = PaginationUtils.pageRequest(page, size, sortBy, sortDir, Map.ofEntries(
+                Map.entry("id", "id"),
+                Map.entry("createdAt", "createdAt"),
+                Map.entry("facilityName", "facility.name"),
+                Map.entry("depositPercentage", "depositPercentage"),
+                Map.entry("minimumRentalMonths", "minimumRentalMonths"),
+                Map.entry("maxAdvanceReservationDays", "maxAdvanceReservationDays"),
+                Map.entry("dailyLateFee", "dailyLateFee"),
+                Map.entry("termsVersion", "termsVersion")
+        ));
         Page<FacilityPolicyResponse> result = facilityPolicyRepository.findAllWithFilters(search, pageable)
                 .map(facilityPolicyMapper::toResponse);
         return PageResponse.from(result);

@@ -37,6 +37,7 @@ class CancellationAppointmentRefundTest {
     @Mock PricingService pricing;
     @Mock WaitlistService waitlist;
     @Mock FacilityPolicyRepository facilityPolicies;
+    @Mock com.storehub.repository.DepositDeductionRepository depositDeductions;
     @InjectMocks PaymentServiceImpl service;
 
     @Test
@@ -52,6 +53,15 @@ class CancellationAppointmentRefundTest {
                 .depositPaid(BigDecimal.valueOf(100))
                 .storageUnit(StorageUnit.builder().facility(facility).build())
                 .build();
+        com.storehub.entity.Payment deposit = com.storehub.entity.Payment.builder()
+                .amount(BigDecimal.valueOf(100)).build();
+        deposit.setId(UUID.randomUUID());
+        when(payments.findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                booking.getId(), com.storehub.enums.PaymentType.DEPOSIT, com.storehub.enums.PaymentStatus.PAID))
+                .thenReturn(java.util.Optional.of(deposit));
+        org.mockito.Mockito.doReturn(java.util.Optional.empty()).when(payments)
+                .findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                        booking.getId(), com.storehub.enums.PaymentType.RENTAL_FEE, com.storehub.enums.PaymentStatus.PAID);
         when(pricing.calculateCancellationRefund(eq(booking), eq(BigDecimal.valueOf(100)),
                 eq(appointment), any(LocalDateTime.class)))
                 .thenReturn(BigDecimal.ZERO);

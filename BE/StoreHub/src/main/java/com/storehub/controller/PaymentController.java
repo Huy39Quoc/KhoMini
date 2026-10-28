@@ -6,6 +6,7 @@ import com.storehub.dto.request.PaymentInitiationRequest;
 import com.storehub.dto.response.PaymentResponse;
 import com.storehub.enums.PaymentStatus;
 import com.storehub.service.PaymentService;
+import com.storehub.util.PaginationUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -134,7 +135,7 @@ public class PaymentController {
     }
 
     private PageRequest paymentPage(int page, int size) {
-        return PageRequest.of(Math.max(0, page), Math.min(100, Math.max(1, size)));
+        return PaginationUtils.pageRequest(page, size);
     }
 
     @GetMapping("/detail/{paymentId}")

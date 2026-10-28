@@ -42,8 +42,10 @@ public class ReportServiceImpl implements ReportService {
     private final BookingRepository bookingRepository;
     private final FacilityRepository facilityRepository;
     private final UnitTypeRepository unitTypeRepository;
+    private final com.storehub.repository.DepositDeductionRepository depositDeductions;
 
     @Override
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public RevenueReportResponse getRevenueReport(LocalDate fromDate, LocalDate toDate) {
         if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
@@ -101,6 +103,23 @@ public class ReportServiceImpl implements ReportService {
             total.setRentalFeeRevenue(value(total.getRentalFeeRevenue()).subtract(value(refund.getRentalFeeRevenue())));
             total.setExtraChargeRevenue(value(total.getExtraChargeRevenue()).subtract(value(refund.getExtraChargeRevenue())));
         }
+        DepositReconciliationResponse systemDeposits = new DepositReconciliationResponse();
+        for (var row : depositDeductions.reconcile(from, to)) {
+            DepositReconciliationResponse deposits = new DepositReconciliationResponse(
+                    value(row.getOpeningBalance()), value(row.getReceived()), value(row.getRefunded()),
+                    value(row.getRetained()), value(row.getDamageRetained()), value(row.getCancellationRetained()));
+            FacilityRevenueResponse facility = facilityTotals.computeIfAbsent(row.getFacilityId(), id ->
+                    FacilityRevenueResponse.builder().facilityId(id).facilityName(row.getFacilityName())
+                            .totalRevenue(BigDecimal.ZERO).depositRevenue(BigDecimal.ZERO)
+                            .rentalFeeRevenue(BigDecimal.ZERO).extraChargeRevenue(BigDecimal.ZERO).paymentCount(0L).build());
+            facility.setDepositReconciliation(deposits);
+            facility.setDepositRetentionRevenue(deposits.getRetained());
+            facility.setTotalRevenue(value(facility.getTotalRevenue()).add(deposits.getRetained()));
+            systemDeposits.add(deposits);
+        }
+        systemSummary.setDepositReconciliation(systemDeposits);
+        systemSummary.setDepositRetentionRevenue(systemDeposits.getRetained());
+        systemSummary.setTotalRevenue(value(systemSummary.getTotalRevenue()).add(systemDeposits.getRetained()));
         List<FacilityRevenueResponse> byFacility = facilityTotals.values().stream()
                 .sorted(Comparator.comparing(FacilityRevenueResponse::getFacilityName))
                 .toList();

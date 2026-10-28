@@ -17,12 +17,11 @@ import com.storehub.repository.FacilityRepository;
 import com.storehub.repository.UserRepository;
 import com.storehub.service.ActivityLogService;
 import com.storehub.service.FacilityService;
+import com.storehub.util.PaginationUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,6 +30,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -109,6 +109,9 @@ public class FacilityServiceImpl implements FacilityService {
                 .facility(saved)
                 .depositPercentage(20.0)
                 .dailyLateFee(java.math.BigDecimal.valueOf(50000))
+                .prohibitedItems(FacilityPolicy.builder().build().getProhibitedItems())
+                .termsAndConditions(FacilityPolicy.builder().build().getTermsAndConditions())
+                .termsVersion("v2026.1")
                 .build());
 
         activityLogService.record(
@@ -245,11 +248,16 @@ public class FacilityServiceImpl implements FacilityService {
             String sortBy,
             String sortDir
     ) {
-        Sort sort = sortDir.equalsIgnoreCase("desc")
-                ? Sort.by(sortBy).descending()
-                : Sort.by(sortBy).ascending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = PaginationUtils.pageRequest(page, size, sortBy, sortDir, Map.ofEntries(
+                Map.entry("createdAt", "createdAt"),
+                Map.entry("name", "name"),
+                Map.entry("code", "code"),
+                Map.entry("address", "address"),
+                Map.entry("city", "city"),
+                Map.entry("status", "status"),
+                Map.entry("openTime", "openTime"),
+                Map.entry("closeTime", "closeTime")
+        ));
 
         Page<FacilityResponse> result = facilityRepository
                 .findAllWithFilters(search, status, pageable)

@@ -18,6 +18,30 @@ import java.util.UUID;
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
+    // Caller holds the staff user row lock so concurrent assignments to that
+    // employee are serialized. Match the same fallback times as the daily schedule.
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1 FROM bookings b
+                JOIN storage_units s ON s.id = b.storage_unit_id
+                JOIN facilities f ON f.id = s.facility_id
+                WHERE b.id <> :bookingId AND (
+                    (b.status = 'CONFIRMED' AND b.assigned_check_in_staff_id = :staffId
+                        AND COALESCE(b.scheduled_check_in_time,
+                            b.start_date + COALESCE(f.open_time, TIME '08:00:00')) >= :slotStart
+                        AND COALESCE(b.scheduled_check_in_time,
+                            b.start_date + COALESCE(f.open_time, TIME '08:00:00')) < :slotEnd)
+                    OR
+                    (b.status = 'ACTIVE' AND b.assigned_check_out_staff_id = :staffId
+                        AND COALESCE(b.scheduled_return_time, b.end_date + TIME '09:00:00') >= :slotStart
+                        AND COALESCE(b.scheduled_return_time, b.end_date + TIME '09:00:00') < :slotEnd)
+                )
+            )
+            """, nativeQuery = true)
+    boolean existsConflictingStaffAppointment(
+            @Param("staffId") UUID staffId, @Param("bookingId") UUID bookingId,
+            @Param("slotStart") LocalDateTime slotStart, @Param("slotEnd") LocalDateTime slotEnd);
+
     boolean existsByBookingCode(String bookingCode);
 
     Optional<Booking> findByBookingCode(String bookingCode);
@@ -173,6 +197,9 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             List<BookingStatus> statuses
     );
 
+    boolean existsByStorageUnit_IdAndStatusInAndIdNot(
+            UUID unitId, List<BookingStatus> statuses, UUID bookingId);
+
     @Query("""
             SELECT b FROM Booking b
             JOIN FETCH b.storageUnit su
@@ -186,6 +213,24 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("status") BookingStatus status,
             @Param("now") LocalDateTime now
     );
+
+    @Query("""
+            SELECT b.id FROM Booking b
+            WHERE b.status = com.storehub.enums.BookingStatus.CONFIRMED
+            AND b.endDate <= :today
+            AND b.handoverTime IS NULL
+            AND b.handedOverByStaffId IS NULL
+            """)
+    List<UUID> findExpiredUnclaimedBookingIds(@Param("today") LocalDate today);
+
+    @Query("""
+            SELECT b.id FROM Booking b WHERE b.status = com.storehub.enums.BookingStatus.CONFIRMED
+            AND b.handoverIssueStatus IN (com.storehub.enums.HandoverIssueStatus.OPEN,
+                com.storehub.enums.HandoverIssueStatus.ARRANGED)
+            AND b.handoverIssueDueAt <= :now AND b.handoverTime IS NULL
+            AND b.handedOverByStaffId IS NULL
+            """)
+    List<UUID> findOverdueHandoverIssueIds(@Param("now") LocalDateTime now);
 
     long countByStorageUnit_Facility_IdAndStatusAndOverdueDetectedAtIsNotNull(
             UUID facilityId,

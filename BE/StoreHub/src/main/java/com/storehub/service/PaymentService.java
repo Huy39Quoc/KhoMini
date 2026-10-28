@@ -38,6 +38,8 @@ public interface PaymentService {
     // Ưu tiên hoàn vào khoản cọc trước, phần còn lại vào tiền thuê. Trả về tổng số tiền yêu cầu hoàn.
     BigDecimal refundOnCancellation(Booking booking);
 
+    BigDecimal refundForFacilityFailure(Booking booking);
+
     // Dùng khi nhân viên nghiệm thu trả kho: chặn nếu còn phí trễ hạn chưa thanh toán,
     // huỷ yêu cầu gia hạn đang treo, rồi yêu cầu hoàn cọc. Trả về số tiền yêu cầu hoàn.
     BigDecimal refundDepositOnReturn(Booking booking);

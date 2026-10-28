@@ -25,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtServiceImpl jwtService;
     private final UserDetailsService userDetailsService;
+    private final com.storehub.service.AccessSessionService accessSessions;
 
     @Override
     protected void doFilterInternal(
@@ -55,7 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Only authenticate if not already authenticated
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                if (jwtService.isAccessToken(jwt)) {
+                if (jwtService.isAccessToken(jwt) && accessSessions.isActive(jwt, userEmail)) {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(

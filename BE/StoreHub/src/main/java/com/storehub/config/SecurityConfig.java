@@ -42,6 +42,7 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/api/v1/catalog/**",
             "/api/v1/pricing/**",
+            "/api/v1/facility-policies/by-facility/**",
             "/api/v1/payments/vnpay-return",
             "/api/v1/payments/vnpay-ipn"
     };

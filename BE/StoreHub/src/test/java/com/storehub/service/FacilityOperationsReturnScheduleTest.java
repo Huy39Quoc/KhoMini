@@ -82,8 +82,8 @@ class FacilityOperationsReturnScheduleTest {
 
         AppException error = assertThrows(AppException.class,
                 () -> operations.checkOut(bookingId, facilityId, "staff@test.com",
-                        HandoverRequest.builder().unitCondition("Good")
-                                .lockCondition("Working").build()));
+                        HandoverRequest.builder().unitCondition(com.storehub.enums.HandoverUnitCondition.GOOD)
+                                .lockCondition(com.storehub.enums.HandoverLockCondition.LOCKED_WORKING).build()));
         assertEquals(ErrorCode.OVERDUE_FEE_UNPAID_ON_RETURN, error.getErrorCode());
         assertEquals(BookingStatus.ACTIVE, booking.getStatus());
         assertEquals(UnitStatus.OCCUPIED, unit.getStatus());
@@ -114,8 +114,8 @@ class FacilityOperationsReturnScheduleTest {
         when(payments.refundDepositOnReturn(booking)).thenReturn(BigDecimal.ZERO);
 
         operations.checkOut(bookingId, facilityId, "staff@test.com",
-                HandoverRequest.builder().unitCondition("Good")
-                        .lockCondition("Working").build());
+                HandoverRequest.builder().unitCondition(com.storehub.enums.HandoverUnitCondition.DAMAGED)
+                        .lockCondition(com.storehub.enums.HandoverLockCondition.BROKEN).build());
 
         assertEquals(appointment, booking.getScheduledReturnTime());
         assertEquals(BookingStatus.COMPLETED, booking.getStatus());
@@ -140,8 +140,8 @@ class FacilityOperationsReturnScheduleTest {
 
         AppException exception = assertThrows(AppException.class,
                 () -> operations.checkIn(bookingId, facilityId, "staff@test.com",
-                        HandoverRequest.builder().unitCondition("Good")
-                                .lockCondition("Working").build()));
+                        HandoverRequest.builder().unitCondition(com.storehub.enums.HandoverUnitCondition.GOOD)
+                                .lockCondition(com.storehub.enums.HandoverLockCondition.LOCKED_WORKING).build()));
 
         assertEquals(ErrorCode.CHECKIN_RENTAL_ENDED, exception.getErrorCode());
         verify(records, never()).save(any());
@@ -162,15 +162,17 @@ class FacilityOperationsReturnScheduleTest {
 
         AppException error = assertThrows(AppException.class,
                 () -> operations.checkIn(bookingId, facilityId, "staff@test.com",
-                        HandoverRequest.builder().unitCondition("Good")
-                                .lockCondition("Working").build()));
+                        HandoverRequest.builder().unitCondition(com.storehub.enums.HandoverUnitCondition.GOOD)
+                                .lockCondition(com.storehub.enums.HandoverLockCondition.LOCKED_WORKING).build()));
 
         assertEquals(ErrorCode.UNIT_ASSIGNMENT_REQUIRED, error.getErrorCode());
         verify(records, never()).save(any());
     }
 
-    @Test
-    void unlockedUnitIsRejectedInsteadOfBeingHandedOver() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"GOOD,UNLOCKED", "GOOD,BROKEN", "DAMAGED,LOCKED_WORKING", "NEEDS_CLEANING,LOCKED_WORKING", "GOOD,LOCKED_WORKING"})
+    void onlyReadyUnitAndLockCanBeHandedOver(com.storehub.enums.HandoverUnitCondition condition,
+                                            com.storehub.enums.HandoverLockCondition lock) {
         UUID facilityId = UUID.randomUUID(), bookingId = UUID.randomUUID(), unitId = UUID.randomUUID();
         Facility facility = new Facility(); facility.setId(facilityId);
         StorageUnit unit = StorageUnit.builder().facility(facility)
@@ -185,13 +187,23 @@ class FacilityOperationsReturnScheduleTest {
         when(units.lockById(unitId)).thenReturn(Optional.of(unit));
 
         var result = operations.checkIn(bookingId, facilityId, "staff@test.com",
-                HandoverRequest.builder().unitCondition("Tốt / sạch sẽ")
-                        .lockCondition("Chưa khóa").notes("Khóa cửa chưa được gài").build());
+                HandoverRequest.builder().unitCondition(condition)
+                        .lockCondition(lock).notes("Biên bản kiểm tra ngăn và khóa").build());
 
-        assertEquals("CHECK_IN_REJECTED", result.getRecordType());
-        assertEquals(BookingStatus.CONFIRMED, booking.getStatus());
-        assertEquals(UnitStatus.UNDER_MAINTENANCE, unit.getStatus());
-        assertFalse(Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()));
-        assertNull(booking.getHandoverTime());
+        boolean ready = condition == com.storehub.enums.HandoverUnitCondition.GOOD
+                && lock == com.storehub.enums.HandoverLockCondition.LOCKED_WORKING;
+        assertEquals(ready ? "CHECK_IN" : "CHECK_IN_REJECTED", result.getRecordType());
+        assertEquals(ready ? BookingStatus.ACTIVE : BookingStatus.CONFIRMED, booking.getStatus());
+        assertEquals(ready ? UnitStatus.OCCUPIED : UnitStatus.UNDER_MAINTENANCE, unit.getStatus());
+        assertEquals(ready, Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()));
+        if (ready) assertNotNull(booking.getHandoverTime());
+        else {
+            assertNull(booking.getHandoverTime());
+            assertEquals(com.storehub.enums.HandoverIssueStatus.OPEN, booking.getHandoverIssueStatus());
+            assertNotNull(booking.getHandoverIssueReportedAt());
+            assertEquals(booking.getHandoverIssueReportedAt().plusHours(48), booking.getHandoverIssueDueAt());
+            assertEquals("Biên bản kiểm tra ngăn và khóa", booking.getHandoverIssueReason());
+        }
+        assertTrue(result.getUnitCondition().contains(condition.getLabel()));
     }
 }

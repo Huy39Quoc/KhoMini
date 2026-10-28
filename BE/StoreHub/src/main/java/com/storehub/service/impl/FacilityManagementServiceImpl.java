@@ -62,6 +62,7 @@ public class FacilityManagementServiceImpl
     private final WaitlistService waitlistService;
     private final EmailService emailService;
     private final StaffWorkloadService staffWorkloadService;
+    private final com.storehub.repository.DepositDeductionRepository depositDeductions;
 
     @Transactional(readOnly = true)
     public AssignedFacilityResponse myFacility(String email) {
@@ -181,6 +182,10 @@ public class FacilityManagementServiceImpl
         Booking booking = bookings.lockById(bookingId)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
+        if (booking.getHandoverIssueReportedAt() != null) {
+            throw new AppException(ErrorCode.HANDOVER_ISSUE_RESOLUTION_REQUIRED);
+        }
+
         StorageUnit oldUnit = booking.getStorageUnit();
 
         if (oldUnit == null
@@ -280,7 +285,7 @@ public class FacilityManagementServiceImpl
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public FacilityReportResponse report(
             UUID facilityId,
             String managerEmail
@@ -320,6 +325,8 @@ public class FacilityManagementServiceImpl
         BigDecimal refunded = refunds.sumCompletedRentalRefundsByFacility(facilityId);
         BigDecimal revenue = (captured == null ? BigDecimal.ZERO : captured)
                 .subtract(refunded == null ? BigDecimal.ZERO : refunded);
+        BigDecimal retained = depositDeductions.sumRetainedByFacility(facilityId);
+        revenue = revenue.add(retained == null ? BigDecimal.ZERO : retained);
 
         return new FacilityReportResponse(
                 facilityId,
@@ -524,7 +531,8 @@ public class FacilityManagementServiceImpl
                 booking.getAccessDisabledAt() != null,
                 booking.getSealingPendingAt() != null,
                 booking.getPendingExtensionFee(),
-                booking.getSealingApprovedAt() != null
+                booking.getSealingPendingAt() != null && booking.getSealingApprovedAt() != null
+                        && !booking.getSealingApprovedAt().isBefore(booking.getSealingPendingAt())
         );
     }
 
@@ -538,7 +546,7 @@ public class FacilityManagementServiceImpl
         access.require(managerEmail, facilityId);
         requireFacility(facilityId);
 
-        Booking booking = bookings.findById(bookingId)
+        Booking booking = bookings.lockById(bookingId)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
 
         if (booking.getStorageUnit() == null
@@ -547,11 +555,14 @@ public class FacilityManagementServiceImpl
             throw new AppException(ErrorCode.BOOKING_NOT_FOUND);
         }
         if (booking.getStatus() != BookingStatus.ACTIVE
-                || booking.getSealingPendingAt() == null) {
+                || booking.getSealingPendingAt() == null
+                || booking.getEndDate() == null
+                || !booking.getEndDate().isBefore(LocalDate.now())) {
             throw new AppException(ErrorCode.UNIT_NOT_OVERDUE);
         }
 
-        if (booking.getSealingApprovedAt() == null) {
+        if (booking.getSealingApprovedAt() == null
+                || booking.getSealingApprovedAt().isBefore(booking.getSealingPendingAt())) {
             booking.setSealingApprovedAt(LocalDateTime.now());
             bookings.save(booking);
 
@@ -562,7 +573,9 @@ public class FacilityManagementServiceImpl
                     "Sealing approved for overdue booking " + booking.getBookingCode()
                             + " (unit " + booking.getStorageUnit().getUnitCode() + ")",
                     null,
-                    null
+                    java.util.Map.of("overdueDetectedAt", String.valueOf(booking.getOverdueDetectedAt()),
+                            "sealingPendingAt", booking.getSealingPendingAt().toString(),
+                            "sealingApprovedAt", booking.getSealingApprovedAt().toString())
             );
         }
         return toContract(booking);
@@ -596,7 +609,10 @@ public class FacilityManagementServiceImpl
                 unitType.getTypeName(),
                 booking.getStatus(),
                 Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed()),
-                unit.getStatus() != null ? unit.getStatus().name() : null
+                unit.getStatus() != null ? unit.getStatus().name() : null,
+                booking.getHandoverIssueStatus() != null ? booking.getHandoverIssueStatus().name() : null,
+                booking.getHandoverIssueReason(), booking.getHandoverIssueDueAt(),
+                booking.getScheduledCheckInTime(), booking.getHandoverIssueResolutionNote()
         );
     }
 

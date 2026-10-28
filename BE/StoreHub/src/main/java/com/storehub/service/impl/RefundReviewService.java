@@ -25,6 +25,7 @@ public class RefundReviewService {
     private final RefundRequestRepository refunds;
     private final UserRepository users;
     private final RefundDispatcher dispatcher;
+    private final com.storehub.repository.BookingRepository bookings;
 
     public void reconcile(UUID facilityId, UUID refundId, String managerEmail) {
         requireManager(facilityId, managerEmail);
@@ -90,9 +91,13 @@ public class RefundReviewService {
                                                      String managerEmail, com.storehub.dto.request.ConfirmBankTransferRequest request) {
         requireManager(facilityId, managerEmail);
         RefundRequest refund = requireRefund(facilityId, refundId);
-        // QUEUED/NEEDS_REVIEW thuộc luồng hoàn qua VNPay; xác nhận chuyển khoản tay ở đây
-        // có thể làm hoàn tiền hai lần.
-        if (refund.getStatus() != RefundStatus.AWAITING_BANK_TRANSFER) {
+        // Cho phép quản lý xác nhận chuyển khoản hoàn cọc cho AWAITING_BANK_TRANSFER,
+        // hoặc khi giao dịch hoàn tiền online bị treo/chờ xác nhận (AWAITING_CONFIRMATION, NEEDS_REVIEW, REJECTED)
+        // để quản lý có thể hoàn trả thủ công và giải phóng đơn cho khách hàng.
+        if (refund.getStatus() != RefundStatus.AWAITING_BANK_TRANSFER
+                && refund.getStatus() != RefundStatus.AWAITING_CONFIRMATION
+                && refund.getStatus() != RefundStatus.NEEDS_REVIEW
+                && refund.getStatus() != RefundStatus.REJECTED) {
             throw new AppException(ErrorCode.INVALID_REQUEST);
         }
         LocalDateTime now = LocalDateTime.now();
@@ -101,12 +106,12 @@ public class RefundReviewService {
         refund.setUpdatedStatusAt(now);
         refund.setTransferReference(request.getTransferReference());
 
-        com.storehub.entity.Booking booking = refund.getBooking();
+        com.storehub.entity.Booking booking = bookings.lockById(refund.getBooking().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
         if (booking != null && booking.getDepositPaid() != null) {
             java.math.BigDecimal depositRemaining = booking.getDepositPaid().subtract(refund.getDepositAmount());
-            if (depositRemaining.signum() >= 0) {
-                booking.setDepositPaid(depositRemaining);
-            }
+            if (depositRemaining.signum() < 0) throw new AppException(ErrorCode.INVALID_REQUEST);
+            booking.setDepositPaid(depositRemaining);
         }
 
         Payment original = refund.getOriginalPayment();
@@ -120,6 +125,7 @@ public class RefundReviewService {
         Payment refundPayment = refund.getRefundPayment();
         if (refundPayment != null) {
             refundPayment.setStatus(com.storehub.enums.PaymentStatus.REFUNDED);
+            refundPayment.setPaymentMethod("BANK_TRANSFER");
             refundPayment.setPaymentTime(now);
             if (request.getNotes() != null && !request.getNotes().isBlank()) {
                 String existingNote = refundPayment.getNote() != null ? refundPayment.getNote() : "";

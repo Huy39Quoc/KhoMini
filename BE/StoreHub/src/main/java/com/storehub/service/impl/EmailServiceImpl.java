@@ -691,9 +691,8 @@ public void sendWelcomeEmail(String toEmail, String fullName) {
             helper.setText(htmlContent, true);
             mailSender.send(message);
             log.info("Email sent to: {}", to);
-        } catch (MessagingException e) {
-            log.error("Failed to send email to: {}", to, e);
-            throw new RuntimeException("Failed to send email", e);
+        } catch (Exception e) {
+            log.error("Failed to send email to: {}. Cause: {}", to, e.getMessage());
         }
     }
 }

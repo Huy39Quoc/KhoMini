@@ -10,10 +10,13 @@ import java.math.BigDecimal;
 @Builder
 public class SystemRevenueSummaryResponse {
     private BigDecimal totalRevenue;
+    // Net deposit cash flow; held liability is depositReconciliation.closingBalance.
     private BigDecimal depositRevenue;
     private BigDecimal rentalFeeRevenue;
     private BigDecimal extraChargeRevenue;
     private Long paymentCount;
+    private BigDecimal depositRetentionRevenue;
+    private DepositReconciliationResponse depositReconciliation;
 
     public SystemRevenueSummaryResponse(Object totalRevenue, Object depositRevenue, Object rentalFeeRevenue, Object extraChargeRevenue, Number paymentCount) {
         this.totalRevenue = toBigDecimal(totalRevenue);

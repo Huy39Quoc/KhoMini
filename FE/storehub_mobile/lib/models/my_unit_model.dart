@@ -1,5 +1,8 @@
 class MyUnitModel {
   final String bookingId;
+  final String handoverIssueStatus;
+  final String handoverIssueReason;
+  final String handoverIssueDueAt;
   final String bookingCode;
   final String unitCode;
   final bool unitAssignmentConfirmed;
@@ -30,6 +33,9 @@ class MyUnitModel {
 
   MyUnitModel({
     required this.bookingId,
+    this.handoverIssueStatus = '',
+    this.handoverIssueReason = '',
+    this.handoverIssueDueAt = '',
     required this.bookingCode,
     required this.unitCode,
     this.unitAssignmentConfirmed = false,
@@ -59,6 +65,9 @@ class MyUnitModel {
     this.closeTime,
   });
 
+  bool get hasHandoverIssue =>
+      handoverIssueStatus == 'OPEN' || handoverIssueStatus == 'ARRANGED';
+
   bool get isActive => status == 'ACTIVE';
   String get displayUnit => (isActive || unitAssignmentConfirmed)
       ? 'Ngăn $unitCode'
@@ -85,6 +94,9 @@ class MyUnitModel {
     return MyUnitModel(
       bookingId: json['bookingId']?.toString() ?? json['id']?.toString() ?? '',
       bookingCode: json['bookingCode']?.toString() ?? '',
+      handoverIssueStatus: json['handoverIssueStatus']?.toString() ?? '',
+      handoverIssueReason: json['handoverIssueReason']?.toString() ?? '',
+      handoverIssueDueAt: json['handoverIssueDueAt']?.toString() ?? '',
       unitCode: json['unitCode']?.toString() ?? '',
       unitAssignmentConfirmed: json['unitAssignmentConfirmed'] == true,
       facilityName: json['facilityName']?.toString() ?? '',

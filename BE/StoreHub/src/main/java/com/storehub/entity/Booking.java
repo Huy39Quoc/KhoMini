@@ -18,6 +18,32 @@ import java.util.UUID;
 @Builder
 public class Booking extends BaseEntity {
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private com.storehub.enums.HandoverIssueStatus handoverIssueStatus;
+    private LocalDateTime handoverIssueReportedAt;
+    @Column(columnDefinition = "TEXT")
+    private String handoverIssueReason;
+    private LocalDateTime handoverIssueDueAt;
+    private LocalDateTime handoverIssueCustomerAgreedAt;
+    private UUID handoverIssueResolvedBy;
+    @Column(columnDefinition = "TEXT")
+    private String handoverIssueResolutionNote;
+
+    // Immutable contract terms. Facility policy edits affect future bookings only.
+    @Column(nullable = false, updatable = false, precision = 12, scale = 2)
+    private BigDecimal overdueDailyLateFee;
+    @Column(nullable = false, updatable = false)
+    private Integer overdueGraceDays;
+    @Column(nullable = false, updatable = false)
+    private Integer overdueAccessDisableDays;
+    @Column(nullable = false, updatable = false)
+    private Integer overdueSealingDays;
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime overduePolicyCapturedAt;
+    @Column(nullable = false, updatable = false)
+    private Boolean overduePolicyLegacy;
+
     @Column(nullable = false, updatable = false)
     private Integer cancellationFullRefundHours;
     @Column(nullable = false, updatable = false)
@@ -170,6 +196,15 @@ public class Booking extends BaseEntity {
     @Column(name = "terms_accepted_at")
     private LocalDateTime termsAcceptedAt;
 
-    @Column(name = "terms_version", length = 30)
+    @Column(name = "terms_version", length = 30, updatable = false)
     private String termsVersion;
+
+    @Column(columnDefinition = "TEXT", updatable = false)
+    private String termsContentSnapshot;
+
+    @Column(columnDefinition = "TEXT", updatable = false)
+    private String prohibitedItemsSnapshot;
+
+    @Column(length = 64, updatable = false)
+    private String termsHash;
 }

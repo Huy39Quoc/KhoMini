@@ -85,7 +85,12 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
-
+        // Serialize credential checks and session changes with password reset,
+        // refresh and logout for this account.
+        User user = userRepository.lockAuthUserByEmail(request.getEmail()).orElseThrow(() -> {
+            activityLogService.recordLogin(null, request.getEmail(), false, "Invalid credentials");
+            return new AppException(ErrorCode.INVALID_CREDENTIALS);
+        });
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -104,12 +109,6 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> {
-                    activityLogService.recordLogin(null, request.getEmail(), false, "User not found");
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
-                });
-
         // Revoke old refresh tokens
         refreshTokenRepository.revokeAllUserTokensByType(user, TokenType.REFRESH);
 
@@ -121,6 +120,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void logout(String refreshTokenValue) {
+        lockTokenUser(refreshTokenValue, TokenType.REFRESH, ErrorCode.INVALID_REFRESH_TOKEN);
 
         RefreshToken refreshToken = refreshTokenRepository
                 .findByTokenAndTypeAndRevokedFalse(refreshTokenValue, TokenType.REFRESH)
@@ -138,6 +138,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse refreshToken(RefreshTokenRequest request) {
+        User user = lockTokenUser(request.getRefreshToken(), TokenType.REFRESH, ErrorCode.INVALID_REFRESH_TOKEN);
 
         RefreshToken storedToken = refreshTokenRepository
                 .findByTokenAndTypeAndRevokedFalse(request.getRefreshToken(), TokenType.REFRESH)
@@ -149,7 +150,6 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.TOKEN_EXPIRED);
         }
 
-        User user = storedToken.getUser();
         if (user == null || !Boolean.TRUE.equals(user.getIsActive())) {
             throw new AppException(ErrorCode.USER_INACTIVE);
         }
@@ -158,10 +158,13 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.ROLE_INACTIVE);
         }
 
+        if (!jwtService.isTokenValid(request.getRefreshToken())) {
+            throw new AppException(ErrorCode.TOKEN_EXPIRED);
+        }
         storedToken.setLastUsedAt(LocalDateTime.now());
         refreshTokenRepository.save(storedToken);
 
-        String newAccessToken = jwtService.generateAccessToken(user);
+        String newAccessToken = jwtService.generateAccessToken(user, storedToken.getId());
         UserResponse userResponse = userMapper.toResponse(user);
 
         return AuthResponse.builder()
@@ -175,7 +178,7 @@ public class AuthServiceImpl implements AuthService {
     public void forgotPassword(ForgotPasswordRequest request) {
 
         // Không throw lỗi nếu email không tồn tại — bảo mật
-        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+        userRepository.lockAuthUserByEmail(request.getEmail()).ifPresent(user -> {
             refreshTokenRepository.revokeAllUserTokensByType(user, TokenType.RESET_PASSWORD);
 
             String resetToken = jwtService.generateResetPasswordToken(user);
@@ -206,6 +209,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.PASSWORD_MISMATCH);
         }
 
+        User user = lockTokenUser(request.getToken(), TokenType.RESET_PASSWORD, ErrorCode.INVALID_RESET_TOKEN);
         RefreshToken resetToken = refreshTokenRepository
                 .findByTokenAndTypeAndRevokedFalse(request.getToken(), TokenType.RESET_PASSWORD)
                 .orElseThrow(() -> new AppException(ErrorCode.INVALID_RESET_TOKEN));
@@ -216,7 +220,6 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.INVALID_RESET_TOKEN);
         }
 
-        User user = resetToken.getUser();
 
         if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
             throw new AppException(ErrorCode.NEW_PASSWORD_SAME_AS_OLD);
@@ -228,8 +231,8 @@ public class AuthServiceImpl implements AuthService {
         // Revoke tất cả token — bắt đăng nhập lại
         refreshTokenRepository.revokeAllUserTokens(user);
 
-        activityLogService.record(user.getId(), ActivityAction.PASSWORD_RESET_COMPLETED, "USER", user.getId(),
-                "Password reset completed via token", null, null);
+        afterCommit(() -> activityLogService.record(user.getId(), ActivityAction.PASSWORD_RESET_COMPLETED,
+                "USER", user.getId(), "Password reset completed via token", null, null));
 
     }
 
@@ -241,7 +244,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.PASSWORD_MISMATCH);
         }
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.lockAuthUserByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
@@ -258,26 +261,49 @@ public class AuthServiceImpl implements AuthService {
         // Revoke tất cả token — bắt đăng nhập lại trên tất cả thiết bị
         refreshTokenRepository.revokeAllUserTokens(user);
 
-        activityLogService.record(user.getId(), ActivityAction.PASSWORD_CHANGE, "USER", user.getId(),
-                "Password changed successfully", null, null);
+        afterCommit(() -> activityLogService.record(user.getId(), ActivityAction.PASSWORD_CHANGE,
+                "USER", user.getId(), "Password changed successfully", null, null));
 
     }
 
 
+    private void afterCommit(Runnable audit) {
+        // Audit uses REQUIRES_NEW. Run after releasing the updated user row so
+        // its foreign-key check cannot wait on the enclosing password change.
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCommit() {
+                            try { audit.run(); }
+                            catch (RuntimeException error) { log.error("Authentication audit failed after commit", error); }
+                        }
+                    });
+        } else audit.run();
+    }
+
+    private User lockTokenUser(String token, TokenType type, ErrorCode error) {
+        java.util.UUID userId = refreshTokenRepository.findActiveTokenUserId(token, type)
+                .orElseThrow(() -> new AppException(error));
+        // Always lock user first, then re-read the token. A waiting refresh must
+        // see revocation committed by logout / reset, never restore a stale row.
+        return userRepository.lockAuthUserById(userId)
+                .orElseThrow(() -> new AppException(error));
+    }
+
     private AuthResponse buildAuthResponse(User user) {
-        String accessToken = jwtService.generateAccessToken(user);
         String refreshTokenValue = jwtService.generateRefreshToken(user);
 
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
                 .token(refreshTokenValue)
                 .type(TokenType.REFRESH)
-                .expiredAt(LocalDateTime.now().plusDays(7))
+                .expiredAt(jwtService.extractExpiration(refreshTokenValue))
                 .lastUsedAt(LocalDateTime.now())
                 .revoked(false)
                 .build();
 
-        refreshTokenRepository.save(refreshToken);
+        RefreshToken storedSession = refreshTokenRepository.save(refreshToken);
+        String accessToken = jwtService.generateAccessToken(user, storedSession.getId());
 
         UserResponse userResponse = userMapper.toResponse(user);
 

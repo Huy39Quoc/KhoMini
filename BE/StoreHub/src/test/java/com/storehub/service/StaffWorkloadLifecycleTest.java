@@ -118,7 +118,7 @@ class StaffWorkloadLifecycleTest {
 
     FacilityManagementServiceImpl management() {
         return new FacilityManagementServiceImpl(access, facilities, null, null, bookings,
-                users, null, null, logs, null, null, workload);
+                users, null, null, logs, null, null, workload, null);
     }
 
     Facility facility() {

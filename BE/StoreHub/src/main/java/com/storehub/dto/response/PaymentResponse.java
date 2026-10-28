@@ -30,4 +30,10 @@ public class PaymentResponse {
     private String paymentUrl;
     private String qrCodeUrl;
     private LocalDateTime paymentTime;
+
+    private BigDecimal rentalFee;
+    private BigDecimal managementFee;
+    private BigDecimal depositAmount;
+    private BigDecimal damageDeduction;
+    private BigDecimal refundedAmount;
 }

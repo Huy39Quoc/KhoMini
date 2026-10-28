@@ -107,10 +107,18 @@ public class FacilityPolicy extends BaseEntity {
 
     // --- Cam kết pháp lý & Danh mục hàng cấm (Legal Agreement & Prohibited Items) ---
     @Column(name = "prohibited_items", columnDefinition = "TEXT")
-    private String prohibitedItems;
+    @Builder.Default
+    private String prohibitedItems =
+            "Chất dễ cháy nổ, bình gas, xăng dầu; Ma túy, chất kích thích, hóa chất độc hại; Động vật sống, thực phẩm tươi sống dễ thối rữa; Vũ khí, đạn dược, hàng cấm, pháo hoa; Hàng hóa có mùi nồng nặc gây ảnh hưởng kho xung quanh";
 
     @Column(name = "terms_and_conditions", columnDefinition = "TEXT")
-    private String termsAndConditions;
+    @Builder.Default
+    private String termsAndConditions =
+            "1. Khách hàng cam kết tuân thủ quy chế vận hành và an toàn PCCC tại cơ sở lưu kho StoreHub.\n"
+            + "2. Tuyệt đối không lưu trữ hàng hóa thuộc danh mục cấm theo quy định của pháp luật và nội quy kho.\n"
+            + "3. Khách hàng chịu hoàn toàn trách nhiệm pháp lý và bồi thường nếu hàng hóa gây thiệt hại, cháy nổ hoặc vi phạm pháp luật.\n"
+            + "4. Thanh toán đúng hạn theo thỏa thuận thuê kho và phối hợp thực hiện bàn giao, kiểm tra kho khi có yêu cầu.\n"
+            + "5. Thời hạn hợp đồng và cước phí được tính từ Ngày bắt đầu thuê đã thỏa thuận. Việc nhận kho trễ hơn ngày hẹn không làm kéo dài thời hạn kết thúc hợp đồng hay giảm trừ tiền thuê.";
 
     @Column(name = "terms_version", length = 30)
     @Builder.Default

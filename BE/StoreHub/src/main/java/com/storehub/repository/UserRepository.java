@@ -17,6 +17,14 @@ import java.util.UUID;
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
 
+    // Serialize auth mutations without blocking foreign-key checks performed by
+    // the independently committed authentication audit log.
+    @Query(value = "SELECT * FROM users WHERE email = :email FOR NO KEY UPDATE", nativeQuery = true)
+    Optional<User> lockAuthUserByEmail(@Param("email") String email);
+
+    @Query(value = "SELECT * FROM users WHERE id = :id FOR NO KEY UPDATE", nativeQuery = true)
+    Optional<User> lockAuthUserById(@Param("id") UUID id);
+
     Optional<User> findByEmail(String email);
     boolean existsByEmailAndRole_NameAndFacility_IdAndIsActiveTrue(String email, String roleName, UUID facilityId);
 

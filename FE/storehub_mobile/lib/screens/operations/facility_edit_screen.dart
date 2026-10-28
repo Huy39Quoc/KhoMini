@@ -536,6 +536,16 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
       return;
     }
 
+    if (grace < 0 || grace > accessDisable || accessDisable > sealing) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Các mốc tính từ ngày hết hạn phải thỏa: 0 ≤ ân hạn ≤ khóa truy cập ≤ chờ niêm phong.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     if (fullRefundHours < partialRefundHours) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1328,15 +1338,15 @@ class _FacilityEditScreenState extends State<FacilityEditScreen> {
           _section(
             icon: Icons.warning_amber_rounded,
             title: 'Xử lý quá hạn',
-            subtitle: 'Tính theo số ngày sau ngày hết hạn thuê.',
+            subtitle: 'Cả ba mốc tính từ ngày hết hạn: ân hạn ≤ khóa truy cập ≤ chờ niêm phong. Ân hạn chỉ miễn phí trễ hạn.',
             children: [
-              _policyField(_graceController, 'Thời gian ân hạn',
+              _policyField(_graceController, 'Ân hạn phí trễ hạn',
                   int_: true, suffix: 'ngày'),
               _gap,
               _pair(
                 _policyField(_accessDisableController, 'Khóa mã ra vào sau',
                     int_: true, suffix: 'ngày'),
-                _policyField(_sealingController, 'Niêm phong sau',
+                _policyField(_sealingController, 'Chờ duyệt niêm phong sau',
                     int_: true, suffix: 'ngày'),
               ),
             ],

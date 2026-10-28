@@ -9,11 +9,9 @@ import com.storehub.enums.PaymentStatus;
 import com.storehub.enums.PaymentType;
 import com.storehub.exception.AppException;
 import com.storehub.repository.BookingRepository;
-import com.storehub.repository.FacilityPolicyRepository;
+import com.storehub.common.OverduePolicySnapshot;
 import com.storehub.repository.PaymentRepository;
 import com.storehub.service.ActivityLogService;
-import com.storehub.service.FacilityPolicyService;
-import com.storehub.service.PricingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -41,9 +39,6 @@ public class OverdueScheduler {
 
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
-    private final FacilityPolicyRepository facilityPolicyRepository;
-    private final FacilityPolicyService facilityPolicyService;
-    private final PricingService pricingService;
     private final ActivityLogService activityLogService;
 
     @Scheduled(
@@ -92,9 +87,7 @@ public class OverdueScheduler {
     public boolean accrueOutstandingForCheckout(Booking booking, LocalDateTime now) {
         long overdueDays = ChronoUnit.DAYS.between(booking.getEndDate(), now.toLocalDate());
         if (overdueDays > 0) {
-            UUID facilityId = booking.getStorageUnit().getFacility().getId();
-            // Missing policy must stop checkout rather than silently waive fees.
-            OverdueConfigResponse config = facilityPolicyService.getOverdueConfig(facilityId);
+            OverdueConfigResponse config = OverduePolicySnapshot.read(booking);
             long chargeableDays = Math.max(0, overdueDays - config.graceDays());
             if (chargeableDays > 0) {
                 if (booking.getOverdueDetectedAt() == null) {
@@ -104,7 +97,7 @@ public class OverdueScheduler {
                             "Booking " + booking.getBookingCode() + " became overdue after "
                                     + config.graceDays() + " grace day(s)");
                 }
-                updateLateFee(booking, facilityId, chargeableDays, now);
+                updateLateFee(booking, chargeableDays, now);
                 bookingRepository.save(booking);
             }
         }
@@ -120,22 +113,7 @@ public class OverdueScheduler {
             LocalDate today,
             LocalDateTime now
     ) {
-        UUID facilityId = booking
-                .getStorageUnit()
-                .getFacility()
-                .getId();
-
-        // Cơ sở chưa có chính sách: bỏ qua TRƯỚC khi gọi service. Nếu để service
-        // ném AppException trong transaction chung, cả batch bị đánh dấu
-        // rollback-only và mọi booking quá hạn khác cũng không được xử lý.
-        if (!facilityPolicyRepository.existsByFacility_Id(facilityId)) {
-            log.warn("OverdueScheduler skipped booking {}: facility {} has no policy",
-                    booking.getBookingCode(), facilityId);
-            return;
-        }
-
-        OverdueConfigResponse config =
-                facilityPolicyService.getOverdueConfig(facilityId);
+        OverdueConfigResponse config = OverduePolicySnapshot.read(booking);
 
         long overdueDays = ChronoUnit.DAYS.between(
                 booking.getEndDate(),
@@ -147,7 +125,12 @@ public class OverdueScheduler {
                 overdueDays - config.graceDays()
         );
 
-        if (chargeableDays <= 0) {
+        if (overdueDays <= 0) {
+            return;
+        }
+        boolean accessDue = overdueDays >= config.accessDisableDays();
+        boolean sealingDue = overdueDays >= config.sealingDays();
+        if (chargeableDays <= 0 && !accessDue && !sealingDue) {
             return;
         }
 
@@ -159,20 +142,18 @@ public class OverdueScheduler {
                     "BOOKING",
                     booking.getId(),
                     "Booking " + booking.getBookingCode()
-                            + " became overdue after "
+                            + " requires overdue handling; late-fee grace period: "
                             + config.graceDays()
-                            + " grace day(s)"
+                            + " day(s)"
             );
         }
 
-        updateLateFee(
-                booking,
-                facilityId,
-                chargeableDays,
-                now
-        );
+        // Grace applies only to late fees. Security deadlines must still be evaluated.
+        if (chargeableDays > 0) {
+            updateLateFee(booking, chargeableDays, now);
+        }
 
-        if (overdueDays >= config.accessDisableDays()
+        if (accessDue
                 && booking.getAccessDisabledAt() == null) {
 
             booking.setAccessCode(null);
@@ -189,10 +170,12 @@ public class OverdueScheduler {
             );
         }
 
-        if (overdueDays >= config.sealingDays()
+        if (sealingDue
                 && booking.getSealingPendingAt() == null) {
 
+            LocalDateTime previousApproval = booking.getSealingApprovedAt();
             booking.setSealingPendingAt(now);
+            booking.setSealingApprovedAt(null);
 
             activityLogService.recordSystem(
                     ActivityAction.OVERDUE_SEALING_PENDING,
@@ -200,6 +183,8 @@ public class OverdueScheduler {
                     booking.getId(),
                     "Booking " + booking.getBookingCode()
                             + " was marked pending for sealing"
+                            + (previousApproval != null
+                                ? "; prior episode approval expired: " + previousApproval : "")
             );
         }
 
@@ -208,10 +193,13 @@ public class OverdueScheduler {
 
     private void updateLateFee(
             Booking booking,
-            UUID facilityId,
             long chargeableDays,
             LocalDateTime now
     ) {
+        BigDecimal calculatedTotal = OverduePolicySnapshot.read(booking).dailyLateFee()
+                .multiply(BigDecimal.valueOf(chargeableDays))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+
         // Migrate unpaid FAILED attempts from older releases before adding today's fee.
         // Never change a URL already sent to VNPay: any late capture of the old
         // reference must go through the existing voided-at refund path.
@@ -234,12 +222,6 @@ public class OverdueScheduler {
                             .paymentTime(failed.getPaymentTime())
                             .build());
                 });
-
-        BigDecimal calculatedTotal = pricingService
-                .calculateLateFee(
-                        facilityId,
-                        chargeableDays
-                );
 
         BigDecimal previousTotal =
                 booking.getOverdueFeeAccrued() != null

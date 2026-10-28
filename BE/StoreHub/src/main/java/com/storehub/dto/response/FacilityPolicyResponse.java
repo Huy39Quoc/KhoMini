@@ -37,4 +37,8 @@ public class FacilityPolicyResponse {
     private String prohibitedItems;
     private String termsAndConditions;
     private String termsVersion;
+
+    public String getTermsHash() {
+        return com.storehub.common.TermsSnapshot.hash(termsVersion, termsAndConditions, prohibitedItems);
+    }
 }

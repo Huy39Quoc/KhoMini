@@ -166,7 +166,8 @@ class _ReportsScreenState extends State<ReportsScreen>
           final summary = (data['systemSummary'] as Map?) ?? {};
           final byFacility = (data['byFacility'] as List?) ?? [];
           final total = (summary['totalRevenue'] as num?)?.toDouble() ?? 0;
-          final deposit = (summary['depositRevenue'] as num?)?.toDouble() ?? 0;
+          final deposits = (summary['depositReconciliation'] as Map?) ?? {};
+          final deposit = (deposits['closingBalance'] as num?)?.toDouble() ?? 0;
           final rental = (summary['rentalFeeRevenue'] as num?)?.toDouble() ?? 0;
           final extra =
               (summary['extraChargeRevenue'] as num?)?.toDouble() ?? 0;
@@ -218,7 +219,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                 children: [
                   Expanded(
                       child: _revenueChip(
-                          'Tiền cọc (ròng)', deposit, AppColors.secondary)),
+                          'Cọc còn giữ cuối kỳ', deposit, AppColors.secondary)),
                   const SizedBox(width: 10),
                   Expanded(
                       child: _revenueChip(
@@ -230,8 +231,26 @@ class _ReportsScreenState extends State<ReportsScreen>
                 ],
               ),
               const SizedBox(height: 8),
-              const Text('Tiền cọc là dòng tiền sẽ hoàn lại. Khoản hoàn được tính vào kỳ hoàn tất.',
+              const Text('Cọc chưa khấu trừ không phải doanh thu. Khấu trừ được ghi nhận khi chốt; khoản hoàn chỉ ghi nhận khi hoàn tất.',
                   style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Đối chiếu tiền cọc trong kỳ',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      _depositReconciliation(deposits),
+                      const SizedBox(height: 6),
+                      const Text('Cuối kỳ = Đầu kỳ + Nhận − Hoàn − Giữ lại. Cọc chờ hoàn vẫn nằm trong số còn giữ.',
+                          style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 20),
               const Text('Theo cơ sở',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -251,8 +270,14 @@ class _ReportsScreenState extends State<ReportsScreen>
                       title: Text(m['facilityName']?.toString() ?? '',
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: Text('${m['paymentCount'] ?? 0} giao dịch thu',
-                          style: const TextStyle(fontSize: 12)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${m['paymentCount'] ?? 0} giao dịch thu',
+                              style: const TextStyle(fontSize: 12)),
+                          _depositReconciliation((m['depositReconciliation'] as Map?) ?? {}),
+                        ],
+                      ),
                       trailing: Text(
                         _currency.format(
                             (m['totalRevenue'] as num?)?.toDouble() ?? 0),
@@ -267,6 +292,25 @@ class _ReportsScreenState extends State<ReportsScreen>
           );
         },
       ),
+    );
+  }
+
+  Widget _depositReconciliation(Map data) {
+    final labels = {
+      'openingBalance': 'Cọc đầu kỳ',
+      'received': 'Cọc đã nhận trong kỳ',
+      'refunded': 'Cọc đã hoàn trong kỳ',
+      'retained': 'Cọc giữ lại trong kỳ (doanh thu)',
+      'damageRetained': 'Trong đó: khấu trừ hư hại',
+      'cancellationRetained': 'Trong đó: giữ lại khi hủy',
+      'closingBalance': 'Cọc còn giữ cuối kỳ',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: labels.entries.map((entry) => Text(
+        '${entry.value}: ${_currency.format((data[entry.key] as num?) ?? 0)}',
+        style: const TextStyle(fontSize: 12),
+      )).toList(),
     );
   }
 

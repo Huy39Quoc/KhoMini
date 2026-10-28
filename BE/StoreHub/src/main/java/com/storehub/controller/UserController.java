@@ -38,13 +38,13 @@ public class UserController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('USER_VIEW')")
     public ResponseEntity<ApiResponse<UserSummaryResponse>> getSummary() {
         return ResponseEntity.ok(ApiResponse.success(userService.getSummary()));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('USER_VIEW')")
     public ResponseEntity<ApiResponse<UserResponse>> getById(
             @PathVariable UUID id
     ) {
@@ -53,7 +53,7 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_MANAGER') and hasAuthority('USER_VIEW')")
     public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getAll(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean isActive,

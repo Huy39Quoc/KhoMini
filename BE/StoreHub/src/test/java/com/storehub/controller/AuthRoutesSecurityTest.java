@@ -27,6 +27,7 @@ class AuthRoutesSecurityTest {
     @MockBean AuthService authService;
     @MockBean BookingService bookingService;
     @MockBean JwtServiceImpl jwtService;
+    @MockBean com.storehub.service.AccessSessionService accessSessions;
     @MockBean UserDetailsService userDetailsService;
 
     @Test

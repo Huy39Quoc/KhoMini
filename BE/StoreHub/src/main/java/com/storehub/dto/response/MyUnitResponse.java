@@ -17,6 +17,10 @@ import java.util.UUID;
 @AllArgsConstructor
 public class MyUnitResponse {
     private UUID bookingId;
+    private com.storehub.enums.HandoverIssueStatus handoverIssueStatus;
+    private String handoverIssueReason;
+    private LocalDateTime handoverIssueDueAt;
+    private LocalDateTime scheduledCheckInTime;
     private String bookingCode;
     private String facilityName;
     private String facilityAddress;

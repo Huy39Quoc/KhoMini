@@ -26,6 +26,7 @@ class UnitTypePriceAuthorizationTest {
     @Autowired MockMvc mvc;
     @MockBean UnitTypeManagementService unitTypes;
     @MockBean JwtServiceImpl jwtService;
+    @MockBean com.storehub.service.AccessSessionService accessSessions;
     @MockBean UserDetailsService userDetailsService;
 
     private final String path = "/api/v1/unit-types/" + UUID.randomUUID() + "/price";

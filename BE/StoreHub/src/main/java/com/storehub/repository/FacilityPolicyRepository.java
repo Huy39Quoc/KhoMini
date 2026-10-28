@@ -15,6 +15,14 @@ import java.util.UUID;
 @Repository
 public interface FacilityPolicyRepository extends JpaRepository<FacilityPolicy, UUID> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_READ)
+    @Query("select p from FacilityPolicy p where p.facility.id = :facilityId")
+    Optional<FacilityPolicy> lockByFacilityId(@Param("facilityId") UUID facilityId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from FacilityPolicy p where p.id = :id")
+    Optional<FacilityPolicy> lockById(@Param("id") UUID id);
+
     @Override
     @EntityGraph(attributePaths = {"facility"})
     Optional<FacilityPolicy> findById(UUID id);

@@ -25,8 +25,21 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class FacilityManagementPermissionTest {
     @Autowired MockMvc mvc;
     @MockBean FacilityManagementService facilityManagementService;
+    @MockBean com.storehub.service.HandoverIssueService handoverIssues;
     @MockBean JwtServiceImpl jwtService;
+    @MockBean com.storehub.service.AccessSessionService accessSessions;
     @MockBean UserDetailsService userDetailsService;
+
+    @Test
+    void staffCannotResolveFacilityIssuesEvenWithBookingUpdatePermission() throws Exception {
+        mvc.perform(post("/api/v1/facility/management/{facilityId}/bookings/{bookingId}/handover-issue", UUID.randomUUID(), UUID.randomUUID())
+                        .with(user("staff@test.com").authorities(new SimpleGrantedAuthority("ROLE_STAFF"),
+                                new SimpleGrantedAuthority("BOOKING_UPDATE")))
+                        .contentType("application/json")
+                        .content("{\"action\":\"CANCEL_REFUND\",\"notes\":\"Không cung cấp được dịch vụ\"}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(handoverIssues);
+    }
 
     @Test
     void facilityManagerNeedsStorageUnitCreatePermission() throws Exception {

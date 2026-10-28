@@ -81,6 +81,7 @@ public enum ErrorCode {
     CHECKIN_TIME_OUTSIDE_OPEN_HOURS(739, "Giờ nhận kho phải nằm trong khung giờ mở cửa của cơ sở", HttpStatus.BAD_REQUEST),
     CHECKIN_TIME_IN_PAST(740, "Thời điểm nhận kho đã qua. Hãy chọn giờ nhận kho muộn hơn hiện tại hoặc chọn ngày bắt đầu khác", HttpStatus.BAD_REQUEST),
     CHECKOUT_TIME_OUTSIDE_OPEN_HOURS(741, "Giờ hẹn trả kho phải nằm trong khung giờ mở cửa của cơ sở", HttpStatus.BAD_REQUEST),
+    REFUND_BANK_INFO_REQUIRED(742, "Vui lòng cung cấp đầy đủ thông tin tài khoản ngân hàng để nhận hoàn tiền cọc", HttpStatus.BAD_REQUEST),
     DAMAGE_REASON_REQUIRED(738, "Vui lòng nhập lý do khấu trừ phí hư hại", HttpStatus.BAD_REQUEST),
 
 
@@ -116,14 +117,22 @@ public enum ErrorCode {
     FACILITY_CODE_EXISTED(1001, "Mã cơ sở đã tồn tại", HttpStatus.BAD_REQUEST),
     INVALID_MANAGER_TO_ASSIGN(1002,"Người được chọn không hợp lệ để làm quản lý cơ sở này",HttpStatus.BAD_REQUEST),
     FACILITY_NOT_ACTIVE(1003, "Cơ sở này hiện không nhận đặt kho mới", HttpStatus.CONFLICT),
+    TERMS_NOT_AVAILABLE(736, "Cơ sở chưa công bố đầy đủ điều khoản và danh mục hàng cấm. Vui lòng thử lại sau", HttpStatus.CONFLICT),
+    TERMS_CHANGED(737, "Điều khoản đã thay đổi hoặc chưa được xác nhận. Vui lòng mở lại và đồng ý điều khoản hiện hành", HttpStatus.CONFLICT),
+    TERMS_VERSION_REQUIRED(738, "Khi sửa nội dung điều khoản hoặc danh mục hàng cấm, hãy sử dụng phiên bản điều khoản mới", HttpStatus.BAD_REQUEST),
+
     // ========================= FACILITY_POLICY (1100 - 1199) =========================
     FACILITY_POLICY_NOT_FOUND(1100, "Không tìm thấy chính sách của cơ sở", HttpStatus.NOT_FOUND),
     FACILITY_POLICY_ALREADY_EXISTS(1101, "Cơ sở này đã có chính sách", HttpStatus.BAD_REQUEST),
     FACILITY_POLICY_INVALID_CANCELLATION(1102, "Số giờ hoàn tiền toàn phần phải lớn hơn hoặc bằng số giờ hoàn tiền một phần", HttpStatus.BAD_REQUEST),
+    FACILITY_POLICY_INVALID_OVERDUE_TIMELINE(1103, "Các mốc tính từ ngày hết hạn phải thỏa: 0 ≤ ngày ân hạn ≤ ngày khóa truy cập ≤ ngày chờ niêm phong", HttpStatus.BAD_REQUEST),
 
     // ========================= SUPPORT_TICKET (1200 - 1299) =========================
     TICKET_NOT_FOUND(1200, "Không tìm thấy yêu cầu hỗ trợ hoặc yêu cầu không thuộc về bạn", HttpStatus.NOT_FOUND),
     STAFF_HAS_UNCLOSED_TICKETS(1201, "Hãy chuyển giao hoặc đóng các yêu cầu hỗ trợ của nhân viên này trước khi khóa tài khoản, đổi vai trò hoặc thay đổi cơ sở", HttpStatus.CONFLICT),
+    STAFF_APPOINTMENT_CONFLICT(1202, "Nhân viên đã có lịch nhận hoặc trả kho vào thời điểm này. Vui lòng chọn nhân viên khác hoặc đổi giờ hẹn", HttpStatus.CONFLICT),
+    HANDOVER_ISSUE_RESOLUTION_REQUIRED(1203, "Quản lý cần xử lý sự cố bàn giao và ghi nhận phương án đã thống nhất với khách", HttpStatus.CONFLICT),
+    HANDOVER_ISSUE_CONSENT_REQUIRED(1204, "Cần xác nhận khách đã đồng ý phương án và ngày giờ nhận kho mới", HttpStatus.BAD_REQUEST),
 
     // ========================= ACTIVITY_LOG (1300 - 1399) =========================
     ACTIVITY_LOG_NOT_FOUND(1300, "Không tìm thấy bản ghi nhật ký", HttpStatus.NOT_FOUND),

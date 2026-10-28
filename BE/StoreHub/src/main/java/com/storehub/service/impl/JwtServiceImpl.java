@@ -34,8 +34,10 @@ public class JwtServiceImpl implements JwtService {
     private static final long RESET_PASSWORD_EXPIRATION = 15 * 60 * 1000L;
 
     @Override
-    public String generateAccessToken(User user) {
+    public String generateAccessToken(User user, UUID sessionId) {
+        if (sessionId == null) throw new IllegalArgumentException("Access tokens require a persisted login session");
         Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("sid", sessionId.toString());
         if (user.getId() != null) {
             extraClaims.put("userId", user.getId().toString());
         }
@@ -76,6 +78,18 @@ public class JwtServiceImpl implements JwtService {
     @Override
     public String extractEmail(String token) {
         return extractAllClaims(token).getSubject();
+    }
+
+    @Override
+    public UUID extractSessionId(String token) {
+        String session = extractAllClaims(token).get("sid", String.class);
+        return session == null ? null : UUID.fromString(session);
+    }
+
+    @Override
+    public java.time.LocalDateTime extractExpiration(String token) {
+        return java.time.LocalDateTime.ofInstant(extractAllClaims(token).getExpiration().toInstant(),
+                java.time.ZoneId.systemDefault());
     }
 
     @Override

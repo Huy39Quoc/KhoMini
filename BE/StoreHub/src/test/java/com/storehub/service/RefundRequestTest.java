@@ -50,6 +50,34 @@ class RefundRequestTest {
     @Mock FacilityPolicyRepository facilityPolicies;
     @InjectMocks PaymentServiceImpl service;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {200, 250})
+    void facilityFailureRefundsOriginalChargeWithoutApplyingCancellationPercentagesOrOtherPendingRefunds(int heldDeposit) {
+        Booking booking = Booking.builder().status(com.storehub.enums.BookingStatus.CONFIRMED)
+                .handoverIssueReportedAt(LocalDateTime.now()).depositPaid(BigDecimal.valueOf(heldDeposit))
+                .cancellationFullRefundHours(48).cancellationPartialRefundHours(24)
+                .cancellationPartialRefundPercent(0.0).startDate(java.time.LocalDate.now().minusDays(10)).build();
+        booking.setId(UUID.randomUUID());
+        Payment original = Payment.builder().transactionId("TXN-FACILITY").booking(booking)
+                .paymentType(PaymentType.DEPOSIT).amount(new BigDecimal("200"))
+                .gatewayCreateDate("20261009123456").gatewayAmount(new BigDecimal("1250"))
+                .status(PaymentStatus.PAID).build();
+        Payment rent = Payment.builder().amount(new BigDecimal("1050")).build();
+        when(payments.findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PAID)).thenReturn(Optional.of(original));
+        when(payments.findFirstByBooking_IdAndPaymentTypeAndStatusOrderByPaymentTimeDesc(
+                booking.getId(), PaymentType.RENTAL_FEE, PaymentStatus.PAID)).thenReturn(Optional.of(rent));
+        when(payments.save(any(Payment.class))).thenAnswer(call -> call.getArgument(0));
+        assertEquals(new BigDecimal("1250"), service.refundOnCancellation(booking));
+        ArgumentCaptor<RefundRequest> request = ArgumentCaptor.forClass(RefundRequest.class);
+        verify(refunds).save(request.capture());
+        assertEquals(new BigDecimal("200"), request.getValue().getDepositAmount());
+        assertEquals(new BigDecimal("1050"), request.getValue().getRentalAmount());
+        assertEquals(RefundStatus.QUEUED, request.getValue().getStatus());
+        assertEquals(BigDecimal.valueOf(heldDeposit), booking.getDepositPaid());
+        org.mockito.Mockito.verifyNoInteractions(pricing);
+    }
+
     @Test
     void returnQueuesGatewayRefundWithoutPrematurelyMarkingItRefunded() {
         Booking booking = Booking.builder().bookingCode("BK-1")

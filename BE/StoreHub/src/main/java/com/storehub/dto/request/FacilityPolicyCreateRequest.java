@@ -64,5 +64,7 @@ public class FacilityPolicyCreateRequest {
 
     private String prohibitedItems;
     private String termsAndConditions;
+    @Size(max = 30)
+    @Pattern(regexp = "\\S+", message = "Phiên bản điều khoản không được trống hoặc chứa khoảng trắng")
     private String termsVersion;
 }
