@@ -17,6 +17,11 @@ class PaymentModel {
   final String? paymentMethod;
   final String? note;
   final DateTime? paymentTime;
+  final double? rentalFee;
+  final double? managementFee;
+  final double? depositAmount;
+  final double? damageDeduction;
+  final double? refundedAmount;
 
   PaymentModel({
     required this.id,
@@ -34,10 +39,20 @@ class PaymentModel {
     this.paymentMethod,
     this.note,
     this.paymentTime,
+    this.rentalFee,
+    this.managementFee,
+    this.depositAmount,
+    this.damageDeduction,
+    this.refundedAmount,
   });
 
   String get paymentTypeLabel {
-    if (transactionId.startsWith('RF-')) return 'Yêu cầu hoàn tiền';
+    if (transactionId.startsWith('RF-')) {
+      return status.toUpperCase() == 'REFUNDED' ? 'Hoàn tiền cọc' : 'Yêu cầu hoàn tiền';
+    }
+    if (paymentType.toUpperCase() == 'DEPOSIT' && transactionId.startsWith('TXN-')) {
+      return 'Thanh toán đơn thuê';
+    }
     switch (paymentType.toUpperCase()) {
       case 'DEPOSIT':
         return 'Tiền cọc';

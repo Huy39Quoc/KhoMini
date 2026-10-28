@@ -109,6 +109,9 @@ public class FacilityServiceImpl implements FacilityService {
                 .facility(saved)
                 .depositPercentage(20.0)
                 .dailyLateFee(java.math.BigDecimal.valueOf(50000))
+                .prohibitedItems(FacilityPolicy.builder().build().getProhibitedItems())
+                .termsAndConditions(FacilityPolicy.builder().build().getTermsAndConditions())
+                .termsVersion("v2026.1")
                 .build());
 
         activityLogService.record(

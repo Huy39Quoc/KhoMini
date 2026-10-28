@@ -317,7 +317,6 @@ public class FacilityOperationsServiceImpl
         if (booking.getHandoverIssueStatus() == com.storehub.enums.HandoverIssueStatus.ARRANGED
                 && (booking.getHandoverIssueCustomerAgreedAt() == null
                     || booking.getScheduledCheckInTime() == null
-                    || booking.getScheduledCheckInTime().isAfter(LocalDateTime.now())
                     || booking.getHandoverIssueDueAt() == null
                     || !booking.getHandoverIssueDueAt().isAfter(LocalDateTime.now()))) {
             throw new AppException(ErrorCode.HANDOVER_ISSUE_RESOLUTION_REQUIRED);
@@ -358,6 +357,9 @@ public class FacilityOperationsServiceImpl
             return rejectHandover(booking, storageUnit, staff, request);
         }
 
+        if (booking.getAssignedCheckOutStaff() == null) {
+            booking.setAssignedCheckOutStaff(staff);
+        }
         LocalDateTime now = LocalDateTime.now();
 
         HandoverRecord record = HandoverRecord.builder()
@@ -374,6 +376,9 @@ public class FacilityOperationsServiceImpl
 
         booking.setStatus(BookingStatus.ACTIVE);
         booking.setHandedOverByStaffId(staff.getId());
+        if (booking.getAssignedCheckInStaff() == null) {
+            booking.setAssignedCheckInStaff(staff);
+        }
         booking.setHandoverTime(now);
         if (booking.getHandoverIssueReportedAt() != null) {
             booking.setHandoverIssueStatus(com.storehub.enums.HandoverIssueStatus.RESOLVED);
@@ -479,6 +484,9 @@ public class FacilityOperationsServiceImpl
                 ? paymentService.refundDepositOnReturn(booking, request.getDamageFee(), request.getDamageReason())
                 : paymentService.refundDepositOnReturn(booking);
 
+        if (booking.getAssignedCheckOutStaff() == null) {
+            booking.setAssignedCheckOutStaff(staff);
+        }
         LocalDateTime now = LocalDateTime.now();
 
         HandoverRecord record = HandoverRecord.builder()
@@ -621,6 +629,9 @@ public class FacilityOperationsServiceImpl
             throw new AppException(ErrorCode.HANDOVER_DEFECT_NOTE_REQUIRED);
         }
 
+        if (booking.getAssignedCheckOutStaff() == null) {
+            booking.setAssignedCheckOutStaff(staff);
+        }
         LocalDateTime now = LocalDateTime.now();
 
         HandoverRecord record = HandoverRecord.builder()

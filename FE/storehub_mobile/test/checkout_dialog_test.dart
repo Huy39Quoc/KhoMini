@@ -32,8 +32,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Verify title and return appointment section
+    // Verify title, refund policy card, and return appointment section
     expect(find.text('Yêu cầu trả kho'), findsOneWidget);
+    expect(find.text('Dự tính hoàn tiền & Chính sách trả kho'), findsOneWidget);
+    expect(find.text('Hoàn 100% cọc'), findsOneWidget);
     expect(find.text('2. Tài khoản nhận hoàn cọc (Bắt buộc)'), findsOneWidget);
 
     // Bank fields should be visible immediately

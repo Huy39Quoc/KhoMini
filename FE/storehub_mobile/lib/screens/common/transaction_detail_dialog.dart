@@ -162,6 +162,12 @@ class TransactionDetailDialog extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
+          // Invoice Breakdown Card
+          if (_hasBreakdown) ...[
+            _buildInvoiceBreakdown(context, currencyFormat),
+            const SizedBox(height: 16),
+          ],
+
           // Details List
           Container(
             decoration: BoxDecoration(
@@ -296,6 +302,185 @@ class TransactionDetailDialog extends StatelessWidget {
                 );
               },
               child: const Icon(Icons.copy, size: 16, color: AppColors.primaryContainer),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  bool get _hasBreakdown {
+    return payment.rentalFee != null ||
+        payment.managementFee != null ||
+        payment.depositAmount != null ||
+        payment.damageDeduction != null ||
+        payment.refundedAmount != null ||
+        payment.transactionId.startsWith('RF-');
+  }
+
+  Widget _buildInvoiceBreakdown(BuildContext context, NumberFormat currencyFormat) {
+    final isRefund = payment.transactionId.startsWith('RF-');
+    final double damage = payment.damageDeduction ?? 0.0;
+    final double initialDeposit = (payment.depositAmount != null &&
+            payment.depositAmount! > payment.amount)
+        ? payment.depositAmount!
+        : (payment.amount + damage);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isRefund ? Icons.currency_exchange_outlined : Icons.receipt_long_outlined,
+                size: 18,
+                color: isRefund ? AppColors.secondary : AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isRefund ? 'Bảng kê hoàn tiền cọc' : 'Bảng kê chi tiết đơn thuê',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 8),
+          if (isRefund) ...[
+            _breakdownRow(
+              'Tiền cọc ban đầu',
+              currencyFormat.format(initialDeposit),
+            ),
+            _breakdownRow(
+              'Khấu trừ hư hại / vi phạm',
+              damage > 0
+                  ? '- ${currencyFormat.format(damage)}'
+                  : '0 ₫',
+              isDeduction: damage > 0,
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+            ),
+            _breakdownRow(
+              'Thực nhận hoàn trả',
+              currencyFormat.format(payment.amount),
+              isHighlight: true,
+            ),
+          ] else ...[
+            if (payment.rentalFee != null)
+              _breakdownRow(
+                'Tiền thuê kho',
+                currencyFormat.format(payment.rentalFee),
+              ),
+            if (payment.managementFee != null && payment.managementFee! > 0)
+              _breakdownRow(
+                'Phí dịch vụ / quản lý',
+                currencyFormat.format(payment.managementFee),
+              ),
+            if (payment.depositAmount != null)
+              _breakdownRow(
+                'Tiền cọc kho (hoàn lại)',
+                currencyFormat.format(payment.depositAmount),
+                subtext: 'Hoàn lại sau khi trả kho và nghiệm thu đạt',
+              ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+            ),
+            _breakdownRow(
+              'Tổng đã thanh toán ban đầu',
+              currencyFormat.format(payment.amount),
+              isHighlight: true,
+            ),
+            if (payment.refundedAmount != null && payment.refundedAmount! > 0) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.successContainer.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, size: 16, color: AppColors.success),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Đã hoàn cọc ${currencyFormat.format(payment.refundedAmount)} khi trả kho thành công.',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF14532D),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _breakdownRow(
+    String label,
+    String value, {
+    bool isHighlight = false,
+    bool isDeduction = false,
+    String? subtext,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: isHighlight ? 13 : 12,
+                  fontWeight: isHighlight ? FontWeight.bold : FontWeight.w500,
+                  color: isHighlight ? AppColors.textPrimary : AppColors.textSecondary,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: isHighlight ? 14 : 12.5,
+                  fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
+                  color: isHighlight
+                      ? AppColors.primary
+                      : (isDeduction ? AppColors.error : AppColors.textPrimary),
+                ),
+              ),
+            ],
+          ),
+          if (subtext != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtext,
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: AppColors.outline,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ],
         ],

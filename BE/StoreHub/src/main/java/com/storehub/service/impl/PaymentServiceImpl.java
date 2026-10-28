@@ -463,6 +463,45 @@ public class PaymentServiceImpl implements PaymentService {
         StorageUnit unit = booking != null ? booking.getStorageUnit() : null;
         Facility facility = unit != null ? unit.getFacility() : null;
 
+        Payment companion = (payment.getTransactionId() != null && payment.getTransactionId().startsWith("TXN-"))
+                ? paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX).orElse(null)
+                : null;
+        BigDecimal displayAmount = companion != null ? payment.getAmount().add(companion.getAmount()) : payment.getAmount();
+        PaymentStatus displayStatus = payment.getStatus();
+        if (displayStatus == PaymentStatus.REFUNDED && companion != null && companion.getStatus() == PaymentStatus.PAID) {
+            displayStatus = PaymentStatus.PAID;
+        }
+
+        BigDecimal rentalFee = null;
+        BigDecimal managementFee = null;
+        BigDecimal depositAmount = null;
+        BigDecimal damageDeduction = null;
+        BigDecimal refundedAmount = null;
+
+        if (payment.getTransactionId() != null && payment.getTransactionId().startsWith("RF-")) {
+            RefundRequest refund = refundRequests.findByRefundPayment_Id(payment.getId()).orElse(null);
+            if (refund != null) {
+                damageDeduction = refund.getDamageDeduction();
+                refundedAmount = refund.getAmount();
+                rentalFee = refund.getRentalAmount();
+                if (refund.getOriginalPayment() != null && refund.getOriginalPayment().getAmount() != null) {
+                    depositAmount = refund.getOriginalPayment().getAmount();
+                } else if (refund.getDepositAmount() != null) {
+                    depositAmount = refund.getDepositAmount().add(damageDeduction != null ? damageDeduction : BigDecimal.ZERO);
+                } else {
+                    depositAmount = refund.getAmount().add(damageDeduction != null ? damageDeduction : BigDecimal.ZERO);
+                }
+            }
+        } else if (booking != null && companion != null) {
+            rentalFee = booking.getTotalRentalFee();
+            managementFee = booking.getQuotedManagementFee();
+            depositAmount = booking.getQuotedDepositAmount();
+            refundedAmount = refundRequests.findByOriginalPayment_Id(payment.getId())
+                    .filter(r -> r.getStatus() == com.storehub.enums.RefundStatus.COMPLETED)
+                    .map(RefundRequest::getAmount)
+                    .orElse(null);
+        }
+
         return PaymentResponse.builder()
                 .id(payment.getId())
                 .transactionId(payment.getTransactionId())
@@ -474,9 +513,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .unitCode(unit != null && booking != null
                         && Boolean.TRUE.equals(booking.getUnitAssignmentConfirmed())
                         ? unit.getUnitCode() : null)
-                .amount(groupAmount(payment))
+                .amount(displayAmount)
                 .paymentType(payment.getPaymentType())
-                .status(payment.getStatus())
+                .status(displayStatus)
                 .refundStatus(payment.getTransactionId() != null
                         && payment.getTransactionId().startsWith("RF-")
                         ? refundRequests.findByRefundPayment_Id(payment.getId())
@@ -486,6 +525,11 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentMethod(payment.getPaymentMethod())
                 .paymentTime(payment.getPaymentTime())
                 .note(payment.getNote())
+                .rentalFee(rentalFee)
+                .managementFee(managementFee)
+                .depositAmount(depositAmount)
+                .damageDeduction(damageDeduction)
+                .refundedAmount(refundedAmount)
                 .build();
     }
 
@@ -838,14 +882,8 @@ public class PaymentServiceImpl implements PaymentService {
     private BigDecimal groupAmount(Payment payment) {
         if (payment.getPaymentType() == PaymentType.DEPOSIT
                 && payment.getTransactionId() != null
-                && payment.getTransactionId().startsWith("TXN-")
-                && (payment.getStatus() == PaymentStatus.PENDING
-                || payment.getStatus() == PaymentStatus.PAID
-                || payment.getStatus() == PaymentStatus.FAILED
-                || payment.getStatus() == PaymentStatus.REFUND_PENDING
-                || payment.getStatus() == PaymentStatus.REFUNDED)) {
+                && payment.getTransactionId().startsWith("TXN-")) {
             return paymentRepository.findByTransactionId(payment.getTransactionId() + RENTAL_SUFFIX)
-                    .filter(p -> p.getStatus() == payment.getStatus())
                     .map(p -> payment.getAmount().add(p.getAmount()))
                     .orElse(payment.getAmount());
         }
