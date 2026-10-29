@@ -90,37 +90,33 @@ class RolePermissionHelper {
       mainScreen: 'Manager Dashboard (Gán ngăn & staff, Duyệt hoàn cọc, Quản lý kho)',
       targetAudience: 'Trưởng chi nhánh, Quản lý cơ sở kho mini.',
       defaultPermissions: [
-        'FACILITY_VIEW',
-        'STORAGE_UNIT_VIEW', 'STORAGE_UNIT_CREATE', 'STORAGE_UNIT_UPDATE', 'STORAGE_UNIT_DELETE', 'UNIT_TYPE_VIEW',
-        'BOOKING_VIEW', 'BOOKING_UPDATE', 'BOOKING_CANCEL',
-        'HANDOVER_VIEW', 'HANDOVER_CREATE',
-        'REFUND_VIEW', 'REFUND_APPROVE',
-        'ACCESS_CREDENTIAL_VIEW', 'ACCESS_CREDENTIAL_UPDATE', 'ACCESS_CREDENTIAL_REVOKE',
-        'STAFF_ASSIGNMENT_VIEW', 'STAFF_ASSIGNMENT_CREATE', 'STAFF_ASSIGNMENT_DELETE',
-        'SUPPORT_VIEW', 'SUPPORT_UPDATE',
-        'CONTRACT_VIEW', 'RENEWAL_VIEW', 'OVERDUE_VIEW', 'OVERDUE_PROCESS',
-        'PAYMENT_VIEW', 'REPORT_VIEW', 'POLICY_VIEW',
+        'REFUND_APPROVE',
+        'BOOKING_UPDATE',
+        'STAFF_ASSIGNMENT_CREATE',
+        'STAFF_ASSIGNMENT_DELETE',
+        'SUPPORT_UPDATE',
+        'STORAGE_UNIT_CREATE',
+        'STORAGE_UNIT_UPDATE',
+        'ACCESS_CREDENTIAL_UPDATE',
+        'REPORT_VIEW',
       ],
       applicablePermissions: [
-        // Ngăn kho & Sơ đồ tầng
-        'STORAGE_UNIT_VIEW', 'STORAGE_UNIT_CREATE', 'STORAGE_UNIT_UPDATE', 'STORAGE_UNIT_DELETE',
-        'UNIT_TYPE_VIEW',
-        // Đặt chỗ & Phân ngăn kho
-        'BOOKING_VIEW', 'BOOKING_UPDATE', 'BOOKING_CANCEL',
-        // Bàn giao & Nghiệm thu
-        'HANDOVER_VIEW', 'HANDOVER_CREATE',
-        // Hoàn cọc sau trả kho
-        'REFUND_VIEW', 'REFUND_APPROVE',
-        // Khóa thông minh & Cổng vào
-        'ACCESS_CREDENTIAL_VIEW', 'ACCESS_CREDENTIAL_UPDATE', 'ACCESS_CREDENTIAL_REVOKE',
-        // Nhân sự chi nhánh
-        'STAFF_ASSIGNMENT_VIEW', 'STAFF_ASSIGNMENT_CREATE', 'STAFF_ASSIGNMENT_DELETE',
-        // Xử lý sự cố / Hỗ trợ
-        'SUPPORT_VIEW', 'SUPPORT_UPDATE',
-        // Hợp đồng & Gia hạn & Quá hạn
-        'CONTRACT_VIEW', 'RENEWAL_VIEW', 'OVERDUE_VIEW', 'OVERDUE_PROCESS',
-        // Chi nhánh, Báo cáo & Giao dịch
-        'FACILITY_VIEW', 'POLICY_VIEW', 'REPORT_VIEW', 'PAYMENT_VIEW',
+        // Hoàn cọc sau trả kho (Chốt chặn tài chính quan trọng của Quản lý)
+        'REFUND_APPROVE',
+        // Đặt chỗ & Gán ngăn kho / Xử lý sự cố booking
+        'BOOKING_UPDATE',
+        // Phân công & Điều phối nhân viên chi nhánh
+        'STAFF_ASSIGNMENT_CREATE',
+        'STAFF_ASSIGNMENT_DELETE',
+        // Xử lý sự cố / Điều phối ticket tại cơ sở
+        'SUPPORT_UPDATE',
+        // Quản lý ngăn kho cơ sở (thêm mới, đổi trạng thái)
+        'STORAGE_UNIT_CREATE',
+        'STORAGE_UNIT_UPDATE',
+        // Khóa thông minh (Cấp lại PIN tại quầy cho khách)
+        'ACCESS_CREDENTIAL_UPDATE',
+        // Báo cáo & Thống kê lấp đầy cơ sở
+        'REPORT_VIEW',
       ],
     ),
     'STAFF': RoleMeta(
@@ -134,28 +130,23 @@ class RolePermissionHelper {
       mainScreen: 'Staff Dashboard (Lịch Check-in/Check-out, Quét QR cổng, Xử lý ticket)',
       targetAudience: 'Nhân viên lễ tân, bảo vệ, kỹ thuật trực ca tại cơ sở.',
       defaultPermissions: [
-        'FACILITY_VIEW',
-        'STORAGE_UNIT_VIEW', 'STORAGE_UNIT_UPDATE',
-        'BOOKING_VIEW', 'BOOKING_UPDATE',
-        'HANDOVER_VIEW', 'HANDOVER_CREATE',
-        'ACCESS_CREDENTIAL_VIEW', 'ACCESS_CREDENTIAL_UPDATE',
-        'SUPPORT_VIEW', 'SUPPORT_UPDATE',
-        'CONTRACT_VIEW',
-        'PAYMENT_VIEW',
+        'HANDOVER_CREATE',
+        'ACCESS_CREDENTIAL_VIEW',
+        'ACCESS_CREDENTIAL_UPDATE',
+        'SUPPORT_UPDATE',
+        'STORAGE_UNIT_UPDATE',
       ],
       applicablePermissions: [
-        // Bàn giao & Nghiệm thu trực tiếp
-        'HANDOVER_VIEW', 'HANDOVER_CREATE',
-        // Khóa thông minh & Quét mã cổng
-        'ACCESS_CREDENTIAL_VIEW', 'ACCESS_CREDENTIAL_UPDATE',
-        // Ngăn kho tại chỗ
-        'FACILITY_VIEW', 'STORAGE_UNIT_VIEW', 'STORAGE_UNIT_UPDATE',
-        // Lịch hẹn & Bàn giao kho
-        'BOOKING_VIEW', 'BOOKING_UPDATE',
-        // Hỗ trợ sự cố tại chỗ
-        'SUPPORT_VIEW', 'SUPPORT_UPDATE',
-        // Tra cứu hợp đồng & thanh toán
-        'CONTRACT_VIEW', 'PAYMENT_VIEW',
+        // Bàn giao Check-in & Nghiệm thu Check-out trực tiếp
+        'HANDOVER_CREATE',
+        // Quét và xác thực mã QR vào cổng của khách
+        'ACCESS_CREDENTIAL_VIEW',
+        // Cấp lại mã PIN tại quầy cho khách quên
+        'ACCESS_CREDENTIAL_UPDATE',
+        // Tiếp nhận & Cập nhật xử lý ticket sự cố
+        'SUPPORT_UPDATE',
+        // Cập nhật trạng thái ngăn kho (bảo trì / sẵn sàng)
+        'STORAGE_UNIT_UPDATE',
       ],
     ),
     'BUSINESS_MANAGER': RoleMeta(
@@ -165,36 +156,26 @@ class RolePermissionHelper {
       color: Color(0xFF0284C7),
       badge: 'Vận hành & Doanh thu',
       summary:
-          'Theo dõi chỉ số kinh doanh toàn chuỗi: tỷ lệ lấp đầy ngăn kho, biểu đồ doanh thu theo cơ sở, điều chỉnh bảng giá niêm yết, tạo mã giảm giá voucher và chính sách thuê kho.',
-      mainScreen: 'Operations Dashboard (Biểu đồ doanh thu, Bảng giá & Voucher, Chính sách)',
+          'Theo dõi chỉ số kinh doanh toàn chuỗi: tỷ lệ lấp đầy ngăn kho, biểu đồ doanh thu theo cơ sở, điều chỉnh bảng giá niêm yết và chính sách thuê kho.',
+      mainScreen: 'Operations Dashboard (Biểu đồ doanh thu, Bảng giá niêm yết, Chính sách)',
       targetAudience: 'Giám đốc Vận hành (COO), Giám đốc Kinh doanh.',
       defaultPermissions: [
         'REPORT_VIEW',
-        'DISCOUNT_VIEW', 'DISCOUNT_CREATE', 'DISCOUNT_UPDATE', 'DISCOUNT_DELETE',
-        'POLICY_VIEW', 'POLICY_CREATE', 'POLICY_UPDATE', 'POLICY_DELETE',
-        'FACILITY_VIEW', 'FACILITY_CREATE', 'FACILITY_UPDATE', 'FACILITY_DELETE',
-        'UNIT_TYPE_VIEW', 'UNIT_TYPE_CREATE', 'UNIT_TYPE_UPDATE', 'UNIT_TYPE_DELETE',
-        'STORAGE_UNIT_VIEW',
-        'BOOKING_VIEW',
-        'CONTRACT_VIEW',
-        'PAYMENT_VIEW',
-        'USER_VIEW', 'STAFF_ASSIGNMENT_VIEW',
+        'UNIT_TYPE_UPDATE',
+        'POLICY_CREATE',
+        'POLICY_UPDATE',
+        'FACILITY_UPDATE',
       ],
       applicablePermissions: [
-        // Báo cáo & Doanh thu chuỗi
+        // Báo cáo & Doanh thu toàn chuỗi
         'REPORT_VIEW',
-        // Quản lý cơ sở chuỗi
-        'FACILITY_VIEW', 'FACILITY_CREATE', 'FACILITY_UPDATE', 'FACILITY_DELETE',
         // Danh mục loại kho & Bảng giá niêm yết
-        'UNIT_TYPE_VIEW', 'UNIT_TYPE_CREATE', 'UNIT_TYPE_UPDATE', 'UNIT_TYPE_DELETE',
-        // Chính sách vận hành & Phí cọc
-        'POLICY_VIEW', 'POLICY_CREATE', 'POLICY_UPDATE', 'POLICY_DELETE',
-        // Mã giảm giá / Voucher khuyến mãi
-        'DISCOUNT_VIEW', 'DISCOUNT_CREATE', 'DISCOUNT_UPDATE', 'DISCOUNT_DELETE',
-        // Giám sát kho, đơn thuê & hợp đồng toàn chuỗi
-        'STORAGE_UNIT_VIEW', 'BOOKING_VIEW', 'CONTRACT_VIEW', 'PAYMENT_VIEW',
-        // Khách hàng & Nhân sự chuỗi
-        'USER_VIEW', 'STAFF_ASSIGNMENT_VIEW',
+        'UNIT_TYPE_UPDATE',
+        // Thiết lập chính sách vận hành & Phí cọc
+        'POLICY_CREATE',
+        'POLICY_UPDATE',
+        // Quản lý thông tin chi nhánh cơ sở
+        'FACILITY_UPDATE',
       ],
     ),
     'CUSTOMER': RoleMeta(

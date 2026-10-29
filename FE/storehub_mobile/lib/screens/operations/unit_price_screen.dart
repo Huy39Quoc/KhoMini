@@ -140,7 +140,7 @@ class _UnitPriceScreenState extends State<UnitPriceScreen> {
                     subtitle: Text(
                       '${item['dimensions'] ?? ''}\n'
                       'Thuê ${_currency.format(_num(item['basePricePerMonth']))}/tháng'
-                      ' • Cọc ${_currency.format(_num(item['depositAmount']))}',
+                      ' • Cọc niêm yết: ${_currency.format(_num(item['depositAmount']))}',
                       style: const TextStyle(fontSize: 12),
                     ),
                     isThreeLine: true,
@@ -181,6 +181,8 @@ class _EditPriceDialogState extends State<_EditPriceDialog> {
   late final TextEditingController _priceController;
   late final TextEditingController _depositController;
   final _formKey = GlobalKey<FormState>();
+  final NumberFormat _currency =
+      NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
   @override
   void initState() {
@@ -209,6 +211,12 @@ class _EditPriceDialogState extends State<_EditPriceDialog> {
     return double.tryParse(cleaned);
   }
 
+  String _formatPreview(String text) {
+    final val = _parseAmount(text);
+    if (val == null || val < 0) return '';
+    return _currency.format(val);
+  }
+
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
       final price = _parseAmount(_priceController.text);
@@ -224,57 +232,239 @@ class _EditPriceDialogState extends State<_EditPriceDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _priceController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Giá thuê tháng (₫)',
-                hintText: 'Ví dụ: 1200000',
-              ),
-              validator: (value) {
-                final parsed = _parseAmount(value);
-                if (parsed == null || parsed <= 0) {
-                  return 'Vui lòng nhập giá lớn hơn 0';
-                }
-                return null;
-              },
+    final pricePreview = _formatPreview(_priceController.text);
+    final depositPreview = _formatPreview(_depositController.text);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.price_change_outlined,
+                          color: AppColors.primary, size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: const TextStyle(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Informational note
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 14, color: AppColors.primary),
+                          SizedBox(width: 6),
+                          Text(
+                            'Phân định logic doanh thu & bảo đảm:',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '• Giá thuê: Khoản thu theo tháng (ghi nhận Doanh thu).\n'
+                        '• Tiền cọc: Khoản ký quỹ bảo đảm kho (Hoàn lại 100% khi trả kho).\n'
+                        '💡 Lưu ý: Khi cơ sở áp dụng Chính sách % cọc (ví dụ 20%), tiền cọc khách trả sẽ tính theo % của chi nhánh đó. Nếu chi nhánh không dùng %, hệ thống sẽ dùng số tiền cọc niêm yết ở đây.',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.35),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Field 1: Giá thuê tháng
+                const Text(
+                  'Giá thuê tháng',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _priceController,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.sell_outlined, size: 18),
+                    suffixText: '₫/tháng',
+                    hintText: 'Nhập giá thuê',
+                    helperText: pricePreview.isNotEmpty ? '= $pricePreview / tháng' : null,
+                    helperStyle: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11.5,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    ),
+                  ),
+                  validator: (value) {
+                    final parsed = _parseAmount(value);
+                    if (parsed == null || parsed <= 0) {
+                      return 'Vui lòng nhập giá lớn hơn 0';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 14),
+
+                // Field 2: Tiền cọc
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Tiền cọc bảo đảm',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _depositController.text = _priceController.text;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Row(
+                          children: [
+                            Icon(Icons.sync_alt, size: 12, color: AppColors.primary),
+                            SizedBox(width: 3),
+                            Text(
+                              'Cọc = 1 tháng thuê',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _depositController,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.shield_outlined, size: 18),
+                    suffixText: '₫ cọc',
+                    hintText: 'Nhập tiền cọc',
+                    helperText: depositPreview.isNotEmpty ? '= $depositPreview (Ký quỹ hoàn lại)' : null,
+                    helperStyle: const TextStyle(
+                      color: Color(0xFF059669),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11.5,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    ),
+                  ),
+                  validator: (value) {
+                    final parsed = _parseAmount(value);
+                    if (parsed == null || parsed < 0) {
+                      return 'Vui lòng nhập tiền cọc từ 0 trở lên';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        ),
+                        child: const Text('Hủy', style: TextStyle(color: Color(0xFF64748B))),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        onPressed: _submit,
+                        icon: const Icon(Icons.check, size: 16),
+                        label: const Text('Lưu thay đổi'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _depositController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Tiền cọc (₫)',
-                hintText: 'Ví dụ: 1200000',
-              ),
-              validator: (value) {
-                final parsed = _parseAmount(value);
-                if (parsed == null || parsed < 0) {
-                  return 'Vui lòng nhập tiền cọc từ 0 trở lên';
-                }
-                return null;
-              },
-            ),
-          ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Hủy'),
-        ),
-        ElevatedButton(
-          onPressed: _submit,
-          child: const Text('Lưu'),
-        ),
-      ],
     );
   }
 }

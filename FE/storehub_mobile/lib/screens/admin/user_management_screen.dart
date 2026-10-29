@@ -128,7 +128,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 ),
               ),
             ),
-            ...roles.map((r) {
+            ...roles
+                .where((r) =>
+                    (r['name']?.toString() ?? '').toUpperCase() != 'ADMIN')
+                .map((r) {
               final id = r['id']?.toString() ?? '';
               final name = r['name']?.toString() ?? id;
               final description = r['description']?.toString();
@@ -208,8 +211,20 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final username = user['username']?.toString() ?? 'Unknown';
     final fullName = user['fullName']?.toString() ?? username;
     final phone = user['phone']?.toString() ?? '';
+    final roleName = user['roleName']?.toString();
+    final isAdmin = (roleName ?? '').toUpperCase() == 'ADMIN';
     switch (action) {
       case 'role':
+        if (isAdmin) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Không thể thay đổi vai trò của tài khoản Quản trị viên (ADMIN).'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          return;
+        }
         await _showAssignRoleSheet(userId, fullName, phone);
         break;
       case 'toggle':
@@ -715,14 +730,16 @@ class _UserDetailSheetState extends State<_UserDetailSheet> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.pop(context, 'role'),
-                        icon: const Icon(Icons.badge_outlined, size: 18),
-                        label: const Text('Gán vai trò'),
+                    if (!isAdmin) ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.pop(context, 'role'),
+                          icon: const Icon(Icons.badge_outlined, size: 18),
+                          label: const Text('Gán vai trò'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
+                      const SizedBox(width: 10),
+                    ],
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () => Navigator.pop(context, 'toggle'),
