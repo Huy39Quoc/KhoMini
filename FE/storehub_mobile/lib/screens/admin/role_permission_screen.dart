@@ -34,7 +34,6 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
 
   String _searchQuery = '';
   PermissionFilter _filter = PermissionFilter.all;
-  bool _showOnlyApplicable = true;
 
   @override
   void initState() {
@@ -61,7 +60,23 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
       final roles = results[0]
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
+          .where((r) {
+            final name = (r['name']?.toString() ?? '').toUpperCase();
+            return name != 'ADMIN' && name != 'CUSTOMER';
+          })
           .toList();
+
+      const preferredOrder = ['FACILITY_MANAGER', 'STAFF', 'BUSINESS_MANAGER'];
+      roles.sort((a, b) {
+        final aName = (a['name']?.toString() ?? '').toUpperCase();
+        final bName = (b['name']?.toString() ?? '').toUpperCase();
+        final aIdx = preferredOrder.indexOf(aName);
+        final bIdx = preferredOrder.indexOf(bName);
+        if (aIdx != -1 && bIdx != -1) return aIdx.compareTo(bIdx);
+        if (aIdx != -1) return -1;
+        if (bIdx != -1) return 1;
+        return aName.compareTo(bName);
+      });
       final permissions = results[1]
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
@@ -110,7 +125,6 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
         _assignedIds = assignedIds;
         _selectedPermissionIds = selected;
         _initialPermissionIds = Set.from(selected);
-        _showOnlyApplicable = true;
         _isLoadingMatrix = false;
       });
     } catch (e) {
@@ -329,7 +343,23 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
       final roles = (await _adminApiService.getRoles())
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
+          .where((r) {
+            final name = (r['name']?.toString() ?? '').toUpperCase();
+            return name != 'ADMIN' && name != 'CUSTOMER';
+          })
           .toList();
+
+      const preferredOrder = ['FACILITY_MANAGER', 'STAFF', 'BUSINESS_MANAGER'];
+      roles.sort((a, b) {
+        final aName = (a['name']?.toString() ?? '').toUpperCase();
+        final bName = (b['name']?.toString() ?? '').toUpperCase();
+        final aIdx = preferredOrder.indexOf(aName);
+        final bIdx = preferredOrder.indexOf(bName);
+        if (aIdx != -1 && bIdx != -1) return aIdx.compareTo(bIdx);
+        if (aIdx != -1) return -1;
+        if (bIdx != -1) return 1;
+        return aName.compareTo(bName);
+      });
       if (!mounted) return;
       setState(() => _roles = roles);
       _toast('Đã cập nhật mô tả vai trò');
@@ -356,17 +386,17 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '1. Vai trò (Role) quyết định giao diện chính:\n'
-                '   • Khách hàng (CUSTOMER): Mở ứng dụng khách, quản lý kho thuê, mã PIN mở cửa.\n'
-                '   • Nhân viên cơ sở (STAFF): Bảng điều khiển nhân viên, kiểm tra ra vào, xử lý ticket tại chỗ.\n'
-                '   • Quản lý cơ sở (FACILITY_MANAGER): Quản lý chi nhánh kho, duyệt hoàn cọc, gán nhân viên.\n'
-                '   • Quản trị hệ thống (ADMIN): Toàn quyền tài khoản, phân quyền, cấu hình hệ thống.\n\n'
+                '1. Vai trò trong hệ thống:\n'
+                '   • Quản lý cơ sở (FACILITY_MANAGER): Quản lý chi nhánh kho, duyệt hoàn cọc, gán ngăn kho & nhân viên.\n'
+                '   • Nhân viên cơ sở (STAFF): Bàn giao Check-in, nghiệm thu Check-out, quét mã QR cổng, xử lý ticket tại chỗ.\n'
+                '   • Quản lý vận hành (BUSINESS_MANAGER): Giám sát doanh thu, điều chỉnh bảng giá loại kho và chính sách.\n'
+                '   • Quản trị viên (ADMIN) & Khách hàng (CUSTOMER): Có cơ chế quyền hạn cố định theo thiết kế hệ thống, không cần cấu hình phân quyền.\n\n'
                 '2. Quyền hạn (Permission) là chốt chặn bảo mật:\n'
-                '   • Là quyền thực hiện từng thao tác cụ thể (xem, tạo, sửa, xóa, duyệt).\n'
-                '   • Ví dụ: Nếu Quản lý cơ sở bị tắt quyền "Phê duyệt hoàn cọc" (REFUND_APPROVE), họ sẽ không thể duyệt chuyển tiền cọc cho khách.\n\n'
+                '   • Là quyền thực hiện từng nghiệp vụ thực tế (duyệt hoàn cọc, gán ngăn, check-in...).\n'
+                '   • Ví dụ: Nếu Quản lý cơ sở bị tắt quyền "Duyệt chuyển khoản hoàn cọc" (REFUND_APPROVE), họ sẽ bị chặn khi bấm xác nhận hoàn tiền cọc cho khách.\n\n'
                 '3. Cách sử dụng:\n'
                 '   • Chọn vai trò ở thanh trên cùng.\n'
-                '   • Tích chọn hoặc bỏ chọn các quyền theo nhu cầu.\n'
+                '   • Bật hoặc tắt các quyền nghiệp vụ cần thiết.\n'
                 '   • Bấm nút "Lưu thay đổi" ở thanh dưới cùng để áp dụng.',
                 style: TextStyle(fontSize: 12.5, height: 1.45, color: AppColors.textPrimary),
               ),
@@ -566,7 +596,6 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
   }
 
   List<Map<String, dynamic>> get _roleScopedPermissions {
-    if (!_showOnlyApplicable) return _permissions;
     final applicableList = _currentRoleMeta.applicablePermissions;
     if (applicableList.isEmpty) return _permissions;
     final applicableSet = applicableList.toSet();
@@ -865,53 +894,34 @@ class _RolePermissionScreenState extends State<RolePermissionScreen> {
                       if (_currentRoleMeta.applicablePermissions.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: () => setState(() => _showOnlyApplicable = !_showOnlyApplicable),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: _showOnlyApplicable
-                                    ? currentMeta.color.withValues(alpha: 0.08)
-                                    : Colors.amber.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: _showOnlyApplicable
-                                      ? currentMeta.color.withValues(alpha: 0.25)
-                                      : Colors.amber.withValues(alpha: 0.4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: currentMeta.color.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: currentMeta.color.withValues(alpha: 0.25),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.verified_user_outlined,
+                                  size: 16,
+                                  color: currentMeta.color,
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _showOnlyApplicable ? Icons.verified_user_outlined : Icons.tune_rounded,
-                                    size: 15,
-                                    color: _showOnlyApplicable ? currentMeta.color : Colors.amber.shade800,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      _showOnlyApplicable
-                                          ? 'Chỉ hiển thị các chức năng thuộc vai trò ${currentMeta.viName}'
-                                          : 'Đang hiện toàn bộ ${_permissions.length} quyền hệ thống (Nâng cao)',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: _showOnlyApplicable ? currentMeta.color : Colors.amber.shade900,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    _showOnlyApplicable ? 'Xem tất cả' : 'Thu gọn',
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Danh sách quyền nghiệp vụ áp dụng cho ${currentMeta.viName}',
                                     style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: _showOnlyApplicable ? currentMeta.color : Colors.amber.shade900,
-                                      decoration: TextDecoration.underline,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: currentMeta.color,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
