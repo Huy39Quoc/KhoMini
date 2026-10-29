@@ -1003,66 +1003,118 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
     );
   }
 
-  /// Các bước điều phối của quản lý cơ sở, theo đúng thứ tự nghiệp vụ:
-  /// khách đặt cọc -> xác nhận ngăn kho -> phân công nhân viên bàn giao
-  /// -> nhân viên bàn giao/nghiệm thu -> quản lý hoàn cọc.
   Widget _buildWorkflowBar() {
-    Widget step(int no, IconData icon, String title, String hint,
-        VoidCallback onTap) {
+    Widget actionCard({
+      required String badgeText,
+      required Color badgeColor,
+      required IconData icon,
+      required Color iconColor,
+      required Color iconBgColor,
+      required String title,
+      required String subtitle,
+      required String actionText,
+      required VoidCallback onTap,
+    }) {
       return Expanded(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.outline.withValues(alpha: 0.15)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          elevation: 1,
+          shadowColor: Colors.black.withValues(alpha: 0.08),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTap,
+            splashColor: iconColor.withValues(alpha: 0.12),
+            highlightColor: iconColor.withValues(alpha: 0.05),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: iconColor.withValues(alpha: 0.22),
+                  width: 1.2,
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primaryContainer,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text('$no',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    const SizedBox(width: 4),
-                    Icon(icon, size: 16, color: AppColors.primary),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(title,
+                    child: Text(
+                      badgeText,
+                      style: TextStyle(
+                        color: badgeColor,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: iconBgColor,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(icon, size: 20, color: iconColor),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    title,
                     textAlign: TextAlign.center,
+                    maxLines: 2,
                     style: const TextStyle(
-                        fontSize: 11.5, fontWeight: FontWeight.bold, height: 1.2)),
-                const SizedBox(height: 3),
-                Text(hint,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1E293B),
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 9.5, color: AppColors.onSurfaceVariant)),
-              ],
+                      fontSize: 9.5,
+                      color: AppColors.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: iconColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          actionText,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: iconColor,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(Icons.arrow_forward_rounded, size: 10, color: iconColor),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1071,16 +1123,30 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
 
     return Container(
       color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.hub_outlined, size: 16, color: AppColors.primary),
-              const SizedBox(width: 6),
-              const Text('Quy trình điều phối cơ sở',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.bolt_rounded, size: 16, color: AppColors.primary),
+              ),
+              const SizedBox(width: 8),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Thao tác nghiệp vụ',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                  Text('Chạm vào thẻ để mở xử lý',
+                      style: TextStyle(fontSize: 10, color: AppColors.onSurfaceVariant)),
+                ],
+              ),
               const Spacer(),
               InkWell(
                 onTap: () => Navigator.push(
@@ -1092,17 +1158,23 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
                     ),
                   ),
                 ),
-                borderRadius: BorderRadius.circular(8),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Row(
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.receipt_long_outlined, size: 14, color: AppColors.primary),
+                      Icon(Icons.receipt_long_outlined, size: 13, color: AppColors.primary),
                       SizedBox(width: 4),
                       Text('Sổ giao dịch',
                           style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
                               color: AppColors.primary)),
                     ],
                   ),
@@ -1110,17 +1182,44 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen>
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Row(
             children: [
-              step(1, Icons.assignment_turned_in_outlined, 'Xác nhận\nngăn kho',
-                  'Khách đã cọc', _openBookingAssignment),
+              actionCard(
+                badgeText: 'CẦN DUYỆT',
+                badgeColor: const Color(0xFF1D4ED8),
+                icon: Icons.inventory_rounded,
+                iconColor: const Color(0xFF2563EB),
+                iconBgColor: const Color(0xFFEFF6FF),
+                title: 'Đơn kho đã cọc',
+                subtitle: 'Xác nhận & gán ngăn',
+                actionText: 'Xử lý',
+                onTap: _openBookingAssignment,
+              ),
               const SizedBox(width: 8),
-              step(2, Icons.event_available_outlined, 'Phân công\nnhân viên',
-                  'Lịch bàn giao', _openAppointments),
+              actionCard(
+                badgeText: 'ĐIỀU PHỐI',
+                badgeColor: const Color(0xFFB45309),
+                icon: Icons.person_add_alt_1_rounded,
+                iconColor: const Color(0xFFD97706),
+                iconBgColor: const Color(0xFFFFFBEB),
+                title: 'Phân công NV',
+                subtitle: 'Lịch nhận/trả kho',
+                actionText: 'Phân công',
+                onTap: _openAppointments,
+              ),
               const SizedBox(width: 8),
-              step(3, Icons.payments_outlined, 'Hoàn cọc\nsau trả kho',
-                  'Đã nghiệm thu', _openRefunds),
+              actionCard(
+                badgeText: 'TÀI CHÍNH',
+                badgeColor: const Color(0xFF047857),
+                icon: Icons.payments_rounded,
+                iconColor: const Color(0xFF059669),
+                iconBgColor: const Color(0xFFECFDF5),
+                title: 'Hoàn tiền cọc',
+                subtitle: 'Duyệt trả cọc',
+                actionText: 'Duyệt',
+                onTap: _openRefunds,
+              ),
             ],
           ),
         ],

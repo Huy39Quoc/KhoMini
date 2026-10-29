@@ -631,6 +631,10 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
                     ? null
                     : () => _joinWaitlist(type.id, type.name),
               )),
+        if (_selectedType != null) ...[
+          const SizedBox(height: 12),
+          _buildSelectedTypeAvailabilityInfo(_selectedType!),
+        ],
 
         const SizedBox(height: 24),
 
@@ -728,6 +732,145 @@ class _FacilityDetailScreenState extends State<FacilityDetailScreen> {
           Expanded(
               child: Text(msg,
                   style: TextStyle(color: Colors.red.shade700, fontSize: 13))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedTypeAvailabilityInfo(UnitTypeModel type) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle_outline, color: AppColors.primary, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Đã chọn kích cỡ: ${type.name}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Còn ${type.availableUnits} kho trống',
+                  style: const TextStyle(
+                    color: AppColors.success,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _specBox(
+                  icon: Icons.square_foot_outlined,
+                  label: 'Diện tích sàn',
+                  value: '${type.areaSqm} m²',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _specBox(
+                  icon: Icons.straighten_outlined,
+                  label: 'Kích thước',
+                  value: type.dimensions.isNotEmpty ? type.dimensions : 'Tiêu chuẩn',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _specBox(
+                  icon: Icons.lock_clock_outlined,
+                  label: 'Khóa bảo mật',
+                  value: 'PIN số thông minh',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.outline.withValues(alpha: 0.15)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.assignment_turned_in_outlined, size: 16, color: Color(0xFF2563EB)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Cơ sở có ${type.availableUnits} ngăn sẵn sàng. Sau khi đặt giữ chỗ, Quản lý cơ sở sẽ xét duyệt và xác nhận gán ngăn kho phù hợp nhất cho bạn.',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF475569),
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _specBox({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.outline.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, color: AppColors.onSurfaceVariant),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B),
+            ),
+          ),
         ],
       ),
     );
