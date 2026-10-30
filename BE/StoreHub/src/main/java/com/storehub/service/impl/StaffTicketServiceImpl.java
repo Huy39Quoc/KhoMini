@@ -30,6 +30,7 @@ public class StaffTicketServiceImpl implements StaffTicketService {
     private final FacilityAccess facilityAccess;
     private final UserRepository userRepository;
     private final ActivityLogService activityLogService;
+    private final com.storehub.service.NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -129,6 +130,17 @@ public class StaffTicketServiceImpl implements StaffTicketService {
                 staff.getId()
         );
 
+        notificationService.notifyUser(
+                staff,
+                "Phân công yêu cầu hỗ trợ",
+                "Bạn được phân công xử lý yêu cầu hỗ trợ " + updated.getTicketCode()
+                        + " (\"" + updated.getTitle() + "\").",
+                com.storehub.enums.NotificationType.TICKET_NEW,
+                updated.getId(),
+                "SUPPORT_TICKET",
+                staff.getFacility()
+        );
+
         return toResponse(updated);
     }
 
@@ -189,6 +201,21 @@ public class StaffTicketServiceImpl implements StaffTicketService {
                 oldStatus,
                 updated.getStatus()
         );
+
+        if (updated.getCustomer() != null) {
+            String noteMsg = StringUtils.hasText(updated.getResolutionNote())
+                    ? (" Phản hồi: \"" + updated.getResolutionNote() + "\"") : "";
+            notificationService.notifyUser(
+                    updated.getCustomer(),
+                    "Yêu cầu hỗ trợ đã có phản hồi",
+                    "Yêu cầu hỗ trợ " + updated.getTicketCode() + " (\"" + updated.getTitle()
+                            + "\") đã chuyển sang trạng thái " + updated.getStatus() + "." + noteMsg,
+                    com.storehub.enums.NotificationType.TICKET_REPLIED,
+                    updated.getId(),
+                    "SUPPORT_TICKET",
+                    staff.getFacility()
+            );
+        }
 
         return toResponse(updated);
     }

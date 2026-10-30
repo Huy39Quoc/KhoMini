@@ -26,6 +26,7 @@ public class RefundReviewService {
     private final UserRepository users;
     private final RefundDispatcher dispatcher;
     private final com.storehub.repository.BookingRepository bookings;
+    private final com.storehub.service.NotificationService notificationService;
 
     public void reconcile(UUID facilityId, UUID refundId, String managerEmail) {
         requireManager(facilityId, managerEmail);
@@ -131,6 +132,33 @@ public class RefundReviewService {
                 String existingNote = refundPayment.getNote() != null ? refundPayment.getNote() : "";
                 refundPayment.setNote(existingNote + " | Ref: " + request.getTransferReference() + " (" + request.getNotes() + ")");
             }
+        }
+
+        if (booking != null && booking.getCustomer() != null) {
+            String unitCode = booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "";
+            com.storehub.entity.Facility facility = booking.getStorageUnit() != null ? booking.getStorageUnit().getFacility() : null;
+            notificationService.notifyUser(
+                    booking.getCustomer(),
+                    "Hoàn tiền cọc thành công",
+                    "Khoản hoàn cọc " + refund.getAmount().toPlainString() + " ₫ cho đơn " + booking.getBookingCode()
+                            + (unitCode.isEmpty() ? "" : " (Ngăn " + unitCode + ")")
+                            + " đã được cơ sở chuyển khoản thành công. Mã tham chiếu: " + request.getTransferReference() + ".",
+                    com.storehub.enums.NotificationType.REFUND_COMPLETED,
+                    booking.getId(),
+                    "BOOKING",
+                    facility
+            );
+
+            notificationService.notifyRole(
+                    "BUSINESS_MANAGER",
+                    "Hoàn tiền cọc hoàn tất - " + (facility != null ? facility.getName() : ""),
+                    "Cơ sở " + (facility != null ? facility.getName() : "") + " đã hoàn cọc số tiền "
+                            + refund.getAmount().toPlainString() + " ₫ cho đơn " + booking.getBookingCode()
+                            + " (Mã GD: " + request.getTransferReference() + ").",
+                    com.storehub.enums.NotificationType.REFUND_COMPLETED,
+                    booking.getId(),
+                    "BOOKING"
+            );
         }
 
         return response(refund);

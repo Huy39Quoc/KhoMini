@@ -1206,6 +1206,28 @@ class _ContractOperationDialogState extends State<ContractOperationDialog> {
               note: 'Bạn cần thanh toán phí trễ hạn này trước khi nhân viên hoàn tất trả kho.',
             ),
           ],
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 14, color: Colors.amber.shade900),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Lưu ý: Mức hoàn 100% cọc là dự kiến khi kho đạt chuẩn. Số tiền hoàn thực tế sẽ được chốt sau khi nhân viên nghiệm thu trực tiếp (khấu trừ nếu phát sinh hư hại/vệ sinh).',
+                    style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

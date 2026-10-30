@@ -34,6 +34,7 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
     private final UserRepository userRepository;
     private final ActivityLogService activityLogService;
     private final com.storehub.service.CloudinaryService cloudinaryService;
+    private final com.storehub.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -65,6 +66,22 @@ public class CustomerTicketServiceImpl implements CustomerTicketService {
 
         activityLogService.record(customer.getId(), ActivityAction.SUPPORT_TICKET_CREATE, "SUPPORT_TICKET", savedTicket.getId(),
                 "Created support ticket: " + savedTicket.getTicketCode() + " - " + savedTicket.getTitle(), null, savedTicket.getStatus());
+
+        com.storehub.entity.Facility facility = (booking.getStorageUnit() != null) ? booking.getStorageUnit().getFacility() : null;
+        String unitCode = (booking.getStorageUnit() != null) ? booking.getStorageUnit().getUnitCode() : "";
+        String customerName = customer.getFullName() != null ? customer.getFullName() : customer.getUsername();
+
+        if (facility != null) {
+            notificationService.notifyFacilityManagerAndStaff(
+                    facility,
+                    "Yêu cầu hỗ trợ mới: " + savedTicket.getTitle(),
+                    "Khách hàng " + customerName + " (Ngăn " + unitCode + ") vừa tạo yêu cầu hỗ trợ: \""
+                            + savedTicket.getTitle() + "\" (Mã: " + savedTicket.getTicketCode() + "). Vui lòng tiếp nhận xử lý.",
+                    com.storehub.enums.NotificationType.TICKET_NEW,
+                    savedTicket.getId(),
+                    "SUPPORT_TICKET"
+            );
+        }
 
         return mapToResponse(savedTicket);
     }

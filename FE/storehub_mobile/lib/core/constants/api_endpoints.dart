@@ -228,4 +228,10 @@ class ApiEndpoints {
       '/facility/operations/units/$unitId/status';
   static const String facilityOpsUploadPhotos =
       '/facility/operations/upload-photos';
+
+  // ---- Notifications (NotificationController) ----
+  static const String notifications = '/notifications';
+  static const String notificationUnreadCount = '/notifications/unread-count';
+  static String notificationRead(String id) => '/notifications/$id/read';
+  static const String notificationReadAll = '/notifications/read-all';
 }

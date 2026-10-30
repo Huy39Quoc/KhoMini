@@ -64,6 +64,7 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
     private final CustomerStorageMapper customerStorageMapper;
     private final PasswordEncoder passwordEncoder;
     private final com.storehub.repository.HandoverRecordRepository handoverRecordRepository;
+    private final com.storehub.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -396,6 +397,35 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                         + (request.getNotes() != null && !request.getNotes().isBlank()
                         ? " (notes: " + request.getNotes().trim() + ")" : ""),
                 null, request.getScheduledReturnTime());
+
+        User customer = booking.getCustomer();
+        String customerName = customer != null && customer.getFullName() != null ? customer.getFullName() : "Khách hàng";
+        String unitCode = booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "";
+        String returnTimeStr = request.getScheduledReturnTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"));
+
+        notificationService.notifyFacilityManager(
+                facility,
+                "Yêu cầu trả kho mới",
+                "Khách hàng " + customerName + " yêu cầu trả ngăn " + unitCode
+                        + " (Mã đơn: " + booking.getBookingCode() + ") vào lúc " + returnTimeStr
+                        + ". Vui lòng phân công nhân viên nghiệm thu.",
+                com.storehub.enums.NotificationType.CHECKOUT_REQUEST,
+                booking.getId(),
+                "BOOKING"
+        );
+
+        if (customer != null) {
+            notificationService.notifyUser(
+                    customer,
+                    "Yêu cầu trả kho đã ghi nhận",
+                    "Yêu cầu trả ngăn " + unitCode + " (Mã đơn: " + booking.getBookingCode()
+                            + ") vào lúc " + returnTimeStr + " đã được gửi tới cơ sở. Nhân viên sẽ tiến hành nghiệm thu theo lịch hẹn.",
+                    com.storehub.enums.NotificationType.CHECKOUT_REQUEST,
+                    booking.getId(),
+                    "BOOKING",
+                    facility
+            );
+        }
 
         return ContractOperationResponse.builder()
                 .bookingId(booking.getId())

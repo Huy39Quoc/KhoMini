@@ -5,11 +5,13 @@ import '../../services/admin_api_service.dart';
 import '../../services/facility_admin_api_service.dart';
 import '../common/facility_staff_overview_screen.dart';
 import '../common/profile_screen.dart';
+import '../../widgets/notification_badge_button.dart';
 import '../common/transaction_history_screen.dart';
 import 'activity_log_screen.dart';
 import '../operations/facility_management_screen.dart';
 import 'role_permission_screen.dart';
 import 'user_management_screen.dart';
+import '../operations/reports_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final UserModel user;
@@ -83,6 +85,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       appBar: AppBar(
         title: const Text('Quản trị hệ thống'),
         actions: [
+          NotificationBadgeButton(
+            user: widget.user,
+          ),
           IconButton(
             tooltip: 'Hồ sơ',
             icon: CircleAvatar(
@@ -260,6 +265,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             builder: (_) => TransactionHistoryScreen(
                                   userRole: widget.user.roleName,
                                 )),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _actionTile(
+                    icon: Icons.bar_chart_rounded,
+                    title: 'Báo cáo doanh thu & Lấp đầy kho',
+                    subtitle: 'Báo cáo doanh thu thuần, đối chiếu tiền cọc và tỷ lệ lấp đầy toàn hệ thống',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ReportsScreen()),
                       );
                     },
                   ),

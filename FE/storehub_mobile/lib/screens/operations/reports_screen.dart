@@ -234,20 +234,45 @@ class _ReportsScreenState extends State<ReportsScreen>
               const Text('Cọc chưa khấu trừ không phải doanh thu. Khấu trừ được ghi nhận khi chốt; khoản hoàn chỉ ghi nhận khi hoàn tất.',
                   style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
               const SizedBox(height: 12),
+              const SizedBox(height: 12),
               Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Đối chiếu tiền cọc trong kỳ',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      _depositReconciliation(deposits),
-                      const SizedBox(height: 6),
-                      const Text('Cuối kỳ = Đầu kỳ + Nhận − Hoàn − Giữ lại. Cọc chờ hoàn vẫn nằm trong số còn giữ.',
-                          style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
-                    ],
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _showReconciliationDetails(
+                    context: context,
+                    title: 'Toàn hệ thống',
+                    deposits: deposits,
+                    totalRevenue: total,
+                    paymentCount: count,
+                    rentalFee: rental,
+                    extraCharge: extra,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Đối chiếu tiền cọc trong kỳ',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            Row(
+                              children: [
+                                Icon(Icons.touch_app, size: 13, color: AppColors.primaryContainer),
+                                SizedBox(width: 3),
+                                Text('Xem chi tiết', style: TextStyle(fontSize: 11, color: AppColors.primaryContainer, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        _depositReconciliation(deposits),
+                        const SizedBox(height: 6),
+                        const Text('Cuối kỳ = Đầu kỳ (+) Nhận mới (−) Đã hoàn (−) Giữ lại vi phạm.',
+                            style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -264,26 +289,56 @@ class _ReportsScreenState extends State<ReportsScreen>
               else
                 ...byFacility.map((f) {
                   final m = f as Map;
+                  final facDeposits = (m['depositReconciliation'] as Map?) ?? {};
+                  final facRev = (m['totalRevenue'] as num?)?.toDouble() ?? 0;
+                  final facCount = m['paymentCount'] ?? 0;
                   return Card(
                     margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      title: Text(m['facilityName']?.toString() ?? '',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('${m['paymentCount'] ?? 0} giao dịch thu',
-                              style: const TextStyle(fontSize: 12)),
-                          _depositReconciliation((m['depositReconciliation'] as Map?) ?? {}),
-                        ],
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => _showReconciliationDetails(
+                        context: context,
+                        title: m['facilityName']?.toString() ?? 'Cơ sở',
+                        deposits: facDeposits,
+                        totalRevenue: facRev,
+                        paymentCount: facCount,
                       ),
-                      trailing: Text(
-                        _currency.format(
-                            (m['totalRevenue'] as num?)?.toDouble() ?? 0),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryContainer),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(m['facilityName']?.toString() ?? '',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                ),
+                                Text(
+                                  _currency.format(facRev),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: AppColors.primaryContainer),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text('$facCount giao dịch thu', style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                            const SizedBox(height: 6),
+                            _depositReconciliation(facDeposits),
+                            const SizedBox(height: 6),
+                            const Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Icon(Icons.touch_app, size: 12, color: AppColors.primaryContainer),
+                                SizedBox(width: 4),
+                                Text('Chạm để xem chi tiết đối chiếu', style: TextStyle(fontSize: 11, color: AppColors.primaryContainer, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -296,21 +351,264 @@ class _ReportsScreenState extends State<ReportsScreen>
   }
 
   Widget _depositReconciliation(Map data) {
-    final labels = {
-      'openingBalance': 'Cọc đầu kỳ',
-      'received': 'Cọc đã nhận trong kỳ',
-      'refunded': 'Cọc đã hoàn trong kỳ',
-      'retained': 'Cọc giữ lại trong kỳ (doanh thu)',
-      'damageRetained': 'Trong đó: khấu trừ hư hại',
-      'cancellationRetained': 'Trong đó: giữ lại khi hủy',
-      'closingBalance': 'Cọc còn giữ cuối kỳ',
-    };
+    final opening = (data['openingBalance'] as num?)?.toDouble() ?? 0;
+    final received = (data['received'] as num?)?.toDouble() ?? 0;
+    final refunded = (data['refunded'] as num?)?.toDouble() ?? 0;
+    final retained = (data['retained'] as num?)?.toDouble() ?? 0;
+    final damage = (data['damageRetained'] as num?)?.toDouble() ?? 0;
+    final cancel = (data['cancellationRetained'] as num?)?.toDouble() ?? 0;
+    final closing = (data['closingBalance'] as num?)?.toDouble() ?? 0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: labels.entries.map((entry) => Text(
-        '${entry.value}: ${_currency.format((data[entry.key] as num?) ?? 0)}',
-        style: const TextStyle(fontSize: 12),
-      )).toList(),
+      children: [
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text('Đầu kỳ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
+            ),
+            const SizedBox(width: 6),
+            Text('Cọc đầu kỳ: ${_currency.format(opening)}', style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.green.shade100,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text('(+) CỘNG', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+            ),
+            const SizedBox(width: 6),
+            Text('Đã nhận trong kỳ: +${_currency.format(received)}',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.green.shade800)),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text('(-) TRỪ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade900)),
+            ),
+            const SizedBox(width: 6),
+            Text('Đã hoàn trong kỳ: -${_currency.format(refunded)}',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange.shade900)),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.red.shade100,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text('(-) TRỪ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red.shade800)),
+            ),
+            const SizedBox(width: 6),
+            Text('Giữ lại vi phạm: -${_currency.format(retained)}',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red.shade800)),
+          ],
+        ),
+        if (damage > 0 || cancel > 0) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 20, top: 2),
+            child: Text(
+              '• Khấu trừ hư hại: ${_currency.format(damage)} | Giữ lại hủy đơn: ${_currency.format(cancel)}',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+            ),
+          ),
+        ],
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade100,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text('(=) CÒN', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
+            ),
+            const SizedBox(width: 6),
+            Text('Cọc còn giữ cuối kỳ: ${_currency.format(closing)}',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _showReconciliationDetails({
+    required BuildContext context,
+    required String title,
+    required Map deposits,
+    required num totalRevenue,
+    required num paymentCount,
+    num rentalFee = 0,
+    num extraCharge = 0,
+  }) {
+    final opening = (deposits['openingBalance'] as num?)?.toDouble() ?? 0;
+    final received = (deposits['received'] as num?)?.toDouble() ?? 0;
+    final refunded = (deposits['refunded'] as num?)?.toDouble() ?? 0;
+    final retained = (deposits['retained'] as num?)?.toDouble() ?? 0;
+    final damage = (deposits['damageRetained'] as num?)?.toDouble() ?? 0;
+    final cancel = (deposits['cancellationRetained'] as num?)?.toDouble() ?? 0;
+    final closing = (deposits['closingBalance'] as num?)?.toDouble() ?? 0;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Chi tiết đối chiếu: $title',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$paymentCount giao dịch đã phát sinh trong kỳ',
+                  style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                ),
+                const SizedBox(height: 16),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.functions, size: 16, color: Colors.blue.shade900),
+                          const SizedBox(width: 6),
+                          Text('Công thức hạch toán tiền cọc:',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue.shade900)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Cuối kỳ = Đầu kỳ (+) Nhận mới (−) Đã hoàn (−) Giữ lại vi phạm',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blue.shade900)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                _flowRow('Cọc đầu kỳ', _currency.format(opening), 'Số dư tiền cọc ký quỹ từ kỳ trước chuyển sang', Colors.grey.shade700, '[Đầu kỳ]'),
+                const Divider(height: 16),
+                _flowRow('(+) Cọc đã nhận', '+${_currency.format(received)}', 'Tiền cọc khách hàng đóng khi đặt kho trong kỳ', Colors.green.shade800, '(+) CỘNG'),
+                const Divider(height: 16),
+                _flowRow('(-) Cọc đã hoàn', '-${_currency.format(refunded)}', 'Tiền cọc đã chuyển khoản hoàn trả khách sau nghiệm thu', Colors.orange.shade900, '(-) TRỪ'),
+                const Divider(height: 16),
+                _flowRow('(-) Cọc giữ lại (doanh thu)', '-${_currency.format(retained)}',
+                    'Cọc chuyển thành doanh thu do khấu trừ hư hại (${_currency.format(damage)}) hoặc phạt hủy đơn (${_currency.format(cancel)})',
+                    Colors.red.shade800, '(-) TRỪ'),
+                const Divider(height: 16),
+                _flowRow('(=) Cọc còn giữ cuối kỳ', _currency.format(closing),
+                    'Tiền cọc hệ thống đang nắm giữ để bảo đảm cho các hợp đồng đang hoạt động',
+                    Colors.blue.shade900, '(=) KẾT QUẢ', isBold: true),
+
+                const SizedBox(height: 20),
+                const Text('Doanh thu ghi nhận trong kỳ:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Tổng doanh thu thuần:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text(_currency.format(totalRevenue),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primaryContainer)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(sheetContext),
+                    child: const Text('Đóng'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _flowRow(String label, String value, String note, Color color, String badge, {bool isBold = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(badge, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+                ),
+                const SizedBox(width: 8),
+                Text(label, style: TextStyle(fontWeight: isBold ? FontWeight.bold : FontWeight.w600, fontSize: 13)),
+              ],
+            ),
+            Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(note, style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant)),
+      ],
     );
   }
 

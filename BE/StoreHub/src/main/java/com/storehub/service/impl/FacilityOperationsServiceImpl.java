@@ -54,6 +54,7 @@ public class FacilityOperationsServiceImpl
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     private final com.storehub.service.ActivityLogService activityLogService;
     private final com.storehub.service.CloudinaryService cloudinaryService;
+    private final com.storehub.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -104,6 +105,24 @@ public class FacilityOperationsServiceImpl
                 ? checkInTime(booking)
                 : booking.getScheduledReturnTime() != null
                     ? booking.getScheduledReturnTime() : booking.getEndDate().atTime(9, 0);
+
+        if (staff != null) {
+            String typeLabel = "CHECK_IN".equals(scheduleType) ? "bàn giao nhận kho" : "nghiệm thu trả kho";
+            String unitCode = booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "";
+            String timeStr = scheduled.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"));
+            notificationService.notifyUser(
+                    staff,
+                    "Phân công lịch hẹn mới",
+                    "Bạn được phân công " + typeLabel + " cho đơn " + booking.getBookingCode()
+                            + (unitCode.isEmpty() ? "" : " (Ngăn " + unitCode + ")")
+                            + " vào lúc " + timeStr + ".",
+                    com.storehub.enums.NotificationType.APPOINTMENT_SCHEDULED,
+                    booking.getId(),
+                    "BOOKING",
+                    booking.getStorageUnit() != null ? booking.getStorageUnit().getFacility() : null
+            );
+        }
+
         return toScheduleResponse(booking, scheduleType, scheduled);
     }
 
@@ -389,6 +408,19 @@ public class FacilityOperationsServiceImpl
         bookingRepository.save(booking);
         storageUnitRepository.save(storageUnit);
 
+        if (booking.getCustomer() != null) {
+            notificationService.notifyUser(
+                    booking.getCustomer(),
+                    "Bàn giao kho thành công",
+                    "Bạn đã nhận bàn giao ngăn kho " + storageUnit.getUnitCode()
+                            + " tại " + storageUnit.getFacility().getName() + ". Chúc bạn có trải nghiệm lưu trữ thuận lợi!",
+                    com.storehub.enums.NotificationType.CHECKIN_COMPLETED,
+                    booking.getId(),
+                    "BOOKING",
+                    storageUnit.getFacility()
+            );
+        }
+
         return toHandoverResponse(
                 booking,
                 storageUnit,
@@ -521,6 +553,54 @@ public class FacilityOperationsServiceImpl
         } else {
             message = "Check-out completed successfully";
         }
+
+        com.storehub.entity.Facility facility = storageUnit.getFacility();
+        String staffName = staff.getFullName() != null ? staff.getFullName() : staff.getUsername();
+        String customerName = booking.getCustomer() != null && booking.getCustomer().getFullName() != null
+                ? booking.getCustomer().getFullName() : "Khách hàng";
+        String damageInfo = (request.getDamageFee() != null && request.getDamageFee().signum() > 0)
+                ? " (Khấu trừ hư hại: " + request.getDamageFee().toPlainString() + " ₫, lý do: " + request.getDamageReason() + ")"
+                : "";
+        String noteInfo = (request.getNotes() != null && !request.getNotes().isBlank())
+                ? " | Ghi chú: " + request.getNotes().trim() : "";
+        String refundInfo = requestedRefund.signum() > 0
+                ? " Khoản hoàn cọc: " + requestedRefund.toPlainString() + " ₫ đang chờ duyệt."
+                : " Không phát sinh hoàn cọc.";
+
+        notificationService.notifyFacilityManager(
+                facility,
+                "Nghiệm thu trả kho hoàn tất - Chờ duyệt hoàn cọc",
+                "Nhân viên " + staffName + " đã nghiệm thu trả ngăn " + storageUnit.getUnitCode()
+                        + " cho khách " + customerName + "." + damageInfo + noteInfo + refundInfo,
+                com.storehub.enums.NotificationType.CHECKOUT_INSPECTED,
+                booking.getId(),
+                "BOOKING"
+        );
+
+        if (booking.getCustomer() != null) {
+            String custRefundMsg = requestedRefund.signum() > 0
+                    ? " Tiền cọc hoàn lại: " + requestedRefund.toPlainString() + " ₫" + damageInfo + ". Quản lý cơ sở sẽ tiến hành chuyển khoản hoàn tiền cho bạn."
+                    : " Tiền cọc đã được khấu trừ toàn bộ cho chi phí hư hại/vệ sinh.";
+            notificationService.notifyUser(
+                    booking.getCustomer(),
+                    "Nghiệm thu trả kho hoàn tất",
+                    "Ngăn kho " + storageUnit.getUnitCode() + " đã hoàn tất nghiệm thu." + custRefundMsg,
+                    com.storehub.enums.NotificationType.CHECKOUT_INSPECTED,
+                    booking.getId(),
+                    "BOOKING",
+                    facility
+            );
+        }
+
+        notificationService.notifyRole(
+                "BUSINESS_MANAGER",
+                "Nghiệm thu trả kho - " + (facility != null ? facility.getName() : ""),
+                "Đơn " + booking.getBookingCode() + " (Ngăn " + storageUnit.getUnitCode() + ") tại "
+                        + (facility != null ? facility.getName() : "") + " đã hoàn tất nghiệm thu trả kho." + refundInfo,
+                com.storehub.enums.NotificationType.CHECKOUT_INSPECTED,
+                booking.getId(),
+                "BOOKING"
+        );
 
         return toHandoverResponse(
                 booking,
@@ -656,6 +736,43 @@ public class FacilityOperationsServiceImpl
         booking.setHandoverIssueResolutionNote(null);
         storageUnitRepository.save(storageUnit);
         bookingRepository.save(booking);
+
+        com.storehub.entity.Facility defectFacility = storageUnit.getFacility();
+        String defectStaffName = staff.getFullName() != null ? staff.getFullName() : staff.getUsername();
+
+        notificationService.notifyFacilityManager(
+                defectFacility,
+                "Kho chưa hợp lệ để bàn giao",
+                "Nhân viên " + defectStaffName + " báo cáo ngăn " + storageUnit.getUnitCode()
+                        + " chưa đạt chuẩn để bàn giao cho khách (Đơn " + booking.getBookingCode() + "). "
+                        + "Lý do: " + request.getNotes().trim() + ". Vui lòng kiểm tra bảo trì hoặc gán đổi ngăn khác cho khách.",
+                com.storehub.enums.NotificationType.HANDOVER_DEFECT,
+                booking.getId(),
+                "BOOKING"
+        );
+
+        if (booking.getCustomer() != null) {
+            notificationService.notifyUser(
+                    booking.getCustomer(),
+                    "Ngăn kho đang được xử lý kỹ thuật",
+                    "Ngăn kho " + storageUnit.getUnitCode() + " đang được nhân viên cơ sở kiểm tra bảo trì trước khi bàn giao. "
+                            + "Quản lý cơ sở sẽ hỗ trợ sắp xếp/đổi ngăn phù hợp nhất cho bạn trong ít phút.",
+                    com.storehub.enums.NotificationType.HANDOVER_DEFECT,
+                    booking.getId(),
+                    "BOOKING",
+                    defectFacility
+            );
+        }
+
+        notificationService.notifyRole(
+                "BUSINESS_MANAGER",
+                "Sự cố bàn giao kho - " + (defectFacility != null ? defectFacility.getName() : ""),
+                "Cơ sở " + (defectFacility != null ? defectFacility.getName() : "") + ": Ngăn " + storageUnit.getUnitCode()
+                        + " không đủ điều kiện bàn giao cho đơn " + booking.getBookingCode() + ". Lý do: " + request.getNotes().trim(),
+                com.storehub.enums.NotificationType.HANDOVER_DEFECT,
+                booking.getId(),
+                "BOOKING"
+        );
 
         return toHandoverResponse(
                 booking,

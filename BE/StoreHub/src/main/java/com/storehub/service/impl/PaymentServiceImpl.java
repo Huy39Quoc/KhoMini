@@ -68,6 +68,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final WaitlistService waitlistService;
     private final OverdueScheduler overdueScheduler;
     private final com.storehub.repository.DepositDeductionRepository depositDeductions;
+    private final com.storehub.service.NotificationService notificationService;
 
     // Dòng RENTAL_FEE đi kèm khoản cọc dùng mã giao dịch = mã của dòng DEPOSIT + hậu tố này.
     private static final String RENTAL_SUFFIX = "-R";
@@ -658,6 +659,26 @@ public class PaymentServiceImpl implements PaymentService {
                     oldEndDate,
                     booking.getEndDate()
             );
+
+            StorageUnit unit = booking.getStorageUnit();
+            Facility facility = unit != null ? unit.getFacility() : null;
+            if (facility != null) {
+                User customer = booking.getCustomer();
+                String customerName = customer != null && customer.getFullName() != null
+                        ? customer.getFullName() : (customer != null ? customer.getUsername() : "Khách hàng");
+                String unitCode = unit != null ? unit.getUnitCode() : "";
+                String endDateStr = booking.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                notificationService.notifyFacilityManager(
+                        facility,
+                        "Gia hạn hợp đồng thuê kho",
+                        "Khách hàng " + customerName + " đã gia hạn hợp đồng ngăn " + unitCode
+                                + " (Mã đơn: " + booking.getBookingCode() + ") thêm " + extendedMonths + " tháng đến ngày "
+                                + endDateStr + ".",
+                        com.storehub.enums.NotificationType.RENTAL_EXTENDED,
+                        booking.getId(),
+                        "BOOKING"
+                );
+            }
         }
 
         bookingRepository.save(booking);
@@ -679,8 +700,47 @@ public class PaymentServiceImpl implements PaymentService {
                         booking.getEndDate(),
                         groupAmount(payment)
                 );
+
+                if (facility != null) {
+                    String customerName = customer != null && customer.getFullName() != null
+                            ? customer.getFullName() : (customer != null ? customer.getUsername() : "Khách hàng");
+                    String unitCode = unit != null ? unit.getUnitCode() : "";
+                    notificationService.notifyFacilityManager(
+                            facility,
+                            "Đơn đặt chỗ mới cần xác nhận",
+                            "Khách hàng " + customerName + " vừa hoàn tất thanh toán cọc cho đơn "
+                                    + booking.getBookingCode() + " (Ngăn " + unitCode + "). Vui lòng xác nhận ngăn và phân công nhân viên đón tiếp.",
+                            com.storehub.enums.NotificationType.BOOKING_NEW,
+                            booking.getId(),
+                            "BOOKING"
+                    );
+
+                    notificationService.notifyRole(
+                            "BUSINESS_MANAGER",
+                            "Đơn đặt cọc mới - " + facility.getName(),
+                            "Đơn " + booking.getBookingCode() + " đã hoàn tất thanh toán cọc "
+                                    + (payment.getAmount() != null ? payment.getAmount().toPlainString() : "") + " ₫ tại cơ sở " + facility.getName() + ".",
+                            com.storehub.enums.NotificationType.BOOKING_NEW,
+                            booking.getId(),
+                            "BOOKING"
+                    );
+                }
+
+                if (customer != null) {
+                    notificationService.notifyUser(
+                            customer,
+                            "Đặt cọc thành công",
+                            "Bạn đã thanh toán cọc thành công cho đơn " + booking.getBookingCode()
+                                    + (facility != null ? " (" + facility.getName() + ")" : "")
+                                    + ". Quản lý cơ sở sẽ xác nhận ngăn kho và sắp xếp đón tiếp bạn.",
+                            com.storehub.enums.NotificationType.BOOKING_CONFIRMED,
+                            booking.getId(),
+                            "BOOKING",
+                            facility
+                    );
+                }
             } catch (Exception e) {
-                log.warn("Failed to send booking confirmation email for booking {}: {}",
+                log.warn("Failed to send booking confirmation email/notification for booking {}: {}",
                         booking.getId(), e.getMessage());
             }
         }

@@ -10,6 +10,7 @@ import '../../models/user_model.dart';
 import '../../services/facility_ops_api_service.dart';
 import '../../widgets/state_views.dart';
 import '../../widgets/photo_preview_dialog.dart';
+import '../../widgets/notification_badge_button.dart';
 import '../common/profile_screen.dart';
 import '../common/transaction_history_screen.dart';
 import '../common/gate_pass_verify_screen.dart';
@@ -1025,6 +1026,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                     GatePassVerifyScreen(facilityId: _facilityId!)),
               ),
             ),
+          NotificationBadgeButton(
+            user: widget.user,
+            facilityId: _facilityId,
+          ),
           IconButton(
             tooltip: 'Hồ sơ',
             icon: CircleAvatar(
