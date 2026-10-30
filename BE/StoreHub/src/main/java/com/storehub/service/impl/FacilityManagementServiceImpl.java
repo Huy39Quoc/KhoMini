@@ -63,6 +63,7 @@ public class FacilityManagementServiceImpl
     private final EmailService emailService;
     private final StaffWorkloadService staffWorkloadService;
     private final com.storehub.repository.DepositDeductionRepository depositDeductions;
+    private final com.storehub.service.NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public AssignedFacilityResponse myFacility(String email) {
@@ -265,11 +266,31 @@ public class FacilityManagementServiceImpl
         String code = booking.getBookingCode();
         String facility = unit.getFacility().getName();
         String unitCode = unit.getUnitCode();
+        com.storehub.entity.Facility facilityEntity = unit.getFacility();
         Runnable send = () -> {
             try {
                 emailService.sendUnitAssignmentConfirmedEmail(email, code, facility, unitCode);
+                notificationService.notifyUser(
+                        customer,
+                        "Đã xác nhận ngăn kho",
+                        "Đơn " + code + " tại cơ sở " + facility + " đã được gán ngăn " + unitCode
+                                + ". Bạn có thể xem lịch bàn giao trong mục Kho của tôi.",
+                        com.storehub.enums.NotificationType.UNIT_ASSIGNED,
+                        booking.getId(),
+                        "BOOKING",
+                        facilityEntity
+                );
+                notificationService.notifyFacilityStaff(
+                        facilityEntity,
+                        "Xác nhận gán ngăn kho",
+                        "Đơn " + code + " đã được xác nhận gán vào ngăn " + unitCode
+                                + ". Vui lòng kiểm tra và chuẩn bị đón tiếp khách hàng.",
+                        com.storehub.enums.NotificationType.UNIT_ASSIGNED,
+                        booking.getId(),
+                        "BOOKING"
+                );
             } catch (Exception e) {
-                log.warn("Failed to queue unit assignment email for booking {}: {}",
+                log.warn("Failed to queue unit assignment email/notification for booking {}: {}",
                         booking.getId(), e.getMessage());
             }
         };

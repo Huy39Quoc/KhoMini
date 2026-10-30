@@ -179,8 +179,16 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
     }
   }
 
+  String _generateRefCode() {
+    final now = DateTime.now();
+    final ymd = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final millis = now.millisecondsSinceEpoch.toString();
+    final suffix = millis.substring(millis.length > 5 ? millis.length - 5 : 0);
+    return 'REF-$ymd-$suffix';
+  }
+
   Future<void> _confirmBankTransfer(Map<String, dynamic> refund) async {
-    final refController = TextEditingController();
+    final refController = TextEditingController(text: _generateRefCode());
     final noteController = TextEditingController();
     try {
       final amount = num.tryParse('${refund['amount']}') ?? 0;
@@ -220,13 +228,21 @@ class _RefundReviewScreenState extends State<RefundReviewScreen> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                const Text('Vui lòng nhập mã giao dịch ngân hàng sau khi bạn đã chuyển khoản thành công:'),
+                const Text('Mã giao dịch ngân hàng đã được hệ thống tự tạo sẵn (bạn có thể đổi nếu muốn):'),
                 const SizedBox(height: 8),
                 TextField(
                   controller: refController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Mã tham chiếu / Mã GD chuyển khoản *',
                     hintText: 'VD: FT2601019827361 hoặc GD-12345',
+                    helperText: 'Tự động tạo mã, bấm biểu tượng để tạo lại',
+                    suffixIcon: IconButton(
+                      tooltip: 'Tạo mã mới',
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () {
+                        refController.text = _generateRefCode();
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),

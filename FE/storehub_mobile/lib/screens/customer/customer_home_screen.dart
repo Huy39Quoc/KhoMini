@@ -4,6 +4,7 @@ import '../../models/user_model.dart';
 import '../../services/auth_api_service.dart';
 import '../../core/navigation/customer_tab_request.dart';
 import '../../widgets/logout_dialog.dart';
+import '../../widgets/notification_badge_button.dart';
 import 'reservation/my_waitlist_screen.dart';
 import '../auth/login_screen.dart';
 import '../common/profile_screen.dart';
@@ -214,6 +215,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 ),
                 Row(
                   children: [
+                    NotificationBadgeButton(
+                      user: widget.user,
+                      iconColor: AppColors.textPrimary,
+                    ),
                     IconButton(
                       tooltip: 'Tài khoản',
                       icon: const Icon(Icons.person_outline_rounded,

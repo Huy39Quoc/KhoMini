@@ -118,7 +118,7 @@ class StaffWorkloadLifecycleTest {
 
     FacilityManagementServiceImpl management() {
         return new FacilityManagementServiceImpl(access, facilities, null, null, bookings,
-                users, null, null, logs, null, null, workload, null);
+                users, null, null, logs, null, null, workload, null, mock(com.storehub.service.NotificationService.class));
     }
 
     Facility facility() {

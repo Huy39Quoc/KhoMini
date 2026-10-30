@@ -55,6 +55,7 @@ public class BookingServiceImpl implements BookingService {
     private final FacilityPolicyService facilityPolicyService;
     @org.springframework.context.annotation.Lazy
     private final PaymentService paymentService;
+    private final com.storehub.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -290,6 +291,43 @@ public class BookingServiceImpl implements BookingService {
                 && booking.getStorageUnit() != null
                 && booking.getStorageUnit().getFacility() != null) {
             requestedRefund = paymentService.refundOnCancellation(booking);
+
+            Facility facility = booking.getStorageUnit().getFacility();
+            String unitCode = booking.getStorageUnit().getUnitCode();
+            String customerName = customer.getFullName() != null ? customer.getFullName() : customer.getUsername();
+
+            notificationService.notifyFacilityManager(
+                    facility,
+                    "Đơn đặt chỗ đã bị hủy",
+                    "Khách hàng " + customerName + " đã hủy đơn đặt chỗ " + booking.getBookingCode()
+                            + " cho ngăn " + unitCode + ". Hệ thống đã tạo yêu cầu xử lý hoàn tiền.",
+                    com.storehub.enums.NotificationType.BOOKING_CANCELLED,
+                    booking.getId(),
+                    "BOOKING"
+            );
+
+            if (booking.getAssignedCheckInStaff() != null) {
+                notificationService.notifyUser(
+                        booking.getAssignedCheckInStaff(),
+                        "Lịch hẹn đón khách đã hủy",
+                        "Khách hàng " + customerName + " đã hủy đơn " + booking.getBookingCode()
+                                + " (Ngăn " + unitCode + "). Lịch bàn giao của bạn đã được hủy.",
+                        com.storehub.enums.NotificationType.BOOKING_CANCELLED,
+                        booking.getId(),
+                        "BOOKING",
+                        facility
+                );
+            } else {
+                notificationService.notifyFacilityStaff(
+                        facility,
+                        "Đơn đặt chỗ đã bị hủy",
+                        "Khách hàng " + customerName + " đã hủy đơn đặt chỗ " + booking.getBookingCode()
+                                + " (Ngăn " + unitCode + ").",
+                        com.storehub.enums.NotificationType.BOOKING_CANCELLED,
+                        booking.getId(),
+                        "BOOKING"
+                );
+            }
         }
 
         booking.setStatus(BookingStatus.CANCELLED);

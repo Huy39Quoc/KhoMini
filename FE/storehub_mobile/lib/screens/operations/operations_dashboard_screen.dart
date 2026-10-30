@@ -5,6 +5,7 @@ import '../../services/admin_api_service.dart';
 import '../../services/facility_admin_api_service.dart';
 import '../common/facility_staff_overview_screen.dart';
 import '../common/profile_screen.dart';
+import '../../widgets/notification_badge_button.dart';
 import '../common/transaction_history_screen.dart';
 import 'facility_management_screen.dart';
 import 'reports_screen.dart';
@@ -82,6 +83,9 @@ class _OperationsDashboardScreenState extends State<OperationsDashboardScreen> {
       appBar: AppBar(
         title: const Text('Quản lý kinh doanh'),
         actions: [
+          NotificationBadgeButton(
+            user: widget.user,
+          ),
           IconButton(
             tooltip: 'Tài khoản',
             icon: CircleAvatar(

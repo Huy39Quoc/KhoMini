@@ -30,6 +30,7 @@ class AppointmentConflictTest {
     @Mock BookingRepository bookings;
     @Mock UserRepository users;
     @Mock FacilityAccess access;
+    @Mock NotificationService notificationService;
     @InjectMocks FacilityOperationsServiceImpl operations;
     Booking booking;
     User staff;
