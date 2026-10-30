@@ -317,6 +317,16 @@ public class BookingServiceImpl implements BookingService {
                         "BOOKING",
                         facility
                 );
+            } else {
+                notificationService.notifyFacilityStaff(
+                        facility,
+                        "Đơn đặt chỗ đã bị hủy",
+                        "Khách hàng " + customerName + " đã hủy đơn đặt chỗ " + booking.getBookingCode()
+                                + " (Ngăn " + unitCode + ").",
+                        com.storehub.enums.NotificationType.BOOKING_CANCELLED,
+                        booking.getId(),
+                        "BOOKING"
+                );
             }
         }
 

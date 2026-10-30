@@ -36,6 +36,7 @@ class AppointmentAssignmentTest {
     @Mock WaitlistService waitlist;
     @Mock org.springframework.security.crypto.password.PasswordEncoder encoder;
     @Mock ActivityLogService logs;
+    @Mock NotificationService notificationService;
     @InjectMocks FacilityOperationsServiceImpl operations;
 
     @Test

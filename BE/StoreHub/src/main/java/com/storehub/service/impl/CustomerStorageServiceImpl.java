@@ -414,6 +414,31 @@ public class CustomerStorageServiceImpl implements CustomerStorageService {
                 "BOOKING"
         );
 
+        if (booking.getAssignedCheckOutStaff() != null) {
+            notificationService.notifyUser(
+                    booking.getAssignedCheckOutStaff(),
+                    "Lịch hẹn trả kho của khách",
+                    "Khách hàng " + customerName + " hẹn trả ngăn " + unitCode
+                            + " (Mã đơn: " + booking.getBookingCode() + ") vào lúc " + returnTimeStr
+                            + ". Bạn được phân công phụ trách nghiệm thu.",
+                    com.storehub.enums.NotificationType.CHECKOUT_REQUEST,
+                    booking.getId(),
+                    "BOOKING",
+                    facility
+            );
+        } else {
+            notificationService.notifyFacilityStaff(
+                    facility,
+                    "Yêu cầu trả kho mới",
+                    "Khách hàng " + customerName + " hẹn trả ngăn " + unitCode
+                            + " (Mã đơn: " + booking.getBookingCode() + ") vào lúc " + returnTimeStr
+                            + ". Vui lòng chuẩn bị nghiệm thu.",
+                    com.storehub.enums.NotificationType.CHECKOUT_REQUEST,
+                    booking.getId(),
+                    "BOOKING"
+            );
+        }
+
         if (customer != null) {
             notificationService.notifyUser(
                     customer,

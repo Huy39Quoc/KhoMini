@@ -95,6 +95,10 @@ public class FacilityOperationsServiceImpl
                 throw new AppException(ErrorCode.STAFF_APPOINTMENT_CONFLICT);
             }
         }
+        User previousStaff = "CHECK_IN".equals(scheduleType)
+                ? booking.getAssignedCheckInStaff()
+                : booking.getAssignedCheckOutStaff();
+
         if ("CHECK_IN".equals(scheduleType)) {
             booking.setAssignedCheckInStaff(staff);
         } else {
@@ -106,21 +110,42 @@ public class FacilityOperationsServiceImpl
                 : booking.getScheduledReturnTime() != null
                     ? booking.getScheduledReturnTime() : booking.getEndDate().atTime(9, 0);
 
+        String typeLabel = "CHECK_IN".equals(scheduleType) ? "bàn giao nhận kho" : "nghiệm thu trả kho";
+        String unitCode = (booking.getStorageUnit() != null && booking.getStorageUnit().getUnitCode() != null)
+                ? booking.getStorageUnit().getUnitCode() : "";
+        String timeStr = scheduled.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"));
+        com.storehub.entity.Facility aptFacility = booking.getStorageUnit() != null ? booking.getStorageUnit().getFacility() : null;
+
+        if (previousStaff != null && (staff == null || !previousStaff.getId().equals(staff.getId()))) {
+            if (notificationService != null) {
+                notificationService.notifyUser(
+                        previousStaff,
+                        "Hủy phân công lịch hẹn",
+                        "Lịch " + typeLabel + " cho đơn " + booking.getBookingCode()
+                                + (unitCode.isEmpty() ? "" : " (Ngăn " + unitCode + ")")
+                                + " lúc " + timeStr + " đã được phân công lại.",
+                        com.storehub.enums.NotificationType.APPOINTMENT_SCHEDULED,
+                        booking.getId(),
+                        "BOOKING",
+                        aptFacility
+                );
+            }
+        }
+
         if (staff != null) {
-            String typeLabel = "CHECK_IN".equals(scheduleType) ? "bàn giao nhận kho" : "nghiệm thu trả kho";
-            String unitCode = booking.getStorageUnit() != null ? booking.getStorageUnit().getUnitCode() : "";
-            String timeStr = scheduled.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"));
-            notificationService.notifyUser(
-                    staff,
-                    "Phân công lịch hẹn mới",
-                    "Bạn được phân công " + typeLabel + " cho đơn " + booking.getBookingCode()
-                            + (unitCode.isEmpty() ? "" : " (Ngăn " + unitCode + ")")
-                            + " vào lúc " + timeStr + ".",
-                    com.storehub.enums.NotificationType.APPOINTMENT_SCHEDULED,
-                    booking.getId(),
-                    "BOOKING",
-                    booking.getStorageUnit() != null ? booking.getStorageUnit().getFacility() : null
-            );
+            if (notificationService != null) {
+                notificationService.notifyUser(
+                        staff,
+                        "Phân công lịch hẹn mới",
+                        "Bạn được phân công " + typeLabel + " cho đơn " + booking.getBookingCode()
+                                + (unitCode.isEmpty() ? "" : " (Ngăn " + unitCode + ")")
+                                + " vào lúc " + timeStr + ".",
+                        com.storehub.enums.NotificationType.APPOINTMENT_SCHEDULED,
+                        booking.getId(),
+                        "BOOKING",
+                        aptFacility
+                );
+            }
         }
 
         return toScheduleResponse(booking, scheduleType, scheduled);

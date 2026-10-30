@@ -678,6 +678,15 @@ public class PaymentServiceImpl implements PaymentService {
                         booking.getId(),
                         "BOOKING"
                 );
+                notificationService.notifyFacilityStaff(
+                        facility,
+                        "Gia hạn hợp đồng thuê kho",
+                        "Ngăn " + unitCode + " (Đơn " + booking.getBookingCode() + ") đã được gia hạn thêm "
+                                + extendedMonths + " tháng đến ngày " + endDateStr + ".",
+                        com.storehub.enums.NotificationType.RENTAL_EXTENDED,
+                        booking.getId(),
+                        "BOOKING"
+                );
             }
         }
 
@@ -720,6 +729,16 @@ public class PaymentServiceImpl implements PaymentService {
                             "Đơn đặt cọc mới - " + facility.getName(),
                             "Đơn " + booking.getBookingCode() + " đã hoàn tất thanh toán cọc "
                                     + (payment.getAmount() != null ? payment.getAmount().toPlainString() : "") + " ₫ tại cơ sở " + facility.getName() + ".",
+                            com.storehub.enums.NotificationType.BOOKING_NEW,
+                            booking.getId(),
+                            "BOOKING"
+                    );
+
+                    notificationService.notifyFacilityStaff(
+                            facility,
+                            "Đơn đặt cọc mới tại cơ sở",
+                            "Khách hàng " + customerName + " vừa hoàn tất đặt cọc đơn "
+                                    + booking.getBookingCode() + " (Ngăn " + unitCode + "). Sắp có lịch hẹn bàn giao.",
                             com.storehub.enums.NotificationType.BOOKING_NEW,
                             booking.getId(),
                             "BOOKING"

@@ -266,6 +266,7 @@ public class FacilityManagementServiceImpl
         String code = booking.getBookingCode();
         String facility = unit.getFacility().getName();
         String unitCode = unit.getUnitCode();
+        com.storehub.entity.Facility facilityEntity = unit.getFacility();
         Runnable send = () -> {
             try {
                 emailService.sendUnitAssignmentConfirmedEmail(email, code, facility, unitCode);
@@ -277,7 +278,16 @@ public class FacilityManagementServiceImpl
                         com.storehub.enums.NotificationType.UNIT_ASSIGNED,
                         booking.getId(),
                         "BOOKING",
-                        unit.getFacility()
+                        facilityEntity
+                );
+                notificationService.notifyFacilityStaff(
+                        facilityEntity,
+                        "Xác nhận gán ngăn kho",
+                        "Đơn " + code + " đã được xác nhận gán vào ngăn " + unitCode
+                                + ". Vui lòng kiểm tra và chuẩn bị đón tiếp khách hàng.",
+                        com.storehub.enums.NotificationType.UNIT_ASSIGNED,
+                        booking.getId(),
+                        "BOOKING"
                 );
             } catch (Exception e) {
                 log.warn("Failed to queue unit assignment email/notification for booking {}: {}",
